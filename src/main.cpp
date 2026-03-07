@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 // ════════════════════════════════════════════════════════════
-//  Phase 2 – Dual-Flavor Soda Maker
+//  Dual-Flavor Soda Maker
 // ════════════════════════════════════════════════════════════
 
 // ── L298N Board A (flavor 1) ──
@@ -103,25 +103,29 @@ void IRAM_ATTR flowPulse() {
 //  State
 // ════════════════════════════════════════════════════════════
 
-uint8_t activeFlavor = 0;         // 0 or 1
-bool dispensing     = false;      // true when valve is open (pump may be cycling, idle, or in cooldown)
-unsigned long lastFlowCheck  = 0;
-bool waterFlowing    = false;
-unsigned long lastBlinkToggle = 0;
-bool blinkState      = true;
-unsigned long currentFlowPulses = 0;  // latest pulse count from flow check
+uint8_t activeFlavor   = 0;       // 0 or 1
+bool    waterFlowing   = false;   // true if latest 50ms reading >= FLOW_MIN_PULSES
+unsigned long flowPulses = 0;     // pulse count from latest 50ms check
+bool    primePressed   = false;
 
-// ── Pump cycle state ──
-// A "cycle" = one ON phase + one OFF phase, timing locked at cycle start
-// COOLDOWN = saw a zero during cycle, pump off for 500ms, readings discarded
-enum CyclePhase { CYCLE_IDLE, CYCLE_ON, CYCLE_OFF, CYCLE_COOLDOWN };
-CyclePhase cyclePhase          = CYCLE_IDLE;
-unsigned long phaseStart       = 0;     // when current phase began
-unsigned long cycleOnMs        = 0;     // locked for entire cycle
-unsigned long cycleOffMs       = 0;     // locked for entire cycle
-unsigned long cyclePulseSum    = 0;     // accumulated during cycle
-unsigned long cyclePulseReadings = 0;   // readings taken during cycle
-bool cycleSawZero              = false; // any 0 reading during this cycle?
+// ── Pump state machine ──
+// A "cycle" = one ON phase + one OFF phase, timing locked at cycle start.
+// PRIME = manual override, pump runs continuously.
+// COOLDOWN = saw a zero during cycle, pump off for 500ms, readings discarded.
+enum PumpState { PUMP_IDLE, PUMP_ON, PUMP_OFF, PUMP_COOLDOWN, PUMP_PRIME };
+PumpState pumpState              = PUMP_IDLE;
+unsigned long phaseStart         = 0;
+unsigned long cycleOnMs          = 0;     // locked for entire cycle
+unsigned long cycleOffMs         = 0;     // locked for entire cycle
+unsigned long cyclePulseSum      = 0;     // accumulated during cycle
+unsigned long cyclePulseReadings = 0;     // readings taken during cycle
+bool cycleSawZero                = false; // any 0 reading during this cycle?
+
+// ── Valve + LED ──
+bool valveOpen                   = false;
+unsigned long lastFlowCheck      = 0;
+unsigned long lastBlinkToggle    = 0;
+bool blinkState                  = true;
 
 // ════════════════════════════════════════════════════════════
 //  Setup
@@ -157,7 +161,7 @@ void setup() {
   digitalWrite(LED_FLAVOR1, activeFlavor == 0 ? HIGH : LOW);
   digitalWrite(LED_FLAVOR2, activeFlavor == 1 ? HIGH : LOW);
 
-  Serial.println("Phase 2 – Dual-Flavor Soda Maker ready!");
+  Serial.println("Dual-Flavor Soda Maker ready!");
   Serial.printf("Active flavor: %d\n", activeFlavor + 1);
 }
 
@@ -168,10 +172,12 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
-  // ── 1. Read flavor switch state directly ──
+  // ── 1. Read inputs ─────────────────────────────────────────
+
+  // Flavor switch (locked while valve is open)
   uint8_t newFlavor = (digitalRead(FLAVOR_SW_PIN) == LOW) ? 1 : 0;
   if (newFlavor != activeFlavor) {
-    if (!dispensing) {
+    if (!valveOpen) {
       activeFlavor = newFlavor;
       digitalWrite(LED_FLAVOR1, activeFlavor == 0 ? HIGH : LOW);
       digitalWrite(LED_FLAVOR2, activeFlavor == 1 ? HIGH : LOW);
@@ -181,7 +187,7 @@ void loop() {
     }
   }
 
-  // ── 2. Check flow meter ──
+  // Flow meter (every 50ms)
   if (now - lastFlowCheck >= FLOW_CHECK_INTERVAL_MS) {
     noInterrupts();
     unsigned long count = pulseCount;
@@ -189,138 +195,138 @@ void loop() {
     interrupts();
 
     waterFlowing = (count >= FLOW_MIN_PULSES);
-    currentFlowPulses = count;
+    flowPulses = count;
     lastFlowCheck = now;
 
-    // Only accumulate during active cycle phases (not idle/cooldown)
-    if (cyclePhase == CYCLE_ON || cyclePhase == CYCLE_OFF) {
+    // Track readings during active pump cycles for averaging
+    if (pumpState == PUMP_ON || pumpState == PUMP_OFF) {
       cyclePulseSum += count;
       cyclePulseReadings++;
       if (count == 0) cycleSawZero = true;
     }
-
   }
 
-  // ── 3. Determine if we should be dispensing ──
-  bool primePressed = (digitalRead(PRIME_BTN_PIN) == LOW);
-  // inCycle keeps us dispensing through cycle phases and cooldown
-  // so a single zero reading doesn't kill a mid-cycle or cooldown
-  bool inCycle = (cyclePhase != CYCLE_IDLE);
-  bool shouldDispense = waterFlowing || primePressed || inCycle;
+  // Prime button
+  primePressed = (digitalRead(PRIME_BTN_PIN) == LOW);
 
   Flavor& active = flavors[activeFlavor];
 
-  if (shouldDispense) {
-    // ── Start dispensing (valve on, LED blinking) ──
-    if (!dispensing) {
-      dispensing = true;
-      motorOn(active.valve, 255);
-      blinkState = true;
-      lastBlinkToggle = now;
-      cyclePhase = CYCLE_IDLE;
-      Serial.printf("Dispensing flavor %d\n", activeFlavor + 1);
+  // ── 2. Pump state machine ─────────────────────────────────
+
+  if (primePressed) {
+    // Prime overrides cycling: pump runs continuously
+    if (pumpState != PUMP_PRIME) {
+      motorOn(active.pump, PUMP_SPEED);
+      pumpState = PUMP_PRIME;
+      phaseStart = now;
     }
+  } else if (pumpState == PUMP_PRIME) {
+    // Prime released → go idle
+    motorOff(active.pump);
+    pumpState = PUMP_IDLE;
+  } else {
+    switch (pumpState) {
 
-    // ── Pump cycle state machine ──
-    if (primePressed) {
-      // Prime mode: continuous pump, no cycling
-      if (cyclePhase != CYCLE_ON) {
-        motorOn(active.pump, PUMP_SPEED);
-        cyclePhase = CYCLE_ON;
-        phaseStart = now;
-      }
-    } else {
-      switch (cyclePhase) {
+      case PUMP_IDLE:
+        // Waiting for flow — start a new cycle immediately
+        if (flowPulses >= FLOW_MIN_PULSES) {
+          unsigned long clamped = constrain(flowPulses, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
+          cycleOnMs  = PUMP_ON_BASE_MS  + PUMP_ON_PER_PULSE  * clamped;
+          cycleOffMs = PUMP_OFF_BASE_MS - PUMP_OFF_PER_PULSE * clamped;
+          cyclePulseSum = 0;
+          cyclePulseReadings = 0;
+          cycleSawZero = false;
+          motorOn(active.pump, PUMP_SPEED);
+          pumpState = PUMP_ON;
+          phaseStart = now;
+          Serial.printf("── CYCLE START ── pulses=%lu → on=%lums off=%lums\n",
+                        flowPulses, cycleOnMs, cycleOffMs);
+        }
+        break;
 
-        case CYCLE_IDLE:
-          // Waiting for flow — start a new cycle immediately
-          if (currentFlowPulses >= FLOW_MIN_PULSES) {
-            unsigned long clamped = constrain(currentFlowPulses, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
+      case PUMP_ON:
+        // On-phase running — wait for it to finish
+        if (now - phaseStart >= cycleOnMs) {
+          motorOff(active.pump);
+          pumpState = PUMP_OFF;
+          phaseStart = now;
+          Serial.printf("── PUMP OFF  ── (on-phase done, off for %lums)\n", cycleOffMs);
+        }
+        break;
+
+      case PUMP_OFF:
+        // Off-phase running — full cycle complete when done
+        if (now - phaseStart >= cycleOffMs) {
+          unsigned long avg = (cyclePulseReadings > 0)
+                              ? cyclePulseSum / cyclePulseReadings
+                              : flowPulses;
+          Serial.printf("── CYCLE DONE ── avg=%lu from %lu readings sawZero=%s\n",
+                        avg, cyclePulseReadings, cycleSawZero ? "YES" : "NO");
+
+          if (cycleSawZero) {
+            // Flow may be stopping — enter cooldown
+            pumpState = PUMP_COOLDOWN;
+            phaseStart = now;
+            Serial.printf("── COOLDOWN  ── pump off for %dms\n", COOLDOWN_MS);
+          } else {
+            // Start next cycle using the averaged flow rate
+            unsigned long clamped = constrain(avg, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
             cycleOnMs  = PUMP_ON_BASE_MS  + PUMP_ON_PER_PULSE  * clamped;
             cycleOffMs = PUMP_OFF_BASE_MS - PUMP_OFF_PER_PULSE * clamped;
             cyclePulseSum = 0;
             cyclePulseReadings = 0;
             cycleSawZero = false;
             motorOn(active.pump, PUMP_SPEED);
-            cyclePhase = CYCLE_ON;
+            pumpState = PUMP_ON;
             phaseStart = now;
-            Serial.printf("── CYCLE START ── pulses=%lu → on=%lums off=%lums\n",
-                          currentFlowPulses, cycleOnMs, cycleOffMs);
+            Serial.printf("── CYCLE START ── avg=%lu → on=%lums off=%lums\n",
+                          avg, cycleOnMs, cycleOffMs);
           }
-          break;
+        }
+        break;
 
-        case CYCLE_ON:
-          // On-phase running — wait for it to finish
-          if (now - phaseStart >= cycleOnMs) {
-            motorOff(active.pump);
-            cyclePhase = CYCLE_OFF;
-            phaseStart = now;
-            Serial.printf("── PUMP OFF  ── (on-phase done, off for %lums)\n", cycleOffMs);
-          }
-          break;
+      case PUMP_COOLDOWN:
+        // Pump off, readings discarded, wait for settle time
+        if (now - phaseStart >= COOLDOWN_MS) {
+          Serial.println("── COOLDOWN DONE ── back to idle");
+          pumpState = PUMP_IDLE;
+          cyclePulseSum = 0;
+          cyclePulseReadings = 0;
+          cycleSawZero = false;
+        }
+        break;
 
-        case CYCLE_OFF:
-          // Off-phase running — wait for it to finish = full cycle complete
-          if (now - phaseStart >= cycleOffMs) {
-            unsigned long avg = (cyclePulseReadings > 0)
-                                ? cyclePulseSum / cyclePulseReadings
-                                : currentFlowPulses;
-            Serial.printf("── CYCLE DONE ── avg=%lu from %lu readings sawZero=%s\n",
-                          avg, cyclePulseReadings, cycleSawZero ? "YES" : "NO");
-
-            if (cycleSawZero) {
-              // Flow may be stopping — enter cooldown
-              motorOff(active.pump);
-              cyclePhase = CYCLE_COOLDOWN;
-              phaseStart = now;
-              Serial.printf("── COOLDOWN  ── pump off for %dms\n", COOLDOWN_MS);
-            } else {
-              // Start next cycle using the averaged flow rate
-              unsigned long clamped = constrain(avg, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
-              cycleOnMs  = PUMP_ON_BASE_MS  + PUMP_ON_PER_PULSE  * clamped;
-              cycleOffMs = PUMP_OFF_BASE_MS - PUMP_OFF_PER_PULSE * clamped;
-              cyclePulseSum = 0;
-              cyclePulseReadings = 0;
-              cycleSawZero = false;
-              motorOn(active.pump, PUMP_SPEED);
-              cyclePhase = CYCLE_ON;
-              phaseStart = now;
-              Serial.printf("── CYCLE START ── avg=%lu → on=%lums off=%lums\n",
-                            avg, cycleOnMs, cycleOffMs);
-            }
-          }
-          break;
-
-        case CYCLE_COOLDOWN:
-          // Pump off, readings discarded, wait for settle time
-          if (now - phaseStart >= COOLDOWN_MS) {
-            Serial.println("── COOLDOWN DONE ── back to idle");
-            cyclePhase = CYCLE_IDLE;
-            cyclePulseSum = 0;
-            cyclePulseReadings = 0;
-            cycleSawZero = false;
-          }
-          break;
-      }
+      case PUMP_PRIME:
+        break; // handled above
     }
+  }
 
-    // ── Blink active flavor LED ──
-    if (now - lastBlinkToggle >= BLINK_INTERVAL_MS) {
-      blinkState = !blinkState;
-      uint8_t ledPin = (activeFlavor == 0) ? LED_FLAVOR1 : LED_FLAVOR2;
-      digitalWrite(ledPin, blinkState ? HIGH : LOW);
-      lastBlinkToggle = now;
-    }
-  } else if (dispensing) {
-    // ── Stopped (only reached when CYCLE_IDLE and no flow detected) ──
-    motorOff(active.pump);
+  // ── 3. Valve control ───────────────────────────────────────
+
+  bool shouldValveBeOpen = (pumpState != PUMP_IDLE) || waterFlowing || primePressed;
+
+  if (shouldValveBeOpen && !valveOpen) {
+    motorOn(active.valve, 255);
+    valveOpen = true;
+    blinkState = true;
+    lastBlinkToggle = now;
+    Serial.printf("Dispensing flavor %d\n", activeFlavor + 1);
+  } else if (!shouldValveBeOpen && valveOpen) {
+    motorOff(active.pump);    // defensive
     motorOff(active.valve);
-    dispensing = false;
-    cyclePhase = CYCLE_IDLE;
-    // Restore solid LED for active flavor
+    valveOpen = false;
     digitalWrite(LED_FLAVOR1, activeFlavor == 0 ? HIGH : LOW);
     digitalWrite(LED_FLAVOR2, activeFlavor == 1 ? HIGH : LOW);
     Serial.printf("Stopped dispensing flavor %d\n", activeFlavor + 1);
+  }
+
+  // ── 4. LED control ─────────────────────────────────────────
+
+  if (valveOpen && (now - lastBlinkToggle >= BLINK_INTERVAL_MS)) {
+    blinkState = !blinkState;
+    uint8_t ledPin = (activeFlavor == 0) ? LED_FLAVOR1 : LED_FLAVOR2;
+    digitalWrite(ledPin, blinkState ? HIGH : LOW);
+    lastBlinkToggle = now;
   }
 
   delay(10);
