@@ -29,20 +29,27 @@
 #define LED_FLAVOR1     21   // lit when flavor 1 is selected (blinks while dispensing)
 #define LED_FLAVOR2     15   // lit when flavor 2 is selected (blinks while dispensing)
 
+// ── Flavor ratio (the one knob) ──
+// Ratio of flavoring to water in 1:X notation. Lower = more flavor.
+//   6  = maximum (pump runs constantly at full flow)
+//  20  = default (current tuned recipe)
+//  ~24 = minimum (hard limit floor)
+#define FLAVOR_RATIO  20
+
 // ── Pump hard limits (physical constraints) ──
 #define PUMP_ON_MIN_MS     50   // below this, pump doesn't reliably dispense
 #define PUMP_OFF_MAX_MS  1000   // above this, reaction time is too slow
 #define PUMP_SPEED        255
 
-// ── Pump duty cycling (recipe tuning) ──
-//   1 pulse →  50 on / 600 off
-//   6 pulse → 200 on / 300 off
-//   on  = 20 + 30 * pulses  (clamped 1–6, then clamped to hard limits)
-//   off = 660 - 60 * pulses (clamped 1–6, then clamped to hard limits)
-#define PUMP_ON_BASE_MS    20
-#define PUMP_ON_PER_PULSE  30
-#define PUMP_OFF_BASE_MS  660
-#define PUMP_OFF_PER_PULSE 60
+// ── Recipe shape (empirically tuned baseline, not user-adjustable) ──
+// These define how duty cycle scales with flow rate.
+// At FLAVOR_RATIO=20 (baseline) they produce:
+//   1 pulse →  50 on / 600 off  (7.7% duty)
+//   6 pulse → 200 on / 300 off  (40% duty)
+#define SHAPE_ON_BASE    20
+#define SHAPE_ON_SLOPE   30
+#define SHAPE_OFF_BASE  660
+#define SHAPE_OFF_SLOPE  60
 
 // ── LED blink while dispensing ──
 #define BLINK_INTERVAL_MS  50
@@ -101,6 +108,44 @@ volatile unsigned long pulseCount = 0;
 
 void IRAM_ATTR flowPulse() {
   pulseCount++;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Cycle timing
+// ════════════════════════════════════════════════════════════
+
+// Compute pump on/off times from flow rate and FLAVOR_RATIO.
+// The scaling factor S maps FLAVOR_RATIO to a duty cycle multiplier:
+//   S = 2.5 at FLAVOR_RATIO=6  (constant on at full flow)
+//   S = 1.0 at FLAVOR_RATIO=20 (baseline recipe)
+// Off-time scales as baseline/S.  On-time is derived from duty cycle.
+// Both are clamped to hard limits.
+void computeCycleTiming(unsigned long pulses, unsigned long &onMs, unsigned long &offMs) {
+  unsigned long clamped = constrain(pulses, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
+
+  // Baseline on/off at this flow rate (what FLAVOR_RATIO=20 produces)
+  unsigned long onBase  = SHAPE_ON_BASE  + SHAPE_ON_SLOPE  * clamped;
+  unsigned long offBase = SHAPE_OFF_BASE - SHAPE_OFF_SLOPE * clamped;
+  unsigned long total   = onBase + offBase;
+
+  // Scale factor from FLAVOR_RATIO
+  float S = 2.5f - 1.5f * (FLAVOR_RATIO - 6) / 14.0f;
+
+  // Duty cycle at this flow rate, scaled by S
+  float duty = S * (float)onBase / (float)total;
+
+  if (duty >= 1.0f) {
+    // Constant on — no off phase
+    onMs  = total;
+    offMs = 0;
+  } else {
+    offMs = (unsigned long)(offBase / S);
+    onMs  = (unsigned long)(offMs * duty / (1.0f - duty));
+  }
+
+  // Clamp to hard limits
+  onMs  = max(onMs, (unsigned long)PUMP_ON_MIN_MS);
+  offMs = min(offMs, (unsigned long)PUMP_OFF_MAX_MS);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -234,9 +279,7 @@ void loop() {
       case PUMP_IDLE:
         // Waiting for flow — start a new cycle immediately
         if (flowPulses >= FLOW_MIN_PULSES) {
-          unsigned long clamped = constrain(flowPulses, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
-          cycleOnMs  = max((unsigned long)PUMP_ON_MIN_MS, PUMP_ON_BASE_MS  + PUMP_ON_PER_PULSE  * clamped);
-          cycleOffMs = min((unsigned long)PUMP_OFF_MAX_MS, PUMP_OFF_BASE_MS - PUMP_OFF_PER_PULSE * clamped);
+          computeCycleTiming(flowPulses, cycleOnMs, cycleOffMs);
           cyclePulseSum = 0;
           cyclePulseReadings = 0;
           cycleSawZero = false;
@@ -274,9 +317,7 @@ void loop() {
             Serial.printf("── COOLDOWN  ── pump off for %dms\n", COOLDOWN_MS);
           } else {
             // Start next cycle using the averaged flow rate
-            unsigned long clamped = constrain(avg, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
-            cycleOnMs  = max((unsigned long)PUMP_ON_MIN_MS, PUMP_ON_BASE_MS  + PUMP_ON_PER_PULSE  * clamped);
-            cycleOffMs = min((unsigned long)PUMP_OFF_MAX_MS, PUMP_OFF_BASE_MS - PUMP_OFF_PER_PULSE * clamped);
+            computeCycleTiming(avg, cycleOnMs, cycleOffMs);
             cyclePulseSum = 0;
             cyclePulseReadings = 0;
             cycleSawZero = false;
