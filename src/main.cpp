@@ -29,16 +29,20 @@
 #define LED_FLAVOR1     21   // lit when flavor 1 is selected (blinks while dispensing)
 #define LED_FLAVOR2     15   // lit when flavor 2 is selected (blinks while dispensing)
 
-// ── Pump duty cycling ──
+// ── Pump hard limits (physical constraints) ──
+#define PUMP_ON_MIN_MS     50   // below this, pump doesn't reliably dispense
+#define PUMP_OFF_MAX_MS  1000   // above this, reaction time is too slow
+#define PUMP_SPEED        255
+
+// ── Pump duty cycling (recipe tuning) ──
 //   1 pulse →  50 on / 600 off
 //   6 pulse → 200 on / 300 off
-//   on  = 20 + 30 * pulses  (clamped 1–6)
-//   off = 660 - 60 * pulses (clamped 1–6)
+//   on  = 20 + 30 * pulses  (clamped 1–6, then clamped to hard limits)
+//   off = 660 - 60 * pulses (clamped 1–6, then clamped to hard limits)
 #define PUMP_ON_BASE_MS    20
 #define PUMP_ON_PER_PULSE  30
 #define PUMP_OFF_BASE_MS  660
 #define PUMP_OFF_PER_PULSE 60
-#define PUMP_SPEED        255
 
 // ── LED blink while dispensing ──
 #define BLINK_INTERVAL_MS  50
@@ -231,8 +235,8 @@ void loop() {
         // Waiting for flow — start a new cycle immediately
         if (flowPulses >= FLOW_MIN_PULSES) {
           unsigned long clamped = constrain(flowPulses, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
-          cycleOnMs  = PUMP_ON_BASE_MS  + PUMP_ON_PER_PULSE  * clamped;
-          cycleOffMs = PUMP_OFF_BASE_MS - PUMP_OFF_PER_PULSE * clamped;
+          cycleOnMs  = max((unsigned long)PUMP_ON_MIN_MS, PUMP_ON_BASE_MS  + PUMP_ON_PER_PULSE  * clamped);
+          cycleOffMs = min((unsigned long)PUMP_OFF_MAX_MS, PUMP_OFF_BASE_MS - PUMP_OFF_PER_PULSE * clamped);
           cyclePulseSum = 0;
           cyclePulseReadings = 0;
           cycleSawZero = false;
@@ -271,8 +275,8 @@ void loop() {
           } else {
             // Start next cycle using the averaged flow rate
             unsigned long clamped = constrain(avg, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
-            cycleOnMs  = PUMP_ON_BASE_MS  + PUMP_ON_PER_PULSE  * clamped;
-            cycleOffMs = PUMP_OFF_BASE_MS - PUMP_OFF_PER_PULSE * clamped;
+            cycleOnMs  = max((unsigned long)PUMP_ON_MIN_MS, PUMP_ON_BASE_MS  + PUMP_ON_PER_PULSE  * clamped);
+            cycleOffMs = min((unsigned long)PUMP_OFF_MAX_MS, PUMP_OFF_BASE_MS - PUMP_OFF_PER_PULSE * clamped);
             cyclePulseSum = 0;
             cyclePulseReadings = 0;
             cycleSawZero = false;
