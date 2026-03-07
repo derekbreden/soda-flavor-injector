@@ -104,7 +104,7 @@ void IRAM_ATTR flowPulse() {
 // ════════════════════════════════════════════════════════════
 
 uint8_t activeFlavor = 0;         // 0 or 1
-bool dispensing     = false;      // true when pump+valve are active
+bool dispensing     = false;      // true when valve is open (pump may be cycling, idle, or in cooldown)
 unsigned long lastFlowCheck  = 0;
 bool waterFlowing    = false;
 unsigned long lastBlinkToggle = 0;
@@ -122,11 +122,6 @@ unsigned long cycleOffMs       = 0;     // locked for entire cycle
 unsigned long cyclePulseSum    = 0;     // accumulated during cycle
 unsigned long cyclePulseReadings = 0;   // readings taken during cycle
 bool cycleSawZero              = false; // any 0 reading during this cycle?
-
-// ── Flow rate logging ──
-unsigned long flowLogWindow    = 0;   // pulses accumulated over 1s window
-unsigned long lastFlowLog      = 0;   // timestamp of last 1s log
-#define FLOW_LOG_INTERVAL_MS  1000
 
 // ════════════════════════════════════════════════════════════
 //  Setup
@@ -204,22 +199,12 @@ void loop() {
       if (count == 0) cycleSawZero = true;
     }
 
-    // Accumulate for 1s summary log
-    flowLogWindow += count;
-
-    Serial.printf("[50ms] pulses=%lu\n", count);
-  }
-
-  // ── Flow rate summary (once per second) ──
-  if (now - lastFlowLog >= FLOW_LOG_INTERVAL_MS) {
-    Serial.printf("[1sec] pulses=%lu flowing=%s\n",
-                  flowLogWindow, waterFlowing ? "YES" : "NO");
-    flowLogWindow = 0;
-    lastFlowLog = now;
   }
 
   // ── 3. Determine if we should be dispensing ──
   bool primePressed = (digitalRead(PRIME_BTN_PIN) == LOW);
+  // inCycle keeps us dispensing through cycle phases and cooldown
+  // so a single zero reading doesn't kill a mid-cycle or cooldown
   bool inCycle = (cyclePhase != CYCLE_IDLE);
   bool shouldDispense = waterFlowing || primePressed || inCycle;
 
@@ -327,7 +312,7 @@ void loop() {
       lastBlinkToggle = now;
     }
   } else if (dispensing) {
-    // ── Stopped ──
+    // ── Stopped (only reached when CYCLE_IDLE and no flow detected) ──
     motorOff(active.pump);
     motorOff(active.valve);
     dispensing = false;
