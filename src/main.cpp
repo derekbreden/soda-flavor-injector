@@ -30,13 +30,13 @@
 #define LED_FLAVOR2     15   // lit when flavor 2 is selected (blinks while dispensing)
 
 // ── Pump duty cycling ──
-//   1 pulse → 100 on / 600 off
-//   6 pulse → 200 on / 300 off
-//   on  = 80 + 20 * pulses  (clamped 1–6)
-//   off = 660 - 60 * pulses (clamped 1–6)
-#define PUMP_ON_BASE_MS    80
+//   1 pulse →  70 on / 740 off
+//   6 pulse → 170 on / 440 off
+//   on  = 50 + 20 * pulses  (clamped 1–6)
+//   off = 800 - 60 * pulses (clamped 1–6)
+#define PUMP_ON_BASE_MS    50
 #define PUMP_ON_PER_PULSE  20
-#define PUMP_OFF_BASE_MS  660
+#define PUMP_OFF_BASE_MS  800
 #define PUMP_OFF_PER_PULSE 60
 #define PUMP_SPEED        255
 
@@ -47,7 +47,7 @@
 #define FLOW_CHECK_INTERVAL_MS  50
 #define FLOW_MIN_PULSES          1   // minimum to count as flowing
 #define FLOW_FULL_PULSES         6   // pulses per interval at full flow
-#define COOLDOWN_MS            500   // settle time after zero detected in cycle
+#define COOLDOWN_MS           1000   // settle time after zero detected in cycle
 
 // ════════════════════════════════════════════════════════════
 //  Motor abstraction
