@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Preferences.h>
 
 // ════════════════════════════════════════════════════════════
 //  Dual-Flavor Soda Maker
@@ -29,25 +30,31 @@
 #define LED_FLAVOR1     21   // lit when flavor 1 is selected (blinks while dispensing)
 #define LED_FLAVOR2     15   // lit when flavor 2 is selected (blinks while dispensing)
 
-// ── Per-flavor ratio ──
-// Ratio of flavoring to water in 1:X notation. Lower = more flavor.
+// ── Per-flavor config (runtime, persisted in NVS) ──
+// Ratio: flavoring to water in 1:X. Lower = more flavor.
 //   6  = maximum strength (traditional BIB, e.g. Coke syrup)
 //  20  = tuned for SodaStream concentrates
-//  ~24 = minimum strength (hard limit floor)
-#define FLAVOR1_RATIO  20   // SodaStream
-#define FLAVOR2_RATIO  20   // SodaStream  (set ~6 for BIB)
-
-// ── Per-flavor display image (sent to RP2040 display board) ──
-// Index into the RP2040's bitmap array:
+//  24  = minimum strength (hard limit floor)
+// Image: index into the RP2040's bitmap array:
 //   0 = Diet Wild Cherry Pepsi
 //   1 = Diet Mountain Dew
 //   2 = Diet Coke
-#define FLAVOR1_IMAGE   0
-#define FLAVOR2_IMAGE   1
+#define NUM_IMAGES  3
 
-// ── Display UART ──
-#define DISPLAY_TX_PIN         32     // UART TX to RP2040 display (one-wire)
+uint8_t flavor1Ratio = 20;
+uint8_t flavor2Ratio = 20;
+uint8_t flavor1Image = 0;
+uint8_t flavor2Image = 1;
+
+Preferences prefs;
+
+// ── Display UART (ESP32 → RP2040, one-way) ──
+#define DISPLAY_TX_PIN         32     // UART TX to RP2040 display
 #define CONFIG_SEND_INTERVAL_MS 30000  // resend image mapping every 30s
+
+// ── Config UART (ESP32 ↔ ESP32-S3, bidirectional) ──
+#define CONFIG_TX_PIN   2    // UART TX to ESP32-S3
+#define CONFIG_RX_PIN  34    // UART RX from ESP32-S3 (input-only pin)
 
 // ── Pump hard limits (physical constraints) ──
 #define PUMP_ON_MIN_MS     50   // below this, pump doesn't reliably dispense
@@ -94,13 +101,13 @@ Flavor flavors[] = {
   {
     { A_ENA, A_IN1, A_IN2 },   // pump
     { A_ENB, A_IN3, A_IN4 },   // valve
-    FLAVOR1_RATIO,
+    20,                         // ratio (overwritten by loadConfig)
   },
   // Flavor 2 — Board B
   {
     { B_ENA, B_IN1, B_IN2 },   // pump
     { B_ENB, B_IN3, B_IN4 },   // valve
-    FLAVOR2_RATIO,
+    20,                         // ratio (overwritten by loadConfig)
   },
 };
 
@@ -194,11 +201,115 @@ bool blinkState                  = true;
 unsigned long lastConfigSend     = 0;
 
 // ════════════════════════════════════════════════════════════
+//  NVS config persistence
+// ════════════════════════════════════════════════════════════
+
+void loadConfig() {
+  prefs.begin("soda", true);  // read-only
+  flavor1Ratio = prefs.getUChar("f1ratio", 20);
+  flavor2Ratio = prefs.getUChar("f2ratio", 20);
+  flavor1Image = prefs.getUChar("f1image", 0);
+  flavor2Image = prefs.getUChar("f2image", 1);
+  prefs.end();
+
+  // Apply to flavor structs
+  flavors[0].ratio = flavor1Ratio;
+  flavors[1].ratio = flavor2Ratio;
+
+  Serial.printf("Config loaded: F1 ratio=%d image=%d, F2 ratio=%d image=%d\n",
+                flavor1Ratio, flavor1Image, flavor2Ratio, flavor2Image);
+}
+
+void saveConfig() {
+  prefs.begin("soda", false);  // read-write
+  prefs.putUChar("f1ratio", flavor1Ratio);
+  prefs.putUChar("f2ratio", flavor2Ratio);
+  prefs.putUChar("f1image", flavor1Image);
+  prefs.putUChar("f2image", flavor2Image);
+  prefs.end();
+  Serial.println("Config saved to NVS");
+}
+
+// ════════════════════════════════════════════════════════════
+//  Config UART command parser
+// ════════════════════════════════════════════════════════════
+
+void sendConfigResponse(Stream &out) {
+  out.printf("CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,NUM_IMAGES=%d\n",
+             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, NUM_IMAGES);
+}
+
+void processConfigCommand(const char *cmd, Stream &out) {
+  if (strcmp(cmd, "GET_CONFIG") == 0) {
+    sendConfigResponse(out);
+
+  } else if (strncmp(cmd, "SET:", 4) == 0) {
+    const char *param = cmd + 4;
+    char key[16];
+    int val;
+    if (sscanf(param, "%15[^=]=%d", key, &val) == 2) {
+      bool ok = false;
+      if (strcmp(key, "F1_RATIO") == 0 && val >= 6 && val <= 24) {
+        flavor1Ratio = val; flavors[0].ratio = val; ok = true;
+      } else if (strcmp(key, "F2_RATIO") == 0 && val >= 6 && val <= 24) {
+        flavor2Ratio = val; flavors[1].ratio = val; ok = true;
+      } else if (strcmp(key, "F1_IMAGE") == 0 && val >= 0 && val < NUM_IMAGES) {
+        flavor1Image = val; ok = true;
+        Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      } else if (strcmp(key, "F2_IMAGE") == 0 && val >= 0 && val < NUM_IMAGES) {
+        flavor2Image = val; ok = true;
+        Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      }
+
+      if (ok) {
+        out.printf("OK:%s=%d\n", key, val);
+        Serial.printf("Config SET: %s=%d\n", key, val);
+      } else {
+        out.printf("ERR:%s out of range\n", key);
+      }
+    }
+
+  } else if (strcmp(cmd, "SAVE") == 0) {
+    saveConfig();
+    out.printf("OK:SAVED\n");
+  }
+}
+
+// Buffer incoming bytes into lines, dispatch complete lines to processConfigCommand
+#define CONFIG_BUF_SIZE 64
+
+void checkConfigStream(Stream &stream, char *buf, uint8_t &pos) {
+  while (stream.available()) {
+    char c = stream.read();
+    if (c == '\n' || c == '\r') {
+      if (pos > 0) {
+        buf[pos] = '\0';
+        processConfigCommand(buf, stream);
+        pos = 0;
+      }
+    } else if (pos < CONFIG_BUF_SIZE - 1) {
+      buf[pos++] = c;
+    }
+  }
+}
+
+char configBuf0[CONFIG_BUF_SIZE];  // USB Serial
+uint8_t configPos0 = 0;
+char configBuf1[CONFIG_BUF_SIZE];  // Serial1 (S3)
+uint8_t configPos1 = 0;
+
+void checkConfigUART() {
+  checkConfigStream(Serial,  configBuf0, configPos0);
+  checkConfigStream(Serial1, configBuf1, configPos1);
+}
+
+// ════════════════════════════════════════════════════════════
 //  Setup
 // ════════════════════════════════════════════════════════════
 
 void setup() {
   Serial.begin(115200);
+  loadConfig();
 
   // Init all motor pins
   const uint8_t motorPins[] = {
@@ -230,11 +341,14 @@ void setup() {
   // UART to display board (TX only, 9600 baud for noise tolerance)
   Serial2.begin(9600, SERIAL_8N1, -1, DISPLAY_TX_PIN);
   delay(500);  // let RP2040 UART initialize
-  Serial2.printf("MAP:%d,%d\n", FLAVOR1_IMAGE, FLAVOR2_IMAGE);
+  Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+
+  // UART to config display (ESP32-S3, bidirectional, 9600 baud)
+  Serial1.begin(9600, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
 
   Serial.println("Dual-Flavor Soda Maker ready!");
   Serial.printf("Active flavor: %d\n", activeFlavor + 1);
-  Serial.printf("Sent image mapping to display: %d,%d\n", FLAVOR1_IMAGE, FLAVOR2_IMAGE);
+  Serial.printf("Sent image mapping to display: %d,%d\n", flavor1Image, flavor2Image);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -399,9 +513,12 @@ void loop() {
 
   // ── 5. Periodic display config resend ─────────────────────
   if (now - lastConfigSend >= CONFIG_SEND_INTERVAL_MS) {
-    Serial2.printf("MAP:%d,%d\n", FLAVOR1_IMAGE, FLAVOR2_IMAGE);
+    Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
     lastConfigSend = now;
   }
+
+  // ── 6. Config UART commands ─────────────────────────────────
+  checkConfigUART();
 
   delay(10);
 }
