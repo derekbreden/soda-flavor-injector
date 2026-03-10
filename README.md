@@ -137,6 +137,14 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | [Dupont Jumper Wires (120-pack M/F, M/M, F/F)](https://www.amazon.com/dp/B0BRTJXND9) | Board-to-board connections |
 | [Female Spade Crimp Terminals (60-pack)](https://www.amazon.com/dp/B0B9MZJ2ML) | Motor and valve connections |
 | [Male Quick Disconnect Spade Connectors (100-pack)](https://www.amazon.com/dp/B01MZZGAJP) | Motor and valve connections |
+
+### Mounting and Hardware
+
+| Part | Purpose |
+|------|---------|
+| [Zip Ties (200-pack)](https://www.amazon.com/dp/B0BC1VH4XB) | Secure tubing to faucet, cable management |
+| [12"x24" Laminate Shelf](https://www.homedepot.com/p/328395734) | Cut in half and screwed together as mounting panel |
+| [#8 x 1/2" Wood Screws (100-pack)](https://www.homedepot.com/p/204275505) | Mount components to panel |
 | [Pre-wired 12V LEDs (120-pack, 6 colors)](https://www.amazon.com/dp/B07PVVL2S6) | Flavor indicator LEDs |
 
 ### Carbonated Water
@@ -303,11 +311,14 @@ Prices as of March 2026. Excludes the CO2 tank itself (refillable, widely availa
 | Male Spade Connectors (100-pack) | $5.99 | 1 | $5.99 |
 | Pre-wired 12V LEDs (120-pack) | $12.99 | 1 | $12.99 |
 | TAPRITE CO2 Regulator | $92.95 | 1 | $92.95 |
+| Zip Ties (200-pack) | $3.99 | 1 | $3.99 |
+| 12"x24" Laminate Shelf | $12.98 | 1 | $12.98 |
+| #8 x 1/2" Wood Screws (100-pack) | $6.87 | 1 | $6.87 |
 | SodaStream Pepsi Wild Cherry (4-pack) | $28.99 | 1 | $28.99 |
 | SodaStream Diet MTN Dew (4-pack) | ~$29 | 1 | ~$29 |
-| **Subtotal (without carbonator)** | | | **~$498** |
+| **Subtotal (without carbonator)** | | | **~$522** |
 | Lilium Under-Sink Carbonator | $1,039.00 | 1 | $1,039.00 |
-| **Total** | | | **~$1,537** |
+| **Total** | | | **~$1,561** |
 
 ## License
 
