@@ -166,7 +166,7 @@ Most builders will already have these on hand.
 | [Milwaukee 1-1/4" Hole Dozer with Arbor](https://www.homedepot.com/p/202327734) | Countertop holes for faucet and air switch |
 | [Wiss 10" Tradesmen Scissors](https://www.homedepot.com/p/313487663) | Cutting tubing and zip ties |
 | [Husky Precision Screwdriver Set (7-piece)](https://www.homedepot.com/p/302435926) | Electronics work |
-| [Klein Tools 9" Crimping and Cutting Tool](https://www.homedepot.com/p/100352095) | Crimp spade terminals |
+| [Klein Tools 3005CR Ratcheting Crimper (10-22 AWG)](https://www.amazon.com/dp/B07WMB61J5) | Crimp spade terminals |
 | [Apple USB-C to USB-C Cable (2m)](https://www.amazon.com/dp/B0DCH5B2HF) | Flash the RP2040 |
 | [LISEN USB-C to Micro USB Cable (2-pack)](https://www.amazon.com/dp/B0D3BXM91B) | Flash the ESP32 |
 
@@ -342,10 +342,10 @@ Prices as of March 2026.
 | Milwaukee 1-1/4" Hole Dozer with Arbor | $16.47 | 1 | $16.47 |
 | Wiss 10" Tradesmen Scissors | $21.97 | 1 | $21.97 |
 | Husky Precision Screwdriver Set | $4.88 | 1 | $4.88 |
-| Klein Tools 9" Crimping Tool | $29.97 | 1 | $29.97 |
+| Klein Tools 3005CR Ratcheting Crimper | $34.96 | 1 | $34.96 |
 | Apple USB-C to USB-C Cable (2m) | $18.00 | 1 | $18.00 |
 | LISEN USB-C to Micro USB Cable (2-pack) | $7.59 | 1 | $7.59 |
-| **Total (with tools)** | | | **~$1,932** |
+| **Total (with tools)** | | | **~$1,937** |
 
 ## License
 
