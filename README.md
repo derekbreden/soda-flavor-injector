@@ -153,6 +153,22 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 |------|---------|
 | [Lilium Under-Sink Carbonated Water Dispenser](https://liliumfaucet.com/products/under-sink-carbonated-soda-maker-sparkling-water-dispenser-with-3-way-faucet) | Cold carbonated water source (not from Amazon) |
 | [TAPRITE Dual-Gauge CO2 Regulator](https://www.amazon.com/dp/B00L38DRD0) | CO2 pressure regulation |
+| 5 lb CO2 Tank + First Refill | CO2 source (refills ~$25 at welding/homebrew shops) |
+
+### Tools
+
+Most builders will already have these on hand.
+
+| Tool | Purpose |
+|------|---------|
+| [RYOBI ONE+ 18V Drill/Driver Kit](https://www.homedepot.com/p/326680222) | Drilling and driving screws |
+| [RYOBI Drill Bit Set (15-piece)](https://www.homedepot.com/p/315853368) | General-purpose drill bits |
+| [Milwaukee 1-1/4" Hole Dozer with Arbor](https://www.homedepot.com/p/202327734) | Countertop holes for faucet and air switch |
+| [Wiss 10" Tradesmen Scissors](https://www.homedepot.com/p/313487663) | Cutting tubing and zip ties |
+| [Husky Precision Screwdriver Set (7-piece)](https://www.homedepot.com/p/302435926) | Electronics work |
+| [Klein Tools 9" Crimping and Cutting Tool](https://www.homedepot.com/p/100352095) | Crimp spade terminals |
+| [Apple USB-C to USB-C Cable (2m)](https://www.amazon.com/dp/B0DCH5B2HF) | Flash the RP2040 |
+| [LISEN USB-C to Micro USB Cable (2-pack)](https://www.amazon.com/dp/B0D3BXM91B) | Flash the ESP32 |
 
 ## Wiring
 
@@ -287,7 +303,7 @@ These control the pump duty cycle shape and generally don't need adjustment:
 
 ## Cost Breakdown
 
-Prices as of March 2026. Excludes the CO2 tank itself (refillable, widely available).
+Prices as of March 2026.
 
 | Part | Price | Qty | Cost |
 |------|------:|----:|-----:|
@@ -311,14 +327,25 @@ Prices as of March 2026. Excludes the CO2 tank itself (refillable, widely availa
 | Male Spade Connectors (100-pack) | $5.99 | 1 | $5.99 |
 | Pre-wired 12V LEDs (120-pack) | $12.99 | 1 | $12.99 |
 | TAPRITE CO2 Regulator | $92.95 | 1 | $92.95 |
+| 5 lb CO2 Tank + First Refill | $139.00 | 1 | $139.00 |
 | Zip Ties (200-pack) | $3.99 | 1 | $3.99 |
 | 12"x24" Laminate Shelf | $12.98 | 1 | $12.98 |
 | #8 x 1/2" Wood Screws (100-pack) | $6.87 | 1 | $6.87 |
 | SodaStream Pepsi Wild Cherry (4-pack) | $28.99 | 1 | $28.99 |
 | SodaStream Diet MTN Dew (4-pack) | ~$29 | 1 | ~$29 |
-| **Subtotal (without carbonator)** | | | **~$522** |
+| **Subtotal (without carbonator)** | | | **~$731** |
 | Lilium Under-Sink Carbonator | $1,039.00 | 1 | $1,039.00 |
-| **Total** | | | **~$1,561** |
+| **Subtotal (all parts)** | | | **~$1,770** |
+| *Tools (if not already owned):* | | | |
+| RYOBI Drill/Driver Kit | $49.97 | 1 | $49.97 |
+| RYOBI Drill Bit Set (15-piece) | $12.97 | 1 | $12.97 |
+| Milwaukee 1-1/4" Hole Dozer with Arbor | $16.47 | 1 | $16.47 |
+| Wiss 10" Tradesmen Scissors | $21.97 | 1 | $21.97 |
+| Husky Precision Screwdriver Set | $4.88 | 1 | $4.88 |
+| Klein Tools 9" Crimping Tool | $29.97 | 1 | $29.97 |
+| Apple USB-C to USB-C Cable (2m) | $18.00 | 1 | $18.00 |
+| LISEN USB-C to Micro USB Cable (2-pack) | $7.59 | 1 | $7.59 |
+| **Total (with tools)** | | | **~$1,932** |
 
 ## License
 
