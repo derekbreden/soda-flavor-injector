@@ -4,6 +4,12 @@ A dual-flavor soda fountain system that injects flavoring concentrate into cold 
 
 The system uses peristaltic pumps controlled by an ESP32 that automatically adjust their duty cycle based on real-time water flow, maintaining consistent flavor strength whether you're filling a shot glass or a 2-liter bottle. A small round LCD display shows which flavor is currently selected.
 
+<p align="center">
+  <img src="docs/photos/display-pepsi-cherry.jpg" width="360" alt="Front panel showing LCD display with Diet Pepsi Cherry logo and air switch buttons">
+  <img src="docs/photos/display-mountain-dew.jpg" width="360" alt="Front panel showing LCD display with Diet Mountain Dew logo and air switch buttons">
+</p>
+<p align="center"><em>The RP2040 round LCD shows the active flavor. Two air switch buttons handle dispensing and flavor selection.</em></p>
+
 ## How It Works
 
 Cold carbonated water flows from an under-counter carbonator through a dispenser faucet. When you press the dispense button (a garbage disposal air switch), a flow meter detects water movement and triggers the system:
@@ -14,6 +20,27 @@ Cold carbonated water flows from an under-counter carbonator through a dispenser
 4. Flavored water exits through a multi-tube dispensing nozzle at the faucet
 
 A toggle switch (another air switch) selects between two flavors. The small LCD display updates to show which flavor is active.
+
+<p align="center">
+  <img src="docs/photos/countertop-annotated.jpg" width="500" alt="Kitchen countertop showing labeled soda dispenser faucet, flavor toggle switch, and garbage disposal air switch">
+</p>
+<p align="center"><em>The countertop setup: a dedicated dispenser faucet, a flavor toggle, and the dispense button — all using food-safe air switches (no electricity at the counter).</em></p>
+
+### Under the Counter
+
+Everything lives inside the sink cabinet:
+
+<p align="center">
+  <img src="docs/photos/under-cabinet.jpg" width="600" alt="Under-cabinet view showing CO2 tank, carbonator, concentrate bag, and control panel">
+</p>
+<p align="center"><em>Left to right: CO2 tank with dual-gauge regulator, Lilium carbonator, Platypus bag filled with concentrate, and the control panel with pumps and valves.</em></p>
+
+The dispenser faucet has silicone tubes running through the gooseneck alongside the water line, delivering concentrate right at the nozzle:
+
+<p align="center">
+  <img src="docs/photos/faucet-side.jpg" width="400" alt="Side view of dispenser faucet with silicone tubes bundled along the gooseneck">
+  <img src="docs/photos/faucet-nozzle.jpg" width="300" alt="Close-up of faucet nozzle showing multi-tube dispensing design">
+</p>
 
 ### Architecture
 
@@ -122,6 +149,11 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | [TAPRITE Dual-Gauge CO2 Regulator](https://www.amazon.com/dp/B00L38DRD0) | CO2 pressure regulation |
 
 ## Wiring
+
+<p align="center">
+  <img src="docs/photos/panel-closeup.jpg" width="500" alt="Control panel showing ESP32 on DIN rail breakout, two L298N motor drivers, peristaltic pumps, and solenoid valves">
+</p>
+<p align="center"><em>The control panel: ESP32 on a DIN rail breakout board (top), two L298N motor drivers (red boards), two Kamoer peristaltic pumps, and two solenoid valves (bottom).</em></p>
 
 ### ESP32 Pin Assignments
 
