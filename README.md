@@ -8,23 +8,23 @@ The system uses peristaltic pumps controlled by an ESP32 that automatically adju
   <img src="docs/photos/display-pepsi-cherry.jpg" width="360" alt="Front panel showing LCD display with Diet Pepsi Cherry logo and air switch buttons">
   <img src="docs/photos/display-mountain-dew.jpg" width="360" alt="Front panel showing LCD display with Diet Mountain Dew logo and air switch buttons">
 </p>
-<p align="center"><em>The RP2040 round LCD shows the active flavor. Two air switch buttons handle dispensing and flavor selection.</em></p>
+<p align="center"><em>The RP2040 round LCD shows the active flavor. An air switch button toggles between flavors.</em></p>
 
 ## How It Works
 
-Cold carbonated water flows from an under-counter carbonator through a dispenser faucet. When you press the dispense button (a garbage disposal air switch), a flow meter detects water movement and triggers the system:
+Cold carbonated water flows from an under-counter carbonator through a dispenser faucet. When you open the faucet, a flow meter detects water movement and the system automatically kicks in:
 
 1. A solenoid valve opens to route water through the flavoring path
 2. A peristaltic pump injects concentrate from a collapsible reservoir
 3. The pump duty-cycles on/off proportionally to the detected flow rate
 4. Flavored water exits through a multi-tube dispensing nozzle at the faucet
 
-A toggle switch (another air switch) selects between two flavors. The small LCD display updates to show which flavor is active.
+A toggle switch (an air switch) selects between two flavors. The small LCD display updates to show which flavor is active.
 
 <p align="center">
   <img src="docs/photos/countertop-annotated.jpg" width="500" alt="Kitchen countertop showing labeled soda dispenser faucet, flavor toggle switch, and garbage disposal air switch">
 </p>
-<p align="center"><em>The countertop setup: a dedicated dispenser faucet, a flavor toggle, and the dispense button — all using food-safe air switches (no electricity at the counter).</em></p>
+<p align="center"><em>The countertop setup: a dedicated dispenser faucet and a flavor toggle air switch. The system activates automatically when water flows — no dispense button needed.</em></p>
 
 ### Under the Counter
 
@@ -112,7 +112,7 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | Part | Purpose |
 |------|---------|
 | [DIGITEN G3/8" Hall Effect Flow Sensor](https://www.amazon.com/dp/B07QQW4C7R) | Measure water flow rate |
-| [KRAUS Garbage Disposal Air Switch (Matte Black)](https://www.amazon.com/dp/B096319GMV) x2 | Dispense button + flavor toggle (countertop safe, no electricity) |
+| [KRAUS Garbage Disposal Air Switch (Matte Black)](https://www.amazon.com/dp/B096319GMV) | Flavor toggle (countertop safe, no electricity) |
 | [7mm Momentary Push Button (12-pack)](https://www.amazon.com/dp/B0F43GYWJ6) | Prime button (behind panel) |
 
 ### Plumbing
