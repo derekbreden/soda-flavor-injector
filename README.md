@@ -95,7 +95,7 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | [ESP32-DevKitC-32E](https://www.amazon.com/dp/B09MQJWQN2) | Main controller |
 | [ESP32 DIN Rail Breakout Board](https://www.amazon.com/dp/B0BW4SJ5X2) | Clean wiring for ESP32 GPIOs |
 | [Waveshare RP2040 Round LCD (0.99")](https://www.amazon.com/dp/B0CTSPYND2) | Flavor display (128x115 GC9107) |
-| [L298N Dual H-Bridge Motor Driver](https://www.amazon.com/dp/B0C5JCF5RS) x2 | Drive pumps and solenoid valves |
+| [L298N Dual H-Bridge Motor Driver](https://www.amazon.com/dp/B0C5JCF5RS) x2 (link is a 4-pack) | Drive pumps and solenoid valves |
 | [12V 2A Power Supply](https://www.amazon.com/dp/B0DZGTTBGZ) | Powers pumps and valves |
 
 ### Pumps and Valves
@@ -276,6 +276,38 @@ These control the pump duty cycle shape and generally don't need adjustment:
 #define SHAPE_OFF_BASE   660     // base off-time at minimum flow
 #define SHAPE_OFF_SLOPE   60     // off-time decrease per flow pulse
 ```
+
+## Cost Breakdown
+
+Prices as of March 2026. Excludes the CO2 tank itself (refillable, widely available).
+
+| Part | Price | Qty | Cost |
+|------|------:|----:|-----:|
+| ESP32-DevKitC-32E | $11.00 | 1 | $11.00 |
+| ESP32 DIN Rail Breakout Board | $25.99 | 1 | $25.99 |
+| Waveshare RP2040 Round LCD (0.99") | $23.99 | 1 | $23.99 |
+| L298N Motor Driver (4-pack) | $9.99 | 1 | $9.99 |
+| 12V 2A Power Supply | $9.99 | 1 | $9.99 |
+| Kamoer Peristaltic Pump | $32.55 | 2 | $65.10 |
+| Beduan 12V Solenoid Valve | $8.99 | 2 | $17.98 |
+| DIGITEN Flow Sensor | $7.99 | 1 | $7.99 |
+| KRAUS Air Switch | $39.95 | 1 | $39.95 |
+| 7mm Momentary Push Buttons (12-pack) | $7.39 | 1 | $7.39 |
+| Westbrass Dispenser Faucet | $30.00 | 1 | $30.00 |
+| Platypus 2L Collapsible Bottle | $15.94 | 2 | $31.88 |
+| Platypus Drink Tube Kit | $24.95 | 1 | $24.95 |
+| Silicone Tubing (6m) | $12.99 | 1 | $12.99 |
+| Waterdrop Inline Water Filter | $62.99 | 1 | $62.99 |
+| Dupont Jumper Wires (120-pack) | $5.97 | 1 | $5.97 |
+| Female Spade Crimp Terminals (60-pack) | $9.99 | 1 | $9.99 |
+| Male Spade Connectors (100-pack) | $5.99 | 1 | $5.99 |
+| Pre-wired 12V LEDs (120-pack) | $12.99 | 1 | $12.99 |
+| TAPRITE CO2 Regulator | $92.95 | 1 | $92.95 |
+| SodaStream Pepsi Wild Cherry (4-pack) | $28.99 | 1 | $28.99 |
+| SodaStream MTN Dew Code Red (4-pack) | ~$29 | 1 | ~$29 |
+| **Subtotal (without carbonator)** | | | **~$498** |
+| Lilium Under-Sink Carbonator | $1,039.00 | 1 | $1,039.00 |
+| **Total** | | | **~$1,537** |
 
 ## License
 
