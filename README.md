@@ -1,8 +1,6 @@
 # Soda Flavor Injector
 
-A dual-flavor soda fountain system that injects flavoring concentrate into cold carbonated water on demand. Open the tap, get flavored soda at your kitchen sink.
-
-The system uses peristaltic pumps controlled by an ESP32 that automatically adjust their duty cycle based on real-time water flow, maintaining consistent flavor strength whether you're filling a shot glass or a 2-liter bottle. A small round LCD display shows which flavor is currently selected.
+ESP32 + RP2040 project that injects flavoring concentrate into cold carbonated water from an under-counter carbonator. Peristaltic pumps duty-cycle based on real-time flow meter readings to maintain consistent flavor strength. A round LCD display shows which flavor is selected.
 
 <p align="center">
   <img src="docs/photos/display-pepsi-cherry.jpg" width="360" alt="Front panel showing LCD display with Diet Pepsi Cherry logo and air switch buttons">
@@ -14,7 +12,7 @@ The system uses peristaltic pumps controlled by an ESP32 that automatically adju
 
 Cold carbonated water flows from an under-counter carbonator through a dispenser faucet. When you open the faucet, a flow meter detects water movement and the system automatically kicks in:
 
-1. A solenoid valve opens to route water through the flavoring path
+1. A solenoid valve opens (it stays closed between uses to prevent backflow and keep the lines primed)
 2. A peristaltic pump injects concentrate from a collapsible reservoir
 3. The pump duty-cycles on/off proportionally to the detected flow rate
 4. Flavored water exits through a multi-tube dispensing nozzle at the faucet
@@ -105,7 +103,7 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | Part | Purpose |
 |------|---------|
 | [Kamoer Peristaltic Pump (400ml/min, 12V)](https://www.amazon.com/dp/B09MS6C91D) x2 | Dispense flavor concentrate |
-| [Beduan 12V Solenoid Valve (1/4")](https://www.amazon.com/dp/B07NWCQJK9) x2 | Gate water flow per flavor channel |
+| [Beduan 12V Solenoid Valve (1/4")](https://www.amazon.com/dp/B07NWCQJK9) x2 | Prevent backflow, keep concentrate lines primed |
 
 ### Sensors and Switches
 
