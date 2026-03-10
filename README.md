@@ -307,44 +307,44 @@ Prices as of March 2026.
 
 | Part | Price | Qty | Cost |
 |------|------:|----:|-----:|
-| ESP32-DevKitC-32E | $11.00 | 1 | $11.00 |
-| ESP32 DIN Rail Breakout Board | $25.99 | 1 | $25.99 |
-| Waveshare RP2040 Round LCD (0.99") | $23.99 | 1 | $23.99 |
-| L298N Motor Driver (4-pack) | $9.99 | 1 | $9.99 |
-| 12V 2A Power Supply | $9.99 | 1 | $9.99 |
-| Kamoer Peristaltic Pump | $32.55 | 2 | $65.10 |
-| Beduan 12V Solenoid Valve | $8.99 | 2 | $17.98 |
-| DIGITEN Flow Sensor | $7.99 | 1 | $7.99 |
-| KRAUS Air Switch | $39.95 | 1 | $39.95 |
-| 7mm Momentary Push Buttons (12-pack) | $7.39 | 1 | $7.39 |
-| Westbrass Dispenser Faucet | $30.00 | 1 | $30.00 |
-| Platypus 2L Collapsible Bottle | $15.94 | 2 | $31.88 |
-| Platypus Drink Tube Kit | $24.95 | 1 | $24.95 |
-| Silicone Tubing (6m) | $12.99 | 1 | $12.99 |
-| Waterdrop Inline Water Filter | $62.99 | 1 | $62.99 |
-| Dupont Jumper Wires (120-pack) | $5.97 | 1 | $5.97 |
-| Female Spade Crimp Terminals (60-pack) | $9.99 | 1 | $9.99 |
-| Male Spade Connectors (100-pack) | $5.99 | 1 | $5.99 |
-| Pre-wired 12V LEDs (120-pack) | $12.99 | 1 | $12.99 |
-| TAPRITE CO2 Regulator | $92.95 | 1 | $92.95 |
+| [ESP32-DevKitC-32E](https://www.amazon.com/dp/B09MQJWQN2) | $11.00 | 1 | $11.00 |
+| [ESP32 DIN Rail Breakout Board](https://www.amazon.com/dp/B0BW4SJ5X2) | $25.99 | 1 | $25.99 |
+| [Waveshare RP2040 Round LCD (0.99")](https://www.amazon.com/dp/B0CTSPYND2) | $23.99 | 1 | $23.99 |
+| [L298N Motor Driver (4-pack)](https://www.amazon.com/dp/B0C5JCF5RS) | $9.99 | 1 | $9.99 |
+| [12V 2A Power Supply](https://www.amazon.com/dp/B0DZGTTBGZ) | $9.99 | 1 | $9.99 |
+| [Kamoer Peristaltic Pump](https://www.amazon.com/dp/B09MS6C91D) | $32.55 | 2 | $65.10 |
+| [Beduan 12V Solenoid Valve](https://www.amazon.com/dp/B07NWCQJK9) | $8.99 | 2 | $17.98 |
+| [DIGITEN Flow Sensor](https://www.amazon.com/dp/B07QQW4C7R) | $7.99 | 1 | $7.99 |
+| [KRAUS Air Switch](https://www.amazon.com/dp/B096319GMV) | $39.95 | 1 | $39.95 |
+| [7mm Momentary Push Buttons (12-pack)](https://www.amazon.com/dp/B0F43GYWJ6) | $7.39 | 1 | $7.39 |
+| [Westbrass Dispenser Faucet](https://www.amazon.com/dp/B0BXFW1J38) | $30.00 | 1 | $30.00 |
+| [Platypus 2L Collapsible Bottle](https://www.amazon.com/dp/B000J2KEGY) | $15.94 | 2 | $31.88 |
+| [Platypus Drink Tube Kit](https://www.amazon.com/dp/B07N1T6LNW) | $24.95 | 1 | $24.95 |
+| [Silicone Tubing (6m)](https://www.amazon.com/dp/B0BM4KQ6RT) | $12.99 | 1 | $12.99 |
+| [Waterdrop Inline Water Filter](https://www.amazon.com/dp/B085G9TZ4L) | $62.99 | 1 | $62.99 |
+| [Dupont Jumper Wires (120-pack)](https://www.amazon.com/dp/B0BRTJXND9) | $5.97 | 1 | $5.97 |
+| [Female Spade Crimp Terminals (60-pack)](https://www.amazon.com/dp/B0B9MZJ2ML) | $9.99 | 1 | $9.99 |
+| [Male Spade Connectors (100-pack)](https://www.amazon.com/dp/B01MZZGAJP) | $5.99 | 1 | $5.99 |
+| [Pre-wired 12V LEDs (120-pack)](https://www.amazon.com/dp/B07PVVL2S6) | $12.99 | 1 | $12.99 |
+| [TAPRITE CO2 Regulator](https://www.amazon.com/dp/B00L38DRD0) | $92.95 | 1 | $92.95 |
 | 5 lb CO2 Tank + First Refill | $139.00 | 1 | $139.00 |
-| Zip Ties (200-pack) | $3.99 | 1 | $3.99 |
-| 12"x24" Laminate Shelf | $12.98 | 1 | $12.98 |
-| #8 x 1/2" Wood Screws (100-pack) | $6.87 | 1 | $6.87 |
-| SodaStream Pepsi Wild Cherry (4-pack) | $28.99 | 1 | $28.99 |
-| SodaStream Diet MTN Dew (4-pack) | ~$29 | 1 | ~$29 |
+| [Zip Ties (200-pack)](https://www.amazon.com/dp/B0BC1VH4XB) | $3.99 | 1 | $3.99 |
+| [12"x24" Laminate Shelf](https://www.homedepot.com/p/328395734) | $12.98 | 1 | $12.98 |
+| [#8 x 1/2" Wood Screws (100-pack)](https://www.homedepot.com/p/204275505) | $6.87 | 1 | $6.87 |
+| [SodaStream Pepsi Wild Cherry (4-pack)](https://www.amazon.com/dp/B0G4NRDQB8) | $28.99 | 1 | $28.99 |
+| [SodaStream Diet MTN Dew (4-pack)](https://www.amazon.com/dp/B0CS191QMW) | ~$29 | 1 | ~$29 |
 | **Subtotal (without carbonator)** | | | **~$731** |
-| Lilium Under-Sink Carbonator | $1,039.00 | 1 | $1,039.00 |
+| [Lilium Under-Sink Carbonator](https://liliumfaucet.com/products/under-sink-carbonated-soda-maker-sparkling-water-dispenser-with-3-way-faucet) | $1,039.00 | 1 | $1,039.00 |
 | **Subtotal (all parts)** | | | **~$1,770** |
 | *Tools (if not already owned):* | | | |
-| RYOBI Drill/Driver Kit | $49.97 | 1 | $49.97 |
-| RYOBI Drill Bit Set (15-piece) | $12.97 | 1 | $12.97 |
-| Milwaukee 1-1/4" Hole Dozer with Arbor | $16.47 | 1 | $16.47 |
-| Wiss 10" Tradesmen Scissors | $21.97 | 1 | $21.97 |
-| Husky Precision Screwdriver Set | $4.88 | 1 | $4.88 |
-| Klein Tools 3005CR Ratcheting Crimper | $34.96 | 1 | $34.96 |
-| Apple USB-C to USB-C Cable (2m) | $18.00 | 1 | $18.00 |
-| LISEN USB-C to Micro USB Cable (2-pack) | $7.59 | 1 | $7.59 |
+| [RYOBI Drill/Driver Kit](https://www.homedepot.com/p/326680222) | $49.97 | 1 | $49.97 |
+| [RYOBI Drill Bit Set (15-piece)](https://www.homedepot.com/p/315853368) | $12.97 | 1 | $12.97 |
+| [Milwaukee 1-1/4" Hole Dozer with Arbor](https://www.homedepot.com/p/202327734) | $16.47 | 1 | $16.47 |
+| [Wiss 10" Tradesmen Scissors](https://www.homedepot.com/p/313487663) | $21.97 | 1 | $21.97 |
+| [Husky Precision Screwdriver Set](https://www.homedepot.com/p/302435926) | $4.88 | 1 | $4.88 |
+| [Klein Tools 3005CR Ratcheting Crimper](https://www.amazon.com/dp/B07WMB61J5) | $34.96 | 1 | $34.96 |
+| [Apple USB-C to USB-C Cable (2m)](https://www.amazon.com/dp/B0DCH5B2HF) | $18.00 | 1 | $18.00 |
+| [LISEN USB-C to Micro USB Cable (2-pack)](https://www.amazon.com/dp/B0D3BXM91B) | $7.59 | 1 | $7.59 |
 | **Total (with tools)** | | | **~$1,937** |
 
 ## License
