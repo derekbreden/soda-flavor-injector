@@ -128,7 +128,7 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | Part | Notes |
 |------|-------|
 | [SodaStream Pepsi Wild Cherry Zero Sugar](https://www.amazon.com/dp/B0G4NRDQB8) | Use FLAVOR_RATIO=20 |
-| [SodaStream MTN Dew Code Red](https://www.amazon.com/dp/B0CS191QMW) | Use FLAVOR_RATIO=20 |
+| [SodaStream Diet MTN Dew](https://www.amazon.com/dp/B0CS191QMW) | Use FLAVOR_RATIO=20 |
 
 ### Wiring and Connectors
 
@@ -304,7 +304,7 @@ Prices as of March 2026. Excludes the CO2 tank itself (refillable, widely availa
 | Pre-wired 12V LEDs (120-pack) | $12.99 | 1 | $12.99 |
 | TAPRITE CO2 Regulator | $92.95 | 1 | $92.95 |
 | SodaStream Pepsi Wild Cherry (4-pack) | $28.99 | 1 | $28.99 |
-| SodaStream MTN Dew Code Red (4-pack) | ~$29 | 1 | ~$29 |
+| SodaStream Diet MTN Dew (4-pack) | ~$29 | 1 | ~$29 |
 | **Subtotal (without carbonator)** | | | **~$498** |
 | Lilium Under-Sink Carbonator | $1,039.00 | 1 | $1,039.00 |
 | **Total** | | | **~$1,537** |
