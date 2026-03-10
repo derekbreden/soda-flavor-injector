@@ -29,12 +29,25 @@
 #define LED_FLAVOR1     21   // lit when flavor 1 is selected (blinks while dispensing)
 #define LED_FLAVOR2     15   // lit when flavor 2 is selected (blinks while dispensing)
 
-// ── Flavor ratio (the one knob) ──
+// ── Per-flavor ratio ──
 // Ratio of flavoring to water in 1:X notation. Lower = more flavor.
-//   6  = maximum (pump runs constantly at full flow)
-//  20  = default (current tuned recipe)
-//  ~24 = minimum (hard limit floor)
-#define FLAVOR_RATIO  20
+//   6  = maximum strength (traditional BIB, e.g. Coke syrup)
+//  20  = tuned for SodaStream concentrates
+//  ~24 = minimum strength (hard limit floor)
+#define FLAVOR1_RATIO  20   // SodaStream
+#define FLAVOR2_RATIO  20   // SodaStream  (set ~6 for BIB)
+
+// ── Per-flavor display image (sent to RP2040 display board) ──
+// Index into the RP2040's bitmap array:
+//   0 = Diet Wild Cherry Pepsi
+//   1 = Diet Mountain Dew
+//   2 = Diet Coke
+#define FLAVOR1_IMAGE   0
+#define FLAVOR2_IMAGE   1
+
+// ── Display UART ──
+#define DISPLAY_TX_PIN         32     // UART TX to RP2040 display (one-wire)
+#define CONFIG_SEND_INTERVAL_MS 30000  // resend image mapping every 30s
 
 // ── Pump hard limits (physical constraints) ──
 #define PUMP_ON_MIN_MS     50   // below this, pump doesn't reliably dispense
@@ -73,6 +86,7 @@ struct MotorChannel {
 struct Flavor {
   MotorChannel pump;
   MotorChannel valve;
+  uint8_t ratio;
 };
 
 Flavor flavors[] = {
@@ -80,11 +94,13 @@ Flavor flavors[] = {
   {
     { A_ENA, A_IN1, A_IN2 },   // pump
     { A_ENB, A_IN3, A_IN4 },   // valve
+    FLAVOR1_RATIO,
   },
   // Flavor 2 — Board B
   {
     { B_ENA, B_IN1, B_IN2 },   // pump
     { B_ENB, B_IN3, B_IN4 },   // valve
+    FLAVOR2_RATIO,
   },
 };
 
@@ -120,16 +136,16 @@ void IRAM_ATTR flowPulse() {
 //   S = 1.0 at FLAVOR_RATIO=20 (baseline recipe)
 // Off-time scales as baseline/S.  On-time is derived from duty cycle.
 // Both are clamped to hard limits.
-void computeCycleTiming(unsigned long pulses, unsigned long &onMs, unsigned long &offMs) {
+void computeCycleTiming(unsigned long pulses, uint8_t ratio, unsigned long &onMs, unsigned long &offMs) {
   unsigned long clamped = constrain(pulses, FLOW_MIN_PULSES, FLOW_FULL_PULSES);
 
-  // Baseline on/off at this flow rate (what FLAVOR_RATIO=20 produces)
+  // Baseline on/off at this flow rate (what ratio=20 produces)
   unsigned long onBase  = SHAPE_ON_BASE  + SHAPE_ON_SLOPE  * clamped;
   unsigned long offBase = SHAPE_OFF_BASE - SHAPE_OFF_SLOPE * clamped;
   unsigned long total   = onBase + offBase;
 
-  // Scale factor from FLAVOR_RATIO
-  float S = 2.5f - 1.5f * (FLAVOR_RATIO - 6) / 14.0f;
+  // Scale factor from ratio
+  float S = 2.5f - 1.5f * (ratio - 6) / 14.0f;
 
   // Duty cycle at this flow rate, scaled by S
   float duty = S * (float)onBase / (float)total;
@@ -175,6 +191,7 @@ bool valveOpen                   = false;
 unsigned long lastFlowCheck      = 0;
 unsigned long lastBlinkToggle    = 0;
 bool blinkState                  = true;
+unsigned long lastConfigSend     = 0;
 
 // ════════════════════════════════════════════════════════════
 //  Setup
@@ -210,8 +227,14 @@ void setup() {
   digitalWrite(LED_FLAVOR1, activeFlavor == 0 ? HIGH : LOW);
   digitalWrite(LED_FLAVOR2, activeFlavor == 1 ? HIGH : LOW);
 
+  // UART to display board (TX only, 9600 baud for noise tolerance)
+  Serial2.begin(9600, SERIAL_8N1, -1, DISPLAY_TX_PIN);
+  delay(500);  // let RP2040 UART initialize
+  Serial2.printf("MAP:%d,%d\n", FLAVOR1_IMAGE, FLAVOR2_IMAGE);
+
   Serial.println("Dual-Flavor Soda Maker ready!");
   Serial.printf("Active flavor: %d\n", activeFlavor + 1);
+  Serial.printf("Sent image mapping to display: %d,%d\n", FLAVOR1_IMAGE, FLAVOR2_IMAGE);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -279,7 +302,7 @@ void loop() {
       case PUMP_IDLE:
         // Waiting for flow — start a new cycle immediately
         if (flowPulses >= FLOW_MIN_PULSES) {
-          computeCycleTiming(flowPulses, cycleOnMs, cycleOffMs);
+          computeCycleTiming(flowPulses, active.ratio, cycleOnMs, cycleOffMs);
           cyclePulseSum = 0;
           cyclePulseReadings = 0;
           cycleSawZero = false;
@@ -317,7 +340,7 @@ void loop() {
             Serial.printf("── COOLDOWN  ── pump off for %dms\n", COOLDOWN_MS);
           } else {
             // Start next cycle using the averaged flow rate
-            computeCycleTiming(avg, cycleOnMs, cycleOffMs);
+            computeCycleTiming(avg, active.ratio, cycleOnMs, cycleOffMs);
             cyclePulseSum = 0;
             cyclePulseReadings = 0;
             cycleSawZero = false;
@@ -372,6 +395,12 @@ void loop() {
     uint8_t ledPin = (activeFlavor == 0) ? LED_FLAVOR1 : LED_FLAVOR2;
     digitalWrite(ledPin, blinkState ? HIGH : LOW);
     lastBlinkToggle = now;
+  }
+
+  // ── 5. Periodic display config resend ─────────────────────
+  if (now - lastConfigSend >= CONFIG_SEND_INTERVAL_MS) {
+    Serial2.printf("MAP:%d,%d\n", FLAVOR1_IMAGE, FLAVOR2_IMAGE);
+    lastConfigSend = now;
   }
 
   delay(10);
