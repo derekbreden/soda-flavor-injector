@@ -1,6 +1,6 @@
 # Soda Flavor Injector
 
-A dual-flavor soda fountain system that injects flavoring concentrate into cold carbonated water on demand. Press a button, get flavored soda from a tap at your kitchen sink.
+A dual-flavor soda fountain system that injects flavoring concentrate into cold carbonated water on demand. Open the tap, get flavored soda at your kitchen sink.
 
 The system uses peristaltic pumps controlled by an ESP32 that automatically adjust their duty cycle based on real-time water flow, maintaining consistent flavor strength whether you're filling a shot glass or a 2-liter bottle. A small round LCD display shows which flavor is currently selected.
 
@@ -22,9 +22,9 @@ Cold carbonated water flows from an under-counter carbonator through a dispenser
 A toggle switch (an air switch) selects between two flavors. The small LCD display updates to show which flavor is active.
 
 <p align="center">
-  <img src="docs/photos/countertop-annotated.jpg" width="500" alt="Kitchen countertop showing labeled soda dispenser faucet, flavor toggle switch, and garbage disposal air switch">
+  <img src="docs/photos/countertop-annotated.jpg" width="500" alt="Kitchen countertop showing soda dispenser faucet and flavor toggle switch">
 </p>
-<p align="center"><em>The countertop setup: a dedicated dispenser faucet and a flavor toggle air switch. The system activates automatically when water flows — no dispense button needed.</em></p>
+<p align="center"><em>The countertop: a dedicated dispenser faucet and a flavor toggle air switch.</em></p>
 
 ### Under the Counter
 
