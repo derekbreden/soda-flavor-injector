@@ -15,7 +15,7 @@ Cold carbonated water flows from an under-counter carbonator through a dispenser
 1. A solenoid valve opens (it stays closed between uses to prevent backflow and keep the lines primed)
 2. A peristaltic pump injects concentrate from a collapsible reservoir
 3. The pump duty-cycles on/off proportionally to the detected flow rate
-4. Flavored water exits through a multi-tube dispensing nozzle at the faucet
+4. Concentrate meets the water stream at the faucet spout
 
 A toggle switch (an air switch) selects between two flavors. The small LCD display updates to show which flavor is active.
 
@@ -33,7 +33,7 @@ Everything lives inside the sink cabinet:
 </p>
 <p align="center"><em>Left to right: CO2 tank with dual-gauge regulator, Lilium carbonator, Platypus bag filled with concentrate, and the control panel with pumps and valves.</em></p>
 
-The dispenser faucet has silicone tubes running through the gooseneck alongside the water line, delivering concentrate right at the nozzle:
+Silicone concentrate lines are zip-tied to the outside of the faucet gooseneck:
 
 <p align="center">
   <img src="docs/photos/faucet-side.jpg" width="400" alt="Side view of dispenser faucet with silicone tubes bundled along the gooseneck">
