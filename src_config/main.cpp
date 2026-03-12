@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
 #include <Adafruit_NeoPixel.h>
+#include <lvgl.h>
+#include "CST816D.h"
+#include "font_ratio_64.h"
 
 // ════════════════════════════════════════════════════════════
 //  ESP32-S3 Config Display — Soda Flavor Injector
@@ -20,7 +23,7 @@
 #define ENCODER_DT  42
 #define ENCODER_BTN 41
 
-// ── Touch (CST816D, not used yet) ──
+// ── Touch (CST816D) ──
 #define TOUCH_SDA  6
 #define TOUCH_SCL  7
 #define TOUCH_INT  5
@@ -37,43 +40,254 @@
 
 #define NUM_IMAGES 3
 const uint16_t* images[NUM_IMAGES] = { flavor0_240, flavor1_240, flavor2_240 };
-const char* imageNames[NUM_IMAGES] = { "Pepsi", "MTN Dew", "Coke" };
 
-Arduino_ESP32SPI *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCLK, TFT_MOSI, GFX_NOT_DEFINED, FSPI, true);
-Arduino_GC9A01 *gfx = new Arduino_GC9A01(bus, TFT_RST, 0, true);
-
+// ── Hardware objects ──
+Arduino_ESP32SPI *spi_bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCLK, TFT_MOSI, GFX_NOT_DEFINED, FSPI, true);
+Arduino_GC9A01 *hw_display = new Arduino_GC9A01(spi_bus, TFT_RST, 0, true);
 Adafruit_NeoPixel leds(LED_COUNT, LED_DATA, NEO_GRB + NEO_KHZ800);
+CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
+
+// ── LVGL display buffer ──
+static lv_disp_draw_buf_t draw_buf;
+static lv_color_t *lvgl_buf;
+
+// ── Config state (will sync from ESP32 via UART in Phase 6) ──
+uint8_t flavor1Image = 0;
+uint8_t flavor2Image = 1;
+uint8_t flavor1Ratio = 20;
+uint8_t flavor2Ratio = 20;
+
+// ── Menu ──
+enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU_COUNT };
+const char* menuLabels[] = { "Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio" };
+
+int menuIndex = 0;
+bool editing = false;
 
 // ── Encoder state ──
-int encoderPos = 0;
 int lastClk = HIGH;
 
-void showImage(int idx) {
-  gfx->draw16bitRGBBitmap(0, 0, images[idx], 240, 240);
-  Serial.printf("Showing image %d: %s\n", idx, imageNames[idx]);
+// ── Touch state ──
+unsigned long lastTapTime = 0;
+bool lastTouchState = false;
+
+// ── Circular image rendering ──
+// Browse: 90px diameter, Edit: 128px diameter (matches external RP2040 display)
+#define THUMB_BROWSE 90
+#define THUMB_EDIT   128
+#define THUMB_MAX    128
+static lv_color_t thumb_buf[THUMB_MAX * THUMB_MAX];
+
+void renderCircularThumb(uint8_t imgIdx, int size) {
+  const uint16_t *src = images[imgIdx];
+  int radius = size / 2;
+  int r2 = radius * radius;
+  for (int y = 0; y < size; y++) {
+    int dy = y - radius;
+    int srcY = y * 240 / size;
+    for (int x = 0; x < size; x++) {
+      int dx = x - radius;
+      if (dx * dx + dy * dy <= r2) {
+        int srcX = x * 240 / size;
+        thumb_buf[y * size + x].full = src[srcY * 240 + srcX];
+      } else {
+        thumb_buf[y * size + x].full = 0;
+      }
+    }
+  }
 }
+
+// ── LVGL flush callback ──
+void lvgl_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p) {
+  uint32_t w = area->x2 - area->x1 + 1;
+  uint32_t h = area->y2 - area->y1 + 1;
+  hw_display->draw16bitRGBBitmap(area->x1, area->y1, (uint16_t *)&color_p->full, w, h);
+  lv_disp_flush_ready(disp);
+}
+
+// ── Helpers ──
+uint8_t getCurrentImage() {
+  return (menuIndex == MENU_F1_IMAGE) ? flavor1Image : flavor2Image;
+}
+
+uint8_t getCurrentRatio() {
+  return (menuIndex == MENU_F1_RATIO) ? flavor1Ratio : flavor2Ratio;
+}
+
+bool isImageItem() {
+  return (menuIndex == MENU_F1_IMAGE || menuIndex == MENU_F2_IMAGE);
+}
+
+// ── UI drawing ──
+
+void drawNavDots() {
+  int dotSpacing = 16;
+  int totalWidth = (MENU_COUNT - 1) * dotSpacing;
+  int startX = (240 - totalWidth) / 2;
+  for (int i = 0; i < MENU_COUNT; i++) {
+    lv_obj_t *dot = lv_obj_create(lv_scr_act());
+    lv_obj_remove_style_all(dot);
+    lv_obj_set_size(dot, 6, 6);
+    lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_opa(dot, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(dot,
+      (i == menuIndex) ? lv_color_white() : lv_color_hex(0x303030), 0);
+    lv_obj_set_pos(dot, startX + i * dotSpacing - 3, 207);
+  }
+}
+
+void drawBrowse() {
+  lv_obj_t *scr = lv_scr_act();
+  lv_obj_clean(scr);
+  lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
+
+  // Title
+  lv_obj_t *title = lv_label_create(scr);
+  lv_label_set_text(title, menuLabels[menuIndex]);
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(title, lv_color_hex(0x808080), 0);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
+
+  if (isImageItem()) {
+    renderCircularThumb(getCurrentImage(), THUMB_BROWSE);
+    lv_obj_t *canvas = lv_canvas_create(scr);
+    lv_canvas_set_buffer(canvas, thumb_buf, THUMB_BROWSE, THUMB_BROWSE, LV_IMG_CF_TRUE_COLOR);
+    lv_obj_align(canvas, LV_ALIGN_CENTER, 0, 10);
+  } else {
+    char buf[8];
+    snprintf(buf, sizeof(buf), "1:%d", getCurrentRatio());
+    lv_obj_t *ratio = lv_label_create(scr);
+    lv_label_set_text(ratio, buf);
+    lv_obj_set_style_text_font(ratio, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_color(ratio, lv_color_hex(0x808080), 0);
+    lv_obj_align(ratio, LV_ALIGN_CENTER, 0, 10);
+  }
+
+  drawNavDots();
+}
+
+void drawEdit() {
+  lv_obj_t *scr = lv_scr_act();
+  lv_obj_clean(scr);
+  lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
+
+  // Title — always white when editing
+  lv_obj_t *title = lv_label_create(scr);
+  lv_label_set_text(title, menuLabels[menuIndex]);
+  lv_obj_set_style_text_color(title, lv_color_white(), 0);
+
+  if (isImageItem()) {
+    renderCircularThumb(getCurrentImage(), THUMB_EDIT);
+    lv_obj_t *canvas = lv_canvas_create(scr);
+    lv_canvas_set_buffer(canvas, thumb_buf, THUMB_EDIT, THUMB_EDIT, LV_IMG_CF_TRUE_COLOR);
+    lv_obj_align(canvas, LV_ALIGN_CENTER, 0, 8);
+
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 28);
+  } else {
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 50);
+
+    char buf[8];
+    snprintf(buf, sizeof(buf), "1:%d", getCurrentRatio());
+    lv_obj_t *ratio = lv_label_create(scr);
+    lv_label_set_text(ratio, buf);
+    lv_obj_set_style_text_font(ratio, &font_ratio_64, 0);
+    lv_obj_set_style_text_color(ratio, lv_color_white(), 0);
+    lv_obj_align(ratio, LV_ALIGN_CENTER, 0, 10);
+  }
+}
+
+void drawScreen() {
+  if (editing) {
+    drawEdit();
+  } else {
+    drawBrowse();
+  }
+  lv_refr_now(NULL);
+}
+
+// ── Input reading ──
+
+int readEncoder() {
+  int clk = digitalRead(ENCODER_CLK);
+  int direction = 0;
+  if (clk != lastClk && clk == LOW) {
+    int dt = digitalRead(ENCODER_DT);
+    direction = (dt != clk) ? 1 : -1;
+  }
+  lastClk = clk;
+  return direction;
+}
+
+bool readTap() {
+  uint16_t x, y;
+  uint8_t gesture;
+  bool touching = touch.getTouch(&x, &y, &gesture);
+  bool tapped = (touching && !lastTouchState && millis() - lastTapTime > 300);
+  if (tapped) lastTapTime = millis();
+  lastTouchState = touching;
+  return tapped;
+}
+
+// ── Menu logic ──
+
+void handleNavigation(int dir) {
+  if (dir == 0) return;
+
+  if (editing) {
+    switch (menuIndex) {
+      case MENU_F1_IMAGE:
+        flavor1Image = (flavor1Image + dir + NUM_IMAGES) % NUM_IMAGES;
+        break;
+      case MENU_F1_RATIO:
+        flavor1Ratio = constrain(flavor1Ratio + dir, 6, 24);
+        break;
+      case MENU_F2_IMAGE:
+        flavor2Image = (flavor2Image + dir + NUM_IMAGES) % NUM_IMAGES;
+        break;
+      case MENU_F2_RATIO:
+        flavor2Ratio = constrain(flavor2Ratio + dir, 6, 24);
+        break;
+    }
+    drawScreen();
+  } else {
+    menuIndex = (menuIndex + dir + MENU_COUNT) % MENU_COUNT;
+    drawScreen();
+  }
+}
+
+void handleTap() {
+  if (editing) {
+    editing = false;
+    Serial.printf("Confirmed: %s\n", menuLabels[menuIndex]);
+    // TODO Phase 6: send SET + SAVE to ESP32 via UART
+  } else {
+    editing = true;
+    Serial.printf("Editing: %s\n", menuLabels[menuIndex]);
+  }
+  drawScreen();
+}
+
+// ── Arduino setup/loop ──
 
 void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println("ESP32-S3 Config Display starting...");
 
-  // LEDs - light up green immediately to confirm firmware is running
+  // LEDs — off (were green for debugging)
   leds.begin();
-  leds.setBrightness(30);
-  for (int i = 0; i < LED_COUNT; i++) {
-    leds.setPixelColor(i, leds.Color(0, 255, 0));
-  }
+  leds.clear();
   leds.show();
-  Serial.println("LEDs set to green.");
 
   // Power pins (required by CrowPanel hardware)
   pinMode(40, OUTPUT);
-  digitalWrite(40, LOW);   // Power indicator LED off
+  digitalWrite(40, LOW);
   pinMode(1, OUTPUT);
-  digitalWrite(1, HIGH);   // Display power enable 1
+  digitalWrite(1, HIGH);
   pinMode(2, OUTPUT);
-  digitalWrite(2, HIGH);   // Display power enable 2
+  digitalWrite(2, HIGH);
 
   // Backlight
   pinMode(TFT_BLK, OUTPUT);
@@ -84,43 +298,42 @@ void setup() {
   pinMode(ENCODER_DT, INPUT_PULLUP);
   pinMode(ENCODER_BTN, INPUT_PULLUP);
 
-  // Display init
-  gfx->begin();
-  gfx->fillScreen(0x0000);
+  // Touch
+  touch.begin();
 
-  // Show first image
-  showImage(0);
+  // Display hardware init
+  hw_display->begin();
+
+  // LVGL init
+  lv_init();
+
+  // Allocate full-screen draw buffer (115KB — fits in ESP32-S3 SRAM)
+  lvgl_buf = (lv_color_t *)malloc(240 * 240 * sizeof(lv_color_t));
+  lv_disp_draw_buf_init(&draw_buf, lvgl_buf, NULL, 240 * 240);
+
+  // Register display driver
+  static lv_disp_drv_t disp_drv;
+  lv_disp_drv_init(&disp_drv);
+  disp_drv.hor_res = 240;
+  disp_drv.ver_res = 240;
+  disp_drv.flush_cb = lvgl_flush;
+  disp_drv.draw_buf = &draw_buf;
+  lv_disp_drv_register(&disp_drv);
+
   lastClk = digitalRead(ENCODER_CLK);
 
-  Serial.println("Ready. Rotate encoder to browse images, press to select.");
+  drawScreen();
+  Serial.println("Ready. Rotate to navigate, tap to edit/confirm.");
 }
 
 void loop() {
-  // Read encoder
-  int clk = digitalRead(ENCODER_CLK);
-  if (clk != lastClk && clk == LOW) {
-    int dt = digitalRead(ENCODER_DT);
-    if (dt != clk) {
-      encoderPos++;
-    } else {
-      encoderPos--;
-    }
-    // Wrap around
-    int idx = encoderPos % NUM_IMAGES;
-    if (idx < 0) idx += NUM_IMAGES;
-    showImage(idx);
-  }
-  lastClk = clk;
+  int dir = readEncoder();
+  handleNavigation(dir);
 
-  // Button press
-  static bool lastBtn = HIGH;
-  bool btn = digitalRead(ENCODER_BTN);
-  if (btn == LOW && lastBtn == HIGH) {
-    int idx = encoderPos % NUM_IMAGES;
-    if (idx < 0) idx += NUM_IMAGES;
-    Serial.printf("Button pressed on image %d: %s\n", idx, imageNames[idx]);
+  if (readTap()) {
+    handleTap();
   }
-  lastBtn = btn;
 
-  delay(1);
+  lv_timer_handler();
+  delay(5);
 }
