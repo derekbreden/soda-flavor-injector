@@ -28,7 +28,7 @@
 
 // ── LEDs ──
 #define LED_FLAVOR1     21   // lit when flavor 1 is selected (blinks while dispensing)
-#define LED_FLAVOR2      2   // lit when flavor 2 is selected (was GPIO 15, now GPIO 2)
+#define LED_FLAVOR2      2   // lit when flavor 2 is selected (blinks while dispensing)
 
 // ── Per-flavor config (runtime, persisted in NVS) ──
 // Ratio: flavoring to water in 1:X. Lower = more flavor.
@@ -185,7 +185,7 @@ bool    primePressed   = false;
 // ── Pump state machine ──
 // A "cycle" = one ON phase + one OFF phase, timing locked at cycle start.
 // PRIME = manual override, pump runs continuously.
-// COOLDOWN = saw a zero during cycle, pump off for 500ms, readings discarded.
+// COOLDOWN = saw a zero during cycle, pump off for 1000ms, readings discarded.
 enum PumpState { PUMP_IDLE, PUMP_ON, PUMP_OFF, PUMP_COOLDOWN, PUMP_PRIME };
 PumpState pumpState              = PUMP_IDLE;
 unsigned long phaseStart         = 0;

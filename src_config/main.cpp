@@ -366,7 +366,7 @@ void setup() {
   delay(500);
   Serial.println("ESP32-S3 Config Display starting...");
 
-  // LEDs — off (were green for debugging)
+  // RGB LEDs (unused, turned off)
   leds.begin();
   leds.clear();
   leds.show();

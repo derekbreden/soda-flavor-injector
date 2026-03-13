@@ -1,6 +1,6 @@
 # Soda Flavor Injector
 
-ESP32 + RP2040 project that injects flavoring concentrate into cold carbonated water from an under-counter carbonator. Peristaltic pumps duty-cycle based on real-time flow meter readings to maintain consistent flavor strength. A round LCD display shows which flavor is selected.
+ESP32 + RP2040 + ESP32-S3 project that injects flavoring concentrate into cold carbonated water from an under-counter carbonator. Peristaltic pumps duty-cycle based on real-time flow meter readings to maintain consistent flavor strength. A round LCD display shows which flavor is selected, and a separate rotary touchscreen display lets you change flavor images and ratios at runtime.
 
 <p align="center">
   <img src="docs/photos/display-pepsi-cherry.jpg" width="360" alt="Front panel showing LCD display with Diet Pepsi Cherry logo and air switch buttons">
@@ -42,23 +42,24 @@ Silicone concentrate lines are zip-tied to the outside of the faucet gooseneck:
 
 ### Architecture
 
-The system runs on two microcontrollers:
+The system runs on three microcontrollers:
 
-- **ESP32** - Main controller. Reads the flow meter, drives pumps and valves via L298N motor drivers, manages the pump state machine, and sends display configuration over UART.
-- **RP2040** (Waveshare RP2040-LCD-0.99) - Display controller. Shows the selected flavor logo on a 128x115 round LCD. Reads the same physical toggle switch for instant visual feedback.
+- **ESP32** — Main controller. Reads the flow meter, drives pumps and valves via L298N motor drivers, manages the pump state machine, stores config in NVS, and coordinates the other boards over UART.
+- **RP2040** (Waveshare RP2040-LCD-0.99) — Display controller. Shows the selected flavor logo on a 128x115 round LCD. Reads the same physical toggle switch for instant visual feedback.
+- **ESP32-S3** (Elecrow CrowPanel 1.28" Rotary Display) — Config display. A 240x240 round touchscreen with a rotary encoder for changing flavor images and ratios at runtime. Syncs config to the ESP32 over UART.
 
 ```
                         ┌─────────────────────┐
   Carbonated Water ───→ │ Flow Meter (GPIO 23) │
                         └──────────┬──────────┘
                                    │ pulses
-                        ┌──────────▼──────────┐
-                        │   ESP32 Controller   │
-                        │                      │
-                        │  Pump State Machine   │
-                        │  IDLE → ON → OFF ──→ │──(cycle repeats)
-                        │    └── COOLDOWN       │
-                        │    └── PRIME (manual)  │
+  ┌───────────────┐     ┌──────────▼──────────┐
+  │ ESP32-S3      │     │   ESP32 Controller   │
+  │ Config Display│     │                      │
+  │ 240x240 touch │◄───►│  Pump State Machine   │
+  │ + encoder     │UART │  IDLE → ON → OFF ──→ │──(cycle repeats)
+  │               │9600 │    └── COOLDOWN       │
+  └───────────────┘     │    └── PRIME (manual)  │
                         └──┬────────┬────────┬─┘
                            │        │        │
                     UART TX│   L298N A  L298N B
@@ -80,9 +81,9 @@ The pump doesn't just run at a fixed speed. It duty-cycles (on/off/on/off) with 
 | Slow (1 pulse/50ms) | 50ms | 600ms | ~8% |
 | Full (6 pulses/50ms) | 200ms | 300ms | ~40% |
 
-This is further scaled by a per-flavor **ratio** parameter:
-- `FLAVOR_RATIO = 20` — tuned for SodaStream concentrates (1:20 concentrate-to-water)
-- `FLAVOR_RATIO = 6` — for bag-in-box syrup (traditional fountain ratio)
+This is further scaled by a per-flavor **ratio** parameter (configurable at runtime via the config display):
+- Ratio 20 — tuned for SodaStream concentrates (1:20 concentrate-to-water)
+- Ratio 6 — for bag-in-box syrup (traditional fountain ratio)
 
 ## Parts List
 
@@ -95,6 +96,7 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | [ESP32-DevKitC-32E](https://www.amazon.com/dp/B09MQJWQN2) | Main controller |
 | [ESP32 DIN Rail Breakout Board](https://www.amazon.com/dp/B0BW4SJ5X2) | Clean wiring for ESP32 GPIOs |
 | [Waveshare RP2040 Round LCD (0.99")](https://www.amazon.com/dp/B0CTSPYND2) | Flavor display (128x115 GC9107) |
+| [Elecrow CrowPanel 1.28" ESP32-S3 Rotary Display](https://www.amazon.com/dp/B0DQM9SFMM) | Config display (240x240 GC9A01A, touch + encoder) |
 | [L298N Dual H-Bridge Motor Driver](https://www.amazon.com/dp/B0C5JCF5RS) x2 (link is a 4-pack) | Drive pumps and solenoid valves |
 | [12V 2A Power Supply](https://www.amazon.com/dp/B0DZGTTBGZ) | Powers pumps and valves |
 
@@ -127,8 +129,8 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 
 | Part | Notes |
 |------|-------|
-| [SodaStream Pepsi Wild Cherry Zero Sugar](https://www.amazon.com/dp/B0G4NRDQB8) | Use FLAVOR_RATIO=20 |
-| [SodaStream Diet MTN Dew](https://www.amazon.com/dp/B0CS191QMW) | Use FLAVOR_RATIO=20 |
+| [SodaStream Pepsi Wild Cherry Zero Sugar](https://www.amazon.com/dp/B0G4NRDQB8) | Default ratio 1:20 |
+| [SodaStream Diet MTN Dew](https://www.amazon.com/dp/B0CS191QMW) | Default ratio 1:20 |
 
 ### Wiring and Connectors
 
@@ -209,8 +211,10 @@ Most builders will already have these on hand.
 | Prime button | 22 | Momentary, INPUT_PULLUP |
 | Flow meter | 23 | Hall effect, FALLING edge interrupt |
 | Flavor 1 LED | 21 | Steady = selected, blink = dispensing |
-| Flavor 2 LED | 15 | Steady = selected, blink = dispensing |
-| Display UART TX | 32 | 9600 baud to RP2040 |
+| Flavor 2 LED | 2 | Steady = selected, blink = dispensing |
+| Display UART TX | 32 | 9600 baud, one-way to RP2040 (Serial2) |
+| Config UART TX | 15 | 9600 baud, to ESP32-S3 (Serial1) |
+| Config UART RX | 34 | 9600 baud, from ESP32-S3 (input-only pin) |
 
 ### RP2040 Pin Assignments
 
@@ -225,9 +229,36 @@ Most builders will already have these on hand.
 | LCD RST | 13 | Fixed on board |
 | LCD Backlight | 25 | Fixed on board |
 
+### ESP32-S3 Pin Assignments (CrowPanel 1.28")
+
+All pins are fixed by the CrowPanel board design.
+
+| Function | GPIO | Notes |
+|----------|------|-------|
+| LCD SPI MOSI | 11 | GC9A01A, 240x240 |
+| LCD SPI SCLK | 10 | |
+| LCD CS | 9 | |
+| LCD DC | 3 | |
+| LCD RST | 14 | |
+| LCD Backlight | 46 | |
+| Display power 1 | 1 | Must be set HIGH |
+| Display power 2 | 2 | Must be set HIGH |
+| Touch SDA | 6 | CST816D, Wire1 I2C |
+| Touch SCL | 7 | |
+| Touch INT | 5 | |
+| Touch RST | 13 | |
+| Encoder CLK | 45 | |
+| Encoder DT | 42 | |
+| Encoder BTN | 41 | |
+| RGB LEDs | 48 | WS2812 x5 (unused) |
+| UART TX (J34) | 43 | 9600 baud to ESP32 |
+| UART RX (J34) | 44 | 9600 baud from ESP32 |
+
 ### Inter-Board Communication
 
-The ESP32 sends a one-way UART message to the RP2040 to configure which flavor image maps to which position:
+**ESP32 → RP2040 (one-way, Serial2, GPIO 32):**
+
+The ESP32 sends a UART message to the RP2040 to configure which flavor image maps to which position:
 
 ```
 Format: MAP:<image0>,<image1>\n
@@ -238,9 +269,36 @@ Image indices: 0 = Diet Wild Cherry Pepsi, 1 = Diet Mountain Dew, 2 = Diet Coke
 
 The RP2040 persists this mapping to flash (LittleFS) so it survives power cycles. The ESP32 resends the mapping every 30 seconds for resilience.
 
+**ESP32 ↔ ESP32-S3 (bidirectional, Serial1, GPIO 15 TX / GPIO 34 RX):**
+
+The ESP32-S3 config display communicates with the ESP32 to read and write runtime configuration. The ESP32 is the single source of truth; config is persisted in NVS.
+
+On boot, the S3 sends `GET_CONFIG` every 500ms until the ESP32 responds. When the user changes a value on the config display and confirms with a tap, the S3 sends `SET:` followed by `SAVE`.
+
+```
+S3 → ESP32:  GET_CONFIG
+ESP32 → S3:  CONFIG:F1_RATIO=20,F2_RATIO=20,F1_IMAGE=0,F2_IMAGE=1,NUM_IMAGES=3
+
+S3 → ESP32:  SET:F1_RATIO=18
+ESP32 → S3:  OK:F1_RATIO=18
+
+S3 → ESP32:  SET:F1_IMAGE=2
+ESP32 → S3:  OK:F1_IMAGE=2         (also sends MAP:2,1 to RP2040)
+
+S3 → ESP32:  SET:F1_RATIO=30
+ESP32 → S3:  ERR:F1_RATIO out of range
+
+S3 → ESP32:  SAVE
+ESP32 → S3:  OK:SAVED              (persists to NVS)
+```
+
+Valid keys and ranges: `F1_RATIO` (6-24), `F2_RATIO` (6-24), `F1_IMAGE` (0-2), `F2_IMAGE` (0-2). The same commands work over USB serial for testing.
+
+Boot order does not matter. The S3 retries `GET_CONFIG` until the ESP32 is ready, and the ESP32 loads config from NVS independently.
+
 ## Building and Flashing
 
-This is a [PlatformIO](https://platformio.org/) project with two build environments.
+This is a [PlatformIO](https://platformio.org/) project with three build environments.
 
 ### Flash the ESP32 (main controller)
 
@@ -256,41 +314,50 @@ pio run -e rp2040_display -t upload
 
 The RP2040 uses the [earlephilhower Arduino core](https://github.com/earlephilhower/arduino-pico) and the [GFX Library for Arduino](https://github.com/moononournation/Arduino_GFX) for the GC9107 LCD driver.
 
+### Flash the ESP32-S3 (config display)
+
+```bash
+pio run -e esp32s3_config -t upload
+```
+
+The ESP32-S3 uses the [pioarduino platform](https://github.com/pioarduino/platform-espressif32) for Arduino core 3.x support, [LVGL v8.4](https://github.com/lvgl/lvgl) for the UI, and the [GFX Library for Arduino](https://github.com/moononournation/Arduino_GFX) for the GC9A01A display driver. A custom 64px Montserrat font (`src_config/font_ratio_64.h`) is used for the ratio edit screen.
+
 ### Adding a New Flavor Image
+
+Flavor images exist in two sizes: 128x115 for the RP2040 display and 240x240 for the ESP32-S3 config display.
+
+**RP2040 (128x115):**
 
 1. Create a 128x115 pixel image
 2. Convert it to a C header with a `uint16_t[]` array in RGB565 format
 3. Add the header as `src_display/flavor<N>_bitmap.h`
 4. Include it in `src_display/main.cpp` and add the pointer to the `bitmaps[]` array
-5. Update `FLAVOR1_IMAGE` / `FLAVOR2_IMAGE` in `src/main.cpp` to reference the new index
+
+**ESP32-S3 (240x240):**
+
+1. Place the source PNG in `tools/` and run `python tools/png_to_rgb565.py <input>.png src_config/images/flavor<N>_240.h flavor<N>_240`
+2. Include the header in `src_config/main.cpp` and add the pointer to the `images[]` array
+
+Update `NUM_IMAGES` in both `src/main.cpp` and `src_config/main.cpp` to match the new count.
 
 ## Configuration
 
-All tuning parameters are `#define`s at the top of `src/main.cpp`.
+### Runtime Config (via Config Display or USB Serial)
 
-### Flavor Ratio
+Flavor ratios and display image assignments are stored in the ESP32's NVS (non-volatile storage) and can be changed at runtime using the ESP32-S3 config display or by sending commands over USB serial:
 
-The most important parameter. Controls how much concentrate is injected relative to water flow.
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| F1_RATIO | 6-24 | 20 | Flavor 1 concentrate-to-water ratio (lower = stronger) |
+| F2_RATIO | 6-24 | 20 | Flavor 2 concentrate-to-water ratio |
+| F1_IMAGE | 0-2 | 0 | Flavor 1 display image (0=Pepsi Cherry, 1=Dew, 2=Coke) |
+| F2_IMAGE | 0-2 | 1 | Flavor 2 display image |
 
-```cpp
-#define FLAVOR1_RATIO  20   // SodaStream concentrate (1:20)
-#define FLAVOR2_RATIO  20   // SodaStream concentrate (1:20)
-```
+To change config over USB serial (115200 baud), connect to the ESP32 and send commands like `SET:F1_RATIO=18` followed by `SAVE`. Send `GET_CONFIG` to see current values.
 
-- **6** = maximum strength, for bag-in-box (BIB) syrup
-- **20** = tuned for SodaStream concentrates
-- **~24** = minimum strength (hard limit)
+### Compile-Time Tuning
 
-### Display Image Mapping
-
-```cpp
-#define FLAVOR1_IMAGE   0   // 0=Pepsi, 1=Dew, 2=Coke
-#define FLAVOR2_IMAGE   1
-```
-
-### Advanced Tuning
-
-These control the pump duty cycle shape and generally don't need adjustment:
+These control the pump duty cycle shape and generally don't need adjustment. They are `#define`s at the top of `src/main.cpp`:
 
 ```cpp
 #define PUMP_ON_MIN_MS     50    // minimum pump on-time
@@ -310,6 +377,7 @@ Prices as of March 2026.
 | [ESP32-DevKitC-32E](https://www.amazon.com/dp/B09MQJWQN2) | $11.00 | 1 | $11.00 |
 | [ESP32 DIN Rail Breakout Board](https://www.amazon.com/dp/B0BW4SJ5X2) | $25.99 | 1 | $25.99 |
 | [Waveshare RP2040 Round LCD (0.99")](https://www.amazon.com/dp/B0CTSPYND2) | $23.99 | 1 | $23.99 |
+| [Elecrow CrowPanel 1.28" ESP32-S3 Rotary Display](https://www.amazon.com/dp/B0DQM9SFMM) | $18.99 | 1 | $18.99 |
 | [L298N Motor Driver (4-pack)](https://www.amazon.com/dp/B0C5JCF5RS) | $9.99 | 1 | $9.99 |
 | [12V 2A Power Supply](https://www.amazon.com/dp/B0DZGTTBGZ) | $9.99 | 1 | $9.99 |
 | [Kamoer Peristaltic Pump](https://www.amazon.com/dp/B09MS6C91D) | $32.55 | 2 | $65.10 |
@@ -333,9 +401,9 @@ Prices as of March 2026.
 | [#8 x 1/2" Wood Screws (100-pack)](https://www.homedepot.com/p/204275505) | $6.87 | 1 | $6.87 |
 | [SodaStream Pepsi Wild Cherry (4-pack)](https://www.amazon.com/dp/B0G4NRDQB8) | $28.99 | 1 | $28.99 |
 | [SodaStream Diet MTN Dew (4-pack)](https://www.amazon.com/dp/B0CS191QMW) | ~$29 | 1 | ~$29 |
-| **Subtotal (without carbonator)** | | | **~$731** |
+| **Subtotal (without carbonator)** | | | **~$750** |
 | [Lilium Under-Sink Carbonator](https://liliumfaucet.com/products/under-sink-carbonated-soda-maker-sparkling-water-dispenser-with-3-way-faucet) | $1,039.00 | 1 | $1,039.00 |
-| **Subtotal (all parts)** | | | **~$1,770** |
+| **Subtotal (all parts)** | | | **~$1,789** |
 | *Tools (if not already owned):* | | | |
 | [RYOBI Drill/Driver Kit](https://www.homedepot.com/p/326680222) | $49.97 | 1 | $49.97 |
 | [RYOBI Drill Bit Set (15-piece)](https://www.homedepot.com/p/315853368) | $12.97 | 1 | $12.97 |
@@ -345,7 +413,7 @@ Prices as of March 2026.
 | [Klein Tools 3005CR Ratcheting Crimper](https://www.amazon.com/dp/B07WMB61J5) | $34.96 | 1 | $34.96 |
 | [Apple USB-C to USB-C Cable (2m)](https://www.amazon.com/dp/B0DCH5B2HF) | $18.00 | 1 | $18.00 |
 | [LISEN USB-C to Micro USB Cable (2-pack)](https://www.amazon.com/dp/B0D3BXM91B) | $7.59 | 1 | $7.59 |
-| **Total (with tools)** | | | **~$1,937** |
+| **Total (with tools)** | | | **~$1,956** |
 
 ## License
 

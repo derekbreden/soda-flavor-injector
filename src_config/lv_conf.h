@@ -23,8 +23,8 @@
 /* Display DPI (240px / 1.28" ≈ 188, but 130 is LVGL's recommended default) */
 #define LV_DPI_DEF 130
 
-/* Fonts: Montserrat with kerning at sizes we need.
-   14 is the default and always enabled. */
+/* Fonts: Montserrat with kerning at sizes we need */
+#define LV_FONT_MONTSERRAT_14 1
 #define LV_FONT_MONTSERRAT_16 1
 #define LV_FONT_MONTSERRAT_28 1
 #define LV_FONT_MONTSERRAT_48 1
