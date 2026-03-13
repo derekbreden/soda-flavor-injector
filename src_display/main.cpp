@@ -43,9 +43,13 @@ static uint8_t numImages = 0;
 static int8_t activeFlavor = -1;
 static uint16_t displayBuffer[SCREEN_W * SCREEN_H];  // RAM buffer for current image
 
-#define CONFIG_PATH "/config.txt"
-#define META_PATH   "/meta.txt"
-#define MAX_IMAGES  99
+#define CONFIG_PATH  "/config.txt"
+#define META_PATH    "/meta.txt"
+#define LABELS_PATH  "/labels.txt"
+#define MAX_IMAGES   99
+#define MAX_LABEL_LEN 32
+
+static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];  // null-terminated labels per slot
 
 // ════════════════════════════════════════════════════════════
 //  CRC-16/CCITT (poly 0x1021, init 0xFFFF)
@@ -105,6 +109,29 @@ static void updateMeta() {
   }
 }
 
+static void loadLabels() {
+  memset(labels, 0, sizeof(labels));
+  if (!LittleFS.exists(LABELS_PATH)) return;
+  File f = LittleFS.open(LABELS_PATH, "r");
+  if (!f) return;
+  for (uint8_t i = 0; i < MAX_IMAGES && f.available(); i++) {
+    String line = f.readStringUntil('\n');
+    line.trim();
+    strncpy(labels[i], line.c_str(), MAX_LABEL_LEN);
+    labels[i][MAX_LABEL_LEN] = '\0';
+  }
+  f.close();
+}
+
+static void saveLabels() {
+  File f = LittleFS.open(LABELS_PATH, "w");
+  if (!f) return;
+  for (uint8_t i = 0; i < numImages; i++) {
+    f.println(labels[i]);
+  }
+  f.close();
+}
+
 static bool loadImageFromFS(uint8_t slot) {
   char path[16];
   imagePath(path, slot);
@@ -125,6 +152,11 @@ static const uint16_t *seedBitmaps[] = {
   flavor2_bitmap,   // 1 = Diet Mountain Dew
   flavor3_bitmap,   // 2 = Diet Coke
 };
+static const char *seedLabels[] = {
+  "diet_wild_cherry_pepsi",
+  "diet_mtn_dew",
+  "diet_coke",
+};
 
 static void seedDefaultImages() {
   if (LittleFS.exists(META_PATH)) return;  // already seeded
@@ -141,7 +173,14 @@ static void seedDefaultImages() {
       Serial.printf("  Seeded %s (%d bytes)\n", path, IMAGE_BYTES);
     }
   }
+  // Set default labels
+  for (uint8_t i = 0; i < 3; i++) {
+    strncpy(labels[i], seedLabels[i], MAX_LABEL_LEN);
+    labels[i][MAX_LABEL_LEN] = '\0';
+  }
+
   updateMeta();
+  saveLabels();
   Serial.println("Seeding complete.");
 }
 
@@ -199,12 +238,16 @@ static void drawFlavor(uint8_t flavor) {
 #define CMD_CHUNK_DATA   0x02
 #define CMD_UPLOAD_DONE  0x03
 #define CMD_QUERY_COUNT  0x04
+#define CMD_DELETE_IMAGE 0x05
+#define CMD_SWAP_IMAGES  0x06
 
 // Responses (RP2040 -> ESP32)
 #define RESP_READY          0x10
 #define RESP_CHUNK_OK       0x11
 #define RESP_UPLOAD_OK      0x12
+#define RESP_DELETE_OK      0x13
 #define RESP_COUNT          0x14
+#define RESP_SWAP_OK        0x15
 #define ERR_SLOT_INVALID    0xE1
 #define ERR_NO_SPACE        0xE2
 #define ERR_BUSY            0xE3
@@ -380,11 +423,110 @@ static void handleQueryCount() {
   sendBinaryResponse(RESP_COUNT, numImages);
 }
 
+static void handleDeleteImage(const uint8_t *msg) {
+  uint8_t slot = msg[3];
+
+  if (slot >= numImages) {
+    sendBinaryResponse(ERR_SLOT_INVALID, 0);
+    return;
+  }
+
+  // Can't delete if only 1 image remains
+  if (numImages <= 1) {
+    sendBinaryResponse(ERR_SLOT_INVALID, 0);
+    return;
+  }
+
+  // Delete the file
+  char path[16];
+  imagePath(path, slot);
+  LittleFS.remove(path);
+
+  // Shift all files above this slot down by 1
+  char pathFrom[16], pathTo[16];
+  for (uint8_t i = slot + 1; i < numImages; i++) {
+    imagePath(pathFrom, i);
+    imagePath(pathTo, i - 1);
+    LittleFS.rename(pathFrom, pathTo);
+  }
+
+  // Shift labels down (before updateMeta changes numImages)
+  for (uint8_t i = slot; i + 1 < numImages; i++) {
+    strncpy(labels[i], labels[i + 1], MAX_LABEL_LEN);
+  }
+  if (numImages > 0) labels[numImages - 1][0] = '\0';
+
+  updateMeta();
+  saveLabels();
+
+  // Fix image map: adjust any references to shifted slots
+  for (uint8_t i = 0; i < 2; i++) {
+    if (imageMap[i] == slot) {
+      imageMap[i] = 0;  // deleted slot → fall back to 0
+    } else if (imageMap[i] > slot) {
+      imageMap[i]--;     // shifted down
+    }
+    // Clamp to valid range
+    if (imageMap[i] >= numImages) imageMap[i] = 0;
+  }
+  saveImageMap();
+
+  // Redraw if the active image changed
+  if (activeFlavor >= 0) drawFlavor(activeFlavor);
+
+  Serial.printf("Deleted slot %d, shifted down, %d images remain\n", slot, numImages);
+  sendBinaryResponse(RESP_DELETE_OK, numImages);
+}
+
+static void handleSwapImages(const uint8_t *msg) {
+  uint8_t slotA = msg[3];
+  uint8_t slotB = msg[4];
+
+  if (slotA >= numImages || slotB >= numImages) {
+    sendBinaryResponse(ERR_SLOT_INVALID, 0);
+    return;
+  }
+
+  if (slotA == slotB) {
+    sendBinaryResponse(RESP_SWAP_OK, numImages);
+    return;
+  }
+
+  // Swap via temp file: A -> tmp, B -> A, tmp -> B
+  char pathA[16], pathB[16];
+  imagePath(pathA, slotA);
+  imagePath(pathB, slotB);
+
+  LittleFS.rename(pathA, "/swap.bin");
+  LittleFS.rename(pathB, pathA);
+  LittleFS.rename("/swap.bin", pathB);
+
+  // Swap labels
+  char tmpLabel[MAX_LABEL_LEN + 1];
+  strncpy(tmpLabel, labels[slotA], MAX_LABEL_LEN + 1);
+  strncpy(labels[slotA], labels[slotB], MAX_LABEL_LEN + 1);
+  strncpy(labels[slotB], tmpLabel, MAX_LABEL_LEN + 1);
+  saveLabels();
+
+  // Fix image map references
+  for (uint8_t i = 0; i < 2; i++) {
+    if (imageMap[i] == slotA) imageMap[i] = slotB;
+    else if (imageMap[i] == slotB) imageMap[i] = slotA;
+  }
+  saveImageMap();
+
+  // Redraw if the active image was involved
+  if (activeFlavor >= 0) drawFlavor(activeFlavor);
+
+  Serial.printf("Swapped slots %d <-> %d\n", slotA, slotB);
+  sendBinaryResponse(RESP_SWAP_OK, numImages);
+}
+
 // ════════════════════════════════════════════════════════════
 //  UART byte-level parser (text + binary multiplexed)
 // ════════════════════════════════════════════════════════════
 
-#define TEXT_BUF_SIZE 32
+#define TEXT_BUF_SIZE 64  // must fit "LABEL:NN:name" commands
 #define BIN_BUF_SIZE 142  // max: 6 header + 128 payload + 2 CRC + margin
 
 static char textBuf[TEXT_BUF_SIZE];
@@ -395,27 +537,46 @@ static uint8_t binPos = 0;
 static bool inBinary = false;
 
 static void processTextCommand(const char *cmd) {
-  // MAP:<img0>,<img1>
-  if (strncmp(cmd, "MAP:", 4) != 0) return;
+  if (strncmp(cmd, "MAP:", 4) == 0) {
+    // MAP:<img0>,<img1>
+    const char *payload = cmd + 4;
+    const char *comma = strchr(payload, ',');
+    if (!comma) return;
 
-  const char *payload = cmd + 4;
-  const char *comma = strchr(payload, ',');
-  if (!comma) return;
+    uint8_t a = atoi(payload);
+    uint8_t b = atoi(comma + 1);
 
-  uint8_t a = atoi(payload);
-  uint8_t b = atoi(comma + 1);
+    if (a >= numImages || b >= numImages) {
+      Serial.printf("MAP rejected: (%d,%d), numImages=%d\n", a, b, numImages);
+      return;
+    }
 
-  if (a >= numImages || b >= numImages) {
-    Serial.printf("MAP rejected: (%d,%d), numImages=%d\n", a, b, numImages);
-    return;
-  }
+    if (a != imageMap[0] || b != imageMap[1]) {
+      imageMap[0] = a;
+      imageMap[1] = b;
+      saveImageMap();
+      if (activeFlavor >= 0) drawFlavor(activeFlavor);
+      Serial.printf("MAP applied: 0->%d, 1->%d\n", a, b);
+    }
 
-  if (a != imageMap[0] || b != imageMap[1]) {
-    imageMap[0] = a;
-    imageMap[1] = b;
-    saveImageMap();
-    if (activeFlavor >= 0) drawFlavor(activeFlavor);
-    Serial.printf("MAP applied: 0->%d, 1->%d\n", a, b);
+  } else if (strncmp(cmd, "LABEL:", 6) == 0) {
+    // LABEL:slot:name — set label for a slot
+    int slot = atoi(cmd + 6);
+    const char *colon = strchr(cmd + 6, ':');
+    if (colon && slot >= 0 && slot < numImages) {
+      strncpy(labels[slot], colon + 1, MAX_LABEL_LEN);
+      labels[slot][MAX_LABEL_LEN] = '\0';
+      saveLabels();
+      Serial.printf("Label set: slot %d = %s\n", slot, labels[slot]);
+    }
+
+  } else if (strcmp(cmd, "LIST") == 0) {
+    // Return all slot labels as text over pioSerial
+    for (uint8_t i = 0; i < numImages; i++) {
+      pioSerial.printf("IMG:%d:%s\n", i, labels[i]);
+    }
+    pioSerial.println("END");
+    pioSerial.flush();
   }
 }
 
@@ -445,6 +606,12 @@ static bool tryParseBinaryMessage() {
     case CMD_QUERY_COUNT:   // 6 bytes
       expectedLen = 6;
       break;
+    case CMD_DELETE_IMAGE:  // 6 bytes: STX STX CMD slot CRC16
+      expectedLen = 6;
+      break;
+    case CMD_SWAP_IMAGES:   // 7 bytes: STX STX CMD slotA slotB CRC16
+      expectedLen = 7;
+      break;
     default:
       return true;  // unknown command, discard
   }
@@ -465,6 +632,8 @@ static bool tryParseBinaryMessage() {
     case CMD_CHUNK_DATA:   handleChunkData(binBuf, expectedLen); break;
     case CMD_UPLOAD_DONE:  handleUploadDone(binBuf); break;
     case CMD_QUERY_COUNT:  handleQueryCount(); break;
+    case CMD_DELETE_IMAGE: handleDeleteImage(binBuf); break;
+    case CMD_SWAP_IMAGES:  handleSwapImages(binBuf); break;
   }
   return true;
 }
@@ -536,9 +705,13 @@ void setup() {
   // Seed default images on first boot
   seedDefaultImages();
 
-  // Count available images and load mapping
+  // Count available images, load labels and mapping
   numImages = countImages();
+  loadLabels();
   Serial.printf("Found %d images in LittleFS\n", numImages);
+  for (uint8_t i = 0; i < numImages; i++) {
+    Serial.printf("  Slot %d: %s\n", i, labels[i][0] ? labels[i] : "(unlabeled)");
+  }
   loadImageMap();
 
   // Bidirectional UART with ESP32 at 38400 baud

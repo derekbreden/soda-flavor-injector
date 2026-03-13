@@ -285,6 +285,26 @@ bool queryImageCount() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Send short binary command to RP2040 and read 6-byte response
+// ════════════════════════════════════════════════════════════
+
+bool sendDisplayCommand(const uint8_t *msg, size_t len, uint8_t *resp) {
+  while (Serial2.available()) Serial2.read();  // drain stale bytes
+  Serial2.write(msg, len);
+  Serial2.flush();
+
+  unsigned long start = millis();
+  uint8_t pos = 0;
+  while (millis() - start < 1000) {
+    if (Serial2.available()) {
+      resp[pos++] = Serial2.read();
+      if (pos == 6) return true;
+    }
+  }
+  return false;
+}
+
+// ════════════════════════════════════════════════════════════
 //  Upload bridge mode: transparent USB <-> display UART
 // ════════════════════════════════════════════════════════════
 
@@ -371,6 +391,108 @@ void processConfigCommand(const char *cmd, Stream &out) {
   } else if (strcmp(cmd, "QUERY_IMAGES") == 0) {
     queryImageCount();
     out.printf("OK:NUM_IMAGES=%d\n", numImages);
+
+  } else if (strcmp(cmd, "LIST_IMAGES") == 0) {
+    // Send LIST to RP2040, forward text response lines
+    while (Serial2.available()) Serial2.read();  // drain
+    Serial2.println("LIST");
+    Serial2.flush();
+
+    unsigned long t = millis();
+    String lineBuf = "";
+    while (millis() - t < 2000) {
+      if (Serial2.available()) {
+        char c = Serial2.read();
+        if (c == '\n') {
+          lineBuf.trim();
+          if (lineBuf == "END") break;
+          out.println(lineBuf);
+          lineBuf = "";
+          t = millis();  // reset timeout on each line
+        } else {
+          lineBuf += c;
+        }
+      }
+    }
+    out.println("END");
+
+  } else if (strncmp(cmd, "SET_LABEL:", 10) == 0) {
+    // SET_LABEL:slot=name → forward LABEL:slot:name to RP2040
+    int slot;
+    char name[33] = {0};
+    if (sscanf(cmd + 10, "%d=%32[^\n]", &slot, name) >= 1) {
+      if (slot >= 0 && slot < numImages) {
+        Serial2.printf("LABEL:%d:%s\n", slot, name);
+        out.printf("OK:LABEL=%d:%s\n", slot, name);
+      } else {
+        out.printf("ERR:invalid slot\n");
+      }
+    }
+
+  } else if (strncmp(cmd, "DELETE_IMG:", 10) == 0) {
+    int slot = atoi(cmd + 10);
+    if (slot < 0 || slot >= numImages) {
+      out.printf("ERR:invalid slot (0-%d)\n", numImages - 1);
+      return;
+    }
+    if (numImages <= 1) {
+      out.printf("ERR:cannot delete last image\n");
+      return;
+    }
+
+    // Send CMD_DELETE_IMAGE: STX STX 0x05 slot CRC16
+    uint8_t msg[6];
+    msg[0] = 0x02; msg[1] = 0x02;
+    msg[2] = 0x05; msg[3] = (uint8_t)slot;
+    uint16_t c = crc16(msg, 4);
+    msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
+
+    uint8_t resp[6];
+    if (sendDisplayCommand(msg, 6, resp) && resp[2] == 0x13) {
+      numImages = resp[3];
+      // Adjust ESP32-side image references
+      if (flavor1Image == slot) flavor1Image = 0;
+      else if (flavor1Image > slot) flavor1Image--;
+      if (flavor2Image == slot) flavor2Image = 0;
+      else if (flavor2Image > slot) flavor2Image--;
+      if (flavor1Image >= numImages) flavor1Image = 0;
+      if (flavor2Image >= numImages) flavor2Image = 0;
+      Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      out.printf("OK:DELETED=%d,NUM_IMAGES=%d\n", slot, numImages);
+    } else {
+      out.printf("ERR:delete failed\n");
+    }
+
+  } else if (strncmp(cmd, "SWAP_IMG:", 8) == 0) {
+    int a, b;
+    if (sscanf(cmd + 8, "%d,%d", &a, &b) != 2) {
+      out.printf("ERR:usage SWAP_IMG:A,B\n");
+      return;
+    }
+    if (a < 0 || a >= numImages || b < 0 || b >= numImages) {
+      out.printf("ERR:invalid slots (0-%d)\n", numImages - 1);
+      return;
+    }
+
+    // Send CMD_SWAP_IMAGES: STX STX 0x06 slotA slotB CRC16
+    uint8_t msg[7];
+    msg[0] = 0x02; msg[1] = 0x02;
+    msg[2] = 0x06; msg[3] = (uint8_t)a; msg[4] = (uint8_t)b;
+    uint16_t c = crc16(msg, 5);
+    msg[5] = c & 0xFF; msg[6] = (c >> 8) & 0xFF;
+
+    uint8_t resp[6];
+    if (sendDisplayCommand(msg, 7, resp) && resp[2] == 0x15) {
+      // Adjust ESP32-side image references
+      if (flavor1Image == a) flavor1Image = b;
+      else if (flavor1Image == b) flavor1Image = a;
+      if (flavor2Image == a) flavor2Image = b;
+      else if (flavor2Image == b) flavor2Image = a;
+      Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      out.printf("OK:SWAPPED=%d,%d\n", a, b);
+    } else {
+      out.printf("ERR:swap failed\n");
+    }
   }
 }
 
