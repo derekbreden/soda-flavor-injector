@@ -395,7 +395,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
   } else if (strcmp(cmd, "LIST_IMAGES") == 0) {
     // Send LIST to RP2040, forward text response lines
     while (Serial2.available()) Serial2.read();  // drain
-    Serial2.println("LIST");
+    Serial2.print("LIST\n");
     Serial2.flush();
 
     unsigned long t = millis();
@@ -429,8 +429,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
       }
     }
 
-  } else if (strncmp(cmd, "DELETE_IMG:", 10) == 0) {
-    int slot = atoi(cmd + 10);
+  } else if (strncmp(cmd, "DELETE_IMG:", 11) == 0) {
+    int slot = atoi(cmd + 11);
     if (slot < 0 || slot >= numImages) {
       out.printf("ERR:invalid slot (0-%d)\n", numImages - 1);
       return;
@@ -463,9 +463,9 @@ void processConfigCommand(const char *cmd, Stream &out) {
       out.printf("ERR:delete failed\n");
     }
 
-  } else if (strncmp(cmd, "SWAP_IMG:", 8) == 0) {
+  } else if (strncmp(cmd, "SWAP_IMG:", 9) == 0) {
     int a, b;
-    if (sscanf(cmd + 8, "%d,%d", &a, &b) != 2) {
+    if (sscanf(cmd + 9, "%d,%d", &a, &b) != 2) {
       out.printf("ERR:usage SWAP_IMG:A,B\n");
       return;
     }

@@ -667,7 +667,7 @@ static void checkUART() {
     }
 
     // Regular text accumulation
-    if (b == '\n') {
+    if (b == '\n' || b == '\r') {
       if (textPos > 0) {
         textBuf[textPos] = '\0';
         processTextCommand(textBuf);
