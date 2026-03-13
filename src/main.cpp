@@ -240,7 +240,11 @@ unsigned long lastConfigSend     = 0;
 //  Factory defaults & LittleFS config persistence
 // ════════════════════════════════════════════════════════════
 
-// Parse compiled-in factory_defaults.json → set runtime config + labels
+// Forward declarations (defined after image store section)
+void saveEspMeta();
+void saveEspLabels();
+
+// Parse compiled-in factory_defaults.json → set runtime config + labels + store count
 void applyFactoryDefaults() {
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, factory_defaults_start);
@@ -267,7 +271,12 @@ void applyFactoryDefaults() {
     count++;
   }
 
-  Serial.printf("Factory defaults applied: F1 ratio=%d image=%d, F2 ratio=%d image=%d, %d labels\n",
+  // Update store count to match factory defaults and persist
+  espNumImages = count;
+  saveEspMeta();
+  saveEspLabels();
+
+  Serial.printf("Factory defaults applied: F1 ratio=%d image=%d, F2 ratio=%d image=%d, %d images\n",
                 flavor1Ratio, flavor1Image, flavor2Ratio, flavor2Image, count);
 }
 
@@ -1324,16 +1333,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
     out.printf("OK:RESETTING\n");
     out.flush();
 
-    // Apply compiled-in factory defaults
+    // Apply compiled-in factory defaults (sets espNumImages, saves meta + labels)
     applyFactoryDefaults();
 
     // Delete user config so defaults persist across reboot
     if (LittleFS.exists(USER_CONFIG_PATH)) {
       LittleFS.remove(USER_CONFIG_PATH);
     }
-
-    // Save factory labels
-    saveEspLabels();
 
     // Force push to both devices
     if (espNumImages > 0) {
