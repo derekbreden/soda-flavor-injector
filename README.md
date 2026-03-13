@@ -8,7 +8,7 @@ ESP32 + RP2040 + ESP32-S3 project that injects flavoring concentrate into cold c
 </p>
 <p align="center"><em>The RP2040 round LCD shows the active flavor. An air switch button toggles between flavors.</em></p>
 
-https://github.com/derekbreden/soda-flavor-injector/raw/main/docs/demo.mp4
+https://github.com/user-attachments/assets/ddd9bcfd-567e-414a-80be-4f5125431bac
 
 <p align="center"><em>Changing flavor images and ratios on the config display, then pouring a glass with both flavors.</em></p>
 
