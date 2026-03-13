@@ -249,7 +249,11 @@ static uint16_t crc16(const uint8_t *data, size_t len) {
 //  Query RP2040 image count (binary protocol)
 // ════════════════════════════════════════════════════════════
 
-void queryImageCount() {
+bool queryImageCount() {
+  // Drain any stale/noise bytes from RX buffer.
+  // GPIO 35 has no pull-up; line floats before RP2040 inits its TX pin.
+  while (Serial2.available()) Serial2.read();
+
   // Send QUERY_COUNT: STX STX 0x04 0x00 CRC16
   uint8_t msg[6];
   msg[0] = 0x02; msg[1] = 0x02;
@@ -258,6 +262,7 @@ void queryImageCount() {
   msg[4] = crc & 0xFF;
   msg[5] = (crc >> 8) & 0xFF;
   Serial2.write(msg, 6);
+  Serial2.flush();  // wait for TX to complete before reading
 
   // Wait up to 500ms for 6-byte response
   unsigned long start = millis();
@@ -270,12 +275,13 @@ void queryImageCount() {
         if (resp[0] == 0x02 && resp[1] == 0x02 && resp[2] == 0x14) {
           numImages = resp[3];
           Serial.printf("RP2040 reports %d images\n", numImages);
+          return true;
         }
-        return;
+        return false;  // got 6 bytes but not valid response
       }
     }
   }
-  Serial.println("QUERY_COUNT timeout, using default numImages");
+  return false;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -433,8 +439,17 @@ void setup() {
 
   // UART to display board (bidirectional, 38400 baud)
   Serial2.begin(38400, SERIAL_8N1, DISPLAY_RX_PIN, DISPLAY_TX_PIN);
-  delay(500);  // let RP2040 UART initialize
-  queryImageCount();
+  // Wait for RP2040 to boot, init LittleFS, and start UART.
+  // First boot seeds 3 images (~88KB writes) which can take several seconds.
+  // GP27 (RP2040 TX) is floating until pioSerial.begin() — noise on GPIO 35.
+  delay(3000);
+
+  // Query with retries (first attempt may still see noise)
+  for (int attempt = 0; attempt < 3; attempt++) {
+    if (queryImageCount()) break;
+    Serial.printf("  retry %d/3...\n", attempt + 1);
+    delay(500);
+  }
   Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
 
   // UART to config display (ESP32-S3, bidirectional, 9600 baud)
