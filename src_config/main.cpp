@@ -51,11 +51,18 @@ CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t *lvgl_buf;
 
-// ── Config state (will sync from ESP32 via UART in Phase 6) ──
+// ── Config state (synced from ESP32 via UART) ──
 uint8_t flavor1Image = 0;
 uint8_t flavor2Image = 1;
 uint8_t flavor1Ratio = 20;
 uint8_t flavor2Ratio = 20;
+
+// ── UART to ESP32 (Serial0 = UART0, J34 connector) ──
+#define UART_BUF_SIZE 128
+char uartBuf[UART_BUF_SIZE];
+int uartBufIdx = 0;
+bool configSynced = false;
+unsigned long lastGetConfig = 0;
 
 // ── Menu ──
 enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU_COUNT };
@@ -116,6 +123,88 @@ uint8_t getCurrentRatio() {
 
 bool isImageItem() {
   return (menuIndex == MENU_F1_IMAGE || menuIndex == MENU_F2_IMAGE);
+}
+
+// Forward declaration (needed by UART handler)
+void drawScreen();
+
+// ── UART communication ──
+
+void parseConfigResponse(const char* line) {
+  // Parse: CONFIG:F1_RATIO=20,F2_RATIO=20,F1_IMAGE=0,F2_IMAGE=1,NUM_IMAGES=3
+  if (strncmp(line, "CONFIG:", 7) != 0) return;
+
+  const char* p = line + 7;
+  int f1r = 0, f2r = 0, f1i = 0, f2i = 0;
+
+  if (sscanf(p, "F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d",
+             &f1r, &f2r, &f1i, &f2i) == 4) {
+    flavor1Ratio = constrain(f1r, 6, 24);
+    flavor2Ratio = constrain(f2r, 6, 24);
+    flavor1Image = constrain(f1i, 0, NUM_IMAGES - 1);
+    flavor2Image = constrain(f2i, 0, NUM_IMAGES - 1);
+    configSynced = true;
+    Serial.printf("Config synced: F1_RATIO=%d F2_RATIO=%d F1_IMAGE=%d F2_IMAGE=%d\n",
+                  flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image);
+    drawScreen();
+  }
+}
+
+void processUartLine(const char* line) {
+  Serial.printf("UART RX: %s\n", line);
+
+  if (strncmp(line, "CONFIG:", 7) == 0) {
+    parseConfigResponse(line);
+  } else if (strncmp(line, "OK:", 3) == 0) {
+    // Acknowledgment — no action needed, value already set locally
+    Serial.printf("ESP32 confirmed: %s\n", line);
+  } else if (strncmp(line, "ERR:", 4) == 0) {
+    // Error — log it. Could add UI feedback later.
+    Serial.printf("ESP32 error: %s\n", line);
+  }
+}
+
+void checkUart() {
+  while (Serial0.available()) {
+    char c = Serial0.read();
+    if (c == '\n' || c == '\r') {
+      if (uartBufIdx > 0) {
+        uartBuf[uartBufIdx] = '\0';
+        processUartLine(uartBuf);
+        uartBufIdx = 0;
+      }
+    } else if (uartBufIdx < UART_BUF_SIZE - 1) {
+      uartBuf[uartBufIdx++] = c;
+    }
+  }
+}
+
+void sendSetCommand(const char* key, int value) {
+  Serial0.printf("SET:%s=%d\n", key, value);
+  Serial.printf("UART TX: SET:%s=%d\n", key, value);
+}
+
+void sendSave() {
+  Serial0.println("SAVE");
+  Serial.println("UART TX: SAVE");
+}
+
+void sendCurrentValue() {
+  switch (menuIndex) {
+    case MENU_F1_IMAGE:
+      sendSetCommand("F1_IMAGE", flavor1Image);
+      break;
+    case MENU_F1_RATIO:
+      sendSetCommand("F1_RATIO", flavor1Ratio);
+      break;
+    case MENU_F2_IMAGE:
+      sendSetCommand("F2_IMAGE", flavor2Image);
+      break;
+    case MENU_F2_RATIO:
+      sendSetCommand("F2_RATIO", flavor2Ratio);
+      break;
+  }
+  sendSave();
 }
 
 // ── UI drawing ──
@@ -261,7 +350,7 @@ void handleTap() {
   if (editing) {
     editing = false;
     Serial.printf("Confirmed: %s\n", menuLabels[menuIndex]);
-    // TODO Phase 6: send SET + SAVE to ESP32 via UART
+    sendCurrentValue();
   } else {
     editing = true;
     Serial.printf("Editing: %s\n", menuLabels[menuIndex]);
@@ -273,6 +362,7 @@ void handleTap() {
 
 void setup() {
   Serial.begin(115200);
+  Serial0.begin(9600);  // UART0 on J34 connector (GPIO 43 TX, GPIO 44 RX)
   delay(500);
   Serial.println("ESP32-S3 Config Display starting...");
 
@@ -327,6 +417,16 @@ void setup() {
 }
 
 void loop() {
+  // Boot sync: request config from ESP32 every 500ms until synced
+  if (!configSynced && millis() - lastGetConfig > 500) {
+    Serial0.println("GET_CONFIG");
+    Serial.println("UART TX: GET_CONFIG (boot sync)");
+    lastGetConfig = millis();
+  }
+
+  // Check for incoming UART data
+  checkUart();
+
   int dir = readEncoder();
   handleNavigation(dir);
 
