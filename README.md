@@ -50,7 +50,7 @@ The system runs on three microcontrollers:
 
 - **ESP32** — Main controller. Reads the flow meter, drives pumps and valves via L298N motor drivers, manages the pump state machine, stores config in NVS, and coordinates the other boards over UART.
 - **RP2040** (Waveshare RP2040-LCD-0.99) — Display controller. Shows the selected flavor logo on a 128x115 round LCD. Reads the same physical toggle switch for instant visual feedback.
-- **ESP32-S3** (Elecrow CrowPanel 1.28" Rotary Display) — Config display. A 240x240 round touchscreen with a rotary encoder for changing flavor images and ratios at runtime. Syncs config to the ESP32 over UART.
+- **ESP32-S3** (Meshnology 1.28" Round Rotary Display) — Config display. A 240x240 round touchscreen with a rotary encoder for changing flavor images and ratios at runtime. Syncs config to the ESP32 over UART.
 
 ```
                         ┌─────────────────────┐
@@ -100,7 +100,7 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | [ESP32-DevKitC-32E](https://www.amazon.com/dp/B09MQJWQN2) | Main controller |
 | [ESP32 DIN Rail Breakout Board](https://www.amazon.com/dp/B0BW4SJ5X2) | Clean wiring for ESP32 GPIOs |
 | [Waveshare RP2040 Round LCD (0.99")](https://www.amazon.com/dp/B0CTSPYND2) | Flavor display (128x115 GC9107) |
-| [Elecrow CrowPanel 1.28" ESP32-S3 Rotary Display](https://www.amazon.com/dp/B0DQM9SFMM) | Config display (240x240 GC9A01A, touch + encoder) |
+| [Meshnology ESP32-S3 1.28" Round Rotary Display](https://www.amazon.com/dp/B0G5Q4LXVJ) | Config display (240x240 GC9A01A, touch + encoder) |
 | [L298N Dual H-Bridge Motor Driver](https://www.amazon.com/dp/B0C5JCF5RS) x2 (link is a 4-pack) | Drive pumps and solenoid valves |
 | [12V 2A Power Supply](https://www.amazon.com/dp/B0DZGTTBGZ) | Powers pumps and valves |
 
@@ -233,9 +233,9 @@ Most builders will already have these on hand.
 | LCD RST | 13 | Fixed on board |
 | LCD Backlight | 25 | Fixed on board |
 
-### ESP32-S3 Pin Assignments (CrowPanel 1.28")
+### ESP32-S3 Pin Assignments (Meshnology 1.28")
 
-All pins are fixed by the CrowPanel board design.
+All pins are fixed by the board design.
 
 | Function | GPIO | Notes |
 |----------|------|-------|
@@ -381,7 +381,7 @@ Prices as of March 2026.
 | [ESP32-DevKitC-32E](https://www.amazon.com/dp/B09MQJWQN2) | $11.00 | 1 | $11.00 |
 | [ESP32 DIN Rail Breakout Board](https://www.amazon.com/dp/B0BW4SJ5X2) | $25.99 | 1 | $25.99 |
 | [Waveshare RP2040 Round LCD (0.99")](https://www.amazon.com/dp/B0CTSPYND2) | $23.99 | 1 | $23.99 |
-| [Elecrow CrowPanel 1.28" ESP32-S3 Rotary Display](https://www.amazon.com/dp/B0DQM9SFMM) | $18.99 | 1 | $18.99 |
+| [Meshnology ESP32-S3 1.28" Round Rotary Display](https://www.amazon.com/dp/B0G5Q4LXVJ) | $47.76 | 1 | $47.76 |
 | [L298N Motor Driver (4-pack)](https://www.amazon.com/dp/B0C5JCF5RS) | $9.99 | 1 | $9.99 |
 | [12V 2A Power Supply](https://www.amazon.com/dp/B0DZGTTBGZ) | $9.99 | 1 | $9.99 |
 | [Kamoer Peristaltic Pump](https://www.amazon.com/dp/B09MS6C91D) | $32.55 | 2 | $65.10 |
@@ -405,9 +405,9 @@ Prices as of March 2026.
 | [#8 x 1/2" Wood Screws (100-pack)](https://www.homedepot.com/p/204275505) | $6.87 | 1 | $6.87 |
 | [SodaStream Pepsi Wild Cherry (4-pack)](https://www.amazon.com/dp/B0G4NRDQB8) | $28.99 | 1 | $28.99 |
 | [SodaStream Diet MTN Dew (4-pack)](https://www.amazon.com/dp/B0CS191QMW) | ~$29 | 1 | ~$29 |
-| **Subtotal (without carbonator)** | | | **~$750** |
+| **Subtotal (without carbonator)** | | | **~$779** |
 | [Lilium Under-Sink Carbonator](https://liliumfaucet.com/products/under-sink-carbonated-soda-maker-sparkling-water-dispenser-with-3-way-faucet) | $1,039.00 | 1 | $1,039.00 |
-| **Subtotal (all parts)** | | | **~$1,789** |
+| **Subtotal (all parts)** | | | **~$1,818** |
 | *Tools (if not already owned):* | | | |
 | [RYOBI Drill/Driver Kit](https://www.homedepot.com/p/326680222) | $49.97 | 1 | $49.97 |
 | [RYOBI Drill Bit Set (15-piece)](https://www.homedepot.com/p/315853368) | $12.97 | 1 | $12.97 |
@@ -417,7 +417,7 @@ Prices as of March 2026.
 | [Klein Tools 3005CR Ratcheting Crimper](https://www.amazon.com/dp/B07WMB61J5) | $34.96 | 1 | $34.96 |
 | [Apple USB-C to USB-C Cable (2m)](https://www.amazon.com/dp/B0DCH5B2HF) | $18.00 | 1 | $18.00 |
 | [LISEN USB-C to Micro USB Cable (2-pack)](https://www.amazon.com/dp/B0D3BXM91B) | $7.59 | 1 | $7.59 |
-| **Total (with tools)** | | | **~$1,956** |
+| **Total (with tools)** | | | **~$1,985** |
 
 ## License
 

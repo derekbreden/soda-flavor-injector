@@ -8,7 +8,7 @@
 // ════════════════════════════════════════════════════════════
 //  ESP32-S3 Config Display — Soda Flavor Injector
 // ════════════════════════════════════════════════════════════
-// Pin assignments for Elecrow CrowPanel 1.28" ESP32-S3 Rotary Display
+// Pin assignments for Meshnology ESP32-S3 1.28" Round Rotary Display
 
 // ── Display SPI (GC9A01A, 240x240) ──
 #define TFT_BLK  46
@@ -371,7 +371,7 @@ void setup() {
   leds.clear();
   leds.show();
 
-  // Power pins (required by CrowPanel hardware)
+  // Power pins (required by board hardware)
   pinMode(40, OUTPUT);
   digitalWrite(40, LOW);
   pinMode(1, OUTPUT);
