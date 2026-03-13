@@ -8,6 +8,7 @@ Usage:
     python3 upload_image.py --sync [--port PORT]
     python3 upload_image.py --push [--port PORT]
     python3 upload_image.py --list-store [--port PORT]
+    python3 upload_image.py --build-data
     python3 upload_image.py <image.png> [--slot N] [--target TARGET] [--port PORT]
     python3 upload_image.py --list [--target TARGET] [--port PORT]
     python3 upload_image.py --delete N [--target TARGET] [--port PORT]
@@ -448,6 +449,64 @@ def wait_for_push(ser, timeout=600.0):
 #  Sync from manifest.json
 # ════════════════════════════════════════════════════════════
 
+def build_data(manifest):
+    """Generate data/ directory for PlatformIO uploadfs (brand-new ESP32 setup).
+
+    Creates binary image files + metadata that can be flashed directly to
+    the ESP32's LittleFS partition via: pio run -e esp32dev -t uploadfs
+    """
+    import shutil
+
+    slots = manifest["slots"]
+    images_dir = Path(__file__).resolve().parent.parent / "images"
+    data_dir = Path(__file__).resolve().parent.parent / "data"
+
+    # Clean and recreate data directory
+    if data_dir.exists():
+        shutil.rmtree(data_dir)
+    data_dir.mkdir()
+
+    print(f"Building LittleFS data for {len(slots)} images...")
+
+    for entry in slots:
+        slot = entry["slot"]
+        png_file = images_dir / entry["file"]
+        if not png_file.exists():
+            print(f"WARNING: {png_file} not found, skipping slot {slot}")
+            continue
+
+        print(f"  Slot {slot}: {entry['file']}")
+
+        # RP2040 resolution (128x115)
+        rp_data = png_to_rgb565(str(png_file), RP2040_W, RP2040_H)
+        rp_path = data_dir / f"rp_img{slot:02d}.bin"
+        rp_path.write_bytes(rp_data)
+        print(f"    {rp_path.name}: {len(rp_data)} bytes")
+
+        # S3 resolution (240x240)
+        s3_data = png_to_rgb565(str(png_file), S3_W, S3_H)
+        s3_path = data_dir / f"s3_img{slot:02d}.bin"
+        s3_path.write_bytes(s3_data)
+        print(f"    {s3_path.name}: {len(s3_data)} bytes")
+
+    # Write meta.txt (image count)
+    meta_path = data_dir / "meta.txt"
+    meta_path.write_text(f"{len(slots)}\n")
+    print(f"  meta.txt: {len(slots)} images")
+
+    # Write labels.txt
+    labels_path = data_dir / "labels.txt"
+    labels = [entry.get("label", "") for entry in slots]
+    labels_path.write_text("\n".join(labels) + "\n")
+    print(f"  labels.txt: {len(labels)} labels")
+
+    # Do NOT write fw_version.txt — its absence triggers first-boot detection
+
+    total_bytes = sum(f.stat().st_size for f in data_dir.iterdir())
+    print(f"\ndata/ ready: {len(list(data_dir.iterdir()))} files, {total_bytes:,} bytes")
+    print(f"Flash with: ~/.platformio/penv/bin/pio run -e esp32dev -t uploadfs")
+
+
 def sync_device(ser, manifest, target):
     """Sync a single device to match the manifest.
 
@@ -597,19 +656,32 @@ def main():
                         help="Push stored images from ESP32 to both devices")
     parser.add_argument("--list-store", action="store_true",
                         help="List images stored on ESP32")
+    parser.add_argument("--build-data", action="store_true",
+                        help="Generate data/ directory for PlatformIO uploadfs")
     args = parser.parse_args()
 
     # Validate arguments
     actions = sum([args.image is not None, args.delete is not None,
                    args.swap is not None, args.query, args.list,
                    args.label is not None, args.sync, args.push,
-                   args.list_store])
+                   args.list_store, args.build_data])
     if actions == 0:
         parser.print_help()
         sys.exit(1)
     if actions > 1:
         print("ERROR: specify only one action")
         sys.exit(1)
+
+    # --build-data doesn't need serial connection
+    if args.build_data:
+        manifest_path = Path(__file__).resolve().parent.parent / "images" / "manifest.json"
+        if not manifest_path.exists():
+            print(f"ERROR: {manifest_path} not found")
+            sys.exit(1)
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+        build_data(manifest)
+        return
 
     ser = connect(args.port)
     targets = resolve_targets(args.target)

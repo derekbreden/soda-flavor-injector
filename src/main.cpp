@@ -1,6 +1,6 @@
 #include <Arduino.h>
-#include <Preferences.h>
 #include <LittleFS.h>
+#include <ArduinoJson.h>
 
 // ════════════════════════════════════════════════════════════
 //  Dual-Flavor Soda Maker
@@ -31,7 +31,7 @@
 #define LED_FLAVOR1     21   // lit when flavor 1 is selected (blinks while dispensing)
 #define LED_FLAVOR2      2   // lit when flavor 2 is selected (blinks while dispensing)
 
-// ── Per-flavor config (runtime, persisted in NVS) ──
+// ── Per-flavor config (runtime, persisted in LittleFS) ──
 // Ratio: flavoring to water in 1:X. Lower = more flavor.
 //   6  = maximum strength (traditional BIB, e.g. Coke syrup)
 //  20  = tuned for SodaStream concentrates
@@ -48,6 +48,12 @@ uint8_t numS3Images = 3;  // updated at boot via QUERY_COUNT to S3
 #define STORE_CHUNK_SIZE   128
 #define ESP_META_PATH      "/meta.txt"
 #define ESP_LABELS_PATH    "/labels.txt"
+#define FW_VERSION_PATH    "/fw_version.txt"
+#define USER_CONFIG_PATH   "/user_config.txt"
+#define FW_VERSION         __DATE__ " " __TIME__
+
+// Factory defaults JSON (embedded in firmware flash at build time)
+extern const char factory_defaults_start[] asm("_binary_images_factory_defaults_json_start");
 
 // Binary protocol constants
 #define CMD_UPLOAD_START  0x01
@@ -72,7 +78,7 @@ uint8_t flavor2Ratio = 20;
 uint8_t flavor1Image = 0;
 uint8_t flavor2Image = 1;
 
-Preferences prefs;
+bool firstBoot = false;
 
 // ── Display UART (ESP32 ↔ RP2040, bidirectional) ──
 #define DISPLAY_TX_PIN          32     // UART TX to RP2040 display
@@ -230,18 +236,92 @@ bool blinkState                  = true;
 unsigned long lastConfigSend     = 0;
 
 // ════════════════════════════════════════════════════════════
-//  NVS config persistence
+//  Factory defaults & LittleFS config persistence
 // ════════════════════════════════════════════════════════════
 
-void loadConfig() {
-  prefs.begin("soda", true);  // read-only
-  flavor1Ratio = prefs.getUChar("f1ratio", 20);
-  flavor2Ratio = prefs.getUChar("f2ratio", 20);
-  flavor1Image = prefs.getUChar("f1image", 0);
-  flavor2Image = prefs.getUChar("f2image", 1);
-  prefs.end();
+// Parse compiled-in factory_defaults.json → set runtime config + labels
+void applyFactoryDefaults() {
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, factory_defaults_start);
+  if (err) {
+    Serial.printf("WARNING: factory_defaults.json parse failed: %s\n", err.c_str());
+    return;
+  }
 
-  // Apply to flavor structs
+  flavor1Ratio = doc["flavor1_ratio"] | 20;
+  flavor2Ratio = doc["flavor2_ratio"] | 20;
+  flavor1Image = doc["flavor1_image"] | 0;
+  flavor2Image = doc["flavor2_image"] | 1;
+
+  flavors[0].ratio = flavor1Ratio;
+  flavors[1].ratio = flavor2Ratio;
+
+  // Load factory image labels
+  JsonArray images = doc["images"];
+  memset(espLabels, 0, sizeof(espLabels));
+  uint8_t count = 0;
+  for (JsonVariant v : images) {
+    if (count >= MAX_STORE_IMAGES) break;
+    strncpy(espLabels[count], v.as<const char*>(), MAX_LABEL_LEN);
+    count++;
+  }
+
+  Serial.printf("Factory defaults applied: F1 ratio=%d image=%d, F2 ratio=%d image=%d, %d labels\n",
+                flavor1Ratio, flavor1Image, flavor2Ratio, flavor2Image, count);
+}
+
+// Check if this is a new firmware version (first boot after flash)
+bool checkFirstBoot() {
+  File f = LittleFS.open(FW_VERSION_PATH, "r");
+  if (f) {
+    String stored = f.readStringUntil('\n');
+    stored.trim();
+    f.close();
+    if (stored == FW_VERSION) {
+      return false;  // same firmware — normal boot
+    }
+  }
+
+  // New firmware (or first ever boot) — apply factory defaults
+  Serial.println("First boot detected — applying factory defaults");
+
+  // Write new version
+  f = LittleFS.open(FW_VERSION_PATH, "w");
+  if (f) { f.println(FW_VERSION); f.close(); }
+
+  // Delete user config so defaults take effect
+  if (LittleFS.exists(USER_CONFIG_PATH)) {
+    LittleFS.remove(USER_CONFIG_PATH);
+  }
+
+  applyFactoryDefaults();
+  return true;
+}
+
+// Load user config from LittleFS (key=value text file)
+void loadUserConfig() {
+  File f = LittleFS.open(USER_CONFIG_PATH, "r");
+  if (!f) {
+    // No user config — use current runtime values (factory defaults or hardcoded)
+    Serial.println("No user config — using defaults");
+    return;
+  }
+
+  while (f.available()) {
+    String line = f.readStringUntil('\n');
+    line.trim();
+    int eq = line.indexOf('=');
+    if (eq < 0) continue;
+    String key = line.substring(0, eq);
+    int val = line.substring(eq + 1).toInt();
+
+    if (key == "f1ratio")      flavor1Ratio = val;
+    else if (key == "f2ratio") flavor2Ratio = val;
+    else if (key == "f1image") flavor1Image = val;
+    else if (key == "f2image") flavor2Image = val;
+  }
+  f.close();
+
   flavors[0].ratio = flavor1Ratio;
   flavors[1].ratio = flavor2Ratio;
 
@@ -249,14 +329,19 @@ void loadConfig() {
                 flavor1Ratio, flavor1Image, flavor2Ratio, flavor2Image);
 }
 
-void saveConfig() {
-  prefs.begin("soda", false);  // read-write
-  prefs.putUChar("f1ratio", flavor1Ratio);
-  prefs.putUChar("f2ratio", flavor2Ratio);
-  prefs.putUChar("f1image", flavor1Image);
-  prefs.putUChar("f2image", flavor2Image);
-  prefs.end();
-  Serial.println("Config saved to NVS");
+// Save user config to LittleFS
+void saveUserConfig() {
+  File f = LittleFS.open(USER_CONFIG_PATH, "w");
+  if (!f) {
+    Serial.println("ERROR: failed to write user config");
+    return;
+  }
+  f.printf("f1ratio=%d\n", flavor1Ratio);
+  f.printf("f2ratio=%d\n", flavor2Ratio);
+  f.printf("f1image=%d\n", flavor1Image);
+  f.printf("f2image=%d\n", flavor2Image);
+  f.close();
+  Serial.println("Config saved to LittleFS");
 }
 
 // ════════════════════════════════════════════════════════════
@@ -877,7 +962,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     }
 
   } else if (strcmp(cmd, "SAVE") == 0) {
-    saveConfig();
+    saveUserConfig();
     out.printf("OK:SAVED\n");
 
   } else if (strncmp(cmd, "UPLOAD_IMG:", 11) == 0) {
@@ -1233,6 +1318,35 @@ void processConfigCommand(const char *cmd, Stream &out) {
     out.printf("OK:SYNC_DONE rp=%s s3=%s\n",
                rpPushed ? "pushed" : "in_sync",
                s3Pushed ? "pushed" : "in_sync");
+
+  } else if (strcmp(cmd, "FACTORY_RESET") == 0) {
+    out.printf("OK:RESETTING\n");
+    out.flush();
+
+    // Apply compiled-in factory defaults
+    applyFactoryDefaults();
+
+    // Delete user config so defaults persist across reboot
+    if (LittleFS.exists(USER_CONFIG_PATH)) {
+      LittleFS.remove(USER_CONFIG_PATH);
+    }
+
+    // Save factory labels
+    saveEspLabels();
+
+    // Force push to both devices
+    if (espNumImages > 0) {
+      bool rpOk = pushAllToDevice(DEVICE_RP2040);
+      bool s3Ok = pushAllToDevice(DEVICE_S3);
+      if (rpOk) { numImages = espNumImages; pushLabelsToDevice(DEVICE_RP2040); }
+      if (s3Ok) { numS3Images = espNumImages; pushLabelsToDevice(DEVICE_S3); }
+      Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      out.printf("OK:FACTORY_RESET rp=%s s3=%s\n",
+                 rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
+    } else {
+      Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      out.printf("OK:FACTORY_RESET (no images in store)\n");
+    }
   }
 }
 
@@ -1270,12 +1384,15 @@ void checkConfigUART() {
 
 void setup() {
   Serial.begin(115200);
-  loadConfig();
 
-  // Init ESP32 image store (LittleFS)
+  // Init ESP32 image store (LittleFS) — must come before config loading
   if (!LittleFS.begin(true)) {  // true = format on first use
     Serial.println("WARNING: LittleFS init failed");
   }
+
+  // Detect new firmware → apply factory defaults; otherwise load user config
+  firstBoot = checkFirstBoot();
+  loadUserConfig();
 
   // Init all motor pins
   const uint8_t motorPins[] = {
@@ -1333,8 +1450,14 @@ void setup() {
     delay(500);
   }
 
-  // Boot sync: push stored images to devices if counts mismatch
-  bootSync();
+  // Boot sync: force push on first boot, count-based sync otherwise
+  if (firstBoot && espNumImages > 0) {
+    Serial.printf("First boot — force pushing %d images to both devices\n", espNumImages);
+    if (pushAllToDevice(DEVICE_RP2040)) { numImages = espNumImages; pushLabelsToDevice(DEVICE_RP2040); }
+    if (pushAllToDevice(DEVICE_S3))     { numS3Images = espNumImages; pushLabelsToDevice(DEVICE_S3); }
+  } else {
+    bootSync();
+  }
 
   Serial.println("Dual-Flavor Soda Maker ready!");
   Serial.printf("Active flavor: %d\n", activeFlavor + 1);
