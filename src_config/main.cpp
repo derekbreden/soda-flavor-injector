@@ -362,7 +362,7 @@ void handleTap() {
 
 void setup() {
   Serial.begin(115200);
-  Serial0.begin(9600);  // UART0 on J34 connector (GPIO 43 TX, GPIO 44 RX)
+  Serial0.begin(9600, SERIAL_8N1, 44, 43);  // UART0 on J34 connector (RX=44, TX=43)
   delay(500);
   Serial.println("ESP32-S3 Config Display starting...");
 

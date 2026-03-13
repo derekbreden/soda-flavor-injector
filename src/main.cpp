@@ -28,7 +28,7 @@
 
 // ── LEDs ──
 #define LED_FLAVOR1     21   // lit when flavor 1 is selected (blinks while dispensing)
-#define LED_FLAVOR2     15   // lit when flavor 2 is selected (blinks while dispensing)
+#define LED_FLAVOR2      2   // lit when flavor 2 is selected (was GPIO 15, now GPIO 2)
 
 // ── Per-flavor config (runtime, persisted in NVS) ──
 // Ratio: flavoring to water in 1:X. Lower = more flavor.
@@ -53,7 +53,9 @@ Preferences prefs;
 #define CONFIG_SEND_INTERVAL_MS 30000  // resend image mapping every 30s
 
 // ── Config UART (ESP32 ↔ ESP32-S3, bidirectional) ──
-#define CONFIG_TX_PIN   2    // UART TX to ESP32-S3
+// GPIO 15 for TX: frees GPIO 2 (boot-strap pin that must be LOW to flash).
+// GPIO 15 is a strapping pin too but only affects boot log silence — won't block flashing.
+#define CONFIG_TX_PIN  15    // UART TX to ESP32-S3 (was LED_FLAVOR2)
 #define CONFIG_RX_PIN  34    // UART RX from ESP32-S3 (input-only pin)
 
 // ── Pump hard limits (physical constraints) ──
