@@ -38,8 +38,8 @@
 //  20  = tuned for SodaStream concentrates
 //  24  = minimum strength (hard limit floor)
 // Image: index into the RP2040's LittleFS image store
-uint8_t numImages   = 3;  // updated at boot via QUERY_COUNT to RP2040
-uint8_t numS3Images = 3;  // updated at boot via QUERY_COUNT to S3
+uint8_t numImages   = 0;  // updated at boot via QUERY_COUNT to RP2040
+uint8_t numS3Images = 0;  // updated at boot via QUERY_COUNT to S3
 
 // ── Image store (ESP32 LittleFS — authoritative source) ──
 #define RP2040_IMAGE_BYTES (128 * 115 * 2)   // 29440
@@ -442,6 +442,19 @@ bool sendDisplayCommand(const uint8_t *msg, size_t len, uint8_t *resp) {
 // ════════════════════════════════════════════════════════════
 //  Query S3 image count (binary protocol via Serial1)
 // ════════════════════════════════════════════════════════════
+
+// Reset S3 UART parser state.  During ESP32 boot, GPIO 15 (TX) floats and
+// can inject garbage that leaves the S3 parser stuck in binary mode.
+// Sending 150 zero bytes overflows its 142-byte binary buffer (forcing
+// inBinary=false), then \n clears any partial text line.
+void resetS3Parser() {
+  uint8_t zeros[150] = {0};
+  Serial1.write(zeros, sizeof(zeros));
+  Serial1.write('\n');
+  Serial1.flush();
+  delay(50);
+  while (Serial1.available()) Serial1.read();  // drain any error responses
+}
 
 bool queryS3ImageCount() {
   while (Serial1.available()) Serial1.read();  // drain stale bytes
@@ -1449,6 +1462,9 @@ void setup() {
   // Wait for S3 to boot, init LittleFS, and start UART.
   // First boot seeds 3 images (~345KB writes) which can take several seconds.
   delay(3000);
+
+  // ESP32 boot noise on GPIO 15 can corrupt S3 parser — flush it
+  resetS3Parser();
 
   // Query S3 image count with retries
   for (int attempt = 0; attempt < 3; attempt++) {
