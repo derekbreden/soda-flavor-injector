@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-"""Manage images on the RP2040 display via ESP32 USB serial bridge.
+"""Manage images on the RP2040 display and ESP32-S3 config display via ESP32 USB serial bridge.
 
-Upload, delete, swap, list, and label images stored in the RP2040's LittleFS.
+Upload, delete, swap, list, and label images stored in LittleFS on either device.
 
 Usage:
-    python3 upload_image.py <image.png> [--slot N] [--port PORT]
-    python3 upload_image.py --list [--port PORT]
-    python3 upload_image.py --delete N [--port PORT]
-    python3 upload_image.py --swap A B [--port PORT]
-    python3 upload_image.py --label N NAME [--port PORT]
-    python3 upload_image.py --query [--port PORT]
+    python3 upload_image.py <image.png> [--slot N] [--target TARGET] [--port PORT]
+    python3 upload_image.py --list [--target TARGET] [--port PORT]
+    python3 upload_image.py --delete N [--target TARGET] [--port PORT]
+    python3 upload_image.py --swap A B [--target TARGET] [--port PORT]
+    python3 upload_image.py --label N NAME [--target TARGET] [--port PORT]
+    python3 upload_image.py --query [--target TARGET] [--port PORT]
+    python3 upload_image.py --sync [--target TARGET] [--port PORT]
+
+Target devices:
+    rp2040  - RP2040 round display (128x115, external)
+    s3      - ESP32-S3 config display (240x240, rotary)
+    both    - Both devices (default)
 
 Dependencies:
     pip install pyserial Pillow
@@ -18,6 +24,7 @@ Dependencies:
 import argparse
 import binascii
 import glob
+import json
 import struct
 import sys
 import time
@@ -25,9 +32,15 @@ from pathlib import Path
 
 import serial
 
-SCREEN_W = 128
-SCREEN_H = 115
-IMAGE_BYTES = SCREEN_W * SCREEN_H * 2  # 29440
+# ── Device dimensions ──
+RP2040_W = 128
+RP2040_H = 115
+RP2040_IMAGE_BYTES = RP2040_W * RP2040_H * 2  # 29440
+
+S3_W = 240
+S3_H = 240
+S3_IMAGE_BYTES = S3_W * S3_H * 2  # 115200
+
 CHUNK_SIZE = 128
 BAUD_USB = 115200
 
@@ -59,11 +72,11 @@ def crc32(data: bytes) -> int:
     return binascii.crc32(data) & 0xFFFFFFFF
 
 
-def png_to_rgb565(path: str) -> bytes:
+def png_to_rgb565(path: str, width: int, height: int) -> bytes:
     from PIL import Image
 
     img = Image.open(path).convert("RGB")
-    img = img.resize((SCREEN_W, SCREEN_H), Image.LANCZOS)
+    img = img.resize((width, height), Image.LANCZOS)
     pixels = list(img.getdata())
     result = bytearray()
     for r, g, b in pixels:
@@ -157,61 +170,99 @@ def connect(port_name):
     return ser
 
 
-def query_count(ser) -> int:
-    resp = send_text_cmd(ser, "QUERY_IMAGES")
-    if "NUM_IMAGES=" in resp:
-        return int(resp.split("NUM_IMAGES=")[1].split()[0])
+# ════════════════════════════════════════════════════════════
+#  Device-agnostic wrappers — dispatch by target prefix
+# ════════════════════════════════════════════════════════════
+
+def _cmd_prefix(target):
+    """Return command prefix for a given target."""
+    return "" if target == "rp2040" else "S3_"
+
+
+def _device_label(target):
+    return "RP2040" if target == "rp2040" else "S3"
+
+
+def _image_size(target):
+    return RP2040_IMAGE_BYTES if target == "rp2040" else S3_IMAGE_BYTES
+
+
+def _image_dims(target):
+    if target == "rp2040":
+        return (RP2040_W, RP2040_H)
+    return (S3_W, S3_H)
+
+
+def query_count(ser, target="rp2040") -> int:
+    pfx = _cmd_prefix(target)
+    cmd = f"QUERY_{pfx}IMAGES"
+    resp = send_text_cmd(ser, cmd)
+    key = f"NUM_{pfx}IMAGES="
+    if key in resp:
+        return int(resp.split(key)[1].split()[0])
     return -1
 
 
-def list_images(ser):
-    """Send LIST_IMAGES and display all slots with labels."""
+def list_images(ser, target="rp2040"):
+    """Send LIST_IMAGES / LIST_S3_IMAGES and display all slots with labels."""
+    pfx = _cmd_prefix(target)
+    label = _device_label(target)
+    cmd = f"LIST_{pfx}IMAGES"
+
     ser.reset_input_buffer()
-    ser.write(b"LIST_IMAGES\n")
+    ser.write((cmd + "\n").encode())
     time.sleep(0.3)
 
     lines = read_text_lines(ser, end_marker="END", timeout=3.0)
     if not lines:
-        print("No images found (or RP2040 not responding)")
-        return
+        print(f"No images found on {label} (or device not responding)")
+        return []
 
-    print(f"RP2040 images ({len(lines)} slots):")
+    print(f"{label} images ({len(lines)} slots):")
+    result = []
     for line in lines:
         # Format: IMG:slot:label
         if line.startswith("IMG:"):
             parts = line.split(":", 2)
             if len(parts) == 3:
-                slot = parts[1]
-                label = parts[2] if parts[2] else "(unlabeled)"
-                print(f"  Slot {slot}: {label}")
+                slot = int(parts[1])
+                lbl = parts[2] if parts[2] else "(unlabeled)"
+                print(f"  Slot {slot}: {lbl}")
+                result.append((slot, parts[2]))
             else:
                 print(f"  {line}")
+    return result
 
 
-def upload(ser, slot: int, image_data: bytes):
-    assert len(image_data) == IMAGE_BYTES
+def upload(ser, slot: int, image_data: bytes, target="rp2040"):
+    label = _device_label(target)
+    expected_size = _image_size(target)
+    assert len(image_data) == expected_size
 
     # Enter bridge mode on ESP32
-    resp = send_text_cmd(ser, f"UPLOAD_IMG:{slot}")
-    if "OK:BRIDGE_MODE" not in resp:
+    pfx = _cmd_prefix(target)
+    bridge_cmd = f"UPLOAD_{pfx}IMG:{slot}"
+    resp = send_text_cmd(ser, bridge_cmd)
+    bridge_ok = "OK:BRIDGE_MODE" if target == "rp2040" else "OK:S3_BRIDGE_MODE"
+    if bridge_ok not in resp:
         print(f"ERROR: ESP32 rejected upload: {resp}")
         sys.exit(1)
     time.sleep(0.2)
 
     # Send UPLOAD_START
-    ser.write(make_upload_start(slot, IMAGE_BYTES))
+    ser.write(make_upload_start(slot, expected_size))
     resp = read_binary_response(ser, timeout=3.0)
     if len(resp) < 6 or resp[2] != RESP_READY:
         code = f"0x{resp[2]:02X}" if len(resp) >= 3 else "timeout"
-        print(f"ERROR: RP2040 not ready: {code}")
+        print(f"ERROR: {label} not ready: {code}")
         sys.exit(1)
-    print(f"RP2040 ready for slot {slot}")
+    print(f"{label} ready for slot {slot}")
 
     # Send chunks
     seq = 0
     offset = 0
-    total_chunks = (IMAGE_BYTES + CHUNK_SIZE - 1) // CHUNK_SIZE
-    while offset < IMAGE_BYTES:
+    total_chunks = (expected_size + CHUNK_SIZE - 1) // CHUNK_SIZE
+    while offset < expected_size:
         chunk = image_data[offset : offset + CHUNK_SIZE]
         pkt = make_chunk(seq & 0xFF, chunk)
 
@@ -244,7 +295,7 @@ def upload(ser, slot: int, image_data: bytes):
     resp = read_binary_response(ser, timeout=5.0)
     if len(resp) >= 6 and resp[2] == RESP_UPLOAD_OK:
         new_count = resp[3]
-        print(f"Upload complete! RP2040 now has {new_count} images.")
+        print(f"Upload complete! {label} now has {new_count} images.")
     else:
         code = f"0x{resp[2]:02X}" if len(resp) >= 3 else "timeout"
         print(f"ERROR: Upload verification failed ({code})")
@@ -254,40 +305,135 @@ def upload(ser, slot: int, image_data: bytes):
     time.sleep(1)
 
 
-def set_label(ser, slot: int, label: str):
+def set_label(ser, slot: int, label_text: str, target="rp2040"):
     """Set a label for a slot via text command through ESP32."""
-    resp = send_text_cmd(ser, f"SET_LABEL:{slot}={label}")
-    if "OK:LABEL=" in resp:
-        print(f"Label set: slot {slot} = {label}")
+    pfx = _cmd_prefix(target)
+    cmd = f"SET_{pfx}LABEL:{slot}={label_text}"
+    resp = send_text_cmd(ser, cmd)
+    ok_key = f"OK:{pfx}LABEL=" if pfx else "OK:LABEL="
+    if ok_key in resp:
+        print(f"  [{_device_label(target)}] Label set: slot {slot} = {label_text}")
     else:
-        print(f"Warning: could not set label ({resp})")
+        print(f"  [{_device_label(target)}] Warning: could not set label ({resp})")
 
 
-def delete_image(ser, slot: int):
-    resp = send_text_cmd(ser, f"DELETE_IMG:{slot}")
-    if "OK:DELETED=" in resp:
-        print(resp)
+def delete_image(ser, slot: int, target="rp2040"):
+    pfx = _cmd_prefix(target)
+    cmd = f"DELETE_{pfx}IMG:{slot}"
+    resp = send_text_cmd(ser, cmd)
+    ok_key = f"OK:{pfx}DELETED=" if pfx else "OK:DELETED="
+    if ok_key in resp:
+        print(f"  [{_device_label(target)}] {resp}")
     else:
-        print(f"ERROR: {resp}")
+        print(f"ERROR: [{_device_label(target)}] {resp}")
         sys.exit(1)
 
 
-def swap_images(ser, slot_a: int, slot_b: int):
-    resp = send_text_cmd(ser, f"SWAP_IMG:{slot_a},{slot_b}")
-    if "OK:SWAPPED=" in resp:
-        print(resp)
+def swap_images(ser, slot_a: int, slot_b: int, target="rp2040"):
+    pfx = _cmd_prefix(target)
+    cmd = f"SWAP_{pfx}IMG:{slot_a},{slot_b}"
+    resp = send_text_cmd(ser, cmd)
+    ok_key = f"OK:{pfx}SWAPPED=" if pfx else "OK:SWAPPED="
+    if ok_key in resp:
+        print(f"  [{_device_label(target)}] {resp}")
     else:
-        print(f"ERROR: {resp}")
+        print(f"ERROR: [{_device_label(target)}] {resp}")
         sys.exit(1)
+
+
+def upload_image_file(ser, image_path: str, slot: int, target="rp2040"):
+    """Convert PNG and upload to a specific target device."""
+    w, h = _image_dims(target)
+    label = _device_label(target)
+    print(f"[{label}] Converting {image_path} to {w}x{h} RGB565...")
+    image_data = png_to_rgb565(image_path, w, h)
+    print(f"  {len(image_data)} bytes")
+    upload(ser, slot, image_data, target)
+
+
+def wait_for_bridge_exit(ser, timeout=7.0):
+    """Wait for the ESP32 bridge mode to exit (5s inactivity timeout) and drain output."""
+    time.sleep(timeout)
+    ser.read(ser.in_waiting or 4096)
+
+
+# ════════════════════════════════════════════════════════════
+#  Sync from manifest.json
+# ════════════════════════════════════════════════════════════
+
+def sync_device(ser, manifest, target):
+    """Sync a single device to match the manifest.
+
+    Strategy: delete all existing images, then upload each slot from manifest.
+    Simple and reliable, avoids complex diffing.
+    """
+    label = _device_label(target)
+    slots = manifest["slots"]
+    images_dir = Path(__file__).resolve().parent.parent / "images"
+
+    print(f"\n{'='*50}")
+    print(f"  Syncing {label}: {len(slots)} images from manifest")
+    print(f"{'='*50}")
+
+    # Query current count
+    count = query_count(ser, target)
+    if count < 0:
+        print(f"ERROR: Could not query {label} image count")
+        return False
+
+    print(f"{label} currently has {count} images")
+
+    # Delete extras from the end (to avoid index shifting issues)
+    while count > len(slots):
+        print(f"Deleting extra slot {count - 1}...")
+        delete_image(ser, count - 1, target)
+        count -= 1
+
+    # Upload each slot (overwrite all — simple and reliable)
+    for entry in slots:
+        slot = entry["slot"]
+        png_file = images_dir / entry["file"]
+        lbl = entry.get("label", "")
+
+        if not png_file.exists():
+            print(f"WARNING: {png_file} not found, skipping slot {slot}")
+            continue
+
+        print(f"\nSlot {slot}: {entry['file']}")
+        upload_image_file(ser, str(png_file), slot, target)
+
+        # Wait for bridge mode to exit before setting label
+        wait_for_bridge_exit(ser)
+        if lbl:
+            set_label(ser, slot, lbl, target)
+
+    # Verify final count
+    final_count = query_count(ser, target)
+    print(f"\n{label} sync complete: {final_count} images")
+    return True
+
+
+# ════════════════════════════════════════════════════════════
+#  CLI
+# ════════════════════════════════════════════════════════════
+
+def resolve_targets(target_str):
+    """Return list of target strings to operate on."""
+    if target_str == "both":
+        return ["rp2040", "s3"]
+    return [target_str]
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Manage images on RP2040 display via ESP32 serial bridge"
+        description="Manage images on RP2040 and S3 displays via ESP32 serial bridge"
     )
     parser.add_argument("image", nargs="?", default=None, help="PNG image to upload")
     parser.add_argument("--slot", type=int, default=None, help="Image slot (0-99)")
     parser.add_argument("--port", default=None, help="Serial port")
+    parser.add_argument("--target", default="both",
+                        choices=["rp2040", "s3", "both"],
+                        help="Target device (default: both)")
     parser.add_argument("--list", action="store_true",
                         help="List all images with labels")
     parser.add_argument("--delete", type=int, default=None, metavar="N",
@@ -298,12 +444,14 @@ def main():
                         help="Set label for slot N")
     parser.add_argument("--query", action="store_true",
                         help="Query current image count")
+    parser.add_argument("--sync", action="store_true",
+                        help="Sync device(s) to match images/manifest.json")
     args = parser.parse_args()
 
     # Validate arguments
     actions = sum([args.image is not None, args.delete is not None,
                    args.swap is not None, args.query, args.list,
-                   args.label is not None])
+                   args.label is not None, args.sync])
     if actions == 0:
         parser.print_help()
         sys.exit(1)
@@ -312,62 +460,85 @@ def main():
         sys.exit(1)
 
     ser = connect(args.port)
+    targets = resolve_targets(args.target)
+
+    if args.sync:
+        manifest_path = Path(__file__).resolve().parent.parent / "images" / "manifest.json"
+        if not manifest_path.exists():
+            print(f"ERROR: {manifest_path} not found")
+            sys.exit(1)
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+        print(f"Manifest: {len(manifest['slots'])} images")
+        for target in targets:
+            sync_device(ser, manifest, target)
+        ser.close()
+        return
 
     if args.list:
-        list_images(ser)
+        for target in targets:
+            list_images(ser, target)
         ser.close()
         return
 
     if args.query:
-        count = query_count(ser)
-        if count >= 0:
-            print(f"RP2040 has {count} images (slots 0-{count - 1})")
-        else:
-            print("ERROR: could not query image count")
+        for target in targets:
+            count = query_count(ser, target)
+            label = _device_label(target)
+            if count >= 0:
+                print(f"{label} has {count} images (slots 0-{count - 1})")
+            else:
+                print(f"ERROR: could not query {label} image count")
         ser.close()
         return
 
     if args.label is not None:
         slot = int(args.label[0])
         name = args.label[1]
-        set_label(ser, slot, name)
+        for target in targets:
+            set_label(ser, slot, name, target)
         ser.close()
         return
 
     if args.delete is not None:
-        delete_image(ser, args.delete)
+        for target in targets:
+            delete_image(ser, args.delete, target)
         ser.close()
         return
 
     if args.swap is not None:
-        swap_images(ser, args.swap[0], args.swap[1])
+        for target in targets:
+            swap_images(ser, args.swap[0], args.swap[1], target)
         ser.close()
         return
 
     # Upload mode
-    print(f"Converting {args.image} to {SCREEN_W}x{SCREEN_H} RGB565...")
-    image_data = png_to_rgb565(args.image)
-    print(f"  {len(image_data)} bytes")
+    for target in targets:
+        w, h = _image_dims(target)
+        label = _device_label(target)
+        img_bytes = _image_size(target)
 
-    if args.slot is None:
-        count = query_count(ser)
-        if count >= 0:
-            slot = count  # next available
-            print(f"Current image count: {count}, uploading to slot {slot}")
+        print(f"\n[{label}] Converting {args.image} to {w}x{h} RGB565...")
+        image_data = png_to_rgb565(args.image, w, h)
+        print(f"  {len(image_data)} bytes")
+
+        if args.slot is None:
+            count = query_count(ser, target)
+            if count >= 0:
+                slot = count  # next available
+                print(f"  Current image count: {count}, uploading to slot {slot}")
+            else:
+                slot = 3
+                print(f"  Could not query count, defaulting to slot {slot}")
         else:
-            slot = 3  # safe default after the 3 seed images
-            print(f"Could not query count, defaulting to slot {slot}")
-    else:
-        slot = args.slot
+            slot = args.slot
 
-    upload(ser, slot, image_data)
+        upload(ser, slot, image_data, target)
 
-    # Auto-set label from filename (e.g., "orange_crush.png" → "orange_crush")
-    label = Path(args.image).stem
-    # After bridge mode exits, ESP32 is back to normal command mode
-    time.sleep(6)  # wait for bridge mode 5s inactivity timeout
-    ser.read(ser.in_waiting or 4096)  # drain any bridge exit messages
-    set_label(ser, slot, label)
+        # Auto-set label from filename
+        file_label = Path(args.image).stem
+        wait_for_bridge_exit(ser)
+        set_label(ser, slot, file_label, target)
 
     ser.close()
 

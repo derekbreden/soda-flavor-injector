@@ -1,5 +1,5 @@
 {
-  "description": "Source images for the RP2040 round display (128x115 RGB565). Upload with: python3 tools/upload_image.py images/<file>.png",
+  "description": "Source images for both displays (RP2040 128x115, S3 240x240). Sync with: python3 tools/upload_image.py --sync",
   "slots": [
     { "slot": 0, "file": "diet_wild_cherry_pepsi.png", "label": "diet_wild_cherry_pepsi" },
     { "slot": 1, "file": "diet_mtn_dew.png", "label": "diet_mtn_dew" },

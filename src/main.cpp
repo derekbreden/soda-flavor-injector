@@ -36,7 +36,8 @@
 //  20  = tuned for SodaStream concentrates
 //  24  = minimum strength (hard limit floor)
 // Image: index into the RP2040's LittleFS image store
-uint8_t numImages = 3;  // updated at boot via QUERY_COUNT to RP2040
+uint8_t numImages   = 3;  // updated at boot via QUERY_COUNT to RP2040
+uint8_t numS3Images = 3;  // updated at boot via QUERY_COUNT to S3
 
 uint8_t flavor1Ratio = 20;
 uint8_t flavor2Ratio = 20;
@@ -305,6 +306,63 @@ bool sendDisplayCommand(const uint8_t *msg, size_t len, uint8_t *resp) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Query S3 image count (binary protocol via Serial1)
+// ════════════════════════════════════════════════════════════
+
+bool queryS3ImageCount() {
+  while (Serial1.available()) Serial1.read();  // drain stale bytes
+
+  // Send QUERY_COUNT: STX STX 0x04 0x00 CRC16
+  uint8_t msg[6];
+  msg[0] = 0x02; msg[1] = 0x02;
+  msg[2] = 0x04; msg[3] = 0x00;
+  uint16_t crc = crc16(msg, 4);
+  msg[4] = crc & 0xFF;
+  msg[5] = (crc >> 8) & 0xFF;
+  Serial1.write(msg, 6);
+  Serial1.flush();
+
+  // Wait up to 500ms for 6-byte response
+  unsigned long start = millis();
+  uint8_t resp[6];
+  uint8_t pos = 0;
+  while (millis() - start < 500) {
+    if (Serial1.available()) {
+      resp[pos++] = Serial1.read();
+      if (pos == 6) {
+        if (resp[0] == 0x02 && resp[1] == 0x02 && resp[2] == 0x14) {
+          numS3Images = resp[3];
+          Serial.printf("S3 reports %d images\n", numS3Images);
+          return true;
+        }
+        return false;
+      }
+    }
+  }
+  return false;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Send short binary command to S3 and read 6-byte response
+// ════════════════════════════════════════════════════════════
+
+bool sendS3DisplayCommand(const uint8_t *msg, size_t len, uint8_t *resp) {
+  while (Serial1.available()) Serial1.read();  // drain stale bytes
+  Serial1.write(msg, len);
+  Serial1.flush();
+
+  unsigned long start = millis();
+  uint8_t pos = 0;
+  while (millis() - start < 1000) {
+    if (Serial1.available()) {
+      resp[pos++] = Serial1.read();
+      if (pos == 6) return true;
+    }
+  }
+  return false;
+}
+
+// ════════════════════════════════════════════════════════════
 //  Upload bridge mode: transparent USB <-> display UART
 // ════════════════════════════════════════════════════════════
 
@@ -336,12 +394,43 @@ void enterUploadMode() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  S3 upload bridge mode: transparent USB <-> config UART
+// ════════════════════════════════════════════════════════════
+
+void enterS3UploadMode() {
+  Serial.println("Entering S3 upload bridge mode...");
+
+  unsigned long lastActivity = millis();
+  while (true) {
+    // USB -> S3 UART
+    while (Serial.available() && Serial1.availableForWrite()) {
+      Serial1.write(Serial.read());
+      lastActivity = millis();
+    }
+    // S3 UART -> USB
+    while (Serial1.available() && Serial.availableForWrite()) {
+      Serial.write(Serial1.read());
+      lastActivity = millis();
+    }
+    // Exit after 5 seconds of inactivity
+    if (millis() - lastActivity > 5000) {
+      break;
+    }
+  }
+
+  Serial.println("S3 upload bridge mode ended");
+  delay(100);
+  queryS3ImageCount();
+  Serial.printf("numS3Images now %d\n", numS3Images);
+}
+
+// ════════════════════════════════════════════════════════════
 //  Config UART command parser
 // ════════════════════════════════════════════════════════════
 
 void sendConfigResponse(Stream &out) {
-  out.printf("CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d\n",
-             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages);
+  out.printf("CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d\n",
+             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages, numS3Images);
 }
 
 void processConfigCommand(const char *cmd, Stream &out) {
@@ -358,12 +447,18 @@ void processConfigCommand(const char *cmd, Stream &out) {
         flavor1Ratio = val; flavors[0].ratio = val; ok = true;
       } else if (strcmp(key, "F2_RATIO") == 0 && val >= 6 && val <= 24) {
         flavor2Ratio = val; flavors[1].ratio = val; ok = true;
-      } else if (strcmp(key, "F1_IMAGE") == 0 && val >= 0 && val < numImages) {
-        flavor1Image = val; ok = true;
-        Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
-      } else if (strcmp(key, "F2_IMAGE") == 0 && val >= 0 && val < numImages) {
-        flavor2Image = val; ok = true;
-        Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      } else if (strcmp(key, "F1_IMAGE") == 0) {
+        uint8_t maxImg = min(numImages, numS3Images);
+        if (val >= 0 && val < maxImg) {
+          flavor1Image = val; ok = true;
+          Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+        }
+      } else if (strcmp(key, "F2_IMAGE") == 0) {
+        uint8_t maxImg = min(numImages, numS3Images);
+        if (val >= 0 && val < maxImg) {
+          flavor2Image = val; ok = true;
+          Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+        }
       }
 
       if (ok) {
@@ -493,6 +588,110 @@ void processConfigCommand(const char *cmd, Stream &out) {
     } else {
       out.printf("ERR:swap failed\n");
     }
+
+  // ── S3 image management commands ──────────────────────────
+
+  } else if (strncmp(cmd, "UPLOAD_S3_IMG:", 14) == 0) {
+    int slot = atoi(cmd + 14);
+    if (slot < 0 || slot > 99) {
+      out.printf("ERR:invalid slot\n");
+      return;
+    }
+    out.printf("OK:S3_BRIDGE_MODE\n");
+    out.flush();
+    enterS3UploadMode();
+
+  } else if (strcmp(cmd, "QUERY_S3_IMAGES") == 0) {
+    queryS3ImageCount();
+    out.printf("OK:NUM_S3_IMAGES=%d\n", numS3Images);
+
+  } else if (strcmp(cmd, "LIST_S3_IMAGES") == 0) {
+    // Send LIST to S3, forward text response lines
+    while (Serial1.available()) Serial1.read();  // drain
+    Serial1.print("LIST\n");
+    Serial1.flush();
+
+    unsigned long t = millis();
+    String lineBuf = "";
+    while (millis() - t < 2000) {
+      if (Serial1.available()) {
+        char c = Serial1.read();
+        if (c == '\n') {
+          lineBuf.trim();
+          if (lineBuf == "END") break;
+          out.println(lineBuf);
+          lineBuf = "";
+          t = millis();  // reset timeout on each line
+        } else {
+          lineBuf += c;
+        }
+      }
+    }
+    out.println("END");
+
+  } else if (strncmp(cmd, "SET_S3_LABEL:", 13) == 0) {
+    // SET_S3_LABEL:slot=name → forward LABEL:slot:name to S3
+    int slot;
+    char name[33] = {0};
+    if (sscanf(cmd + 13, "%d=%32[^\n]", &slot, name) >= 1) {
+      if (slot >= 0 && slot < numS3Images) {
+        Serial1.printf("LABEL:%d:%s\n", slot, name);
+        out.printf("OK:S3_LABEL=%d:%s\n", slot, name);
+      } else {
+        out.printf("ERR:invalid slot\n");
+      }
+    }
+
+  } else if (strncmp(cmd, "DELETE_S3_IMG:", 14) == 0) {
+    int slot = atoi(cmd + 14);
+    if (slot < 0 || slot >= numS3Images) {
+      out.printf("ERR:invalid slot (0-%d)\n", numS3Images - 1);
+      return;
+    }
+    if (numS3Images <= 1) {
+      out.printf("ERR:cannot delete last image\n");
+      return;
+    }
+
+    // Send CMD_DELETE_IMAGE: STX STX 0x05 slot CRC16
+    uint8_t msg[6];
+    msg[0] = 0x02; msg[1] = 0x02;
+    msg[2] = 0x05; msg[3] = (uint8_t)slot;
+    uint16_t c = crc16(msg, 4);
+    msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
+
+    uint8_t resp[6];
+    if (sendS3DisplayCommand(msg, 6, resp) && resp[2] == 0x13) {
+      numS3Images = resp[3];
+      out.printf("OK:S3_DELETED=%d,NUM_S3_IMAGES=%d\n", slot, numS3Images);
+    } else {
+      out.printf("ERR:s3 delete failed\n");
+    }
+
+  } else if (strncmp(cmd, "SWAP_S3_IMG:", 12) == 0) {
+    int a, b;
+    if (sscanf(cmd + 12, "%d,%d", &a, &b) != 2) {
+      out.printf("ERR:usage SWAP_S3_IMG:A,B\n");
+      return;
+    }
+    if (a < 0 || a >= numS3Images || b < 0 || b >= numS3Images) {
+      out.printf("ERR:invalid slots (0-%d)\n", numS3Images - 1);
+      return;
+    }
+
+    // Send CMD_SWAP_IMAGES: STX STX 0x06 slotA slotB CRC16
+    uint8_t msg[7];
+    msg[0] = 0x02; msg[1] = 0x02;
+    msg[2] = 0x06; msg[3] = (uint8_t)a; msg[4] = (uint8_t)b;
+    uint16_t c = crc16(msg, 5);
+    msg[5] = c & 0xFF; msg[6] = (c >> 8) & 0xFF;
+
+    uint8_t resp[6];
+    if (sendS3DisplayCommand(msg, 7, resp) && resp[2] == 0x15) {
+      out.printf("OK:S3_SWAPPED=%d,%d\n", a, b);
+    } else {
+      out.printf("ERR:s3 swap failed\n");
+    }
   }
 }
 
@@ -574,11 +773,23 @@ void setup() {
   }
   Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
 
-  // UART to config display (ESP32-S3, bidirectional, 9600 baud)
-  Serial1.begin(9600, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
+  // UART to config display (ESP32-S3, bidirectional, 38400 baud)
+  Serial1.begin(38400, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
+
+  // Wait for S3 to boot, init LittleFS, and start UART.
+  // First boot seeds 3 images (~345KB writes) which can take several seconds.
+  delay(3000);
+
+  // Query S3 image count with retries
+  for (int attempt = 0; attempt < 3; attempt++) {
+    if (queryS3ImageCount()) break;
+    Serial.printf("  S3 retry %d/3...\n", attempt + 1);
+    delay(500);
+  }
 
   Serial.println("Dual-Flavor Soda Maker ready!");
   Serial.printf("Active flavor: %d\n", activeFlavor + 1);
+  Serial.printf("RP2040: %d images, S3: %d images\n", numImages, numS3Images);
   Serial.printf("Sent image mapping to display: %d,%d\n", flavor1Image, flavor2Image);
 }
 
