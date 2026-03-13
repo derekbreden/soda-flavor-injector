@@ -35,11 +35,8 @@
 //   6  = maximum strength (traditional BIB, e.g. Coke syrup)
 //  20  = tuned for SodaStream concentrates
 //  24  = minimum strength (hard limit floor)
-// Image: index into the RP2040's bitmap array:
-//   0 = Diet Wild Cherry Pepsi
-//   1 = Diet Mountain Dew
-//   2 = Diet Coke
-#define NUM_IMAGES  3
+// Image: index into the RP2040's LittleFS image store
+uint8_t numImages = 3;  // updated at boot via QUERY_COUNT to RP2040
 
 uint8_t flavor1Ratio = 20;
 uint8_t flavor2Ratio = 20;
@@ -48,8 +45,9 @@ uint8_t flavor2Image = 1;
 
 Preferences prefs;
 
-// ── Display UART (ESP32 → RP2040, one-way) ──
-#define DISPLAY_TX_PIN         32     // UART TX to RP2040 display
+// ── Display UART (ESP32 ↔ RP2040, bidirectional) ──
+#define DISPLAY_TX_PIN          32     // UART TX to RP2040 display
+#define DISPLAY_RX_PIN          35     // UART RX from RP2040 (input-only GPIO)
 #define CONFIG_SEND_INTERVAL_MS 30000  // resend image mapping every 30s
 
 // ── Config UART (ESP32 ↔ ESP32-S3, bidirectional) ──
@@ -233,12 +231,91 @@ void saveConfig() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  CRC-16/CCITT for binary protocol with RP2040
+// ════════════════════════════════════════════════════════════
+
+static uint16_t crc16(const uint8_t *data, size_t len) {
+  uint16_t crc = 0xFFFF;
+  for (size_t i = 0; i < len; i++) {
+    crc ^= (uint16_t)data[i] << 8;
+    for (uint8_t j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
+    }
+  }
+  return crc;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Query RP2040 image count (binary protocol)
+// ════════════════════════════════════════════════════════════
+
+void queryImageCount() {
+  // Send QUERY_COUNT: STX STX 0x04 0x00 CRC16
+  uint8_t msg[6];
+  msg[0] = 0x02; msg[1] = 0x02;
+  msg[2] = 0x04; msg[3] = 0x00;
+  uint16_t crc = crc16(msg, 4);
+  msg[4] = crc & 0xFF;
+  msg[5] = (crc >> 8) & 0xFF;
+  Serial2.write(msg, 6);
+
+  // Wait up to 500ms for 6-byte response
+  unsigned long start = millis();
+  uint8_t resp[6];
+  uint8_t pos = 0;
+  while (millis() - start < 500) {
+    if (Serial2.available()) {
+      resp[pos++] = Serial2.read();
+      if (pos == 6) {
+        if (resp[0] == 0x02 && resp[1] == 0x02 && resp[2] == 0x14) {
+          numImages = resp[3];
+          Serial.printf("RP2040 reports %d images\n", numImages);
+        }
+        return;
+      }
+    }
+  }
+  Serial.println("QUERY_COUNT timeout, using default numImages");
+}
+
+// ════════════════════════════════════════════════════════════
+//  Upload bridge mode: transparent USB <-> display UART
+// ════════════════════════════════════════════════════════════
+
+void enterUploadMode() {
+  Serial.println("Entering upload bridge mode...");
+
+  unsigned long lastActivity = millis();
+  while (true) {
+    // USB -> Display UART
+    while (Serial.available() && Serial2.availableForWrite()) {
+      Serial2.write(Serial.read());
+      lastActivity = millis();
+    }
+    // Display UART -> USB
+    while (Serial2.available() && Serial.availableForWrite()) {
+      Serial.write(Serial2.read());
+      lastActivity = millis();
+    }
+    // Exit after 5 seconds of inactivity
+    if (millis() - lastActivity > 5000) {
+      break;
+    }
+  }
+
+  Serial.println("Upload bridge mode ended");
+  delay(100);
+  queryImageCount();
+  Serial.printf("numImages now %d\n", numImages);
+}
+
+// ════════════════════════════════════════════════════════════
 //  Config UART command parser
 // ════════════════════════════════════════════════════════════
 
 void sendConfigResponse(Stream &out) {
-  out.printf("CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,NUM_IMAGES=%d\n",
-             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, NUM_IMAGES);
+  out.printf("CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d\n",
+             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages);
 }
 
 void processConfigCommand(const char *cmd, Stream &out) {
@@ -255,10 +332,10 @@ void processConfigCommand(const char *cmd, Stream &out) {
         flavor1Ratio = val; flavors[0].ratio = val; ok = true;
       } else if (strcmp(key, "F2_RATIO") == 0 && val >= 6 && val <= 24) {
         flavor2Ratio = val; flavors[1].ratio = val; ok = true;
-      } else if (strcmp(key, "F1_IMAGE") == 0 && val >= 0 && val < NUM_IMAGES) {
+      } else if (strcmp(key, "F1_IMAGE") == 0 && val >= 0 && val < numImages) {
         flavor1Image = val; ok = true;
         Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
-      } else if (strcmp(key, "F2_IMAGE") == 0 && val >= 0 && val < NUM_IMAGES) {
+      } else if (strcmp(key, "F2_IMAGE") == 0 && val >= 0 && val < numImages) {
         flavor2Image = val; ok = true;
         Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
       }
@@ -274,6 +351,20 @@ void processConfigCommand(const char *cmd, Stream &out) {
   } else if (strcmp(cmd, "SAVE") == 0) {
     saveConfig();
     out.printf("OK:SAVED\n");
+
+  } else if (strncmp(cmd, "UPLOAD_IMG:", 11) == 0) {
+    int slot = atoi(cmd + 11);
+    if (slot < 0 || slot > 99) {
+      out.printf("ERR:invalid slot\n");
+      return;
+    }
+    out.printf("OK:BRIDGE_MODE\n");
+    out.flush();
+    enterUploadMode();
+
+  } else if (strcmp(cmd, "QUERY_IMAGES") == 0) {
+    queryImageCount();
+    out.printf("OK:NUM_IMAGES=%d\n", numImages);
   }
 }
 
@@ -340,9 +431,10 @@ void setup() {
   digitalWrite(LED_FLAVOR1, activeFlavor == 0 ? HIGH : LOW);
   digitalWrite(LED_FLAVOR2, activeFlavor == 1 ? HIGH : LOW);
 
-  // UART to display board (TX only, 9600 baud for noise tolerance)
-  Serial2.begin(9600, SERIAL_8N1, -1, DISPLAY_TX_PIN);
+  // UART to display board (bidirectional, 38400 baud)
+  Serial2.begin(38400, SERIAL_8N1, DISPLAY_RX_PIN, DISPLAY_TX_PIN);
   delay(500);  // let RP2040 UART initialize
+  queryImageCount();
   Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
 
   // UART to config display (ESP32-S3, bidirectional, 9600 baud)
