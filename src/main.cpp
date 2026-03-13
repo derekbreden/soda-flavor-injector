@@ -889,6 +889,31 @@ void pushLabelsToDevice(DeviceTarget dev) {
   }
 }
 
+// Delete the last image slot on a device (CMD_DELETE_IMAGE).
+// Device handlers shift files down, so always deleting the last slot
+// avoids disrupting lower slots we just pushed.
+bool deleteLastDeviceImage(DeviceTarget dev, uint8_t slot) {
+  HardwareSerial &uart = (dev == DEVICE_RP2040) ? Serial2 : Serial1;
+  const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
+
+  while (uart.available()) uart.read();
+
+  uint8_t msg[6];
+  msg[0] = 0x02; msg[1] = 0x02;
+  msg[2] = CMD_DELETE_IMAGE; msg[3] = slot;
+  uint16_t c = crc16(msg, 4);
+  msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
+  uart.write(msg, 6);
+  uart.flush();
+
+  if (!waitBinaryResponse(uart, RESP_DELETE_OK, 3000)) {
+    Serial.printf("Delete %s slot %d: failed\n", devName, slot);
+    return false;
+  }
+  Serial.printf("Delete %s slot %d: OK\n", devName, slot);
+  return true;
+}
+
 bool pushAllToDevice(DeviceTarget dev) {
   const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
   Serial.printf("Pushing %d images to %s...\n", espNumImages, devName);
@@ -896,6 +921,14 @@ bool pushAllToDevice(DeviceTarget dev) {
   for (uint8_t i = 0; i < espNumImages; i++) {
     Serial.printf("  Slot %d/%d...\n", i + 1, espNumImages);
     if (!pushImageToDevice(dev, i)) return false;
+  }
+
+  // Delete extra slots beyond espNumImages.  After pushing, the device's
+  // countImages() still sees old files in higher slots.  Repeatedly delete
+  // slot espNumImages: the device shifts higher files down each time, so
+  // this converges.  Stops when the device rejects (count already matches).
+  while (deleteLastDeviceImage(dev, espNumImages)) {
+    // keep trimming until device's count == espNumImages
   }
 
   pushLabelsToDevice(dev);
