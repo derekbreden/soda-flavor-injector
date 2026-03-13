@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Preferences.h>
+#include <LittleFS.h>
 
 // ════════════════════════════════════════════════════════════
 //  Dual-Flavor Soda Maker
@@ -38,6 +39,33 @@
 // Image: index into the RP2040's LittleFS image store
 uint8_t numImages   = 3;  // updated at boot via QUERY_COUNT to RP2040
 uint8_t numS3Images = 3;  // updated at boot via QUERY_COUNT to S3
+
+// ── Image store (ESP32 LittleFS — authoritative source) ──
+#define RP2040_IMAGE_BYTES (128 * 115 * 2)   // 29440
+#define S3_IMAGE_BYTES     (240 * 240 * 2)    // 115200
+#define MAX_STORE_IMAGES   23
+#define MAX_LABEL_LEN      32
+#define STORE_CHUNK_SIZE   128
+#define ESP_META_PATH      "/meta.txt"
+#define ESP_LABELS_PATH    "/labels.txt"
+
+// Binary protocol constants
+#define CMD_UPLOAD_START  0x01
+#define CMD_CHUNK_DATA    0x02
+#define CMD_UPLOAD_DONE   0x03
+#define CMD_QUERY_COUNT   0x04
+#define CMD_DELETE_IMAGE  0x05
+#define CMD_SWAP_IMAGES   0x06
+
+#define RESP_READY        0x10
+#define RESP_CHUNK_OK     0x11
+#define RESP_UPLOAD_OK    0x12
+#define RESP_DELETE_OK    0x13
+#define RESP_COUNT        0x14
+#define RESP_SWAP_OK      0x15
+
+uint8_t espNumImages = 0;
+char espLabels[MAX_STORE_IMAGES][MAX_LABEL_LEN + 1];
 
 uint8_t flavor1Ratio = 20;
 uint8_t flavor2Ratio = 20;
@@ -246,6 +274,17 @@ static uint16_t crc16(const uint8_t *data, size_t len) {
   return crc;
 }
 
+static uint32_t crc32_update(uint32_t prev, const uint8_t *data, size_t len) {
+  uint32_t crc = ~prev;
+  for (size_t i = 0; i < len; i++) {
+    crc ^= data[i];
+    for (uint8_t j = 0; j < 8; j++) {
+      crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+    }
+  }
+  return ~crc;
+}
+
 // ════════════════════════════════════════════════════════════
 //  Query RP2040 image count (binary protocol)
 // ════════════════════════════════════════════════════════════
@@ -363,6 +402,61 @@ bool sendS3DisplayCommand(const uint8_t *msg, size_t len, uint8_t *resp) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  ESP32 image store utilities (LittleFS)
+// ════════════════════════════════════════════════════════════
+
+String espRpPath(uint8_t slot) {
+  char buf[16];
+  snprintf(buf, sizeof(buf), "/rp_img%02d.bin", slot);
+  return String(buf);
+}
+
+String espS3Path(uint8_t slot) {
+  char buf[16];
+  snprintf(buf, sizeof(buf), "/s3_img%02d.bin", slot);
+  return String(buf);
+}
+
+void readEspMeta() {
+  File f = LittleFS.open(ESP_META_PATH, "r");
+  if (f) {
+    espNumImages = f.parseInt();
+    f.close();
+  }
+}
+
+void saveEspMeta() {
+  File f = LittleFS.open(ESP_META_PATH, "w");
+  if (f) {
+    f.println(espNumImages);
+    f.close();
+  }
+}
+
+void loadEspLabels() {
+  memset(espLabels, 0, sizeof(espLabels));
+  File f = LittleFS.open(ESP_LABELS_PATH, "r");
+  if (!f) return;
+  uint8_t i = 0;
+  while (f.available() && i < MAX_STORE_IMAGES) {
+    String line = f.readStringUntil('\n');
+    line.trim();
+    strncpy(espLabels[i], line.c_str(), MAX_LABEL_LEN);
+    i++;
+  }
+  f.close();
+}
+
+void saveEspLabels() {
+  File f = LittleFS.open(ESP_LABELS_PATH, "w");
+  if (!f) return;
+  for (uint8_t i = 0; i < espNumImages; i++) {
+    f.println(espLabels[i]);
+  }
+  f.close();
+}
+
+// ════════════════════════════════════════════════════════════
 //  Upload bridge mode: transparent USB <-> display UART
 // ════════════════════════════════════════════════════════════
 
@@ -422,6 +516,319 @@ void enterS3UploadMode() {
   delay(100);
   queryS3ImageCount();
   Serial.printf("numS3Images now %d\n", numS3Images);
+}
+
+// ════════════════════════════════════════════════════════════
+//  Store mode: receive binary upload to ESP32 LittleFS
+// ════════════════════════════════════════════════════════════
+
+void enterStoreMode(bool isS3, uint8_t slot) {
+  String path = isS3 ? espS3Path(slot) : espRpPath(slot);
+  uint32_t expectedSize = isS3 ? S3_IMAGE_BYTES : RP2040_IMAGE_BYTES;
+  Serial.printf("Store mode: %s (%lu bytes)\n", path.c_str(), expectedSize);
+
+  uint8_t buf[256];
+  uint16_t bufLen = 0;
+  unsigned long lastActivity = millis();
+  File f;
+  bool fileOpen = false;
+  uint32_t receivedBytes = 0;
+  uint32_t runCrc = 0;
+
+  while (millis() - lastActivity < 5000) {
+    while (Serial.available()) {
+      if (bufLen < sizeof(buf)) {
+        buf[bufLen++] = Serial.read();
+      } else {
+        Serial.read();  // overflow discard
+      }
+      lastActivity = millis();
+    }
+
+    // Find STX STX
+    int stxIdx = -1;
+    for (int i = 0; i < (int)bufLen - 1; i++) {
+      if (buf[i] == 0x02 && buf[i + 1] == 0x02) { stxIdx = i; break; }
+    }
+    if (stxIdx < 0) continue;
+    if (stxIdx > 0) {
+      memmove(buf, buf + stxIdx, bufLen - stxIdx);
+      bufLen -= stxIdx;
+    }
+
+    if (bufLen < 4) continue;
+    uint8_t cmd = buf[2];
+
+    if (cmd == CMD_UPLOAD_START) {
+      // STX STX 0x01 slot size(4B) CRC16 = 10 bytes
+      if (bufLen < 10) continue;
+      uint16_t rxCrc = buf[8] | (buf[9] << 8);
+      if (crc16(buf, 8) != rxCrc) { bufLen = 0; continue; }
+
+      uint32_t size;
+      memcpy(&size, buf + 4, 4);
+      if (size != expectedSize) {
+        Serial.printf("Store: wrong size %lu, expected %lu\n", size, expectedSize);
+        break;
+      }
+
+      f = LittleFS.open(path, "w");
+      if (!f) { Serial.println("Store: failed to open file"); break; }
+      fileOpen = true;
+      receivedBytes = 0;
+      runCrc = 0;
+
+      // Send RESP_READY
+      uint8_t resp[6];
+      resp[0] = 0x02; resp[1] = 0x02;
+      resp[2] = RESP_READY; resp[3] = slot;
+      uint16_t c = crc16(resp, 4);
+      resp[4] = c & 0xFF; resp[5] = (c >> 8) & 0xFF;
+      Serial.write(resp, 6);
+
+      memmove(buf, buf + 10, bufLen - 10);
+      bufLen -= 10;
+
+    } else if (cmd == CMD_CHUNK_DATA) {
+      // STX STX 0x02 seq len(2B) data CRC16
+      if (bufLen < 7) continue;
+      uint16_t dataLen = buf[4] | (buf[5] << 8);
+      uint16_t totalLen = 6 + dataLen + 2;
+      if (bufLen < totalLen) continue;
+
+      uint16_t rxCrc = buf[totalLen - 2] | (buf[totalLen - 1] << 8);
+      if (crc16(buf, totalLen - 2) != rxCrc) {
+        memmove(buf, buf + totalLen, bufLen - totalLen);
+        bufLen -= totalLen;
+        continue;
+      }
+
+      if (fileOpen) {
+        f.write(buf + 6, dataLen);
+        runCrc = crc32_update(runCrc, buf + 6, dataLen);
+        receivedBytes += dataLen;
+      }
+
+      // Send RESP_CHUNK_OK
+      uint8_t resp[6];
+      resp[0] = 0x02; resp[1] = 0x02;
+      resp[2] = RESP_CHUNK_OK; resp[3] = buf[3];
+      uint16_t c = crc16(resp, 4);
+      resp[4] = c & 0xFF; resp[5] = (c >> 8) & 0xFF;
+      Serial.write(resp, 6);
+
+      memmove(buf, buf + totalLen, bufLen - totalLen);
+      bufLen -= totalLen;
+
+    } else if (cmd == CMD_UPLOAD_DONE) {
+      // STX STX 0x03 slot crc32(4B) CRC16 = 10 bytes
+      if (bufLen < 10) continue;
+      uint16_t rxCrc = buf[8] | (buf[9] << 8);
+      if (crc16(buf, 8) != rxCrc) { bufLen = 0; continue; }
+
+      uint32_t expectedCrc;
+      memcpy(&expectedCrc, buf + 4, 4);
+
+      if (fileOpen) { f.close(); fileOpen = false; }
+
+      bool crcOk = (runCrc == expectedCrc);
+
+      // Update slot count
+      if (slot >= espNumImages) {
+        espNumImages = slot + 1;
+        saveEspMeta();
+      }
+
+      // Send RESP_UPLOAD_OK
+      uint8_t resp[6];
+      resp[0] = 0x02; resp[1] = 0x02;
+      resp[2] = RESP_UPLOAD_OK; resp[3] = espNumImages;
+      uint16_t c = crc16(resp, 4);
+      resp[4] = c & 0xFF; resp[5] = (c >> 8) & 0xFF;
+      Serial.write(resp, 6);
+
+      Serial.printf("Store done: %s, %lu bytes, CRC %s\n",
+                    path.c_str(), receivedBytes, crcOk ? "OK" : "MISMATCH");
+      break;
+
+    } else {
+      // Unknown command byte, skip past the STX STX
+      memmove(buf, buf + 2, bufLen - 2);
+      bufLen -= 2;
+    }
+  }
+
+  if (fileOpen) f.close();
+}
+
+// ════════════════════════════════════════════════════════════
+//  Push images from ESP32 store to display devices
+// ════════════════════════════════════════════════════════════
+
+enum DeviceTarget { DEVICE_RP2040, DEVICE_S3 };
+
+bool waitBinaryResponse(HardwareSerial &uart, uint8_t expectedCmd, unsigned long timeoutMs) {
+  unsigned long start = millis();
+  uint8_t resp[6];
+  uint8_t pos = 0;
+  while (millis() - start < timeoutMs) {
+    if (uart.available()) {
+      resp[pos++] = uart.read();
+      if (pos == 6) {
+        return (resp[0] == 0x02 && resp[1] == 0x02 && resp[2] == expectedCmd);
+      }
+    }
+  }
+  return false;
+}
+
+bool pushImageToDevice(DeviceTarget dev, uint8_t slot) {
+  HardwareSerial &uart = (dev == DEVICE_RP2040) ? Serial2 : Serial1;
+  const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
+  String path = (dev == DEVICE_RP2040) ? espRpPath(slot) : espS3Path(slot);
+  uint32_t expectedSize = (dev == DEVICE_RP2040) ? RP2040_IMAGE_BYTES : S3_IMAGE_BYTES;
+
+  File f = LittleFS.open(path, "r");
+  if (!f) {
+    Serial.printf("Push %s: %s not found\n", devName, path.c_str());
+    return false;
+  }
+  if ((uint32_t)f.size() != expectedSize) {
+    Serial.printf("Push %s: wrong size %d\n", devName, (int)f.size());
+    f.close();
+    return false;
+  }
+
+  // Drain stale bytes
+  while (uart.available()) uart.read();
+
+  // Send UPLOAD_START
+  uint8_t msg[10];
+  msg[0] = 0x02; msg[1] = 0x02;
+  msg[2] = CMD_UPLOAD_START; msg[3] = slot;
+  memcpy(msg + 4, &expectedSize, 4);
+  uint16_t c = crc16(msg, 8);
+  msg[8] = c & 0xFF; msg[9] = (c >> 8) & 0xFF;
+  uart.write(msg, 10);
+  uart.flush();
+
+  if (!waitBinaryResponse(uart, RESP_READY, 3000)) {
+    Serial.printf("Push %s: not ready\n", devName);
+    f.close();
+    return false;
+  }
+
+  // Send chunks
+  uint8_t chunkBuf[STORE_CHUNK_SIZE];
+  uint8_t pkt[6 + STORE_CHUNK_SIZE + 2];
+  uint8_t seq = 0;
+  uint32_t runCrc = 0;
+
+  while (f.available()) {
+    int n = f.read(chunkBuf, STORE_CHUNK_SIZE);
+    if (n <= 0) break;
+
+    pkt[0] = 0x02; pkt[1] = 0x02;
+    pkt[2] = CMD_CHUNK_DATA; pkt[3] = seq;
+    pkt[4] = n & 0xFF; pkt[5] = (n >> 8) & 0xFF;
+    memcpy(pkt + 6, chunkBuf, n);
+    uint16_t pc = crc16(pkt, 6 + n);
+    pkt[6 + n] = pc & 0xFF;
+    pkt[6 + n + 1] = (pc >> 8) & 0xFF;
+
+    bool ok = false;
+    for (int attempt = 0; attempt < 5; attempt++) {
+      uart.write(pkt, 6 + n + 2);
+      uart.flush();
+      if (waitBinaryResponse(uart, RESP_CHUNK_OK, 2000)) { ok = true; break; }
+      Serial.printf("Push %s: chunk %d retry %d\n", devName, seq, attempt + 1);
+    }
+    if (!ok) {
+      Serial.printf("Push %s: chunk %d failed\n", devName, seq);
+      f.close();
+      return false;
+    }
+
+    runCrc = crc32_update(runCrc, chunkBuf, n);
+    seq++;
+  }
+  f.close();
+
+  // Send UPLOAD_DONE
+  uint8_t done[10];
+  done[0] = 0x02; done[1] = 0x02;
+  done[2] = CMD_UPLOAD_DONE; done[3] = slot;
+  memcpy(done + 4, &runCrc, 4);
+  uint16_t dc = crc16(done, 8);
+  done[8] = dc & 0xFF; done[9] = (dc >> 8) & 0xFF;
+  uart.write(done, 10);
+  uart.flush();
+
+  if (!waitBinaryResponse(uart, RESP_UPLOAD_OK, 5000)) {
+    Serial.printf("Push %s: verification failed\n", devName);
+    return false;
+  }
+
+  Serial.printf("Push %s: slot %d OK\n", devName, slot);
+  return true;
+}
+
+void pushLabelsToDevice(DeviceTarget dev) {
+  HardwareSerial &uart = (dev == DEVICE_RP2040) ? Serial2 : Serial1;
+  for (uint8_t i = 0; i < espNumImages; i++) {
+    uart.printf("LABEL:%d:%s\n", i, espLabels[i]);
+    delay(50);
+  }
+}
+
+bool pushAllToDevice(DeviceTarget dev) {
+  const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
+  Serial.printf("Pushing %d images to %s...\n", espNumImages, devName);
+
+  for (uint8_t i = 0; i < espNumImages; i++) {
+    Serial.printf("  Slot %d/%d...\n", i + 1, espNumImages);
+    if (!pushImageToDevice(dev, i)) return false;
+  }
+
+  pushLabelsToDevice(dev);
+  Serial.printf("Push to %s complete\n", devName);
+  return true;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Boot sync: compare store with devices, push if needed
+// ════════════════════════════════════════════════════════════
+
+void bootSync() {
+  if (!LittleFS.exists(ESP_META_PATH)) {
+    Serial.println("Store not initialized — skipping boot sync");
+    return;
+  }
+  readEspMeta();
+  loadEspLabels();
+
+  if (espNumImages == 0) {
+    Serial.println("Store empty — skipping boot sync");
+    return;
+  }
+
+  Serial.printf("Boot sync: store has %d images\n", espNumImages);
+
+  // RP2040: count mismatch → full re-upload
+  if (numImages != espNumImages) {
+    Serial.printf("RP2040 mismatch: %d vs %d — pushing all\n", numImages, espNumImages);
+    if (pushAllToDevice(DEVICE_RP2040)) numImages = espNumImages;
+  } else {
+    Serial.println("RP2040 in sync");
+  }
+
+  // S3: count mismatch → full re-upload
+  if (numS3Images != espNumImages) {
+    Serial.printf("S3 mismatch: %d vs %d — pushing all\n", numS3Images, espNumImages);
+    if (pushAllToDevice(DEVICE_S3)) numS3Images = espNumImages;
+  } else {
+    Serial.println("S3 in sync");
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -692,6 +1099,140 @@ void processConfigCommand(const char *cmd, Stream &out) {
     } else {
       out.printf("ERR:s3 swap failed\n");
     }
+
+  // ── ESP32 image store commands ────────────────────────────
+
+  } else if (strncmp(cmd, "STORE_RP_IMG:", 13) == 0) {
+    int slot = atoi(cmd + 13);
+    if (slot < 0 || slot > MAX_STORE_IMAGES - 1) {
+      out.printf("ERR:invalid slot\n");
+      return;
+    }
+    out.printf("OK:STORE_MODE\n");
+    out.flush();
+    enterStoreMode(false, slot);
+
+  } else if (strncmp(cmd, "STORE_S3_IMG:", 13) == 0) {
+    int slot = atoi(cmd + 13);
+    if (slot < 0 || slot > MAX_STORE_IMAGES - 1) {
+      out.printf("ERR:invalid slot\n");
+      return;
+    }
+    out.printf("OK:STORE_MODE\n");
+    out.flush();
+    enterStoreMode(true, slot);
+
+  } else if (strncmp(cmd, "STORE_LABEL:", 12) == 0) {
+    int slot;
+    char name[MAX_LABEL_LEN + 1] = {0};
+    if (sscanf(cmd + 12, "%d=%32[^\n]", &slot, name) >= 1) {
+      if (slot >= 0 && slot < espNumImages) {
+        strncpy(espLabels[slot], name, MAX_LABEL_LEN);
+        espLabels[slot][MAX_LABEL_LEN] = '\0';
+        saveEspLabels();
+        // Forward to both devices
+        Serial2.printf("LABEL:%d:%s\n", slot, name);
+        Serial1.printf("LABEL:%d:%s\n", slot, name);
+        out.printf("OK:STORE_LABEL=%d:%s\n", slot, name);
+      } else {
+        out.printf("ERR:invalid slot\n");
+      }
+    }
+
+  } else if (strncmp(cmd, "DELETE_STORE_IMG:", 16) == 0) {
+    int slot = atoi(cmd + 16);
+    if (slot < 0 || slot >= espNumImages) {
+      out.printf("ERR:invalid slot (0-%d)\n", espNumImages - 1);
+      return;
+    }
+    if (espNumImages <= 1) {
+      out.printf("ERR:cannot delete last image\n");
+      return;
+    }
+
+    // Delete from ESP32 LittleFS
+    LittleFS.remove(espRpPath(slot));
+    LittleFS.remove(espS3Path(slot));
+
+    // Shift remaining slots down
+    for (int i = slot + 1; i < espNumImages; i++) {
+      LittleFS.rename(espRpPath(i), espRpPath(i - 1));
+      LittleFS.rename(espS3Path(i), espS3Path(i - 1));
+      strncpy(espLabels[i - 1], espLabels[i], MAX_LABEL_LEN);
+    }
+    espNumImages--;
+    espLabels[espNumImages][0] = '\0';
+    saveEspMeta();
+    saveEspLabels();
+
+    // Forward delete to both devices
+    uint8_t msg[6];
+    msg[0] = 0x02; msg[1] = 0x02;
+    msg[2] = CMD_DELETE_IMAGE; msg[3] = (uint8_t)slot;
+    uint16_t c = crc16(msg, 4);
+    msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
+    uint8_t resp[6];
+    if (sendDisplayCommand(msg, 6, resp) && resp[2] == RESP_DELETE_OK)
+      numImages = resp[3];
+    if (sendS3DisplayCommand(msg, 6, resp) && resp[2] == RESP_DELETE_OK)
+      numS3Images = resp[3];
+
+    // Adjust flavor image references
+    if (flavor1Image == slot) flavor1Image = 0;
+    else if (flavor1Image > slot) flavor1Image--;
+    if (flavor2Image == slot) flavor2Image = 0;
+    else if (flavor2Image > slot) flavor2Image--;
+    if (flavor1Image >= espNumImages) flavor1Image = 0;
+    if (flavor2Image >= espNumImages) flavor2Image = 0;
+    Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+    out.printf("OK:STORE_DELETED=%d,NUM_IMAGES=%d\n", slot, espNumImages);
+
+  } else if (strcmp(cmd, "LIST_STORE") == 0) {
+    out.printf("STORE_COUNT:%d\n", espNumImages);
+    for (uint8_t i = 0; i < espNumImages; i++) {
+      const char *lbl = espLabels[i][0] ? espLabels[i] : "";
+      bool rpOk = LittleFS.exists(espRpPath(i));
+      bool s3Ok = LittleFS.exists(espS3Path(i));
+      out.printf("STORE:%d:%s:rp=%s:s3=%s\n", i, lbl,
+                 rpOk ? "ok" : "missing", s3Ok ? "ok" : "missing");
+    }
+    out.println("END");
+
+  } else if (strcmp(cmd, "PUSH_TO_DEVICES") == 0) {
+    if (espNumImages == 0) {
+      out.printf("ERR:store empty\n");
+      return;
+    }
+    out.printf("OK:PUSHING %d images\n", espNumImages);
+    out.flush();
+    bool rpOk = pushAllToDevice(DEVICE_RP2040);
+    bool s3Ok = pushAllToDevice(DEVICE_S3);
+    if (rpOk) numImages = espNumImages;
+    if (s3Ok) numS3Images = espNumImages;
+    Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+    out.printf("OK:PUSH_DONE rp=%s s3=%s\n",
+               rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
+
+  } else if (strcmp(cmd, "SYNC_DEVICES") == 0) {
+    if (espNumImages == 0) {
+      out.printf("ERR:store empty\n");
+      return;
+    }
+    out.printf("OK:SYNCING\n");
+    out.flush();
+    bool rpPushed = false, s3Pushed = false;
+    if (numImages != espNumImages) {
+      rpPushed = pushAllToDevice(DEVICE_RP2040);
+      if (rpPushed) numImages = espNumImages;
+    }
+    if (numS3Images != espNumImages) {
+      s3Pushed = pushAllToDevice(DEVICE_S3);
+      if (s3Pushed) numS3Images = espNumImages;
+    }
+    Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+    out.printf("OK:SYNC_DONE rp=%s s3=%s\n",
+               rpPushed ? "pushed" : "in_sync",
+               s3Pushed ? "pushed" : "in_sync");
   }
 }
 
@@ -730,6 +1271,11 @@ void checkConfigUART() {
 void setup() {
   Serial.begin(115200);
   loadConfig();
+
+  // Init ESP32 image store (LittleFS)
+  if (!LittleFS.begin(true)) {  // true = format on first use
+    Serial.println("WARNING: LittleFS init failed");
+  }
 
   // Init all motor pins
   const uint8_t motorPins[] = {
@@ -786,6 +1332,9 @@ void setup() {
     Serial.printf("  S3 retry %d/3...\n", attempt + 1);
     delay(500);
   }
+
+  // Boot sync: push stored images to devices if counts mismatch
+  bootSync();
 
   Serial.println("Dual-Flavor Soda Maker ready!");
   Serial.printf("Active flavor: %d\n", activeFlavor + 1);

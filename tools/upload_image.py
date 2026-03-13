@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """Manage images on the RP2040 display and ESP32-S3 config display via ESP32 USB serial bridge.
 
-Upload, delete, swap, list, and label images stored in LittleFS on either device.
+The ESP32 is the authoritative image store. --sync stores images on ESP32's
+LittleFS (both resolutions), sets labels, then pushes to both display devices.
 
 Usage:
+    python3 upload_image.py --sync [--port PORT]
+    python3 upload_image.py --push [--port PORT]
+    python3 upload_image.py --list-store [--port PORT]
     python3 upload_image.py <image.png> [--slot N] [--target TARGET] [--port PORT]
     python3 upload_image.py --list [--target TARGET] [--port PORT]
     python3 upload_image.py --delete N [--target TARGET] [--port PORT]
     python3 upload_image.py --swap A B [--target TARGET] [--port PORT]
     python3 upload_image.py --label N NAME [--target TARGET] [--port PORT]
     python3 upload_image.py --query [--target TARGET] [--port PORT]
-    python3 upload_image.py --sync [--target TARGET] [--port PORT]
 
-Target devices:
+Target devices (for direct device commands):
     rp2040  - RP2040 round display (128x115, external)
     s3      - ESP32-S3 config display (240x240, rotary)
     both    - Both devices (default)
@@ -305,6 +308,71 @@ def upload(ser, slot: int, image_data: bytes, target="rp2040"):
     time.sleep(1)
 
 
+def store_on_esp32(ser, slot: int, image_data: bytes, is_s3: bool):
+    """Store an image on ESP32's LittleFS via store mode binary protocol."""
+    store_cmd = f"STORE_S3_IMG:{slot}" if is_s3 else f"STORE_RP_IMG:{slot}"
+    res_label = "S3" if is_s3 else "RP2040"
+
+    resp = send_text_cmd(ser, store_cmd)
+    if "OK:STORE_MODE" not in resp:
+        print(f"ERROR: ESP32 rejected store command: {resp}")
+        sys.exit(1)
+    time.sleep(0.2)
+
+    expected_size = len(image_data)
+
+    # Send UPLOAD_START
+    ser.write(make_upload_start(slot, expected_size))
+    resp = read_binary_response(ser, timeout=3.0)
+    if len(resp) < 6 or resp[2] != RESP_READY:
+        code = f"0x{resp[2]:02X}" if len(resp) >= 3 else "timeout"
+        print(f"ERROR: ESP32 store not ready ({res_label}): {code}")
+        sys.exit(1)
+
+    # Send chunks
+    seq = 0
+    offset = 0
+    total_chunks = (expected_size + CHUNK_SIZE - 1) // CHUNK_SIZE
+    while offset < expected_size:
+        chunk = image_data[offset : offset + CHUNK_SIZE]
+        pkt = make_chunk(seq & 0xFF, chunk)
+
+        for attempt in range(5):
+            ser.write(pkt)
+            resp = read_binary_response(ser, timeout=2.0)
+            if len(resp) >= 6 and resp[2] == RESP_CHUNK_OK:
+                break
+            elif len(resp) >= 6:
+                print(
+                    f"\n  Error 0x{resp[2]:02X} on chunk {seq}, "
+                    f"retrying ({attempt + 1}/5)"
+                )
+            else:
+                print(f"\n  Timeout on chunk {seq}, retrying ({attempt + 1}/5)")
+        else:
+            print(f"\nFATAL: Failed to store chunk {seq} after 5 attempts")
+            sys.exit(1)
+
+        offset += CHUNK_SIZE
+        seq += 1
+        pct = min(100, int(seq * 100 / total_chunks))
+        print(f"\r  [{pct:3d}%] Chunk {seq}/{total_chunks}", end="", flush=True)
+
+    print()
+
+    # Send UPLOAD_DONE with CRC-32
+    img_crc = crc32(image_data)
+    ser.write(make_upload_done(slot, img_crc))
+    resp = read_binary_response(ser, timeout=5.0)
+    if len(resp) >= 6 and resp[2] == RESP_UPLOAD_OK:
+        new_count = resp[3]
+        print(f"  Stored on ESP32 ({res_label} slot {slot}), store: {new_count} images")
+    else:
+        code = f"0x{resp[2]:02X}" if len(resp) >= 3 else "timeout"
+        print(f"ERROR: Store verification failed ({code})")
+        sys.exit(1)
+
+
 def set_label(ser, slot: int, label_text: str, target="rp2040"):
     """Set a label for a slot via text command through ESP32."""
     pfx = _cmd_prefix(target)
@@ -355,6 +423,25 @@ def wait_for_bridge_exit(ser, timeout=7.0):
     """Wait for the ESP32 bridge mode to exit (5s inactivity timeout) and drain output."""
     time.sleep(timeout)
     ser.read(ser.in_waiting or 4096)
+
+
+def wait_for_push(ser, timeout=600.0):
+    """Read serial output during push/sync, print progress, return final status line."""
+    start = time.time()
+    buf = ""
+    while time.time() - start < timeout:
+        if ser.in_waiting:
+            buf += ser.read(ser.in_waiting).decode("utf-8", errors="replace")
+            while "\n" in buf:
+                line, buf = buf.split("\n", 1)
+                line = line.strip()
+                if line:
+                    print(f"  {line}")
+                if line.startswith("OK:PUSH_DONE") or line.startswith("OK:SYNC_DONE"):
+                    return line
+                start = time.time()  # reset timeout on activity
+        time.sleep(0.1)
+    return ""
 
 
 # ════════════════════════════════════════════════════════════
@@ -413,6 +500,66 @@ def sync_device(ser, manifest, target):
     return True
 
 
+def sync_via_store(ser, manifest):
+    """Store all images on ESP32, set labels, then push to both devices.
+
+    This is the primary sync flow. The ESP32 becomes the authoritative store.
+    """
+    slots = manifest["slots"]
+    images_dir = Path(__file__).resolve().parent.parent / "images"
+
+    # Phase 1: Store both resolutions on ESP32
+    print(f"\n{'='*60}")
+    print(f"  Phase 1: Storing {len(slots)} images on ESP32")
+    print(f"{'='*60}")
+
+    for entry in slots:
+        slot = entry["slot"]
+        png_file = images_dir / entry["file"]
+        if not png_file.exists():
+            print(f"WARNING: {png_file} not found, skipping slot {slot}")
+            continue
+
+        print(f"\nSlot {slot}: {entry['file']}")
+
+        # Store RP2040 version (128x115)
+        print(f"  Converting to {RP2040_W}x{RP2040_H} RGB565 (RP2040)...")
+        rp_data = png_to_rgb565(str(png_file), RP2040_W, RP2040_H)
+        store_on_esp32(ser, slot, rp_data, is_s3=False)
+
+        # Store S3 version (240x240)
+        print(f"  Converting to {S3_W}x{S3_H} RGB565 (S3)...")
+        s3_data = png_to_rgb565(str(png_file), S3_W, S3_H)
+        store_on_esp32(ser, slot, s3_data, is_s3=True)
+
+    # Phase 2: Set labels
+    print(f"\n{'='*60}")
+    print(f"  Phase 2: Setting labels on ESP32")
+    print(f"{'='*60}")
+    for entry in slots:
+        lbl = entry.get("label", "")
+        if lbl:
+            resp = send_text_cmd(ser, f"STORE_LABEL:{entry['slot']}={lbl}")
+            if "OK:" in resp:
+                print(f"  Slot {entry['slot']}: {lbl}")
+            else:
+                print(f"  Warning: slot {entry['slot']}: {resp}")
+
+    # Phase 3: Push to both devices
+    print(f"\n{'='*60}")
+    print(f"  Phase 3: Pushing to both devices")
+    print(f"{'='*60}")
+    ser.reset_input_buffer()
+    ser.write(b"PUSH_TO_DEVICES\n")
+    result = wait_for_push(ser, timeout=600.0)
+    if not result:
+        print("ERROR: Push timed out")
+        return False
+
+    print(f"\nSync complete!")
+    return True
+
+
 # ════════════════════════════════════════════════════════════
 #  CLI
 # ════════════════════════════════════════════════════════════
@@ -445,13 +592,18 @@ def main():
     parser.add_argument("--query", action="store_true",
                         help="Query current image count")
     parser.add_argument("--sync", action="store_true",
-                        help="Sync device(s) to match images/manifest.json")
+                        help="Store images on ESP32 + push to both devices")
+    parser.add_argument("--push", action="store_true",
+                        help="Push stored images from ESP32 to both devices")
+    parser.add_argument("--list-store", action="store_true",
+                        help="List images stored on ESP32")
     args = parser.parse_args()
 
     # Validate arguments
     actions = sum([args.image is not None, args.delete is not None,
                    args.swap is not None, args.query, args.list,
-                   args.label is not None, args.sync])
+                   args.label is not None, args.sync, args.push,
+                   args.list_store])
     if actions == 0:
         parser.print_help()
         sys.exit(1)
@@ -470,8 +622,30 @@ def main():
         with open(manifest_path) as f:
             manifest = json.load(f)
         print(f"Manifest: {len(manifest['slots'])} images")
-        for target in targets:
-            sync_device(ser, manifest, target)
+        sync_via_store(ser, manifest)
+        ser.close()
+        return
+
+    if args.push:
+        ser.reset_input_buffer()
+        ser.write(b"PUSH_TO_DEVICES\n")
+        result = wait_for_push(ser, timeout=600.0)
+        if not result:
+            print("ERROR: Push timed out")
+        ser.close()
+        return
+
+    if args.list_store:
+        ser.reset_input_buffer()
+        ser.write(b"LIST_STORE\n")
+        time.sleep(0.5)
+        lines = read_text_lines(ser, end_marker="END", timeout=3.0)
+        if not lines:
+            print("ESP32 store is empty")
+        else:
+            print("ESP32 image store:")
+            for line in lines:
+                print(f"  {line}")
         ser.close()
         return
 
