@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include "fw_version.h"
 
 // ════════════════════════════════════════════════════════════
 //  Dual-Flavor Soda Maker
@@ -50,7 +51,7 @@ uint8_t numS3Images = 3;  // updated at boot via QUERY_COUNT to S3
 #define ESP_LABELS_PATH    "/labels.txt"
 #define FW_VERSION_PATH    "/fw_version.txt"
 #define USER_CONFIG_PATH   "/user_config.txt"
-#define FW_VERSION         __DATE__ " " __TIME__
+#define FW_VERSION         FW_BUILD_TIME
 
 // Factory defaults JSON (embedded in firmware flash at build time)
 extern const char factory_defaults_start[] asm("_binary_images_factory_defaults_json_start");
