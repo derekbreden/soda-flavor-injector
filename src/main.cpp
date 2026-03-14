@@ -66,6 +66,7 @@ extern const char factory_defaults_start[] asm("_binary_images_factory_defaults_
 #define RESP_UPLOAD_OK    0x12
 
 uint8_t espNumImages = 0;
+uint8_t factoryImageCount = 0;  // slots 0..factoryImageCount-1 are protected
 char espLabels[MAX_STORE_IMAGES][MAX_LABEL_LEN + 1];
 
 // ── S3-initiated upload state (BLE phone → S3 → ESP32 via SerialTransfer) ──
@@ -289,11 +290,12 @@ void applyFactoryDefaults() {
 
   // Update store count to match factory defaults and persist
   espNumImages = count;
+  factoryImageCount = count;
   saveEspMeta();
   saveEspLabels();
 
-  Serial.printf("Factory defaults applied: F1 ratio=%d image=%d, F2 ratio=%d image=%d, %d images\n",
-                flavor1Ratio, flavor1Image, flavor2Ratio, flavor2Image, count);
+  Serial.printf("Factory defaults applied: F1 ratio=%d image=%d, F2 ratio=%d image=%d, %d images (%d factory)\n",
+                flavor1Ratio, flavor1Image, flavor2Ratio, flavor2Image, count, count);
 }
 
 // Check if this is a new firmware version (first boot after flash)
@@ -1276,8 +1278,12 @@ void processConfigCommand(const char *cmd, Stream &out) {
       out.printf("ERR:invalid slot (0-%d)\n", espNumImages - 1);
       return;
     }
-    if (espNumImages <= 1) {
-      out.printf("ERR:cannot delete last image\n");
+    if (slot < factoryImageCount) {
+      out.printf("ERR:cannot delete factory image (slot %d)\n", slot);
+      return;
+    }
+    if (espNumImages <= factoryImageCount) {
+      out.printf("ERR:only factory images remain\n");
       return;
     }
 
@@ -1390,10 +1396,9 @@ void processConfigCommand(const char *cmd, Stream &out) {
                s3Pushed ? "pushed" : "in_sync");
 
   } else if (strcmp(cmd, "FACTORY_RESET") == 0) {
-    out.printf("OK:RESETTING\n");
-    out.flush();
+    uint8_t oldCount = espNumImages;
 
-    // Apply compiled-in factory defaults (sets espNumImages, saves meta + labels)
+    // Reset config + metadata to compiled-in factory defaults (instant)
     applyFactoryDefaults();
 
     // Delete user config so defaults persist across reboot
@@ -1401,19 +1406,29 @@ void processConfigCommand(const char *cmd, Stream &out) {
       LittleFS.remove(USER_CONFIG_PATH);
     }
 
-    // Force push to both devices
-    if (espNumImages > 0) {
-      bool rpOk = pushAllToDevice(DEVICE_RP2040);
-      bool s3Ok = pushAllToDevice(DEVICE_S3);
-      if (rpOk) { numImages = espNumImages; pushLabelsToDevice(DEVICE_RP2040); }
-      if (s3Ok) { numS3Images = espNumImages; pushLabelsToDevice(DEVICE_S3); }
-      sendMapToRP();
-      out.printf("OK:FACTORY_RESET rp=%s s3=%s\n",
-                 rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
-    } else {
-      sendMapToRP();
-      out.printf("OK:FACTORY_RESET (no images in store)\n");
+    // Clean up orphaned user-image files from ESP32 store
+    for (uint8_t i = factoryImageCount; i < oldCount; i++) {
+      LittleFS.remove(espRpPath(i));
+      LittleFS.remove(espS3Path(i));
+      LittleFS.remove(espS3PngPath(i));
     }
+
+    // Tell devices about new state (no image re-push needed — factory
+    // images are never deleted, so devices already have them)
+    sendMapToRP();
+    pushLabelsToDevice(DEVICE_RP2040);
+    pushLabelsToDevice(DEVICE_S3);
+    {
+      char cfgBuf[128];
+      snprintf(cfgBuf, sizeof(cfgBuf),
+               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, espNumImages, espNumImages);
+      stSendText(stS3, cfgBuf);
+    }
+    numImages = espNumImages;
+    numS3Images = espNumImages;
+
+    out.printf("OK:FACTORY_RESET\n");
 
   } else if (strncmp(cmd, "PUSH_IMG:", 9) == 0) {
     // PUSH_IMG:slot:target — push a single stored image to a device
@@ -1690,6 +1705,14 @@ void setup() {
   // Init ESP32 image store (LittleFS) — must come before config loading
   if (!LittleFS.begin(true)) {  // true = format on first use
     Serial.println("WARNING: LittleFS init failed");
+  }
+
+  // Always determine factory image count from compiled-in defaults
+  {
+    JsonDocument doc;
+    if (!deserializeJson(doc, factory_defaults_start)) {
+      factoryImageCount = doc["images"].as<JsonArray>().size();
+    }
   }
 
   // Detect new firmware → apply factory defaults; otherwise load user config

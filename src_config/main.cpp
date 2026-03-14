@@ -1096,17 +1096,23 @@ void parseConfigResponse(const char* line) {
   if (strncmp(line, "CONFIG:", 7) != 0) return;
 
   const char* p = line + 7;
-  int f1r = 0, f2r = 0, f1i = 0, f2i = 0;
+  int f1r = 0, f2r = 0, f1i = 0, f2i = 0, ni = 0;
 
-  if (sscanf(p, "F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d",
-             &f1r, &f2r, &f1i, &f2i) == 4) {
+  if (sscanf(p, "F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
+             &f1r, &f2r, &f1i, &f2i, &ni) >= 4) {
+    // Update numImages if provided (5th field), before constraining image refs
+    if (ni > 0 && (uint8_t)ni != numImages) {
+      numImages = (uint8_t)ni;
+      updateMeta();
+      Serial.printf("numImages updated to %d\n", numImages);
+    }
     flavor1Ratio = constrain(f1r, 6, 24);
     flavor2Ratio = constrain(f2r, 6, 24);
     flavor1Image = constrain(f1i, 0, (int)numImages - 1);
     flavor2Image = constrain(f2i, 0, (int)numImages - 1);
     configSynced = true;
-    Serial.printf("Config synced: F1_RATIO=%d F2_RATIO=%d F1_IMAGE=%d F2_IMAGE=%d\n",
-                  flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image);
+    Serial.printf("Config synced: F1_RATIO=%d F2_RATIO=%d F1_IMAGE=%d F2_IMAGE=%d numImages=%d\n",
+                  flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages);
     drawScreen();
   }
 }
