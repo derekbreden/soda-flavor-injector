@@ -80,13 +80,12 @@ static bool loadImageFromFS(uint8_t slot);
 static void imagePath(char *buf, uint8_t slot);
 
 // ── BLE image download state ──
+// Streams directly from LittleFS file — no imageBuf aliasing.
 static bool bleImageSending = false;
 static uint8_t bleImageSlot = 0;
-static uint32_t bleImageOffset = 0;
 static uint32_t bleImageSize = 0;
-// Reuse imageBuf (115KB static array) for BLE send data — no malloc needed.
-// Display may briefly show garbage during download, which is acceptable.
-static uint8_t *bleSendBuf = (uint8_t *)imageBuf;
+static File bleFile;
+static uint8_t bleSendChunkBuf[240];
 
 // ── BLE cross-task safety ──
 // BLE RX callback runs on NimBLE task — must not do LittleFS I/O or Serial0
@@ -106,6 +105,7 @@ class BLEServerCB : public BLEServerCallbacks {
     bleConnected = false;
     if (bleImageSending) {
       bleImageSending = false;
+      if (bleFile) bleFile.close();
       Serial.println("BLE: aborted image send on disconnect");
     }
     Serial.println("BLE: client disconnected");
@@ -116,7 +116,8 @@ class BLEServerCB : public BLEServerCallbacks {
 static void bleImageSendChunks() {
   if (!bleImageSending || !bleConnected || !pTxChar) return;
 
-  if (bleImageOffset >= bleImageSize) {
+  if (!bleFile || !bleFile.available()) {
+    if (bleFile) bleFile.close();
     delay(50);
     bleSendLine("IMGEND");
     bleImageSending = false;
@@ -124,44 +125,40 @@ static void bleImageSendChunks() {
     return;
   }
 
-  uint16_t chunkSize = 240;
-  if (bleImageOffset + chunkSize > bleImageSize) {
-    chunkSize = bleImageSize - bleImageOffset;
+  size_t n = bleFile.read(bleSendChunkBuf, sizeof(bleSendChunkBuf));
+  if (n == 0) {
+    bleFile.close();
+    delay(50);
+    bleSendLine("IMGEND");
+    bleImageSending = false;
+    return;
   }
 
-  pTxChar->setValue(bleSendBuf + bleImageOffset, chunkSize);
+  pTxChar->setValue(bleSendChunkBuf, n);
   pTxChar->notify();
-  bleImageOffset += chunkSize;
   delay(20);
 }
 
-static bool loadPngFromFS(uint8_t slot) {
+static bool openPngForBLE(uint8_t slot) {
   char path[24];
   snprintf(path, sizeof(path), "/s3_png%02d.png", slot);
   if (!LittleFS.exists(path)) {
     Serial.printf("loadPng: %s does not exist\n", path);
     return false;
   }
-  File f = LittleFS.open(path, "r");
-  if (!f) {
+  bleFile = LittleFS.open(path, "r");
+  if (!bleFile) {
     Serial.printf("loadPng: %s open failed\n", path);
     return false;
   }
-  uint32_t size = f.size();
+  uint32_t size = bleFile.size();
   if (size == 0 || size > IMAGE_BYTES) {
     Serial.printf("loadPng: %s bad size %u\n", path, size);
-    f.close();
+    bleFile.close();
     return false;
   }
-
-  size_t n = f.read(bleSendBuf, size);
-  f.close();
-  if (n == 0) {
-    Serial.printf("loadPng: read returned 0 for slot %d\n", slot);
-    return false;
-  }
-  bleImageSize = n;
-  Serial.printf("Loaded PNG slot %d: %u bytes\n", slot, n);
+  bleImageSize = size;
+  Serial.printf("Opened PNG slot %d for BLE: %u bytes\n", slot, size);
   return true;
 }
 
@@ -212,7 +209,7 @@ static void processBleRequest() {
     case BLE_REQ_GETPNG:
       if (slot < 0 || slot >= numImages) {
         bleSendLine("ERR:INVALID_SLOT");
-      } else if (!loadPngFromFS(slot)) {
+      } else if (!openPngForBLE(slot)) {
         bleSendLine("ERR:LOAD_FAILED");
       } else {
         char hdr[32];
@@ -220,29 +217,33 @@ static void processBleRequest() {
         bleSendLine(hdr);
         delay(20);
         bleImageSlot = slot;
-        bleImageOffset = 0;
         bleImageSending = true;
         Serial.printf("BLE PNG download: slot %d, %u bytes\n", slot, bleImageSize);
       }
       break;
 
-    case BLE_REQ_GETIMG:
+    case BLE_REQ_GETIMG: {
       if (slot < 0 || slot >= numImages) {
         bleSendLine("ERR:INVALID_SLOT");
-      } else if (!loadImageFromFS(slot)) {
-        bleSendLine("ERR:LOAD_FAILED");
       } else {
-        bleImageSize = IMAGE_BYTES;
-        char hdr[32];
-        snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%d", slot, IMAGE_BYTES);
-        bleSendLine(hdr);
-        delay(20);
-        bleImageSlot = slot;
-        bleImageOffset = 0;
-        bleImageSending = true;
-        Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
+        char path[16];
+        imagePath(path, slot);
+        bleFile = LittleFS.open(path, "r");
+        if (!bleFile) {
+          bleSendLine("ERR:LOAD_FAILED");
+        } else {
+          bleImageSize = IMAGE_BYTES;
+          char hdr[32];
+          snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%d", slot, IMAGE_BYTES);
+          bleSendLine(hdr);
+          delay(20);
+          bleImageSlot = slot;
+          bleImageSending = true;
+          Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
+        }
       }
       break;
+    }
 
     case BLE_REQ_FORWARD:
       Serial0.println(bleForwardBuf);
@@ -459,8 +460,6 @@ static void seedDefaultImages() {
 // ════════════════════════════════════════════════════════════
 
 void renderCircularThumb(uint8_t imgIdx, int size) {
-  // bleSendBuf IS imageBuf — loading an image here would corrupt in-flight BLE data
-  if (bleImageSending) return;
   if (!loadImageFromFS(imgIdx)) {
     // Fill with dark gray if load fails
     for (int i = 0; i < size * size; i++) thumb_buf[i].full = 0x2104;
