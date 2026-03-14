@@ -388,7 +388,8 @@ static uint32_t crc32_update(uint32_t prev, const uint8_t *data, size_t len) {
 // ════════════════════════════════════════════════════════════
 
 bool queryImageCount() {
-  stRP.sendData(0, PKT_QUERY_COUNT);
+  stRP.packet.txBuff[0] = 0;
+  stRP.sendData(1, PKT_QUERY_COUNT);
 
   unsigned long start = millis();
   while (millis() - start < 500) {
@@ -429,7 +430,8 @@ bool waitStResponse(SerialTransfer &st, uint8_t expectedPktId, unsigned long tim
 // ════════════════════════════════════════════════════════════
 
 bool queryS3ImageCount() {
-  stS3.sendData(0, PKT_QUERY_COUNT);
+  stS3.packet.txBuff[0] = 0;
+  stS3.sendData(1, PKT_QUERY_COUNT);
 
   unsigned long start = millis();
   while (millis() - start < 500) {

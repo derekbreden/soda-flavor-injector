@@ -105,7 +105,9 @@ inline void stSendResponse(SerialTransfer &st, uint8_t pktId, uint8_t value) {
   st.sendData(sizeof(resp), pktId);
 }
 
-// Send an empty response packet (zero-length payload)
+// Send a response packet with no meaningful payload
+// (SerialTransfer rejects zero-length payloads, so send 1 dummy byte)
 inline void stSendEmptyResponse(SerialTransfer &st, uint8_t pktId) {
-  st.sendData(0, pktId);
+  st.packet.txBuff[0] = 0;
+  st.sendData(1, pktId);
 }
