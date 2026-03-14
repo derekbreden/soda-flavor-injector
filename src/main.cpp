@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <uart_st.h>
 #include "fw_version.h"
 
 // ════════════════════════════════════════════════════════════
@@ -85,6 +86,14 @@ bool firstBoot = false;
 #define DISPLAY_TX_PIN          32     // UART TX to RP2040 display
 #define DISPLAY_RX_PIN          35     // UART RX from RP2040 (input-only GPIO)
 #define CONFIG_SEND_INTERVAL_MS 30000  // resend image mapping every 30s
+
+SerialTransfer stRP;  // SerialTransfer on Serial2 (RP2040 link)
+
+void sendMapToRP() {
+  char buf[20];
+  snprintf(buf, sizeof(buf), "MAP:%d,%d", flavor1Image, flavor2Image);
+  stSendText(stRP, buf);
+}
 
 // ── Config UART (ESP32 ↔ ESP32-S3, bidirectional) ──
 // GPIO 15 for TX: frees GPIO 2 (boot-strap pin that must be LOW to flash).
@@ -385,34 +394,17 @@ static uint32_t crc32_update(uint32_t prev, const uint8_t *data, size_t len) {
 // ════════════════════════════════════════════════════════════
 
 bool queryImageCount() {
-  // Drain any stale/noise bytes from RX buffer.
-  // GPIO 35 has no pull-up; line floats before RP2040 inits its TX pin.
-  while (Serial2.available()) Serial2.read();
+  stRP.sendData(0, PKT_QUERY_COUNT);
 
-  // Send QUERY_COUNT: STX STX 0x04 0x00 CRC16
-  uint8_t msg[6];
-  msg[0] = 0x02; msg[1] = 0x02;
-  msg[2] = 0x04; msg[3] = 0x00;
-  uint16_t crc = crc16(msg, 4);
-  msg[4] = crc & 0xFF;
-  msg[5] = (crc >> 8) & 0xFF;
-  Serial2.write(msg, 6);
-  Serial2.flush();  // wait for TX to complete before reading
-
-  // Wait up to 500ms for 6-byte response
   unsigned long start = millis();
-  uint8_t resp[6];
-  uint8_t pos = 0;
   while (millis() - start < 500) {
-    if (Serial2.available()) {
-      resp[pos++] = Serial2.read();
-      if (pos == 6) {
-        if (resp[0] == 0x02 && resp[1] == 0x02 && resp[2] == 0x14) {
-          numImages = resp[3];
-          Serial.printf("RP2040 reports %d images\n", numImages);
-          return true;
-        }
-        return false;  // got 6 bytes but not valid response
+    if (stRP.available()) {
+      if (stRP.currentPacketID() == PKT_RESP_COUNT) {
+        ResponsePayload resp;
+        stRP.rxObj(resp);
+        numImages = resp.value;
+        Serial.printf("RP2040 reports %d images\n", numImages);
+        return true;
       }
     }
   }
@@ -420,20 +412,19 @@ bool queryImageCount() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  Send short binary command to RP2040 and read 6-byte response
+//  Wait for a specific SerialTransfer response packet
 // ════════════════════════════════════════════════════════════
 
-bool sendDisplayCommand(const uint8_t *msg, size_t len, uint8_t *resp) {
-  while (Serial2.available()) Serial2.read();  // drain stale bytes
-  Serial2.write(msg, len);
-  Serial2.flush();
-
+bool waitStResponse(SerialTransfer &st, uint8_t expectedPktId, unsigned long timeoutMs, ResponsePayload *out = nullptr) {
   unsigned long start = millis();
-  uint8_t pos = 0;
-  while (millis() - start < 1000) {
-    if (Serial2.available()) {
-      resp[pos++] = Serial2.read();
-      if (pos == 6) return true;
+  while (millis() - start < timeoutMs) {
+    if (st.available()) {
+      if (st.currentPacketID() == expectedPktId) {
+        if (out) st.rxObj(*out);
+        return true;
+      }
+      // Unexpected packet — could be an error
+      return false;
     }
   }
   return false;
@@ -568,37 +559,6 @@ void saveEspLabels() {
     f.println(espLabels[i]);
   }
   f.close();
-}
-
-// ════════════════════════════════════════════════════════════
-//  Upload bridge mode: transparent USB <-> display UART
-// ════════════════════════════════════════════════════════════
-
-void enterUploadMode() {
-  Serial.println("Entering upload bridge mode...");
-
-  unsigned long lastActivity = millis();
-  while (true) {
-    // USB -> Display UART
-    while (Serial.available() && Serial2.availableForWrite()) {
-      Serial2.write(Serial.read());
-      lastActivity = millis();
-    }
-    // Display UART -> USB
-    while (Serial2.available() && Serial.availableForWrite()) {
-      Serial.write(Serial2.read());
-      lastActivity = millis();
-    }
-    // Exit after 5 seconds of inactivity
-    if (millis() - lastActivity > 5000) {
-      break;
-    }
-  }
-
-  Serial.println("Upload bridge mode ended");
-  delay(100);
-  queryImageCount();
-  Serial.printf("numImages now %d\n", numImages);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -798,7 +758,6 @@ bool waitBinaryResponse(HardwareSerial &uart, uint8_t expectedCmd, unsigned long
 }
 
 bool pushImageToDevice(DeviceTarget dev, uint8_t slot) {
-  HardwareSerial &uart = (dev == DEVICE_RP2040) ? Serial2 : Serial1;
   const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
   String path = (dev == DEVICE_RP2040) ? espRpPath(slot) : espS3Path(slot);
   uint32_t expectedSize = (dev == DEVICE_RP2040) ? RP2040_IMAGE_BYTES : S3_IMAGE_BYTES;
@@ -814,74 +773,119 @@ bool pushImageToDevice(DeviceTarget dev, uint8_t slot) {
     return false;
   }
 
-  // Drain stale bytes
-  while (uart.available()) uart.read();
-
-  // Send UPLOAD_START
-  uint8_t msg[10];
-  msg[0] = 0x02; msg[1] = 0x02;
-  msg[2] = CMD_UPLOAD_START; msg[3] = slot;
-  memcpy(msg + 4, &expectedSize, 4);
-  uint16_t c = crc16(msg, 8);
-  msg[8] = c & 0xFF; msg[9] = (c >> 8) & 0xFF;
-  uart.write(msg, 10);
-  uart.flush();
-
-  if (!waitBinaryResponse(uart, RESP_READY, 3000)) {
-    Serial.printf("Push %s: not ready\n", devName);
-    f.close();
-    return false;
-  }
-
-  // Send chunks
   uint8_t chunkBuf[STORE_CHUNK_SIZE];
-  uint8_t pkt[6 + STORE_CHUNK_SIZE + 2];
   uint8_t seq = 0;
   uint32_t runCrc = 0;
 
-  while (f.available()) {
-    int n = f.read(chunkBuf, STORE_CHUNK_SIZE);
-    if (n <= 0) break;
+  if (dev == DEVICE_RP2040) {
+    // ── SerialTransfer path ──
+    UploadStartPayload startPl{slot, expectedSize};
+    stRP.txObj(startPl);
+    stRP.sendData(sizeof(startPl), PKT_UPLOAD_START);
 
-    pkt[0] = 0x02; pkt[1] = 0x02;
-    pkt[2] = CMD_CHUNK_DATA; pkt[3] = seq;
-    pkt[4] = n & 0xFF; pkt[5] = (n >> 8) & 0xFF;
-    memcpy(pkt + 6, chunkBuf, n);
-    uint16_t pc = crc16(pkt, 6 + n);
-    pkt[6 + n] = pc & 0xFF;
-    pkt[6 + n + 1] = (pc >> 8) & 0xFF;
-
-    bool ok = false;
-    for (int attempt = 0; attempt < 5; attempt++) {
-      uart.write(pkt, 6 + n + 2);
-      uart.flush();
-      if (waitBinaryResponse(uart, RESP_CHUNK_OK, 2000)) { ok = true; break; }
-      Serial.printf("Push %s: chunk %d retry %d\n", devName, seq, attempt + 1);
-    }
-    if (!ok) {
-      Serial.printf("Push %s: chunk %d failed\n", devName, seq);
+    if (!waitStResponse(stRP, PKT_RESP_READY, 3000)) {
+      Serial.printf("Push %s: not ready\n", devName);
       f.close();
       return false;
     }
 
-    runCrc = crc32_update(runCrc, chunkBuf, n);
-    seq++;
-  }
-  f.close();
+    while (f.available()) {
+      int n = f.read(chunkBuf, STORE_CHUNK_SIZE);
+      if (n <= 0) break;
 
-  // Send UPLOAD_DONE
-  uint8_t done[10];
-  done[0] = 0x02; done[1] = 0x02;
-  done[2] = CMD_UPLOAD_DONE; done[3] = slot;
-  memcpy(done + 4, &runCrc, 4);
-  uint16_t dc = crc16(done, 8);
-  done[8] = dc & 0xFF; done[9] = (dc >> 8) & 0xFF;
-  uart.write(done, 10);
-  uart.flush();
+      stRP.packet.txBuff[0] = seq;
+      memcpy(stRP.packet.txBuff + 1, chunkBuf, n);
 
-  if (!waitBinaryResponse(uart, RESP_UPLOAD_OK, 5000)) {
-    Serial.printf("Push %s: verification failed\n", devName);
-    return false;
+      bool ok = false;
+      for (int attempt = 0; attempt < 5; attempt++) {
+        stRP.sendData(1 + n, PKT_CHUNK_DATA);
+        if (waitStResponse(stRP, PKT_RESP_CHUNK_OK, 2000)) { ok = true; break; }
+        Serial.printf("Push %s: chunk %d retry %d\n", devName, seq, attempt + 1);
+      }
+      if (!ok) {
+        Serial.printf("Push %s: chunk %d failed\n", devName, seq);
+        f.close();
+        return false;
+      }
+
+      runCrc = uartCrc32Update(runCrc, chunkBuf, n);
+      seq++;
+    }
+    f.close();
+
+    UploadDonePayload donePl{slot, runCrc};
+    stRP.txObj(donePl);
+    stRP.sendData(sizeof(donePl), PKT_UPLOAD_DONE);
+
+    if (!waitStResponse(stRP, PKT_RESP_UPLOAD_OK, 5000)) {
+      Serial.printf("Push %s: verification failed\n", devName);
+      return false;
+    }
+
+  } else {
+    // ── Old STX STX protocol for S3 (migrated in commit 7) ──
+    HardwareSerial &uart = Serial1;
+    while (uart.available()) uart.read();
+
+    uint8_t msg[10];
+    msg[0] = 0x02; msg[1] = 0x02;
+    msg[2] = CMD_UPLOAD_START; msg[3] = slot;
+    memcpy(msg + 4, &expectedSize, 4);
+    uint16_t c = crc16(msg, 8);
+    msg[8] = c & 0xFF; msg[9] = (c >> 8) & 0xFF;
+    uart.write(msg, 10);
+    uart.flush();
+
+    if (!waitBinaryResponse(uart, RESP_READY, 3000)) {
+      Serial.printf("Push %s: not ready\n", devName);
+      f.close();
+      return false;
+    }
+
+    uint8_t pkt[6 + STORE_CHUNK_SIZE + 2];
+    while (f.available()) {
+      int n = f.read(chunkBuf, STORE_CHUNK_SIZE);
+      if (n <= 0) break;
+
+      pkt[0] = 0x02; pkt[1] = 0x02;
+      pkt[2] = CMD_CHUNK_DATA; pkt[3] = seq;
+      pkt[4] = n & 0xFF; pkt[5] = (n >> 8) & 0xFF;
+      memcpy(pkt + 6, chunkBuf, n);
+      uint16_t pc = crc16(pkt, 6 + n);
+      pkt[6 + n] = pc & 0xFF;
+      pkt[6 + n + 1] = (pc >> 8) & 0xFF;
+
+      bool ok = false;
+      for (int attempt = 0; attempt < 5; attempt++) {
+        uart.write(pkt, 6 + n + 2);
+        uart.flush();
+        if (waitBinaryResponse(uart, RESP_CHUNK_OK, 2000)) { ok = true; break; }
+        Serial.printf("Push %s: chunk %d retry %d\n", devName, seq, attempt + 1);
+      }
+      if (!ok) {
+        Serial.printf("Push %s: chunk %d failed\n", devName, seq);
+        f.close();
+        return false;
+      }
+
+      runCrc = crc32_update(runCrc, chunkBuf, n);
+      seq++;
+    }
+    f.close();
+
+    uint8_t done[10];
+    done[0] = 0x02; done[1] = 0x02;
+    done[2] = CMD_UPLOAD_DONE; done[3] = slot;
+    memcpy(done + 4, &runCrc, 4);
+    uint16_t dc = crc16(done, 8);
+    done[8] = dc & 0xFF; done[9] = (dc >> 8) & 0xFF;
+    uart.write(done, 10);
+    uart.flush();
+
+    if (!waitBinaryResponse(uart, RESP_UPLOAD_OK, 5000)) {
+      Serial.printf("Push %s: verification failed\n", devName);
+      return false;
+    }
   }
 
   Serial.printf("Push %s: slot %d OK\n", devName, slot);
@@ -978,9 +982,14 @@ bool pushPngToS3(uint8_t slot) {
 }
 
 void pushLabelsToDevice(DeviceTarget dev) {
-  HardwareSerial &uart = (dev == DEVICE_RP2040) ? Serial2 : Serial1;
   for (uint8_t i = 0; i < espNumImages; i++) {
-    uart.printf("LABEL:%d:%s\n", i, espLabels[i]);
+    char lbuf[48];
+    snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
+    if (dev == DEVICE_RP2040) {
+      stSendText(stRP, lbuf);
+    } else {
+      Serial1.printf("LABEL:%d:%s\n", i, espLabels[i]);
+    }
     delay(50);
   }
 }
@@ -989,23 +998,34 @@ void pushLabelsToDevice(DeviceTarget dev) {
 // Device handlers shift files down, so always deleting the last slot
 // avoids disrupting lower slots we just pushed.
 bool deleteLastDeviceImage(DeviceTarget dev, uint8_t slot) {
-  HardwareSerial &uart = (dev == DEVICE_RP2040) ? Serial2 : Serial1;
   const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
 
-  while (uart.available()) uart.read();
+  if (dev == DEVICE_RP2040) {
+    SlotPayload sp{slot};
+    stRP.txObj(sp);
+    stRP.sendData(sizeof(sp), PKT_DELETE_IMAGE);
 
-  uint8_t msg[6];
-  msg[0] = 0x02; msg[1] = 0x02;
-  msg[2] = CMD_DELETE_IMAGE; msg[3] = slot;
-  uint16_t c = crc16(msg, 4);
-  msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
-  uart.write(msg, 6);
-  uart.flush();
+    if (!waitStResponse(stRP, PKT_RESP_DELETE_OK, 3000)) {
+      Serial.printf("Delete %s slot %d: failed\n", devName, slot);
+      return false;
+    }
+  } else {
+    while (Serial1.available()) Serial1.read();
 
-  if (!waitBinaryResponse(uart, RESP_DELETE_OK, 3000)) {
-    Serial.printf("Delete %s slot %d: failed\n", devName, slot);
-    return false;
+    uint8_t msg[6];
+    msg[0] = 0x02; msg[1] = 0x02;
+    msg[2] = CMD_DELETE_IMAGE; msg[3] = slot;
+    uint16_t c = crc16(msg, 4);
+    msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
+    Serial1.write(msg, 6);
+    Serial1.flush();
+
+    if (!waitBinaryResponse(Serial1, RESP_DELETE_OK, 3000)) {
+      Serial.printf("Delete %s slot %d: failed\n", devName, slot);
+      return false;
+    }
   }
+
   Serial.printf("Delete %s slot %d: OK\n", devName, slot);
   return true;
 }
@@ -1105,13 +1125,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
         uint8_t maxImg = min(numImages, numS3Images);
         if (val >= 0 && val < maxImg) {
           flavor1Image = val; ok = true;
-          Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+          sendMapToRP();
         }
       } else if (strcmp(key, "F2_IMAGE") == 0) {
         uint8_t maxImg = min(numImages, numS3Images);
         if (val >= 0 && val < maxImg) {
           flavor2Image = val; ok = true;
-          Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+          sendMapToRP();
         }
       }
 
@@ -1132,39 +1152,26 @@ void processConfigCommand(const char *cmd, Stream &out) {
     sendConfigResponse(Serial1);
     Serial1.flush();
 
-  } else if (strncmp(cmd, "UPLOAD_IMG:", 11) == 0) {
-    int slot = atoi(cmd + 11);
-    if (slot < 0 || slot > 99) {
-      out.printf("ERR:invalid slot\n");
-      return;
-    }
-    out.printf("OK:BRIDGE_MODE\n");
-    out.flush();
-    enterUploadMode();
-
   } else if (strcmp(cmd, "QUERY_IMAGES") == 0) {
     queryImageCount();
     out.printf("OK:NUM_IMAGES=%d\n", numImages);
 
   } else if (strcmp(cmd, "LIST_IMAGES") == 0) {
-    // Send LIST to RP2040, forward text response lines
-    while (Serial2.available()) Serial2.read();  // drain
-    Serial2.print("LIST\n");
-    Serial2.flush();
+    // Send LIST to RP2040 via SerialTransfer, read PKT_TEXT responses
+    stSendText(stRP, "LIST");
 
     unsigned long t = millis();
-    String lineBuf = "";
     while (millis() - t < 2000) {
-      if (Serial2.available()) {
-        char c = Serial2.read();
-        if (c == '\n') {
-          lineBuf.trim();
-          if (lineBuf == "END") break;
-          out.println(lineBuf);
-          lineBuf = "";
-          t = millis();  // reset timeout on each line
-        } else {
-          lineBuf += c;
+      if (stRP.available()) {
+        if (stRP.currentPacketID() == PKT_TEXT) {
+          uint16_t len = stRP.bytesRead;
+          char line[256];
+          uint16_t copyLen = (len < 255) ? len : 255;
+          memcpy(line, stRP.packet.rxBuff, copyLen);
+          line[copyLen] = '\0';
+          if (strcmp(line, "END") == 0) break;
+          out.println(line);
+          t = millis();
         }
       }
     }
@@ -1176,7 +1183,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     char name[33] = {0};
     if (sscanf(cmd + 10, "%d=%32[^\n]", &slot, name) >= 1) {
       if (slot >= 0 && slot < numImages) {
-        Serial2.printf("LABEL:%d:%s\n", slot, name);
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); stSendText(stRP, lbuf); }
         out.printf("OK:LABEL=%d:%s\n", slot, name);
       } else {
         out.printf("ERR:invalid slot\n");
@@ -1194,16 +1201,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
       return;
     }
 
-    // Send CMD_DELETE_IMAGE: STX STX 0x05 slot CRC16
-    uint8_t msg[6];
-    msg[0] = 0x02; msg[1] = 0x02;
-    msg[2] = 0x05; msg[3] = (uint8_t)slot;
-    uint16_t c = crc16(msg, 4);
-    msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
+    SlotPayload delPl{(uint8_t)slot};
+    stRP.txObj(delPl);
+    stRP.sendData(sizeof(delPl), PKT_DELETE_IMAGE);
 
-    uint8_t resp[6];
-    if (sendDisplayCommand(msg, 6, resp) && resp[2] == 0x13) {
-      numImages = resp[3];
+    ResponsePayload rp;
+    if (waitStResponse(stRP, PKT_RESP_DELETE_OK, 3000, &rp)) {
+      numImages = rp.value;
       // Adjust ESP32-side image references
       if (flavor1Image == slot) flavor1Image = 0;
       else if (flavor1Image > slot) flavor1Image--;
@@ -1211,7 +1215,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
       else if (flavor2Image > slot) flavor2Image--;
       if (flavor1Image >= numImages) flavor1Image = 0;
       if (flavor2Image >= numImages) flavor2Image = 0;
-      Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      sendMapToRP();
       out.printf("OK:DELETED=%d,NUM_IMAGES=%d\n", slot, numImages);
     } else {
       out.printf("ERR:delete failed\n");
@@ -1228,21 +1232,17 @@ void processConfigCommand(const char *cmd, Stream &out) {
       return;
     }
 
-    // Send CMD_SWAP_IMAGES: STX STX 0x06 slotA slotB CRC16
-    uint8_t msg[7];
-    msg[0] = 0x02; msg[1] = 0x02;
-    msg[2] = 0x06; msg[3] = (uint8_t)a; msg[4] = (uint8_t)b;
-    uint16_t c = crc16(msg, 5);
-    msg[5] = c & 0xFF; msg[6] = (c >> 8) & 0xFF;
+    SwapPayload swPl{(uint8_t)a, (uint8_t)b};
+    stRP.txObj(swPl);
+    stRP.sendData(sizeof(swPl), PKT_SWAP_IMAGES);
 
-    uint8_t resp[6];
-    if (sendDisplayCommand(msg, 7, resp) && resp[2] == 0x15) {
+    if (waitStResponse(stRP, PKT_RESP_SWAP_OK, 3000)) {
       // Adjust ESP32-side image references
       if (flavor1Image == a) flavor1Image = b;
       else if (flavor1Image == b) flavor1Image = a;
       if (flavor2Image == a) flavor2Image = b;
       else if (flavor2Image == b) flavor2Image = a;
-      Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      sendMapToRP();
       out.printf("OK:SWAPPED=%d,%d\n", a, b);
     } else {
       out.printf("ERR:swap failed\n");
@@ -1417,7 +1417,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
         espLabels[slot][MAX_LABEL_LEN] = '\0';
         saveEspLabels();
         // Forward to both devices
-        Serial2.printf("LABEL:%d:%s\n", slot, name);
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); stSendText(stRP, lbuf); }
         Serial1.printf("LABEL:%d:%s\n", slot, name);
         out.printf("OK:STORE_LABEL=%d:%s\n", slot, name);
       } else {
@@ -1456,17 +1456,26 @@ void processConfigCommand(const char *cmd, Stream &out) {
     saveEspMeta();
     saveEspLabels();
 
-    // Forward delete to both devices
-    uint8_t msg[6];
-    msg[0] = 0x02; msg[1] = 0x02;
-    msg[2] = CMD_DELETE_IMAGE; msg[3] = (uint8_t)slot;
-    uint16_t c = crc16(msg, 4);
-    msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
-    uint8_t resp[6];
-    if (sendDisplayCommand(msg, 6, resp) && resp[2] == RESP_DELETE_OK)
-      numImages = resp[3];
-    if (sendS3DisplayCommand(msg, 6, resp) && resp[2] == RESP_DELETE_OK)
-      numS3Images = resp[3];
+    // Forward delete to RP2040 (SerialTransfer)
+    {
+      SlotPayload sp{(uint8_t)slot};
+      stRP.txObj(sp);
+      stRP.sendData(sizeof(sp), PKT_DELETE_IMAGE);
+      ResponsePayload rp;
+      if (waitStResponse(stRP, PKT_RESP_DELETE_OK, 3000, &rp))
+        numImages = rp.value;
+    }
+    // Forward delete to S3 (old protocol — migrated in commit 7)
+    {
+      uint8_t msg[6];
+      msg[0] = 0x02; msg[1] = 0x02;
+      msg[2] = CMD_DELETE_IMAGE; msg[3] = (uint8_t)slot;
+      uint16_t c = crc16(msg, 4);
+      msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
+      uint8_t resp[6];
+      if (sendS3DisplayCommand(msg, 6, resp) && resp[2] == RESP_DELETE_OK)
+        numS3Images = resp[3];
+    }
 
     // Adjust flavor image references
     if (flavor1Image == slot) flavor1Image = 0;
@@ -1475,7 +1484,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     else if (flavor2Image > slot) flavor2Image--;
     if (flavor1Image >= espNumImages) flavor1Image = 0;
     if (flavor2Image >= espNumImages) flavor2Image = 0;
-    Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+    sendMapToRP();
     out.printf("OK:STORE_DELETED=%d,NUM_IMAGES=%d\n", slot, espNumImages);
 
   } else if (strcmp(cmd, "LIST_STORE") == 0) {
@@ -1502,7 +1511,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     bool s3Ok = pushAllToDevice(DEVICE_S3);
     if (rpOk) numImages = espNumImages;
     if (s3Ok) numS3Images = espNumImages;
-    Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+    sendMapToRP();
     out.printf("OK:PUSH_DONE rp=%s s3=%s\n",
                rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
 
@@ -1522,7 +1531,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
       s3Pushed = pushAllToDevice(DEVICE_S3);
       if (s3Pushed) numS3Images = espNumImages;
     }
-    Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+    sendMapToRP();
     out.printf("OK:SYNC_DONE rp=%s s3=%s\n",
                rpPushed ? "pushed" : "in_sync",
                s3Pushed ? "pushed" : "in_sync");
@@ -1545,11 +1554,11 @@ void processConfigCommand(const char *cmd, Stream &out) {
       bool s3Ok = pushAllToDevice(DEVICE_S3);
       if (rpOk) { numImages = espNumImages; pushLabelsToDevice(DEVICE_RP2040); }
       if (s3Ok) { numS3Images = espNumImages; pushLabelsToDevice(DEVICE_S3); }
-      Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      sendMapToRP();
       out.printf("OK:FACTORY_RESET rp=%s s3=%s\n",
                  rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
     } else {
-      Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+      sendMapToRP();
       out.printf("OK:FACTORY_RESET (no images in store)\n");
     }
   }
@@ -1628,6 +1637,7 @@ void setup() {
 
   // UART to display board (bidirectional, 38400 baud)
   Serial2.begin(38400, SERIAL_8N1, DISPLAY_RX_PIN, DISPLAY_TX_PIN);
+  stRP.begin(Serial2);
   // Wait for RP2040 to boot, init LittleFS, and start UART.
   // First boot seeds 3 images (~88KB writes) which can take several seconds.
   // GP27 (RP2040 TX) is floating until pioSerial.begin() — noise on GPIO 35.
@@ -1639,7 +1649,7 @@ void setup() {
     Serial.printf("  retry %d/3...\n", attempt + 1);
     delay(500);
   }
-  Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+  sendMapToRP();
 
   // UART to config display (ESP32-S3, bidirectional, 38400 baud)
   Serial1.begin(38400, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
@@ -1835,7 +1845,7 @@ void loop() {
 
   // ── 5. Periodic display config resend ─────────────────────
   if (now - lastConfigSend >= CONFIG_SEND_INTERVAL_MS) {
-    Serial2.printf("MAP:%d,%d\n", flavor1Image, flavor2Image);
+    sendMapToRP();
     lastConfigSend = now;
   }
 
