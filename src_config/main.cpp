@@ -429,6 +429,8 @@ static void seedDefaultImages() {
 // ════════════════════════════════════════════════════════════
 
 void renderCircularThumb(uint8_t imgIdx, int size) {
+  // bleSendBuf IS imageBuf — loading an image here would corrupt in-flight BLE data
+  if (bleImageSending) return;
   if (!loadImageFromFS(imgIdx)) {
     // Fill with dark gray if load fails
     for (int i = 0; i < size * size; i++) thumb_buf[i].full = 0x2104;
