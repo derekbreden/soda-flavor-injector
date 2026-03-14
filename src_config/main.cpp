@@ -626,8 +626,15 @@ static void initBLE() {
 }
 
 // ── Menu ──
-enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU_FACTORY_RESET, MENU_COUNT };
-const char* menuLabels[] = { "Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Factory Reset" };
+enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU_SETTINGS, MENU_COUNT };
+const char* menuLabels[] = { "Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings" };
+
+// ── Settings sub-menu ──
+enum SettingsItem { SET_BACK, SET_FACTORY_RESET, SET_ABOUT, SETTINGS_COUNT };
+const char* settingsLabels[] = { LV_SYMBOL_LEFT " Back", "Factory Reset", "About" };
+int settingsIndex = 0;
+bool inSettings = false;       // true when inside the settings sub-menu
+bool settingsConfirm = false;  // true when confirming factory reset
 static bool factoryResetPending = false;
 
 int menuIndex = 0;
@@ -1149,6 +1156,8 @@ static void processTextLine(const char *line) {
   } else if (strncmp(line, "OK:FACTORY_RESET", 16) == 0) {
     Serial.printf("Factory reset complete: %s\n", line);
     factoryResetPending = false;
+    settingsConfirm = false;
+    inSettings = false;
     // Re-sync config from ESP32
     stSendText(stLink, "GET_CONFIG");
     drawScreen();
@@ -1334,17 +1343,12 @@ void drawBrowse() {
   lv_obj_set_style_text_color(title, lv_color_hex(0x808080), 0);
   lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
 
-  if (menuIndex == MENU_FACTORY_RESET) {
-    lv_obj_t *hint = lv_label_create(scr);
-    if (factoryResetPending) {
-      lv_label_set_text(hint, "Resetting...");
-      lv_obj_set_style_text_color(hint, lv_color_hex(0xFF4444), 0);
-    } else {
-      lv_label_set_text(hint, LV_SYMBOL_REFRESH);
-      lv_obj_set_style_text_color(hint, lv_color_hex(0x808080), 0);
-    }
-    lv_obj_set_style_text_font(hint, &lv_font_montserrat_28, 0);
-    lv_obj_align(hint, LV_ALIGN_CENTER, 0, 10);
+  if (menuIndex == MENU_SETTINGS) {
+    lv_obj_t *icon = lv_label_create(scr);
+    lv_label_set_text(icon, LV_SYMBOL_SETTINGS);
+    lv_obj_set_style_text_font(icon, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_color(icon, lv_color_hex(0x808080), 0);
+    lv_obj_align(icon, LV_ALIGN_CENTER, 0, 10);
   } else if (isImageItem()) {
     renderCircularThumb(getCurrentImage(), THUMB_BROWSE);
     lv_obj_t *canvas = lv_canvas_create(scr);
@@ -1373,15 +1377,9 @@ void drawEdit() {
   lv_label_set_text(title, menuLabels[menuIndex]);
   lv_obj_set_style_text_color(title, lv_color_white(), 0);
 
-  if (menuIndex == MENU_FACTORY_RESET) {
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 50);
-
-    lv_obj_t *hint = lv_label_create(scr);
-    lv_label_set_text(hint, "Tap to Confirm");
-    lv_obj_set_style_text_font(hint, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(hint, lv_color_hex(0xFF4444), 0);
-    lv_obj_align(hint, LV_ALIGN_CENTER, 0, 10);
+  if (menuIndex == MENU_SETTINGS) {
+    // This shouldn't be reached — settings uses drawSettings() instead
+    return;
   } else if (isImageItem()) {
     renderCircularThumb(getCurrentImage(), THUMB_EDIT);
     lv_obj_t *canvas = lv_canvas_create(scr);
@@ -1404,8 +1402,50 @@ void drawEdit() {
   }
 }
 
+void drawSettings() {
+  lv_obj_t *scr = lv_scr_act();
+  lv_obj_clean(scr);
+  lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
+
+  // Title
+  lv_obj_t *title = lv_label_create(scr);
+  lv_label_set_text(title, "Settings");
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(title, lv_color_white(), 0);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
+
+  if (settingsConfirm) {
+    // Factory reset confirmation
+    lv_obj_t *label = lv_label_create(scr);
+    if (factoryResetPending) {
+      lv_label_set_text(label, "Resetting...");
+    } else {
+      lv_label_set_text(label, "Tap to Confirm");
+    }
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xFF4444), 0);
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 10);
+  } else if (settingsIndex == SET_ABOUT) {
+    // About screen — show build date
+    lv_obj_t *label = lv_label_create(scr);
+    lv_label_set_text(label, __DATE__);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(0x808080), 0);
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 10);
+  } else {
+    // Settings item label (current selection)
+    lv_obj_t *label = lv_label_create(scr);
+    lv_label_set_text(label, settingsLabels[settingsIndex]);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(0x808080), 0);
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 10);
+  }
+}
+
 void drawScreen() {
-  if (editing) {
+  if (inSettings) {
+    drawSettings();
+  } else if (editing) {
     drawEdit();
   } else {
     drawBrowse();
@@ -1446,8 +1486,11 @@ void handleNavigation(int dir) {
   if (dir == 0) return;
   if (factoryResetPending) return;  // locked during reset
 
-  if (editing) {
-    if (menuIndex == MENU_FACTORY_RESET) return;  // no encoder action
+  if (inSettings) {
+    if (settingsConfirm) return;  // no scrolling during confirm
+    settingsIndex = (settingsIndex + dir + SETTINGS_COUNT) % SETTINGS_COUNT;
+    drawScreen();
+  } else if (editing) {
     switch (menuIndex) {
       case MENU_F1_IMAGE:
         flavor1Image = (flavor1Image + dir + numImages) % numImages;
@@ -1470,21 +1513,34 @@ void handleNavigation(int dir) {
 }
 
 void handleTap() {
-  if (menuIndex == MENU_FACTORY_RESET) {
-    if (factoryResetPending) return;  // already in progress
-    if (editing) {
-      // Confirmed — send factory reset command
-      editing = false;
+  if (inSettings) {
+    if (factoryResetPending) return;
+    if (settingsConfirm) {
+      // Confirmed factory reset
       factoryResetPending = true;
       Serial.println("Factory Reset confirmed — sending to ESP32");
       stSendText(stLink, "FACTORY_RESET");
       drawScreen();
-    } else {
-      // First tap — show confirmation
-      editing = true;
+    } else if (settingsIndex == SET_BACK) {
+      inSettings = false;
+      Serial.println("Exiting Settings");
+      drawScreen();
+    } else if (settingsIndex == SET_FACTORY_RESET) {
+      settingsConfirm = true;
       Serial.println("Factory Reset — tap again to confirm");
       drawScreen();
+    } else if (settingsIndex == SET_ABOUT) {
+      // About is view-only — nothing to do
     }
+    return;
+  }
+  if (menuIndex == MENU_SETTINGS) {
+    // Enter settings sub-menu
+    inSettings = true;
+    settingsIndex = 0;
+    settingsConfirm = false;
+    Serial.println("Entering Settings");
+    drawScreen();
     return;
   }
   if (editing) {
