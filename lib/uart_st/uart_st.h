@@ -16,6 +16,7 @@ constexpr uint8_t PKT_QUERY_COUNT      = 0x04;
 constexpr uint8_t PKT_DELETE_IMAGE     = 0x05;
 constexpr uint8_t PKT_SWAP_IMAGES      = 0x06;
 constexpr uint8_t PKT_UPLOAD_PNG_START = 0x07;
+constexpr uint8_t PKT_UPLOAD_RP_START  = 0x08;
 
 // Responses (device → ESP32)
 constexpr uint8_t PKT_RESP_READY       = 0x10;
