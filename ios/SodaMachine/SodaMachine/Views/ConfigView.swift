@@ -4,94 +4,74 @@ struct ConfigView: View {
     @EnvironmentObject var ble: BLEManager
     @State private var currentPage = 0
     @State private var editing = false
-    @State private var dragOffset: CGFloat = 0
 
     private let pageCount = 5
     private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Images"]
 
     var body: some View {
-        GeometryReader { geo in
-            let pageWidth = geo.size.width
+        ZStack {
+            Color.black.ignoresSafeArea()
 
-            ZStack {
-                Color.black.ignoresSafeArea()
+            if !ble.configSynced {
+                ProgressView("Loading configuration...")
+                    .foregroundStyle(.white)
+            } else {
+                VStack(spacing: 0) {
+                    Spacer()
 
-                if !ble.configSynced {
-                    ProgressView("Loading configuration...")
-                        .foregroundStyle(.white)
-                } else {
-                    VStack(spacing: 0) {
-                        Spacer()
+                    // Title
+                    Text(pageLabels[currentPage])
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(editing ? .white : .gray)
+                        .padding(.bottom, 12)
 
-                        // Title
-                        Text(pageLabels[currentPage])
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(editing ? .white : .gray)
-                            .padding(.bottom, 12)
-
-                        // Carousel
-                        HStack(spacing: 0) {
-                            ForEach(0..<pageCount, id: \.self) { i in
-                                pageView(for: i)
-                                    .frame(width: pageWidth, height: 200)
-                            }
+                    // Carousel using native TabView paging
+                    TabView(selection: $currentPage) {
+                        ForEach(0..<pageCount, id: \.self) { i in
+                            pageView(for: i)
+                                .tag(i)
                         }
-                        .offset(x: -CGFloat(currentPage) * pageWidth + dragOffset)
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    if editing {
-                                        // No carousel movement in edit mode
-                                    } else {
-                                        dragOffset = value.translation.width
-                                    }
-                                }
-                                .onEnded { value in
-                                    if editing {
-                                        let dx = value.translation.width
-                                        if dx > 40 {
-                                            adjustValue(by: 1)
-                                        } else if dx < -40 {
-                                            adjustValue(by: -1)
-                                        }
-                                    } else {
-                                        let threshold = pageWidth * 0.2
-                                        let dx = value.predictedEndTranslation.width
-                                        withAnimation(.easeOut(duration: 0.25)) {
-                                            if dx < -threshold && currentPage < pageCount - 1 {
-                                                currentPage += 1
-                                            } else if dx > threshold && currentPage > 0 {
-                                                currentPage -= 1
-                                            }
-                                            dragOffset = 0
-                                        }
-                                    }
-                                }
-                        )
-
-                        Spacer()
-
-                        // Nav dots
-                        HStack(spacing: 12) {
-                            ForEach(0..<pageCount, id: \.self) { i in
-                                Circle()
-                                    .fill(i == currentPage ? Color.white : Color(white: 0.3))
-                                    .frame(width: 8, height: 8)
-                            }
-                        }
-                        .padding(.bottom, 50)
                     }
-                    .simultaneousGesture(
-                        TapGesture()
-                            .onEnded {
-                                if editing {
-                                    editing = false
-                                    sendCurrentValue()
-                                } else if currentPage < 4 {
-                                    editing = true
-                                }
-                            }
-                    )
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: 220)
+                    .allowsHitTesting(!editing)
+                    .overlay {
+                        if editing {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .gesture(
+                                    DragGesture(minimumDistance: 30)
+                                        .onEnded { value in
+                                            let dx = value.translation.width
+                                            if dx > 30 {
+                                                adjustValue(by: 1)
+                                            } else if dx < -30 {
+                                                adjustValue(by: -1)
+                                            }
+                                        }
+                                )
+                        }
+                    }
+
+                    Spacer()
+
+                    // Nav dots
+                    HStack(spacing: 12) {
+                        ForEach(0..<pageCount, id: \.self) { i in
+                            Circle()
+                                .fill(i == currentPage ? Color.white : Color(white: 0.3))
+                                .frame(width: 8, height: 8)
+                        }
+                    }
+                    .padding(.bottom, 50)
+                }
+                .onTapGesture {
+                    if editing {
+                        editing = false
+                        sendCurrentValue()
+                    } else if currentPage < 4 {
+                        editing = true
+                    }
                 }
             }
         }

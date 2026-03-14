@@ -18,9 +18,9 @@ private let imageBytesExpected = 240 * 240 * 2  // RGB565
 enum ConnectionState: Equatable {
     case bluetoothOff
     case searching
+    case searchingLong  // been searching a while, show hints
     case connecting
     case connected
-    case notFound
 }
 
 class BLEManager: NSObject, ObservableObject {
@@ -112,9 +112,7 @@ class BLEManager: NSObject, ObservableObject {
         downloadNextImage()
     }
 
-    func retry() {
-        startScan()
-    }
+
 
     // MARK: - Image download
 
@@ -152,12 +150,13 @@ class BLEManager: NSObject, ObservableObject {
         let pixelCount = width * height
         guard data.count >= pixelCount * 2 else { return nil }
 
-        // Convert RGB565 to RGBA8888
+        // Convert RGB565 (big-endian) to RGBA8888
         var rgba = [UInt8](repeating: 0, count: pixelCount * 4)
         data.withUnsafeBytes { rawBuf in
-            let src = rawBuf.bindMemory(to: UInt16.self)
+            let bytes = rawBuf.bindMemory(to: UInt8.self)
             for i in 0..<pixelCount {
-                let pixel = src[i]
+                // RGB565 stored big-endian: high byte first
+                let pixel = UInt16(bytes[i * 2]) << 8 | UInt16(bytes[i * 2 + 1])
                 let r = UInt8((pixel >> 11) & 0x1F)
                 let g = UInt8((pixel >> 5) & 0x3F)
                 let b = UInt8(pixel & 0x1F)
@@ -288,12 +287,12 @@ class BLEManager: NSObject, ObservableObject {
         ])
         log.info("Auto-scanning for Soda Machine...")
 
+        // After timeout, show hints but keep scanning
         scanTimer?.invalidate()
         scanTimer = Timer.scheduledTimer(withTimeInterval: scanTimeout, repeats: false) { [weak self] _ in
             guard let self, self.connectionState == .searching else { return }
-            self.centralManager.stopScan()
-            self.connectionState = .notFound
-            log.info("Scan timed out, no device found")
+            self.connectionState = .searchingLong
+            log.info("Still scanning, showing hints")
         }
     }
 
