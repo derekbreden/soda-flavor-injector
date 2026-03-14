@@ -5,14 +5,6 @@ struct UploadPreviewSheet: View {
     @Environment(\.dismiss) private var dismiss
     let image: UIImage
     let slot: Int
-    @State private var label: String
-
-    init(image: UIImage, slot: Int) {
-        self.image = image
-        self.slot = slot
-        let timestamp = Int(Date().timeIntervalSince1970)
-        _label = State(initialValue: "image_\(timestamp)")
-    }
 
     var body: some View {
         NavigationView {
@@ -30,16 +22,10 @@ struct UploadPreviewSheet: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                TextField("Label", text: $label)
-                    .textFieldStyle(.roundedBorder)
-                    .padding(.horizontal, 40)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-
                 Spacer()
 
                 Button {
-                    ble.uploadImage(image, toSlot: slot, label: label)
+                    ble.uploadImage(image, toSlot: slot)
                     dismiss()
                 } label: {
                     Text("Upload")

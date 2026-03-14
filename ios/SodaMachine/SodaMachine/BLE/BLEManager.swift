@@ -113,7 +113,7 @@ class BLEManager: NSObject, ObservableObject {
         return cachedImages[slot]
     }
 
-    func uploadImage(_ image: UIImage, toSlot slot: Int, label: String) {
+    func uploadImage(_ image: UIImage, toSlot slot: Int) {
         guard !isUploading else {
             log.warning("Upload already in progress")
             return
@@ -124,6 +124,9 @@ class BLEManager: NSObject, ObservableObject {
             uploadStatus = "Image processing failed"
             return
         }
+
+        let label = "image_\(slot)"
+        log.info("Upload: slot \(slot), png=\(pngData.count)B, s3=\(s3Data.count)B, rp=\(rpData.count)B")
 
         isUploading = true
         uploadSlot = slot
@@ -136,7 +139,7 @@ class BLEManager: NSObject, ObservableObject {
         currentUploadStep = 0
         uploadBytesSent = 0
         uploadProgress = 0
-        uploadStatus = "Uploading PNG..."
+        uploadStatus = "Uploading image..."
 
         sendNextUploadStep()
     }

@@ -1,9 +1,18 @@
 import UIKit
 
 struct ImageProcessor {
-    /// Crop to centered square and resize to target dimensions (1x scale — exact pixel size)
+    /// Normalize EXIF orientation, crop to centered square, resize to target dimensions (1x scale)
     static func cropAndResize(_ image: UIImage, to size: CGSize) -> UIImage? {
-        guard let cgImage = image.cgImage else { return nil }
+        // Draw through UIImage first to apply EXIF orientation (iPhone photos are often rotated)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1.0
+        let normalized = UIGraphicsImageRenderer(
+            size: CGSize(width: image.size.width, height: image.size.height), format: format
+        ).image { ctx in
+            image.draw(in: CGRect(origin: .zero, size: CGSize(width: image.size.width, height: image.size.height)))
+        }
+
+        guard let cgImage = normalized.cgImage else { return nil }
         let sourceW = CGFloat(cgImage.width)
         let sourceH = CGFloat(cgImage.height)
         let minDim = min(sourceW, sourceH)
@@ -13,18 +22,31 @@ struct ImageProcessor {
             width: minDim, height: minDim
         )
         guard let cropped = cgImage.cropping(to: cropRect) else { return nil }
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1.0  // exact pixel dimensions, not device-scaled
+
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
         return renderer.image { ctx in
             UIImage(cgImage: cropped).draw(in: CGRect(origin: .zero, size: size))
         }
     }
 
-    /// Generate PNG data from image resized to 240x240
+    /// Generate optimized PNG data from image resized to 240x240 (no alpha channel)
     static func generatePNG(from image: UIImage) -> Data? {
-        guard let resized = cropAndResize(image, to: CGSize(width: 240, height: 240)) else { return nil }
-        return resized.pngData()
+        guard let resized = cropAndResize(image, to: CGSize(width: 240, height: 240)),
+              let cgImage = resized.cgImage else { return nil }
+
+        // Re-render without alpha to reduce PNG size
+        let w = cgImage.width, h = cgImage.height
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: nil, width: w, height: h,
+            bitsPerComponent: 8, bytesPerRow: w * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else { return nil }
+        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
+        guard let rgbImage = ctx.makeImage() else { return nil }
+
+        return UIImage(cgImage: rgbImage).pngData()
     }
 
     /// Generate RGB565 little-endian data at specified dimensions
