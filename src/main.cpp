@@ -1389,6 +1389,35 @@ void processConfigCommand(const char *cmd, Stream &out) {
       sendMapToRP();
       out.printf("OK:FACTORY_RESET (no images in store)\n");
     }
+
+  } else if (strncmp(cmd, "PUSH_IMG:", 9) == 0) {
+    // PUSH_IMG:slot:target — push a single stored image to a device
+    int slot;
+    char target[8] = {0};
+    if (sscanf(cmd + 9, "%d:%7s", &slot, target) != 2) {
+      out.printf("ERR:usage PUSH_IMG:slot:target\n");
+      return;
+    }
+    if (slot < 0 || slot >= espNumImages) {
+      out.printf("ERR:invalid slot (0-%d)\n", espNumImages - 1);
+      return;
+    }
+
+    bool rpOk = true, s3Ok = true;
+    if (strcmp(target, "rp2040") == 0 || strcmp(target, "both") == 0) {
+      rpOk = pushImageToDevice(DEVICE_RP2040, slot);
+      if (rpOk) { numImages = max(numImages, (uint8_t)(slot + 1)); pushLabelsToDevice(DEVICE_RP2040); sendMapToRP(); }
+    }
+    if (strcmp(target, "s3") == 0 || strcmp(target, "both") == 0) {
+      s3Ok = pushImageToDevice(DEVICE_S3, slot);
+      if (s3Ok) {
+        numS3Images = max(numS3Images, (uint8_t)(slot + 1));
+        pushPngToS3(slot);
+        pushLabelsToDevice(DEVICE_S3);
+      }
+    }
+    out.printf("OK:PUSH_IMG=%d rp=%s s3=%s\n", slot,
+               rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
   }
 }
 
