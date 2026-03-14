@@ -45,6 +45,7 @@ class BLEManager: NSObject, ObservableObject {
     private var imgDownloadExpected: Int = 0
     private var imgDownloadQueue: [Int] = []
     private var isDownloading = false
+    private var nusReady = false
 
     private var centralManager: CBCentralManager!
     private var connectedPeripheral: CBPeripheral?
@@ -52,7 +53,6 @@ class BLEManager: NSObject, ObservableObject {
     private var txCharacteristic: CBCharacteristic?
     private var scanTimer: Timer?
     private var reconnectTimer: Timer?
-    private var pollTimer: Timer?
 
     override init() {
         super.init()
@@ -85,9 +85,7 @@ class BLEManager: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.send("SAVE")
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            self?.requestConfig()
-        }
+        // No need to request config — ESP32 pushes CONFIG: after SAVE
     }
 
     func displayName(for index: Int) -> String {
@@ -136,10 +134,8 @@ class BLEManager: NSObject, ObservableObject {
             let progress = Double(imgDownloadData.count) / Double(imgDownloadExpected)
             imageDownloadProgress = min(progress, 1.0)
         }
-
-        if imgDownloadExpected > 0, imgDownloadData.count >= imgDownloadExpected {
-            finishImageDownload()
-        }
+        // Don't finish here — wait for IMGEND from S3 to avoid race condition
+        // where the next GETPNG overlaps with the current slot's IMGEND
     }
 
     private func finishImageDownload() {
@@ -157,6 +153,13 @@ class BLEManager: NSObject, ObservableObject {
     // MARK: - Response parsing
 
     private func handleNotification(_ data: Data) {
+        // Log all incoming notifications for debugging
+        if let text = String(data: data, encoding: .utf8), data.count < 100 {
+            log.info("RX: \(text) (\(data.count) bytes)")
+        } else {
+            log.info("RX: <binary> (\(data.count) bytes)")
+        }
+
         // If we're downloading an image, check if this is text or binary
         if imgDownloadSlot >= 0 {
             // Check if it's the IMGEND marker
@@ -197,6 +200,12 @@ class BLEManager: NSObject, ObservableObject {
                 imgDownloadData = Data()
                 imageDownloadProgress = 0
                 log.info("Starting image download: slot \(slot), \(size) bytes")
+            }
+        } else if text.hasPrefix("ERR:") {
+            log.error("Error response: \(text)")
+            if isDownloading {
+                log.error("Skipping failed image download, continuing queue")
+                downloadNextImage()
             }
         }
     }
@@ -253,22 +262,6 @@ class BLEManager: NSObject, ObservableObject {
         }
     }
 
-    private func startPolling() {
-        pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            // Don't poll during image downloads
-            if !self.isDownloading {
-                self.requestConfig()
-            }
-        }
-    }
-
-    private func stopPolling() {
-        pollTimer?.invalidate()
-        pollTimer = nil
-    }
-
     private func scheduleReconnect() {
         reconnectTimer?.invalidate()
         reconnectTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
@@ -323,7 +316,7 @@ extension BLEManager: CBCentralManagerDelegate {
         imgDownloadSlot = -1
         imgDownloadQueue = []
         isDownloading = false
-        stopPolling()
+        nusReady = false
         scheduleReconnect()
     }
 }
@@ -350,11 +343,17 @@ extension BLEManager: CBPeripheralDelegate {
                 log.info("Found RX characteristic")
             }
         }
-        if rxCharacteristic != nil && txCharacteristic != nil {
+        if rxCharacteristic != nil && txCharacteristic != nil && !nusReady {
+            nusReady = true
             connectionState = .connected
             peripheral.maximumWriteValueLength(for: .withResponse)
             log.info("NUS ready")
-            startPolling()
+            // Request config and image list once on connect
+            // ESP32 will push CONFIG: updates proactively after any changes
+            requestConfig()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.requestImageList()
+            }
         }
     }
 

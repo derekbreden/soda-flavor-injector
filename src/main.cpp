@@ -899,7 +899,7 @@ bool pushPngToS3(uint8_t slot) {
   if (fileSize == 0 || fileSize > S3_IMAGE_BYTES) {
     Serial.printf("Push S3 PNG: bad size %lu\n", fileSize);
     f.close();
-    return true;
+    return false;
   }
 
   // Drain stale bytes
@@ -1071,7 +1071,10 @@ void bootSync() {
     Serial.printf("S3 mismatch: %d vs %d — pushing all\n", numS3Images, espNumImages);
     if (pushAllToDevice(DEVICE_S3)) numS3Images = espNumImages;
   } else {
-    Serial.println("S3 in sync");
+    Serial.println("S3 RGB565 in sync — ensuring PNGs exist");
+    for (uint8_t i = 0; i < espNumImages; i++) {
+      pushPngToS3(i);
+    }
   }
 }
 
@@ -1123,6 +1126,11 @@ void processConfigCommand(const char *cmd, Stream &out) {
   } else if (strcmp(cmd, "SAVE") == 0) {
     saveUserConfig();
     out.printf("OK:SAVED\n");
+
+    // Push updated config to S3 so it can forward to BLE (iOS app)
+    // This eliminates the need for iOS to poll GET_CONFIG every 2 seconds
+    sendConfigResponse(Serial1);
+    Serial1.flush();
 
   } else if (strncmp(cmd, "UPLOAD_IMG:", 11) == 0) {
     int slot = atoi(cmd + 11);
@@ -1273,6 +1281,30 @@ void processConfigCommand(const char *cmd, Stream &out) {
           out.println(lineBuf);
           lineBuf = "";
           t = millis();  // reset timeout on each line
+        } else {
+          lineBuf += c;
+        }
+      }
+    }
+    out.println("END");
+
+  } else if (strcmp(cmd, "LIST_S3_PNGS") == 0) {
+    // Forward LISTPNGS to S3, relay text response lines
+    while (Serial1.available()) Serial1.read();  // drain
+    Serial1.print("LISTPNGS\n");
+    Serial1.flush();
+
+    unsigned long t = millis();
+    String lineBuf = "";
+    while (millis() - t < 2000) {
+      if (Serial1.available()) {
+        char c = Serial1.read();
+        if (c == '\n') {
+          lineBuf.trim();
+          if (lineBuf == "END") break;
+          out.println(lineBuf);
+          lineBuf = "";
+          t = millis();
         } else {
           lineBuf += c;
         }
@@ -1452,8 +1484,10 @@ void processConfigCommand(const char *cmd, Stream &out) {
       const char *lbl = espLabels[i][0] ? espLabels[i] : "";
       bool rpOk = LittleFS.exists(espRpPath(i));
       bool s3Ok = LittleFS.exists(espS3Path(i));
-      out.printf("STORE:%d:%s:rp=%s:s3=%s\n", i, lbl,
-                 rpOk ? "ok" : "missing", s3Ok ? "ok" : "missing");
+      bool pngOk = LittleFS.exists(espS3PngPath(i));
+      out.printf("STORE:%d:%s:rp=%s:s3=%s:png=%s\n", i, lbl,
+                 rpOk ? "ok" : "missing", s3Ok ? "ok" : "missing",
+                 pngOk ? "ok" : "missing");
     }
     out.println("END");
 

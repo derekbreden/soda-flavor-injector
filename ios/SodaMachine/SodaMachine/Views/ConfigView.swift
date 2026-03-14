@@ -48,9 +48,9 @@ struct ConfigView: View {
                                         .onEnded { value in
                                             let dx = value.translation.width
                                             if dx > 30 {
-                                                adjustValue(by: 1)
+                                                adjustValue(by: -1)  // swipe right = previous
                                             } else if dx < -30 {
-                                                adjustValue(by: -1)
+                                                adjustValue(by: 1)   // swipe left = next
                                             }
                                         }
                                 )
@@ -78,10 +78,8 @@ struct ConfigView: View {
                 }
             }
         }
-        .onAppear {
-            ble.requestConfig()
-            ble.requestImageList()
-        }
+        // Config and image list are requested once on BLE connect (BLEManager)
+        // No need to request again on view appear
     }
 
     // MARK: - Page Views

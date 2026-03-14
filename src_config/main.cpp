@@ -74,6 +74,20 @@ static lv_color_t *lvgl_buf;
 static BLECharacteristic *pTxChar = nullptr;
 static bool bleConnected = false;
 
+// Forward declarations
+static void bleSendLine(const char *line);
+static bool loadImageFromFS(uint8_t slot);
+static void imagePath(char *buf, uint8_t slot);
+
+// ── BLE image download state ──
+static bool bleImageSending = false;
+static uint8_t bleImageSlot = 0;
+static uint32_t bleImageOffset = 0;
+static uint32_t bleImageSize = 0;
+// Reuse imageBuf (115KB static array) for BLE send data — no malloc needed.
+// Display may briefly show garbage during download, which is acceptable.
+static uint8_t *bleSendBuf = (uint8_t *)imageBuf;
+
 class BLEServerCB : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) override {
     bleConnected = true;
@@ -81,31 +95,22 @@ class BLEServerCB : public BLEServerCallbacks {
   }
   void onDisconnect(BLEServer *pServer) override {
     bleConnected = false;
+    if (bleImageSending) {
+      bleImageSending = false;
+      Serial.println("BLE: aborted image send on disconnect");
+    }
     Serial.println("BLE: client disconnected");
     pServer->startAdvertising();
   }
 };
 
-// Forward declarations
-static void bleSendLine(const char *line);
-static bool loadImageFromFS(uint8_t slot);
-
-// ── BLE image download state ──
-static bool bleImageSending = false;
-static uint8_t bleImageSlot = 0;
-static uint32_t bleImageOffset = 0;
-static uint32_t bleImageSize = 0;
-static uint8_t *bleSendBuf = nullptr;  // separate buffer to avoid imageBuf corruption
-
 static void bleImageSendChunks() {
-  if (!bleImageSending || !bleConnected || !pTxChar || !bleSendBuf) return;
+  if (!bleImageSending || !bleConnected || !pTxChar) return;
 
   if (bleImageOffset >= bleImageSize) {
     delay(50);
     bleSendLine("IMGEND");
     bleImageSending = false;
-    free(bleSendBuf);
-    bleSendBuf = nullptr;
     Serial.printf("BLE image %d send complete (%u bytes)\n", bleImageSlot, bleImageSize);
     return;
   }
@@ -124,22 +129,31 @@ static void bleImageSendChunks() {
 static bool loadPngFromFS(uint8_t slot) {
   char path[24];
   snprintf(path, sizeof(path), "/s3_png%02d.png", slot);
-  if (!LittleFS.exists(path)) return false;
+  if (!LittleFS.exists(path)) {
+    Serial.printf("loadPng: %s does not exist\n", path);
+    return false;
+  }
   File f = LittleFS.open(path, "r");
-  if (!f) return false;
+  if (!f) {
+    Serial.printf("loadPng: %s open failed\n", path);
+    return false;
+  }
   uint32_t size = f.size();
-  if (size == 0 || size > IMAGE_BYTES) { f.close(); return false; }
-
-  // Allocate separate buffer so display rendering can't corrupt BLE data
-  if (bleSendBuf) free(bleSendBuf);
-  bleSendBuf = (uint8_t *)malloc(size);
-  if (!bleSendBuf) { f.close(); return false; }
+  if (size == 0 || size > IMAGE_BYTES) {
+    Serial.printf("loadPng: %s bad size %u\n", path, size);
+    f.close();
+    return false;
+  }
 
   size_t n = f.read(bleSendBuf, size);
   f.close();
+  if (n == 0) {
+    Serial.printf("loadPng: read returned 0 for slot %d\n", slot);
+    return false;
+  }
   bleImageSize = n;
   Serial.printf("Loaded PNG slot %d: %u bytes\n", slot, n);
-  return (n > 0);
+  return true;
 }
 
 class BLERxCB : public BLECharacteristicCallbacks {
@@ -183,6 +197,7 @@ class BLERxCB : public BLECharacteristicCallbacks {
     }
 
     // GETIMG:N — download raw RGB565 image N over BLE (legacy)
+    // bleSendBuf IS imageBuf, so loadImageFromFS fills it directly
     if (val.startsWith("GETIMG:")) {
       int slot = val.substring(7).toInt();
       if (slot < 0 || slot >= numImages) {
@@ -193,13 +208,13 @@ class BLERxCB : public BLECharacteristicCallbacks {
         bleSendLine("ERR:LOAD_FAILED");
         return;
       }
+      bleImageSize = IMAGE_BYTES;
       char hdr[32];
       snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%d", slot, IMAGE_BYTES);
       bleSendLine(hdr);
       delay(20);
       bleImageSlot = slot;
       bleImageOffset = 0;
-      bleImageSize = IMAGE_BYTES;
       bleImageSending = true;
       Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
       return;
@@ -662,9 +677,20 @@ static void handleUploadDone(const uint8_t *msg) {
     char path[24];
     pngPath(path, realSlot);
     LittleFS.remove(path);
-    LittleFS.rename("/tmp.bin", path);
+    bool renameOk = LittleFS.rename("/tmp.bin", path);
     upload.state = UPLOAD_IDLE;
-    Serial.printf("PNG upload complete: slot %d (%lu bytes)\n", realSlot, upload.receivedBytes);
+    Serial.printf("PNG upload complete: slot %d (%lu bytes) rename=%s\n",
+                  realSlot, upload.receivedBytes, renameOk ? "ok" : "FAIL");
+    // Verify file exists after rename
+    if (LittleFS.exists(path)) {
+      File verify = LittleFS.open(path, "r");
+      if (verify) {
+        Serial.printf("PNG verify: %s exists, %u bytes\n", path, verify.size());
+        verify.close();
+      }
+    } else {
+      Serial.printf("PNG verify: %s MISSING after rename!\n", path);
+    }
     sendBinaryResponse(RESP_UPLOAD_OK, numImages);
   } else {
     char path[16];
@@ -921,6 +947,26 @@ static void processTextLine(const char *line) {
     // Return all slot labels as text
     for (uint8_t i = 0; i < numImages; i++) {
       Serial0.printf("IMG:%d:%s\n", i, labels[i]);
+    }
+    Serial0.println("END");
+    Serial0.flush();
+  } else if (strcmp(line, "LISTPNGS") == 0) {
+    // Diagnostic: list all PNG files on S3
+    Serial0.printf("PNGS:%d images\n", numImages);
+    for (uint8_t i = 0; i < numImages; i++) {
+      char path[24];
+      pngPath(path, i);
+      if (LittleFS.exists(path)) {
+        File f = LittleFS.open(path, "r");
+        if (f) {
+          Serial0.printf("PNG:%d:%u:%s\n", i, f.size(), path);
+          f.close();
+        } else {
+          Serial0.printf("PNG:%d:OPEN_FAIL:%s\n", i, path);
+        }
+      } else {
+        Serial0.printf("PNG:%d:MISSING:%s\n", i, path);
+      }
     }
     Serial0.println("END");
     Serial0.flush();
@@ -1185,6 +1231,20 @@ void setup() {
   for (uint8_t i = 0; i < numImages; i++) {
     Serial.printf("  Slot %d: %s\n", i, labels[i][0] ? labels[i] : "(unlabeled)");
   }
+  // List PNG files for diagnostics
+  for (uint8_t i = 0; i < numImages; i++) {
+    char path[24];
+    pngPath(path, i);
+    if (LittleFS.exists(path)) {
+      File f = LittleFS.open(path, "r");
+      if (f) {
+        Serial.printf("  PNG %d: %s (%u bytes)\n", i, path, f.size());
+        f.close();
+      }
+    } else {
+      Serial.printf("  PNG %d: %s MISSING\n", i, path);
+    }
+  }
 
   // RGB LEDs (unused, turned off)
   leds.begin();
@@ -1246,7 +1306,8 @@ void setup() {
 
 void loop() {
   // Boot sync: request config from ESP32 every 500ms until synced
-  if (!configSynced && millis() - lastGetConfig > 500) {
+  // Suppress during binary upload — text on Serial0 corrupts protocol responses
+  if (!configSynced && upload.state != UPLOAD_RECEIVING && millis() - lastGetConfig > 500) {
     Serial0.println("GET_CONFIG");
     Serial.println("UART TX: GET_CONFIG (boot sync)");
     lastGetConfig = millis();
