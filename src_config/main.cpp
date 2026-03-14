@@ -56,7 +56,7 @@
 
 static uint8_t numImages = 0;
 static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];
-static uint16_t imageBuf[S3_SCREEN_W * S3_SCREEN_H];  // ~115KB RAM buffer
+static uint16_t *imageBuf = nullptr;  // allocated in PSRAM at setup()
 
 // ── Hardware objects ──
 Arduino_ESP32SPI *spi_bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCLK, TFT_MOSI, GFX_NOT_DEFINED, FSPI, true);
@@ -91,7 +91,7 @@ static bool bleImageSending = false;
 static uint8_t bleImageSlot = 0;
 static uint32_t bleImageSize = 0;
 static File bleFile;
-static uint8_t bleSendChunkBuf[240];
+static uint8_t bleSendChunkBuf[180];  // must fit within negotiated ATT MTU - 3
 
 // ── BLE cross-task safety ──
 // BLE RX callback runs on NimBLE task — must not do LittleFS I/O or Serial0
@@ -120,7 +120,7 @@ static struct {
 class BLEServerCB : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) override {
     bleConnected = true;
-    Serial.println("BLE: client connected");
+    Serial.printf("BLE: client connected (heap=%lu)\n", (unsigned long)ESP.getFreeHeap());
   }
   void onDisconnect(BLEServer *pServer) override {
     bleConnected = false;
@@ -279,13 +279,17 @@ static void processBleRequest() {
       } else if (!openPngForBLE(slot)) {
         bleSendLine("ERR:LOAD_FAILED");
       } else {
-        char hdr[32];
+        char hdr[64];
+        snprintf(hdr, sizeof(hdr), "DBG:heap=%lu", (unsigned long)ESP.getFreeHeap());
+        bleSendLine(hdr);
+        delay(20);
         snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%u", slot, bleImageSize);
         bleSendLine(hdr);
         delay(20);
         bleImageSlot = slot;
         bleImageSending = true;
-        Serial.printf("BLE PNG download: slot %d, %u bytes\n", slot, bleImageSize);
+        Serial.printf("BLE PNG download: slot %d, %u bytes, heap %lu\n",
+                      slot, bleImageSize, (unsigned long)ESP.getFreeHeap());
       }
       break;
 
@@ -1432,6 +1436,15 @@ void setup() {
   stLink.begin(Serial0);
   delay(500);
   Serial.println("ESP32-S3 Config Display starting...");
+
+  // Allocate image buffer in PSRAM to free internal RAM for BLE stack
+  imageBuf = (uint16_t *)ps_malloc(IMAGE_BYTES);
+  if (!imageBuf) {
+    Serial.println("FATAL: failed to allocate imageBuf in PSRAM!");
+    while (1) delay(1000);
+  }
+  Serial.printf("imageBuf allocated in PSRAM (%u bytes), heap=%lu\n",
+                IMAGE_BYTES, (unsigned long)ESP.getFreeHeap());
 
   // Init LittleFS
   if (!LittleFS.begin(true)) {  // true = format on fail
