@@ -9,64 +9,34 @@ private let nusTxUUID       = CBUUID(string: "6E400003-B5A3-F393-E0A9-E50E24DCCA
 
 private let log = Logger(subsystem: "com.derekbreden.SodaMachine", category: "BLE")
 
-enum BLEState: Equatable {
-    case idle
-    case scanning
+/// How long to scan before showing "not found" hints
+private let scanTimeout: TimeInterval = 10
+
+enum ConnectionState: Equatable {
+    case bluetoothOff
+    case searching
     case connecting
     case connected
-    case disconnected
-}
-
-struct DiscoveredDevice: Identifiable {
-    let id: UUID
-    let name: String
-    let peripheral: CBPeripheral
-    var rssi: Int
+    case notFound
 }
 
 class BLEManager: NSObject, ObservableObject {
-    @Published var state: BLEState = .idle
-    @Published var discoveredDevices: [DiscoveredDevice] = []
+    @Published var connectionState: ConnectionState = .bluetoothOff
     @Published var lastResponse: String = ""
 
     private var centralManager: CBCentralManager!
     private var connectedPeripheral: CBPeripheral?
     private var rxCharacteristic: CBCharacteristic?
     private var txCharacteristic: CBCharacteristic?
+    private var scanTimer: Timer?
+    private var reconnectTimer: Timer?
 
     override init() {
         super.init()
         centralManager = CBCentralManager(delegate: self, queue: nil)
     }
 
-    func startScan() {
-        guard centralManager.state == .poweredOn else { return }
-        discoveredDevices = []
-        state = .scanning
-        centralManager.scanForPeripherals(withServices: [nusServiceUUID], options: [
-            CBCentralManagerScanOptionAllowDuplicatesKey: false
-        ])
-        log.info("Scanning for NUS peripherals...")
-    }
-
-    func stopScan() {
-        centralManager.stopScan()
-        if state == .scanning { state = .idle }
-    }
-
-    func connect(to device: DiscoveredDevice) {
-        stopScan()
-        state = .connecting
-        connectedPeripheral = device.peripheral
-        centralManager.connect(device.peripheral, options: nil)
-        log.info("Connecting to \(device.name)...")
-    }
-
-    func disconnect() {
-        if let p = connectedPeripheral {
-            centralManager.cancelPeripheralConnection(p)
-        }
-    }
+    // MARK: - Public API
 
     func send(_ text: String) {
         guard let rx = rxCharacteristic, let p = connectedPeripheral else {
@@ -77,6 +47,36 @@ class BLEManager: NSObject, ObservableObject {
         p.writeValue(data, for: rx, type: .withResponse)
         log.info("TX: \(text)")
     }
+
+    func retry() {
+        startScan()
+    }
+
+    // MARK: - Internal
+
+    private func startScan() {
+        guard centralManager.state == .poweredOn else { return }
+        connectionState = .searching
+        centralManager.scanForPeripherals(withServices: [nusServiceUUID], options: [
+            CBCentralManagerScanOptionAllowDuplicatesKey: false
+        ])
+        log.info("Auto-scanning for Soda Machine...")
+
+        scanTimer?.invalidate()
+        scanTimer = Timer.scheduledTimer(withTimeInterval: scanTimeout, repeats: false) { [weak self] _ in
+            guard let self, self.connectionState == .searching else { return }
+            self.centralManager.stopScan()
+            self.connectionState = .notFound
+            log.info("Scan timed out, no device found")
+        }
+    }
+
+    private func scheduleReconnect() {
+        reconnectTimer?.invalidate()
+        reconnectTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
+            self?.startScan()
+        }
+    }
 }
 
 // MARK: - CBCentralManagerDelegate
@@ -84,26 +84,24 @@ class BLEManager: NSObject, ObservableObject {
 extension BLEManager: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         log.info("Central state: \(central.state.rawValue)")
-        if central.state == .poweredOn && state == .idle {
-            // Ready to scan
+        if central.state == .poweredOn {
+            startScan()
+        } else {
+            connectionState = .bluetoothOff
         }
     }
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                          advertisementData: [String: Any], rssi RSSI: NSNumber) {
         let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? "Unknown"
-        if let idx = discoveredDevices.firstIndex(where: { $0.id == peripheral.identifier }) {
-            discoveredDevices[idx].rssi = RSSI.intValue
-        } else {
-            let device = DiscoveredDevice(
-                id: peripheral.identifier,
-                name: name,
-                peripheral: peripheral,
-                rssi: RSSI.intValue
-            )
-            discoveredDevices.append(device)
-            log.info("Discovered: \(name) (RSSI: \(RSSI.intValue))")
-        }
+        log.info("Found: \(name) (RSSI: \(RSSI.intValue))")
+
+        // Auto-connect to first NUS device found
+        scanTimer?.invalidate()
+        centralManager.stopScan()
+        connectionState = .connecting
+        connectedPeripheral = peripheral
+        centralManager.connect(peripheral, options: nil)
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
@@ -114,16 +112,17 @@ extension BLEManager: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         log.error("Connection failed: \(error?.localizedDescription ?? "unknown")")
-        state = .disconnected
         connectedPeripheral = nil
+        scheduleReconnect()
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         log.info("Disconnected")
-        state = .disconnected
+        connectionState = .searching
         connectedPeripheral = nil
         rxCharacteristic = nil
         txCharacteristic = nil
+        scheduleReconnect()
     }
 }
 
@@ -150,8 +149,7 @@ extension BLEManager: CBPeripheralDelegate {
             }
         }
         if rxCharacteristic != nil && txCharacteristic != nil {
-            state = .connected
-            // Request higher MTU
+            connectionState = .connected
             peripheral.maximumWriteValueLength(for: .withResponse)
             log.info("NUS ready")
         }
