@@ -6,7 +6,8 @@ LittleFS (both resolutions + compressed PNG), then pushed to display devices
 via SerialTransfer over inter-MCU UART.
 
 Usage:
-    python3 upload_image.py --sync [--port PORT]
+    python3 upload_image.py --sync-factory [--port PORT]
+    python3 upload_image.py --sync-user [--port PORT]
     python3 upload_image.py --push [--port PORT]
     python3 upload_image.py --list-store [--port PORT]
     python3 upload_image.py --build-data
@@ -424,7 +425,7 @@ def wait_for_push(ser, timeout=600.0):
 
 
 # ════════════════════════════════════════════════════════════
-#  Sync from manifest.json
+#  Sync from manifest
 # ════════════════════════════════════════════════════════════
 
 def build_data(manifest):
@@ -598,8 +599,10 @@ def main():
                         help="Set label for slot N")
     parser.add_argument("--query", action="store_true",
                         help="Query current image count")
-    parser.add_argument("--sync", action="store_true",
-                        help="Store images on ESP32 + push to both devices")
+    parser.add_argument("--sync-factory", action="store_true",
+                        help="Sync factory images (factory_manifest.json) to ESP32 + push")
+    parser.add_argument("--sync-user", action="store_true",
+                        help="Sync all images (user_manifest.json) to ESP32 + push (dev/test)")
     parser.add_argument("--push", action="store_true",
                         help="Push stored images from ESP32 to both devices")
     parser.add_argument("--list-store", action="store_true",
@@ -611,8 +614,8 @@ def main():
     # Validate arguments
     actions = sum([args.image is not None, args.delete is not None,
                    args.swap is not None, args.query, args.list,
-                   args.label is not None, args.sync, args.push,
-                   args.list_store, args.build_data])
+                   args.label is not None, args.sync_factory, args.sync_user,
+                   args.push, args.list_store, args.build_data])
     if actions == 0:
         parser.print_help()
         sys.exit(1)
@@ -622,7 +625,7 @@ def main():
 
     # --build-data doesn't need serial connection
     if args.build_data:
-        manifest_path = Path(__file__).resolve().parent.parent / "images" / "manifest.json"
+        manifest_path = Path(__file__).resolve().parent.parent / "images" / "factory_manifest.json"
         if not manifest_path.exists():
             print(f"ERROR: {manifest_path} not found")
             sys.exit(1)
@@ -634,14 +637,16 @@ def main():
     ser = connect(args.port)
     targets = resolve_targets(args.target)
 
-    if args.sync:
-        manifest_path = Path(__file__).resolve().parent.parent / "images" / "manifest.json"
+    if args.sync_factory or args.sync_user:
+        filename = "factory_manifest.json" if args.sync_factory else "user_manifest.json"
+        manifest_path = Path(__file__).resolve().parent.parent / "images" / filename
         if not manifest_path.exists():
             print(f"ERROR: {manifest_path} not found")
             sys.exit(1)
         with open(manifest_path) as f:
             manifest = json.load(f)
-        print(f"Manifest: {len(manifest['slots'])} images")
+        label = "factory" if args.sync_factory else "user"
+        print(f"Syncing {label} manifest: {len(manifest['slots'])} images")
         sync_via_store(ser, manifest)
         ser.close()
         return

@@ -55,7 +55,7 @@ uint8_t numS3Images = 0;  // updated at boot via QUERY_COUNT to S3
 #define FW_VERSION         FW_BUILD_TIME
 
 // Factory defaults JSON (embedded in firmware flash at build time)
-extern const char factory_defaults_start[] asm("_binary_images_factory_defaults_json_start");
+extern const char factory_manifest_start[] asm("_binary_images_factory_manifest_json_start");
 
 // USB binary store protocol constants (upload_image.py → ESP32 LittleFS)
 #define CMD_UPLOAD_START  0x01
@@ -261,12 +261,12 @@ unsigned long lastConfigSend     = 0;
 void saveEspMeta();
 void saveEspLabels();
 
-// Parse compiled-in factory_defaults.json → set runtime config + labels + store count
+// Parse compiled-in factory_manifest.json → set runtime config + labels + store count
 void applyFactoryDefaults() {
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, factory_defaults_start);
+  DeserializationError err = deserializeJson(doc, factory_manifest_start);
   if (err) {
-    Serial.printf("WARNING: factory_defaults.json parse failed: %s\n", err.c_str());
+    Serial.printf("WARNING: factory_manifest.json parse failed: %s\n", err.c_str());
     return;
   }
 
@@ -1710,7 +1710,7 @@ void setup() {
   // Always determine factory image count from compiled-in defaults
   {
     JsonDocument doc;
-    if (!deserializeJson(doc, factory_defaults_start)) {
+    if (!deserializeJson(doc, factory_manifest_start)) {
       factoryImageCount = doc["images"].as<JsonArray>().size();
     }
   }
