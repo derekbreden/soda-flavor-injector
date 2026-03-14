@@ -154,6 +154,7 @@ class BLEManager: NSObject, ObservableObject {
         imgDownloadQueue = Array(0..<numImages).filter { cachedImages[$0] == nil }
         if imgDownloadQueue.isEmpty { return }
         isDownloading = true
+        imageDownloadProgress = 0  // signal download active (set once, not per-chunk)
         downloadNextImage()
     }
 
@@ -242,18 +243,15 @@ class BLEManager: NSObject, ObservableObject {
         // Setting it early causes IMGSTART text to be routed as binary data.
         imgDownloadData = Data()
         imgDownloadExpected = 0
-        imageDownloadProgress = 0
+        // Don't update imageDownloadProgress here — already set in downloadAllImages()
         send("GETPNG:\(slot)")
     }
 
     private func handleImageData(_ data: Data) {
         imgDownloadData.append(data)
-        if imgDownloadExpected > 0 {
-            let progress = Double(imgDownloadData.count) / Double(imgDownloadExpected)
-            imageDownloadProgress = min(progress, 1.0)
-        }
-        // Don't finish here — wait for IMGEND from S3 to avoid race condition
-        // where the next GETPNG overlaps with the current slot's IMGEND
+        // Don't update imageDownloadProgress per chunk — that triggers SwiftUI
+        // re-renders on every ~180-byte BLE notification and freezes the UI.
+        // Progress is set at download start/finish only.
     }
 
     private func finishImageDownload() {
@@ -316,7 +314,6 @@ class BLEManager: NSObject, ObservableObject {
                 imgDownloadSlot = slot
                 imgDownloadExpected = size
                 imgDownloadData = Data()
-                imageDownloadProgress = 0
                 log.info("Starting image download: slot \(slot), \(size) bytes")
             }
         } else if text == "UPLOAD_READY" {
