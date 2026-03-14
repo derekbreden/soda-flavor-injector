@@ -1404,14 +1404,19 @@ void processConfigCommand(const char *cmd, Stream &out) {
       return;
     }
 
-    // Delete from ESP32 LittleFS
+    // Delete from ESP32 LittleFS (RGB565 + PNG)
     LittleFS.remove(espRpPath(slot));
     LittleFS.remove(espS3Path(slot));
+    LittleFS.remove(espS3PngPath(slot));
 
     // Shift remaining slots down
     for (int i = slot + 1; i < espNumImages; i++) {
       LittleFS.rename(espRpPath(i), espRpPath(i - 1));
       LittleFS.rename(espS3Path(i), espS3Path(i - 1));
+      String pngFrom = espS3PngPath(i);
+      if (LittleFS.exists(pngFrom)) {
+        LittleFS.rename(pngFrom, espS3PngPath(i - 1));
+      }
       strncpy(espLabels[i - 1], espLabels[i], MAX_LABEL_LEN);
     }
     espNumImages--;

@@ -94,15 +94,18 @@ static bool loadImageFromFS(uint8_t slot);
 static bool bleImageSending = false;
 static uint8_t bleImageSlot = 0;
 static uint32_t bleImageOffset = 0;
-static uint32_t bleImageSize = 0;  // actual size (JPEG or RGB565)
+static uint32_t bleImageSize = 0;
+static uint8_t *bleSendBuf = nullptr;  // separate buffer to avoid imageBuf corruption
 
 static void bleImageSendChunks() {
-  if (!bleImageSending || !bleConnected || !pTxChar) return;
+  if (!bleImageSending || !bleConnected || !pTxChar || !bleSendBuf) return;
 
   if (bleImageOffset >= bleImageSize) {
     delay(50);
     bleSendLine("IMGEND");
     bleImageSending = false;
+    free(bleSendBuf);
+    bleSendBuf = nullptr;
     Serial.printf("BLE image %d send complete (%u bytes)\n", bleImageSlot, bleImageSize);
     return;
   }
@@ -112,7 +115,7 @@ static void bleImageSendChunks() {
     chunkSize = bleImageSize - bleImageOffset;
   }
 
-  pTxChar->setValue(((uint8_t *)imageBuf) + bleImageOffset, chunkSize);
+  pTxChar->setValue(bleSendBuf + bleImageOffset, chunkSize);
   pTxChar->notify();
   bleImageOffset += chunkSize;
   delay(20);
@@ -124,7 +127,15 @@ static bool loadPngFromFS(uint8_t slot) {
   if (!LittleFS.exists(path)) return false;
   File f = LittleFS.open(path, "r");
   if (!f) return false;
-  size_t n = f.read((uint8_t *)imageBuf, IMAGE_BYTES);
+  uint32_t size = f.size();
+  if (size == 0 || size > IMAGE_BYTES) { f.close(); return false; }
+
+  // Allocate separate buffer so display rendering can't corrupt BLE data
+  if (bleSendBuf) free(bleSendBuf);
+  bleSendBuf = (uint8_t *)malloc(size);
+  if (!bleSendBuf) { f.close(); return false; }
+
+  size_t n = f.read(bleSendBuf, size);
   f.close();
   bleImageSize = n;
   Serial.printf("Loaded PNG slot %d: %u bytes\n", slot, n);
@@ -679,17 +690,26 @@ static void handleDeleteImage(const uint8_t *msg) {
     return;
   }
 
-  // Delete the file
+  // Delete the RGB565 file and PNG file
   char path[16];
   imagePath(path, slot);
   LittleFS.remove(path);
+  char pPath[24];
+  pngPath(pPath, slot);
+  LittleFS.remove(pPath);
 
   // Shift all files above this slot down by 1
   char pathFrom[16], pathTo[16];
+  char pPathFrom[24], pPathTo[24];
   for (uint8_t i = slot + 1; i < numImages; i++) {
     imagePath(pathFrom, i);
     imagePath(pathTo, i - 1);
     LittleFS.rename(pathFrom, pathTo);
+    pngPath(pPathFrom, i);
+    pngPath(pPathTo, i - 1);
+    if (LittleFS.exists(pPathFrom)) {
+      LittleFS.rename(pPathFrom, pPathTo);
+    }
   }
 
   // Shift labels down
@@ -727,13 +747,29 @@ static void handleSwapImages(const uint8_t *msg) {
     return;
   }
 
-  // Swap via temp file
+  // Swap RGB565 via temp file
   char pathA[16], pathB[16];
   imagePath(pathA, slotA);
   imagePath(pathB, slotB);
   LittleFS.rename(pathA, "/swap.bin");
   LittleFS.rename(pathB, pathA);
   LittleFS.rename("/swap.bin", pathB);
+
+  // Swap PNGs via temp file
+  char pPathA[24], pPathB[24];
+  pngPath(pPathA, slotA);
+  pngPath(pPathB, slotB);
+  bool hasPngA = LittleFS.exists(pPathA);
+  bool hasPngB = LittleFS.exists(pPathB);
+  if (hasPngA && hasPngB) {
+    LittleFS.rename(pPathA, "/swap.png");
+    LittleFS.rename(pPathB, pPathA);
+    LittleFS.rename("/swap.png", pPathB);
+  } else if (hasPngA) {
+    LittleFS.rename(pPathA, pPathB);
+  } else if (hasPngB) {
+    LittleFS.rename(pPathB, pPathA);
+  }
 
   // Swap labels
   char tmpLabel[MAX_LABEL_LEN + 1];

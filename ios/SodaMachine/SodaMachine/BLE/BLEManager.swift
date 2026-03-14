@@ -44,7 +44,7 @@ class BLEManager: NSObject, ObservableObject {
     private var imgDownloadData = Data()
     private var imgDownloadExpected: Int = 0
     private var imgDownloadQueue: [Int] = []
-    private var imgIsJpeg: Bool = false
+    private var isDownloading = false
 
     private var centralManager: CBCentralManager!
     private var connectedPeripheral: CBPeripheral?
@@ -104,9 +104,10 @@ class BLEManager: NSObject, ObservableObject {
     }
 
     func downloadAllImages() {
-        guard imgDownloadSlot < 0 else { return } // already downloading
+        guard !isDownloading else { return }
         imgDownloadQueue = Array(0..<numImages).filter { cachedImages[$0] == nil }
         if imgDownloadQueue.isEmpty { return }
+        isDownloading = true
         downloadNextImage()
     }
 
@@ -117,13 +118,14 @@ class BLEManager: NSObject, ObservableObject {
     private func downloadNextImage() {
         guard !imgDownloadQueue.isEmpty else {
             imageDownloadProgress = nil
+            isDownloading = false
             return
         }
         let slot = imgDownloadQueue.removeFirst()
-        imgDownloadSlot = slot
+        // Don't set imgDownloadSlot here — wait for IMGSTART response.
+        // Setting it early causes IMGSTART text to be routed as binary data.
         imgDownloadData = Data()
         imgDownloadExpected = 0
-        imgIsJpeg = false
         imageDownloadProgress = 0
         send("GETPNG:\(slot)")
     }
@@ -256,7 +258,7 @@ class BLEManager: NSObject, ObservableObject {
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self else { return }
             // Don't poll during image downloads
-            if self.imgDownloadSlot < 0 {
+            if !self.isDownloading {
                 self.requestConfig()
             }
         }
@@ -320,6 +322,7 @@ extension BLEManager: CBCentralManagerDelegate {
         configSynced = false
         imgDownloadSlot = -1
         imgDownloadQueue = []
+        isDownloading = false
         stopPolling()
         scheduleReconnect()
     }
