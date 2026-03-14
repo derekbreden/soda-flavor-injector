@@ -48,10 +48,11 @@
 #define S3_SCREEN_H   240
 #define IMAGE_BYTES   (S3_SCREEN_W * S3_SCREEN_H * 2)  // 115200
 
-#define META_PATH    "/meta.txt"
-#define LABELS_PATH  "/labels.txt"
-#define MAX_IMAGES   99
+#define META_PATH     "/meta.txt"
+#define LABELS_PATH   "/labels.txt"
+#define MAX_IMAGES    99
 #define MAX_LABEL_LEN 32
+#define MAX_CHUNK_SIZE 128
 
 static uint8_t numImages = 0;
 static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];
@@ -385,8 +386,181 @@ static void processBleUpload() {
     }
   }
 
-  // Transition to forwarding (handled by Commit 4)
+  // Transition to forwarding
   bleUpload.phase = BLE_UP_FORWARDING;
+}
+
+// ════════════════════════════════════════════════════════════
+//  SerialTransfer sender: forward BLE uploads to ESP32
+// ════════════════════════════════════════════════════════════
+
+static void processTextLine(const char *line);  // forward decl
+
+static bool waitForEspResponse(uint8_t expectedPktId, unsigned long timeoutMs) {
+  unsigned long start = millis();
+  while (millis() - start < timeoutMs) {
+    if (stLink.available()) {
+      uint8_t id = stLink.currentPacketID();
+      if (id == expectedPktId) return true;
+      if (id >= 0xE0) return false;  // error packet
+      if (id == PKT_TEXT) {
+        // Handle inline text (e.g. CONFIG: push during forwarding)
+        char line[256];
+        uint16_t len = stLink.bytesRead;
+        uint16_t copyLen = (len < 255) ? len : 255;
+        memcpy(line, stLink.packet.rxBuff, copyLen);
+        line[copyLen] = '\0';
+        processTextLine(line);
+      }
+    }
+  }
+  return false;
+}
+
+// Forward from imageBuf (RP2040 RGB565 — S3 didn't write to file)
+static bool stForwardToEsp(uint8_t slot, uint8_t startPktId,
+                           const uint8_t *data, uint32_t dataSize) {
+  UploadStartPayload startPl;
+  startPl.slot = slot;
+  startPl.size = dataSize;
+  stLink.txObj(startPl);
+  stLink.sendData(sizeof(startPl), startPktId);
+
+  if (!waitForEspResponse(PKT_RESP_READY, 3000)) {
+    Serial.println("Forward: ESP32 not ready");
+    return false;
+  }
+
+  uint8_t seq = 0;
+  uint32_t offset = 0;
+  uint32_t runCrc = 0;
+
+  while (offset < dataSize) {
+    uint16_t chunkLen = min((uint32_t)MAX_CHUNK_SIZE, dataSize - offset);
+
+    stLink.packet.txBuff[0] = seq;
+    memcpy(stLink.packet.txBuff + 1, data + offset, chunkLen);
+
+    bool ok = false;
+    for (int attempt = 0; attempt < 5; attempt++) {
+      stLink.sendData(1 + chunkLen, PKT_CHUNK_DATA);
+      if (waitForEspResponse(PKT_RESP_CHUNK_OK, 2000)) { ok = true; break; }
+      Serial.printf("Forward: chunk %d retry %d\n", seq, attempt + 1);
+    }
+    if (!ok) {
+      Serial.printf("Forward: chunk %d failed\n", seq);
+      return false;
+    }
+
+    runCrc = uartCrc32Update(runCrc, data + offset, chunkLen);
+    offset += chunkLen;
+    seq++;
+  }
+
+  UploadDonePayload donePl;
+  donePl.slot = slot;
+  donePl.crc32 = runCrc;
+  stLink.txObj(donePl);
+  stLink.sendData(sizeof(donePl), PKT_UPLOAD_DONE);
+
+  if (!waitForEspResponse(PKT_RESP_UPLOAD_OK, 5000)) {
+    Serial.println("Forward: verification failed");
+    return false;
+  }
+
+  Serial.printf("Forward: slot %d pktId 0x%02X OK (%lu bytes)\n", slot, startPktId, dataSize);
+  return true;
+}
+
+// Forward from LittleFS file (PNG or S3 RGB565 — already written)
+static bool stForwardFileToEsp(const char *path, uint8_t slot, uint8_t startPktId) {
+  File f = LittleFS.open(path, "r");
+  if (!f) {
+    Serial.printf("Forward: %s not found\n", path);
+    return false;
+  }
+  uint32_t fileSize = f.size();
+
+  UploadStartPayload startPl;
+  startPl.slot = slot;
+  startPl.size = fileSize;
+  stLink.txObj(startPl);
+  stLink.sendData(sizeof(startPl), startPktId);
+
+  if (!waitForEspResponse(PKT_RESP_READY, 3000)) {
+    Serial.println("Forward: ESP32 not ready");
+    f.close();
+    return false;
+  }
+
+  uint8_t seq = 0;
+  uint32_t runCrc = 0;
+  uint8_t chunkBuf[MAX_CHUNK_SIZE];
+
+  while (f.available()) {
+    int n = f.read(chunkBuf, MAX_CHUNK_SIZE);
+    if (n <= 0) break;
+
+    stLink.packet.txBuff[0] = seq;
+    memcpy(stLink.packet.txBuff + 1, chunkBuf, n);
+
+    bool ok = false;
+    for (int attempt = 0; attempt < 5; attempt++) {
+      stLink.sendData(1 + n, PKT_CHUNK_DATA);
+      if (waitForEspResponse(PKT_RESP_CHUNK_OK, 2000)) { ok = true; break; }
+      Serial.printf("Forward: chunk %d retry %d\n", seq, attempt + 1);
+    }
+    if (!ok) { f.close(); return false; }
+
+    runCrc = uartCrc32Update(runCrc, chunkBuf, n);
+    seq++;
+  }
+  f.close();
+
+  UploadDonePayload donePl;
+  donePl.slot = slot;
+  donePl.crc32 = runCrc;
+  stLink.txObj(donePl);
+  stLink.sendData(sizeof(donePl), PKT_UPLOAD_DONE);
+
+  if (!waitForEspResponse(PKT_RESP_UPLOAD_OK, 5000)) {
+    Serial.println("Forward: verification failed");
+    return false;
+  }
+
+  Serial.printf("Forward file: %s slot %d OK (%lu bytes)\n", path, slot, fileSize);
+  return true;
+}
+
+// Forward completed BLE upload to ESP32 via SerialTransfer
+static void processBleUploadForward() {
+  if (bleUpload.phase != BLE_UP_FORWARDING) return;
+
+  bool ok = false;
+  char path[24];
+
+  if (bleUpload.fileType == 0) {         // PNG — forward from file
+    snprintf(path, sizeof(path), "/s3_png%02d.png", bleUpload.slot);
+    ok = stForwardFileToEsp(path, bleUpload.slot, PKT_UPLOAD_PNG_START);
+  } else if (bleUpload.fileType == 1) {  // S3 RGB565 — forward from file
+    imagePath(path, bleUpload.slot);
+    ok = stForwardFileToEsp(path, bleUpload.slot, PKT_UPLOAD_START);
+  } else {                                // RP2040 RGB565 — forward from imageBuf
+    ok = stForwardToEsp(bleUpload.slot, PKT_UPLOAD_RP_START,
+                        (const uint8_t*)imageBuf, bleUpload.expectedSize);
+  }
+
+  if (ok) {
+    char resp[32];
+    const char *typeStr = bleUpload.fileType == 0 ? "png" :
+                          (bleUpload.fileType == 1 ? "s3" : "rp");
+    snprintf(resp, sizeof(resp), "IMG_OK:%d:%s", bleUpload.slot, typeStr);
+    bleSendLine(resp);
+  } else {
+    bleSendLine("IMG_ERR:FORWARD_FAIL");
+  }
+
+  bleUpload.phase = BLE_UP_IDLE;
 }
 
 static void initBLE() {
@@ -611,7 +785,6 @@ bool isImageItem() {
 void drawScreen();
 
 // Packet IDs and payload structs are in uart_st.h
-#define MAX_CHUNK_SIZE 128
 
 // ════════════════════════════════════════════════════════════
 //  Upload state machine
@@ -927,6 +1100,21 @@ static void processTextLine(const char *line) {
 
   if (strncmp(line, "CONFIG:", 7) == 0) {
     parseConfigResponse(line);
+    bleSendLine(line);
+  } else if (strncmp(line, "OK:UPLOAD_DONE:", 15) == 0) {
+    // Upload finalized on ESP32 — update S3's own label and metadata
+    int slot = atoi(line + 15);
+    if (bleUpload.hasLabel && slot >= 0 && slot < MAX_IMAGES) {
+      strncpy(labels[slot], bleUpload.label, MAX_LABEL_LEN);
+      labels[slot][MAX_LABEL_LEN] = '\0';
+      if ((uint8_t)(slot + 1) > numImages) {
+        numImages = slot + 1;
+        updateMeta();
+      }
+      saveLabels();
+      bleUpload.hasLabel = false;
+    }
+    Serial.printf("ESP32 confirmed: %s\n", line);
     bleSendLine(line);
   } else if (strncmp(line, "OK:", 3) == 0) {
     Serial.printf("ESP32 confirmed: %s\n", line);
@@ -1345,6 +1533,7 @@ void loop() {
 
   // Process completed BLE uploads (verify CRC, write to LittleFS, forward)
   processBleUpload();
+  processBleUploadForward();
 
   // BLE upload timeout (30s with no data)
   if (bleUpload.phase == BLE_UP_WAIT_DATA &&
