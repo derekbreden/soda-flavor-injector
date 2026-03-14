@@ -299,6 +299,10 @@ static void imagePath(char *buf, uint8_t slot) {
   snprintf(buf, 16, "/img%02d.bin", slot);
 }
 
+static void pngPath(char *buf, uint8_t slot) {
+  snprintf(buf, 24, "/s3_png%02d.png", slot);
+}
+
 static uint8_t countImages() {
   uint8_t count = 0;
   char path[16];
@@ -525,19 +529,33 @@ static void handleUploadStart(const uint8_t *msg) {
     abortUpload();
   }
 
-  if (slot > MAX_IMAGES) {
-    sendBinaryResponse(ERR_SLOT_INVALID, 0);
-    return;
-  }
-  if (size != IMAGE_BYTES) {
-    sendBinaryResponse(ERR_SIZE_MISMATCH, 0);
-    return;
-  }
+  bool isPng = (slot >= 100);
+  uint8_t realSlot = isPng ? (slot - 100) : slot;
 
-  // Only allow writing to existing slot or next slot
-  if (slot > numImages) {
-    sendBinaryResponse(ERR_SLOT_INVALID, 0);
-    return;
+  if (isPng) {
+    // PNG upload: any existing image slot is valid, size varies
+    if (realSlot >= numImages) {
+      sendBinaryResponse(ERR_SLOT_INVALID, 0);
+      return;
+    }
+    if (size > IMAGE_BYTES || size == 0) {
+      sendBinaryResponse(ERR_SIZE_MISMATCH, 0);
+      return;
+    }
+  } else {
+    // RGB565 upload: fixed size, sequential slots
+    if (slot > MAX_IMAGES) {
+      sendBinaryResponse(ERR_SLOT_INVALID, 0);
+      return;
+    }
+    if (size != IMAGE_BYTES) {
+      sendBinaryResponse(ERR_SIZE_MISMATCH, 0);
+      return;
+    }
+    if (slot > numImages) {
+      sendBinaryResponse(ERR_SLOT_INVALID, 0);
+      return;
+    }
   }
 
   LittleFS.remove("/tmp.bin");
@@ -626,16 +644,27 @@ static void handleUploadDone(const uint8_t *msg) {
   }
 
   // Move temp file to final slot
-  char path[16];
-  imagePath(path, slot);
-  LittleFS.remove(path);
-  LittleFS.rename("/tmp.bin", path);
+  bool isPng = (slot >= 100);
+  uint8_t realSlot = isPng ? (slot - 100) : slot;
 
-  upload.state = UPLOAD_IDLE;
-  updateMeta();
-
-  Serial.printf("Upload complete: slot %d, %d images total\n", slot, numImages);
-  sendBinaryResponse(RESP_UPLOAD_OK, numImages);
+  if (isPng) {
+    char path[24];
+    pngPath(path, realSlot);
+    LittleFS.remove(path);
+    LittleFS.rename("/tmp.bin", path);
+    upload.state = UPLOAD_IDLE;
+    Serial.printf("PNG upload complete: slot %d (%lu bytes)\n", realSlot, upload.receivedBytes);
+    sendBinaryResponse(RESP_UPLOAD_OK, numImages);
+  } else {
+    char path[16];
+    imagePath(path, slot);
+    LittleFS.remove(path);
+    LittleFS.rename("/tmp.bin", path);
+    upload.state = UPLOAD_IDLE;
+    updateMeta();
+    Serial.printf("Upload complete: slot %d, %d images total\n", slot, numImages);
+    sendBinaryResponse(RESP_UPLOAD_OK, numImages);
+  }
 }
 
 static void handleQueryCount() {

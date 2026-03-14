@@ -525,6 +525,12 @@ String espS3Path(uint8_t slot) {
   return String(buf);
 }
 
+String espS3PngPath(uint8_t slot) {
+  char buf[24];
+  snprintf(buf, sizeof(buf), "/s3_png%02d.png", slot);
+  return String(buf);
+}
+
 void readEspMeta() {
   File f = LittleFS.open(ESP_META_PATH, "r");
   if (f) {
@@ -630,10 +636,11 @@ void enterS3UploadMode() {
 //  Store mode: receive binary upload to ESP32 LittleFS
 // ════════════════════════════════════════════════════════════
 
-void enterStoreMode(bool isS3, uint8_t slot) {
-  String path = isS3 ? espS3Path(slot) : espRpPath(slot);
-  uint32_t expectedSize = isS3 ? S3_IMAGE_BYTES : RP2040_IMAGE_BYTES;
-  Serial.printf("Store mode: %s (%lu bytes)\n", path.c_str(), expectedSize);
+void enterStoreMode(bool isS3, uint8_t slot, bool isPng = false) {
+  String path = isPng ? espS3PngPath(slot) : (isS3 ? espS3Path(slot) : espRpPath(slot));
+  uint32_t expectedSize = isPng ? 0 : (isS3 ? S3_IMAGE_BYTES : RP2040_IMAGE_BYTES);
+  Serial.printf("Store mode: %s (%s)\n", path.c_str(),
+                isPng ? "variable size" : String(expectedSize).c_str());
 
   uint8_t buf[256];
   uint16_t bufLen = 0;
@@ -675,7 +682,7 @@ void enterStoreMode(bool isS3, uint8_t slot) {
 
       uint32_t size;
       memcpy(&size, buf + 4, 4);
-      if (size != expectedSize) {
+      if (expectedSize > 0 && size != expectedSize) {
         Serial.printf("Store: wrong size %lu, expected %lu\n", size, expectedSize);
         break;
       }
@@ -741,8 +748,8 @@ void enterStoreMode(bool isS3, uint8_t slot) {
 
       bool crcOk = (runCrc == expectedCrc);
 
-      // Update slot count
-      if (slot >= espNumImages) {
+      // Update slot count (only for image files, not PNGs)
+      if (!isPng && slot >= espNumImages) {
         espNumImages = slot + 1;
         saveEspMeta();
       }
@@ -881,6 +888,95 @@ bool pushImageToDevice(DeviceTarget dev, uint8_t slot) {
   return true;
 }
 
+bool pushPngToS3(uint8_t slot) {
+  String path = espS3PngPath(slot);
+  File f = LittleFS.open(path, "r");
+  if (!f) {
+    Serial.printf("Push S3 PNG: %s not found (skipping)\n", path.c_str());
+    return true;  // not fatal — PNG is optional
+  }
+  uint32_t fileSize = f.size();
+  if (fileSize == 0 || fileSize > S3_IMAGE_BYTES) {
+    Serial.printf("Push S3 PNG: bad size %lu\n", fileSize);
+    f.close();
+    return true;
+  }
+
+  // Drain stale bytes
+  while (Serial1.available()) Serial1.read();
+
+  // Send UPLOAD_START with slot+100 to indicate PNG
+  uint8_t wireSlot = slot + 100;
+  uint8_t msg[10];
+  msg[0] = 0x02; msg[1] = 0x02;
+  msg[2] = CMD_UPLOAD_START; msg[3] = wireSlot;
+  memcpy(msg + 4, &fileSize, 4);
+  uint16_t c = crc16(msg, 8);
+  msg[8] = c & 0xFF; msg[9] = (c >> 8) & 0xFF;
+  Serial1.write(msg, 10);
+  Serial1.flush();
+
+  if (!waitBinaryResponse(Serial1, RESP_READY, 3000)) {
+    Serial.printf("Push S3 PNG: not ready\n");
+    f.close();
+    return false;
+  }
+
+  // Send chunks
+  uint8_t chunkBuf[STORE_CHUNK_SIZE];
+  uint8_t pkt[6 + STORE_CHUNK_SIZE + 2];
+  uint8_t seq = 0;
+  uint32_t runCrc = 0;
+
+  while (f.available()) {
+    int n = f.read(chunkBuf, STORE_CHUNK_SIZE);
+    if (n <= 0) break;
+
+    pkt[0] = 0x02; pkt[1] = 0x02;
+    pkt[2] = CMD_CHUNK_DATA; pkt[3] = seq;
+    pkt[4] = n & 0xFF; pkt[5] = (n >> 8) & 0xFF;
+    memcpy(pkt + 6, chunkBuf, n);
+    uint16_t pc = crc16(pkt, 6 + n);
+    pkt[6 + n] = pc & 0xFF;
+    pkt[6 + n + 1] = (pc >> 8) & 0xFF;
+
+    bool ok = false;
+    for (int attempt = 0; attempt < 5; attempt++) {
+      Serial1.write(pkt, 6 + n + 2);
+      Serial1.flush();
+      if (waitBinaryResponse(Serial1, RESP_CHUNK_OK, 2000)) { ok = true; break; }
+      Serial.printf("Push S3 PNG: chunk %d retry %d\n", seq, attempt + 1);
+    }
+    if (!ok) {
+      Serial.printf("Push S3 PNG: chunk %d failed\n", seq);
+      f.close();
+      return false;
+    }
+
+    runCrc = crc32_update(runCrc, chunkBuf, n);
+    seq++;
+  }
+  f.close();
+
+  // Send UPLOAD_DONE
+  uint8_t done[10];
+  done[0] = 0x02; done[1] = 0x02;
+  done[2] = CMD_UPLOAD_DONE; done[3] = wireSlot;
+  memcpy(done + 4, &runCrc, 4);
+  uint16_t dc = crc16(done, 8);
+  done[8] = dc & 0xFF; done[9] = (dc >> 8) & 0xFF;
+  Serial1.write(done, 10);
+  Serial1.flush();
+
+  if (!waitBinaryResponse(Serial1, RESP_UPLOAD_OK, 5000)) {
+    Serial.printf("Push S3 PNG: verification failed\n");
+    return false;
+  }
+
+  Serial.printf("Push S3 PNG: slot %d OK (%lu bytes)\n", slot, fileSize);
+  return true;
+}
+
 void pushLabelsToDevice(DeviceTarget dev) {
   HardwareSerial &uart = (dev == DEVICE_RP2040) ? Serial2 : Serial1;
   for (uint8_t i = 0; i < espNumImages; i++) {
@@ -929,6 +1025,13 @@ bool pushAllToDevice(DeviceTarget dev) {
   // this converges.  Stops when the device rejects (count already matches).
   while (deleteLastDeviceImage(dev, espNumImages)) {
     // keep trimming until device's count == espNumImages
+  }
+
+  // Push compressed PNGs to S3 (for iOS BLE image serving)
+  if (dev == DEVICE_S3) {
+    for (uint8_t i = 0; i < espNumImages; i++) {
+      pushPngToS3(i);
+    }
   }
 
   pushLabelsToDevice(dev);
@@ -1262,6 +1365,16 @@ void processConfigCommand(const char *cmd, Stream &out) {
     out.printf("OK:STORE_MODE\n");
     out.flush();
     enterStoreMode(true, slot);
+
+  } else if (strncmp(cmd, "STORE_S3_PNG:", 13) == 0) {
+    int slot = atoi(cmd + 13);
+    if (slot < 0 || slot > MAX_STORE_IMAGES - 1) {
+      out.printf("ERR:invalid slot\n");
+      return;
+    }
+    out.printf("OK:STORE_MODE\n");
+    out.flush();
+    enterStoreMode(true, slot, true);
 
   } else if (strncmp(cmd, "STORE_LABEL:", 12) == 0) {
     int slot;

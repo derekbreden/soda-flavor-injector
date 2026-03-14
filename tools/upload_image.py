@@ -374,6 +374,71 @@ def store_on_esp32(ser, slot: int, image_data: bytes, is_s3: bool):
         sys.exit(1)
 
 
+def store_s3_png(ser, slot: int, png_path: str):
+    """Store a compressed PNG on ESP32's LittleFS for BLE serving."""
+    from PIL import Image
+    import subprocess, tempfile
+
+    img = Image.open(png_path).convert("RGBA")
+    img = img.resize((S3_W, S3_H), Image.LANCZOS)
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        img.save(tmp.name)
+        try:
+            subprocess.run(
+                ["pngquant", "--quality=40-70", "--speed=1", "--force",
+                 "--output", tmp.name, tmp.name],
+                check=True, capture_output=True
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass  # use unoptimized PNG if pngquant unavailable
+        png_data = Path(tmp.name).read_bytes()
+        Path(tmp.name).unlink()
+
+    print(f"    PNG: {len(png_data)} bytes")
+
+    resp = send_text_cmd(ser, f"STORE_S3_PNG:{slot}")
+    if "OK:STORE_MODE" not in resp:
+        print(f"ERROR: ESP32 rejected PNG store command: {resp}")
+        sys.exit(1)
+    time.sleep(0.2)
+
+    # Send UPLOAD_START
+    ser.write(make_upload_start(slot, len(png_data)))
+    resp = read_binary_response(ser, timeout=3.0)
+    if len(resp) < 6 or resp[2] != RESP_READY:
+        code = f"0x{resp[2]:02X}" if len(resp) >= 3 else "timeout"
+        print(f"ERROR: ESP32 PNG store not ready: {code}")
+        sys.exit(1)
+
+    # Send chunks
+    seq = 0
+    offset = 0
+    while offset < len(png_data):
+        chunk = png_data[offset : offset + CHUNK_SIZE]
+        pkt = make_chunk(seq & 0xFF, chunk)
+        for attempt in range(5):
+            ser.write(pkt)
+            resp = read_binary_response(ser, timeout=2.0)
+            if len(resp) >= 6 and resp[2] == RESP_CHUNK_OK:
+                break
+        else:
+            print(f"\nFATAL: Failed to store PNG chunk {seq}")
+            sys.exit(1)
+        offset += CHUNK_SIZE
+        seq += 1
+
+    # Send UPLOAD_DONE with CRC-32
+    img_crc = crc32(png_data)
+    ser.write(make_upload_done(slot, img_crc))
+    resp = read_binary_response(ser, timeout=5.0)
+    if len(resp) >= 6 and resp[2] == RESP_UPLOAD_OK:
+        print(f"    Stored PNG on ESP32 (slot {slot})")
+    else:
+        code = f"0x{resp[2]:02X}" if len(resp) >= 3 else "timeout"
+        print(f"ERROR: PNG store verification failed ({code})")
+        sys.exit(1)
+
+
 def set_label(ser, slot: int, label_text: str, target="rp2040"):
     """Set a label for a slot via text command through ESP32."""
     pfx = _cmd_prefix(target)
@@ -608,6 +673,10 @@ def sync_via_store(ser, manifest):
         print(f"  Converting to {S3_W}x{S3_H} RGB565 (S3)...")
         s3_data = png_to_rgb565(str(png_file), S3_W, S3_H)
         store_on_esp32(ser, slot, s3_data, is_s3=True)
+
+        # Store S3 PNG for iOS BLE
+        print(f"  Creating compressed PNG for BLE...")
+        store_s3_png(ser, slot, str(png_file))
 
     # Phase 2: Set labels
     print(f"\n{'='*60}")
