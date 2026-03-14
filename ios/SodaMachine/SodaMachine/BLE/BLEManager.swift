@@ -152,34 +152,39 @@ class BLEManager: NSObject, ObservableObject {
         let pixelCount = width * height
         guard data.count >= pixelCount * 2 else { return nil }
 
-        var rgba = Data(count: pixelCount * 4)
+        // Convert RGB565 to RGBA8888
+        var rgba = [UInt8](repeating: 0, count: pixelCount * 4)
         data.withUnsafeBytes { rawBuf in
             let src = rawBuf.bindMemory(to: UInt16.self)
-            rgba.withUnsafeMutableBytes { dstBuf in
-                let dst = dstBuf.bindMemory(to: UInt8.self)
-                for i in 0..<pixelCount {
-                    let pixel = src[i]
-                    let r = UInt8((pixel >> 11) & 0x1F)
-                    let g = UInt8((pixel >> 5) & 0x3F)
-                    let b = UInt8(pixel & 0x1F)
-                    dst[i * 4 + 0] = (r << 3) | (r >> 2)
-                    dst[i * 4 + 1] = (g << 2) | (g >> 4)
-                    dst[i * 4 + 2] = (b << 3) | (b >> 2)
-                    dst[i * 4 + 3] = 255
-                }
+            for i in 0..<pixelCount {
+                let pixel = src[i]
+                let r = UInt8((pixel >> 11) & 0x1F)
+                let g = UInt8((pixel >> 5) & 0x3F)
+                let b = UInt8(pixel & 0x1F)
+                rgba[i * 4 + 0] = (r << 3) | (r >> 2)
+                rgba[i * 4 + 1] = (g << 2) | (g >> 4)
+                rgba[i * 4 + 2] = (b << 3) | (b >> 2)
+                rgba[i * 4 + 3] = 255
             }
         }
 
+        // Create CGImage from RGBA buffer
         let colorSpace = CGColorSpaceCreateDeviceRGB()
-        guard let ctx = CGContext(
-            data: &rgba[rgba.startIndex],
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: width * 4,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ), let cgImage = ctx.makeImage() else { return nil }
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+        guard let provider = CGDataProvider(data: Data(rgba) as CFData),
+              let cgImage = CGImage(
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: width * 4,
+                space: colorSpace,
+                bitmapInfo: bitmapInfo,
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ) else { return nil }
 
         return UIImage(cgImage: cgImage)
     }
