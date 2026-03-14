@@ -68,6 +68,19 @@ extern const char factory_defaults_start[] asm("_binary_images_factory_defaults_
 uint8_t espNumImages = 0;
 char espLabels[MAX_STORE_IMAGES][MAX_LABEL_LEN + 1];
 
+// ── S3-initiated upload state (BLE phone → S3 → ESP32 via SerialTransfer) ──
+static struct {
+  bool active = false;
+  uint8_t slot;
+  uint8_t fileType;  // 0=s3_rgb, 1=png, 2=rp_rgb
+  uint32_t expectedSize;
+  uint32_t receivedBytes;
+  uint8_t nextSeq;
+  uint32_t runningCrc32;
+  unsigned long lastChunkTime;
+  File file;
+} s3Upload;
+
 uint8_t flavor1Ratio = 20;
 uint8_t flavor2Ratio = 20;
 uint8_t flavor1Image = 0;
@@ -1420,6 +1433,45 @@ void processConfigCommand(const char *cmd, Stream &out) {
     }
     out.printf("OK:PUSH_IMG=%d rp=%s s3=%s\n", slot,
                rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
+
+  } else if (strncmp(cmd, "FINALIZE_UPLOAD:", 16) == 0) {
+    // FINALIZE_UPLOAD:slot:label — commit a phone-uploaded image
+    int slot = -1;
+    char label[MAX_LABEL_LEN + 1] = {0};
+    if (sscanf(cmd + 16, "%d:%32[^\n]", &slot, label) < 1 || slot < 0 || slot >= MAX_STORE_IMAGES) {
+      out.printf("ERR:invalid FINALIZE_UPLOAD\n");
+      return;
+    }
+
+    // Update metadata
+    strncpy(espLabels[slot], label, MAX_LABEL_LEN);
+    espLabels[slot][MAX_LABEL_LEN] = '\0';
+    if ((uint8_t)slot >= espNumImages) espNumImages = slot + 1;
+    saveEspMeta();
+    saveEspLabels();
+
+    // Push RP2040 RGB565 to RP2040
+    bool rpOk = pushImageToDevice(DEVICE_RP2040, slot);
+    if (rpOk) {
+      numImages = max(numImages, (uint8_t)(slot + 1));
+    }
+    numS3Images = max(numS3Images, (uint8_t)(slot + 1));
+
+    // Push labels to both devices
+    pushLabelsToDevice(DEVICE_RP2040);
+    pushLabelsToDevice(DEVICE_S3);
+    sendMapToRP();
+
+    // Push CONFIG: update (numImages may have changed)
+    char cfgBuf[128];
+    snprintf(cfgBuf, sizeof(cfgBuf),
+             "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
+             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages, numS3Images);
+    stSendText(stS3, cfgBuf);
+
+    out.printf("OK:UPLOAD_DONE:%d\n", slot);
+    Serial.printf("FINALIZE_UPLOAD: slot %d label=%s rpPush=%s\n",
+                  slot, label, rpOk ? "ok" : "fail");
   }
 }
 
@@ -1471,20 +1523,150 @@ public:
 char configBuf0[CONFIG_BUF_SIZE];  // USB Serial
 uint8_t configPos0 = 0;
 
+// ════════════════════════════════════════════════════════════
+//  S3-initiated upload handlers (phone → S3 → ESP32 via SerialTransfer)
+// ════════════════════════════════════════════════════════════
+
+void abortS3Upload() {
+  if (s3Upload.file) s3Upload.file.close();
+  LittleFS.remove("/tmp_s3.bin");
+  s3Upload.active = false;
+  Serial.println("S3 upload aborted");
+}
+
+void handleS3UploadStart(uint8_t pktId) {
+  UploadStartPayload pl;
+  stS3.rxObj(pl);
+
+  if (s3Upload.active) abortS3Upload();
+
+  uint8_t fileType;
+  if (pktId == PKT_UPLOAD_START) {
+    fileType = 0;  // S3 RGB565
+    if (pl.size != S3_IMAGE_BYTES) { stSendResponse(stS3, PKT_ERR_SIZE_MISMATCH, 0); return; }
+  } else if (pktId == PKT_UPLOAD_PNG_START) {
+    fileType = 1;  // PNG
+    if (pl.size == 0 || pl.size > S3_IMAGE_BYTES) { stSendResponse(stS3, PKT_ERR_SIZE_MISMATCH, 0); return; }
+  } else {
+    fileType = 2;  // RP2040 RGB565
+    if (pl.size != RP2040_IMAGE_BYTES) { stSendResponse(stS3, PKT_ERR_SIZE_MISMATCH, 0); return; }
+  }
+
+  if (pl.slot >= MAX_STORE_IMAGES) { stSendResponse(stS3, PKT_ERR_SLOT_INVALID, 0); return; }
+
+  LittleFS.remove("/tmp_s3.bin");
+  s3Upload.file = LittleFS.open("/tmp_s3.bin", "w");
+  if (!s3Upload.file) { stSendResponse(stS3, PKT_ERR_NO_SPACE, 0); return; }
+
+  s3Upload.active = true;
+  s3Upload.slot = pl.slot;
+  s3Upload.fileType = fileType;
+  s3Upload.expectedSize = pl.size;
+  s3Upload.receivedBytes = 0;
+  s3Upload.nextSeq = 0;
+  s3Upload.runningCrc32 = 0;
+  s3Upload.lastChunkTime = millis();
+
+  Serial.printf("S3 upload start: slot %d type %d size %lu\n", pl.slot, fileType, pl.size);
+  stSendEmptyResponse(stS3, PKT_RESP_READY);
+}
+
+void handleS3ChunkData() {
+  ChunkDataPayload hdr;
+  stS3.rxObj(hdr);
+  uint16_t dataLen = stS3.bytesRead - sizeof(hdr);
+  const uint8_t *data = stS3.packet.rxBuff + sizeof(hdr);
+
+  if (!s3Upload.active) { stSendResponse(stS3, PKT_ERR_BUSY, 0); return; }
+  if (hdr.seq != s3Upload.nextSeq) { stSendResponse(stS3, PKT_ERR_SEQ, s3Upload.nextSeq); return; }
+  if (dataLen == 0 || dataLen > STORE_CHUNK_SIZE) { stSendResponse(stS3, PKT_ERR_CRC, 0); return; }
+
+  size_t written = s3Upload.file.write(data, dataLen);
+  if (written != dataLen) { stSendResponse(stS3, PKT_ERR_WRITE, 0); abortS3Upload(); return; }
+
+  s3Upload.receivedBytes += dataLen;
+  s3Upload.runningCrc32 = uartCrc32Update(s3Upload.runningCrc32, data, dataLen);
+  s3Upload.nextSeq = (s3Upload.nextSeq + 1) & 0xFF;
+  s3Upload.lastChunkTime = millis();
+
+  stSendResponse(stS3, PKT_RESP_CHUNK_OK, s3Upload.nextSeq);
+}
+
+void handleS3UploadDone() {
+  UploadDonePayload pl;
+  stS3.rxObj(pl);
+
+  if (!s3Upload.active) { stSendResponse(stS3, PKT_ERR_BUSY, 0); return; }
+
+  s3Upload.file.close();
+
+  if (s3Upload.receivedBytes != s3Upload.expectedSize) {
+    Serial.printf("S3 upload size mismatch: got %lu expected %lu\n",
+                  s3Upload.receivedBytes, s3Upload.expectedSize);
+    LittleFS.remove("/tmp_s3.bin");
+    s3Upload.active = false;
+    stSendResponse(stS3, PKT_ERR_SIZE_MISMATCH, 0);
+    return;
+  }
+
+  if (s3Upload.runningCrc32 != pl.crc32) {
+    Serial.printf("S3 upload CRC mismatch: got 0x%08lX expected 0x%08lX\n",
+                  s3Upload.runningCrc32, pl.crc32);
+    LittleFS.remove("/tmp_s3.bin");
+    s3Upload.active = false;
+    stSendResponse(stS3, PKT_ERR_CRC32_MISMATCH, 0);
+    return;
+  }
+
+  String destPath;
+  if (s3Upload.fileType == 0)      destPath = espS3Path(s3Upload.slot);
+  else if (s3Upload.fileType == 1) destPath = espS3PngPath(s3Upload.slot);
+  else                              destPath = espRpPath(s3Upload.slot);
+
+  LittleFS.remove(destPath);
+  LittleFS.rename("/tmp_s3.bin", destPath);
+  s3Upload.active = false;
+
+  Serial.printf("S3 upload OK: %s slot %d (%lu bytes)\n",
+                destPath.c_str(), s3Upload.slot, s3Upload.receivedBytes);
+  stSendResponse(stS3, PKT_RESP_UPLOAD_OK, espNumImages);
+}
+
 void checkConfigUART() {
   checkConfigStream(Serial, configBuf0, configPos0);
-  // Poll stS3 for PKT_TEXT commands from S3
+
+  // Poll stS3 for packets from S3 (text commands + upload packets)
   if (stS3.available()) {
-    if (stS3.currentPacketID() == PKT_TEXT) {
-      uint16_t len = stS3.bytesRead;
-      char cmd[CONFIG_BUF_SIZE];
-      uint16_t copyLen = (len < CONFIG_BUF_SIZE - 1) ? len : CONFIG_BUF_SIZE - 1;
-      memcpy(cmd, stS3.packet.rxBuff, copyLen);
-      cmd[copyLen] = '\0';
-      StStream s3out(stS3);
-      processConfigCommand(cmd, s3out);
-      s3out.flush();
+    uint8_t pktId = stS3.currentPacketID();
+    switch (pktId) {
+      case PKT_UPLOAD_START:
+      case PKT_UPLOAD_PNG_START:
+      case PKT_UPLOAD_RP_START:
+        handleS3UploadStart(pktId);
+        break;
+      case PKT_CHUNK_DATA:
+        handleS3ChunkData();
+        break;
+      case PKT_UPLOAD_DONE:
+        handleS3UploadDone();
+        break;
+      case PKT_TEXT: {
+        uint16_t len = stS3.bytesRead;
+        char cmd[CONFIG_BUF_SIZE];
+        uint16_t copyLen = (len < CONFIG_BUF_SIZE - 1) ? len : CONFIG_BUF_SIZE - 1;
+        memcpy(cmd, stS3.packet.rxBuff, copyLen);
+        cmd[copyLen] = '\0';
+        StStream s3out(stS3);
+        processConfigCommand(cmd, s3out);
+        s3out.flush();
+        break;
+      }
     }
+  }
+
+  // Timeout stale S3 uploads
+  if (s3Upload.active && millis() - s3Upload.lastChunkTime > 5000) {
+    abortS3Upload();
   }
 }
 
