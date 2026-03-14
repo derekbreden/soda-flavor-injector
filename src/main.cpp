@@ -57,7 +57,7 @@ uint8_t numS3Images = 0;  // updated at boot via QUERY_COUNT to S3
 // Factory defaults JSON (embedded in firmware flash at build time)
 extern const char factory_defaults_start[] asm("_binary_images_factory_defaults_json_start");
 
-// Binary protocol constants
+// USB binary store protocol constants (upload_image.py → ESP32 LittleFS)
 #define CMD_UPLOAD_START  0x01
 #define CMD_CHUNK_DATA    0x02
 #define CMD_UPLOAD_DONE   0x03
@@ -358,7 +358,7 @@ void saveUserConfig() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  CRC-16/CCITT for binary protocol with RP2040
+//  CRC-16/CCITT for USB binary store protocol
 // ════════════════════════════════════════════════════════════
 
 static uint16_t crc16(const uint8_t *data, size_t len) {
