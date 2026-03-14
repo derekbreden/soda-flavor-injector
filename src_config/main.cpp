@@ -88,6 +88,15 @@ static uint32_t bleImageSize = 0;
 // Display may briefly show garbage during download, which is acceptable.
 static uint8_t *bleSendBuf = (uint8_t *)imageBuf;
 
+// ── BLE cross-task safety ──
+// BLE RX callback runs on NimBLE task — must not do LittleFS I/O or Serial0
+// writes directly. Instead, callback sets a request + buffers data, and loop()
+// processes it on the main task.
+enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG, BLE_REQ_FORWARD };
+static volatile BleRequest bleRequest = BLE_REQ_NONE;
+static volatile int bleRequestSlot = -1;
+static char bleForwardBuf[64];  // buffered command to forward to ESP32
+
 class BLEServerCB : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) override {
     bleConnected = true;
@@ -160,71 +169,92 @@ class BLERxCB : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pChar) override {
     String val = pChar->getValue();
     if (val.length() == 0) return;
-    Serial.printf("BLE RX: %s\n", val.c_str());
 
-    // LIST is handled locally on S3 (image list lives here)
+    // Drop if a previous request hasn't been processed yet
+    if (bleRequest != BLE_REQ_NONE) return;
+
     if (val == "LIST") {
+      bleRequest = BLE_REQ_LIST;
+    } else if (val.startsWith("GETPNG:")) {
+      bleRequestSlot = val.substring(7).toInt();
+      bleRequest = BLE_REQ_GETPNG;
+    } else if (val.startsWith("GETIMG:")) {
+      bleRequestSlot = val.substring(7).toInt();
+      bleRequest = BLE_REQ_GETIMG;
+    } else {
+      // Buffer the command for forwarding to ESP32 on main task
+      strncpy(bleForwardBuf, val.c_str(), sizeof(bleForwardBuf) - 1);
+      bleForwardBuf[sizeof(bleForwardBuf) - 1] = '\0';
+      bleRequest = BLE_REQ_FORWARD;
+    }
+  }
+};
+
+// Process BLE requests on main task (safe for LittleFS I/O and Serial0)
+static void processBleRequest() {
+  BleRequest req = bleRequest;
+  if (req == BLE_REQ_NONE) return;
+
+  int slot = bleRequestSlot;
+  Serial.printf("BLE RX: req=%d slot=%d\n", req, slot);
+
+  switch (req) {
+    case BLE_REQ_LIST:
       for (uint8_t i = 0; i < numImages; i++) {
         char buf[48];
         snprintf(buf, sizeof(buf), "IMG:%d:%s", i, labels[i]);
         bleSendLine(buf);
-        delay(20);  // BLE notify spacing
+        delay(20);
       }
       bleSendLine("END");
-      return;
-    }
+      break;
 
-    // GETPNG:N — download compressed PNG image N over BLE (used by iOS app)
-    if (val.startsWith("GETPNG:")) {
-      int slot = val.substring(7).toInt();
+    case BLE_REQ_GETPNG:
       if (slot < 0 || slot >= numImages) {
         bleSendLine("ERR:INVALID_SLOT");
-        return;
-      }
-      if (!loadPngFromFS(slot)) {
+      } else if (!loadPngFromFS(slot)) {
         bleSendLine("ERR:LOAD_FAILED");
-        return;
+      } else {
+        char hdr[32];
+        snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%u", slot, bleImageSize);
+        bleSendLine(hdr);
+        delay(20);
+        bleImageSlot = slot;
+        bleImageOffset = 0;
+        bleImageSending = true;
+        Serial.printf("BLE PNG download: slot %d, %u bytes\n", slot, bleImageSize);
       }
-      char hdr[32];
-      snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%u", slot, bleImageSize);
-      bleSendLine(hdr);
-      delay(20);
-      bleImageSlot = slot;
-      bleImageOffset = 0;
-      bleImageSending = true;
-      Serial.printf("BLE PNG download: slot %d, %u bytes\n", slot, bleImageSize);
-      return;
-    }
+      break;
 
-    // GETIMG:N — download raw RGB565 image N over BLE (legacy)
-    // bleSendBuf IS imageBuf, so loadImageFromFS fills it directly
-    if (val.startsWith("GETIMG:")) {
-      int slot = val.substring(7).toInt();
+    case BLE_REQ_GETIMG:
       if (slot < 0 || slot >= numImages) {
         bleSendLine("ERR:INVALID_SLOT");
-        return;
-      }
-      if (!loadImageFromFS(slot)) {
+      } else if (!loadImageFromFS(slot)) {
         bleSendLine("ERR:LOAD_FAILED");
-        return;
+      } else {
+        bleImageSize = IMAGE_BYTES;
+        char hdr[32];
+        snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%d", slot, IMAGE_BYTES);
+        bleSendLine(hdr);
+        delay(20);
+        bleImageSlot = slot;
+        bleImageOffset = 0;
+        bleImageSending = true;
+        Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
       }
-      bleImageSize = IMAGE_BYTES;
-      char hdr[32];
-      snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%d", slot, IMAGE_BYTES);
-      bleSendLine(hdr);
-      delay(20);
-      bleImageSlot = slot;
-      bleImageOffset = 0;
-      bleImageSending = true;
-      Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
-      return;
-    }
+      break;
 
-    // Everything else forwarded to ESP32 via UART
-    Serial0.println(val.c_str());
-    Serial0.flush();
+    case BLE_REQ_FORWARD:
+      Serial0.println(bleForwardBuf);
+      Serial0.flush();
+      break;
+
+    default:
+      break;
   }
-};
+
+  bleRequest = BLE_REQ_NONE;
+}
 
 static void initBLE() {
   BLEDevice::init("SodaMachine");
@@ -1317,6 +1347,9 @@ void loop() {
 
   // Check for incoming UART data (text + binary)
   checkUart();
+
+  // Process BLE requests on main task (safe for LittleFS + Serial0)
+  processBleRequest();
 
   // BLE image streaming (non-blocking, sends a few chunks per loop)
   bleImageSendChunks();
