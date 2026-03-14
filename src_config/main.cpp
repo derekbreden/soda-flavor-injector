@@ -82,6 +82,7 @@ static bool bleConnected = false;
 static void bleSendLine(const char *line);
 static bool loadImageFromFS(uint8_t slot);
 static void imagePath(char *buf, uint8_t slot);
+static void updateMeta();
 
 // ── BLE image download state ──
 // Streams directly from LittleFS file — no imageBuf aliasing.
@@ -95,10 +96,25 @@ static uint8_t bleSendChunkBuf[240];
 // BLE RX callback runs on NimBLE task — must not do LittleFS I/O or Serial0
 // writes directly. Instead, callback sets a request + buffers data, and loop()
 // processes it on the main task.
-enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG, BLE_REQ_FORWARD };
+enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG, BLE_REQ_FORWARD,
+                  BLE_REQ_UPLOAD_START };
 static volatile BleRequest bleRequest = BLE_REQ_NONE;
 static volatile int bleRequestSlot = -1;
 static char bleForwardBuf[64];  // buffered command to forward to ESP32
+
+// ── BLE upload state (phone → S3, accumulated in imageBuf) ──
+enum BleUploadPhase { BLE_UP_IDLE, BLE_UP_WAIT_DATA, BLE_UP_RECEIVED, BLE_UP_FORWARDING };
+static struct {
+  volatile BleUploadPhase phase = BLE_UP_IDLE;
+  uint8_t  slot;
+  uint8_t  fileType;      // 0=png, 1=s3_rgb, 2=rp_rgb
+  uint32_t expectedSize;
+  uint32_t expectedCrc32;
+  volatile uint32_t receivedBytes;
+  char     label[MAX_LABEL_LEN + 1];
+  bool     hasLabel;
+  unsigned long lastDataTime;
+} bleUpload;
 
 class BLEServerCB : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) override {
@@ -111,6 +127,10 @@ class BLEServerCB : public BLEServerCallbacks {
       bleImageSending = false;
       if (bleFile) bleFile.close();
       Serial.println("BLE: aborted image send on disconnect");
+    }
+    if (bleUpload.phase != BLE_UP_IDLE) {
+      bleUpload.phase = BLE_UP_IDLE;
+      Serial.println("BLE: aborted upload on disconnect");
     }
     Serial.println("BLE: client disconnected");
     pServer->startAdvertising();
@@ -171,10 +191,52 @@ class BLERxCB : public BLECharacteristicCallbacks {
     String val = pChar->getValue();
     if (val.length() == 0) return;
 
+    // Binary accumulation during BLE upload (runs on NimBLE task — memcpy only, no I/O)
+    if (bleUpload.phase == BLE_UP_WAIT_DATA) {
+      size_t len = val.length();
+      if (bleUpload.receivedBytes + len <= IMAGE_BYTES) {
+        memcpy(((uint8_t*)imageBuf) + bleUpload.receivedBytes, val.c_str(), len);
+        bleUpload.receivedBytes += len;
+      }
+      bleUpload.lastDataTime = millis();
+      if (bleUpload.receivedBytes >= bleUpload.expectedSize) {
+        bleUpload.phase = BLE_UP_RECEIVED;
+      }
+      return;
+    }
+
     // Drop if a previous request hasn't been processed yet
     if (bleRequest != BLE_REQ_NONE) return;
 
-    if (val == "LIST") {
+    if (val.startsWith("IMG_UPLOAD:")) {
+      // IMG_UPLOAD:slot=N,type=png|s3|rp,size=X,crc32=0xY[,label=Z]
+      int slot = -1;
+      char typeBuf[4] = {0};
+      unsigned long size = 0, crc = 0;
+      sscanf(val.c_str() + 11, "slot=%d,type=%3[^,],size=%lu,crc32=0x%lx",
+             &slot, typeBuf, &size, &crc);
+
+      bleUpload.slot = slot;
+      bleUpload.expectedSize = size;
+      bleUpload.expectedCrc32 = crc;
+      bleUpload.receivedBytes = 0;
+      bleUpload.hasLabel = false;
+
+      if (strcmp(typeBuf, "png") == 0)      bleUpload.fileType = 0;
+      else if (strcmp(typeBuf, "s3") == 0)  bleUpload.fileType = 1;
+      else                                   bleUpload.fileType = 2;  // rp
+
+      // Parse optional label
+      const char *lblP = strstr(val.c_str() + 11, "label=");
+      if (lblP) {
+        strncpy(bleUpload.label, lblP + 6, MAX_LABEL_LEN);
+        bleUpload.label[MAX_LABEL_LEN] = '\0';
+        bleUpload.hasLabel = true;
+      }
+
+      bleRequest = BLE_REQ_UPLOAD_START;
+
+    } else if (val == "LIST") {
       bleRequest = BLE_REQ_LIST;
     } else if (val.startsWith("GETPNG:")) {
       bleRequestSlot = val.substring(7).toInt();
@@ -253,11 +315,78 @@ static void processBleRequest() {
       stSendText(stLink, bleForwardBuf);
       break;
 
+    case BLE_REQ_UPLOAD_START: {
+      // Validate upload request
+      if (bleUpload.slot < 0 || bleUpload.expectedSize == 0 || bleUpload.expectedSize > IMAGE_BYTES) {
+        bleSendLine("IMG_ERR:INVALID_PARAMS");
+        bleUpload.phase = BLE_UP_IDLE;
+        break;
+      }
+      if (bleImageSending) {
+        bleSendLine("IMG_ERR:BUSY");
+        bleUpload.phase = BLE_UP_IDLE;
+        break;
+      }
+      bleUpload.receivedBytes = 0;
+      bleUpload.lastDataTime = millis();
+      bleUpload.phase = BLE_UP_WAIT_DATA;
+      bleSendLine("UPLOAD_READY");
+      Serial.printf("BLE upload: slot %d type %d size %lu\n",
+                    bleUpload.slot, bleUpload.fileType, bleUpload.expectedSize);
+      break;
+    }
+
     default:
       break;
   }
 
   bleRequest = BLE_REQ_NONE;
+}
+
+// Process completed BLE upload: verify CRC, write to LittleFS
+static void processBleUpload() {
+  if (bleUpload.phase != BLE_UP_RECEIVED) return;
+
+  // Verify CRC-32
+  uint32_t crc = uartCrc32Update(0, (const uint8_t*)imageBuf, bleUpload.expectedSize);
+  if (crc != bleUpload.expectedCrc32) {
+    Serial.printf("BLE upload CRC mismatch: got 0x%08lX expected 0x%08lX\n", crc, bleUpload.expectedCrc32);
+    bleSendLine("IMG_ERR:CRC_MISMATCH");
+    bleUpload.phase = BLE_UP_IDLE;
+    return;
+  }
+
+  // Write to LittleFS (S3 stores PNG + S3 RGB565; skips RP2040 RGB565)
+  char path[24];
+  if (bleUpload.fileType == 0) {         // PNG
+    snprintf(path, sizeof(path), "/s3_png%02d.png", bleUpload.slot);
+  } else if (bleUpload.fileType == 1) {  // S3 RGB565
+    imagePath(path, bleUpload.slot);
+  } else {                                // RP2040 RGB565 — S3 doesn't store
+    path[0] = '\0';
+  }
+
+  if (path[0]) {
+    LittleFS.remove(path);
+    File f = LittleFS.open(path, "w");
+    if (!f) {
+      bleSendLine("IMG_ERR:WRITE_FAIL");
+      bleUpload.phase = BLE_UP_IDLE;
+      return;
+    }
+    f.write((const uint8_t*)imageBuf, bleUpload.expectedSize);
+    f.close();
+    Serial.printf("BLE upload: wrote %s (%lu bytes)\n", path, bleUpload.expectedSize);
+
+    // Update S3 metadata if new S3 RGB565 slot
+    if (bleUpload.fileType == 1 && bleUpload.slot >= numImages) {
+      numImages = bleUpload.slot + 1;
+      updateMeta();
+    }
+  }
+
+  // Transition to forwarding (handled by Commit 4)
+  bleUpload.phase = BLE_UP_FORWARDING;
 }
 
 static void initBLE() {
@@ -1213,6 +1342,17 @@ void loop() {
 
   // Process BLE requests on main task (safe for LittleFS + Serial0)
   processBleRequest();
+
+  // Process completed BLE uploads (verify CRC, write to LittleFS, forward)
+  processBleUpload();
+
+  // BLE upload timeout (30s with no data)
+  if (bleUpload.phase == BLE_UP_WAIT_DATA &&
+      millis() - bleUpload.lastDataTime > 30000) {
+    bleUpload.phase = BLE_UP_IDLE;
+    bleSendLine("IMG_ERR:TIMEOUT");
+    Serial.println("BLE upload timed out");
+  }
 
   // BLE image streaming (non-blocking, sends a few chunks per loop)
   bleImageSendChunks();
