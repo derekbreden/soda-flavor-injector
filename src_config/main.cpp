@@ -58,6 +58,14 @@ static uint8_t numImages = 0;
 static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];
 static uint16_t *imageBuf = nullptr;  // allocated in PSRAM at setup()
 
+// ── Config state (synced from ESP32 via UART) ──
+uint8_t flavor1Image = 0;
+uint8_t flavor2Image = 1;
+uint8_t flavor1Ratio = 20;
+uint8_t flavor2Ratio = 20;
+bool configSynced = false;
+unsigned long lastGetConfig = 0;
+
 // ── Hardware objects ──
 Arduino_ESP32SPI *spi_bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCLK, TFT_MOSI, GFX_NOT_DEFINED, FSPI, true);
 Arduino_GC9A01 *hw_display = new Arduino_GC9A01(spi_bus, TFT_RST, 0, true);
@@ -98,7 +106,7 @@ static uint8_t bleSendChunkBuf[180];  // must fit within negotiated ATT MTU - 3
 // writes directly. Instead, callback sets a request + buffers data, and loop()
 // processes it on the main task.
 enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG, BLE_REQ_FORWARD,
-                  BLE_REQ_UPLOAD_START };
+                  BLE_REQ_UPLOAD_START, BLE_REQ_GET_CONFIG };
 static volatile BleRequest bleRequest = BLE_REQ_NONE;
 static volatile int bleRequestSlot = -1;
 static char bleForwardBuf[64];  // buffered command to forward to ESP32
@@ -237,6 +245,8 @@ class BLERxCB : public BLECharacteristicCallbacks {
 
       bleRequest = BLE_REQ_UPLOAD_START;
 
+    } else if (val == "GET_CONFIG") {
+      bleRequest = BLE_REQ_GET_CONFIG;
     } else if (val == "LIST") {
       bleRequest = BLE_REQ_LIST;
     } else if (val.startsWith("GETPNG:")) {
@@ -313,6 +323,18 @@ static void processBleRequest() {
           Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
         }
       }
+      break;
+    }
+
+    case BLE_REQ_GET_CONFIG: {
+      // Respond from cached config — avoids losing the request if ESP32 is busy
+      char cfg[128];
+      snprintf(cfg, sizeof(cfg),
+               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages, numImages);
+      bleSendLine(cfg);
+      // Also forward to ESP32 so it knows to push a fresh CONFIG update
+      stSendText(stLink, "GET_CONFIG");
       break;
     }
 
@@ -601,15 +623,6 @@ static void initBLE() {
 
   Serial.println("BLE: NUS service started, advertising as 'SodaMachine'");
 }
-
-// ── Config state (synced from ESP32 via UART) ──
-uint8_t flavor1Image = 0;
-uint8_t flavor2Image = 1;
-uint8_t flavor1Ratio = 20;
-uint8_t flavor2Ratio = 20;
-
-bool configSynced = false;
-unsigned long lastGetConfig = 0;
 
 // ── Menu ──
 enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU_COUNT };
