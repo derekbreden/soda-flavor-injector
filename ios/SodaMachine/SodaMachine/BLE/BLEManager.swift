@@ -11,9 +11,6 @@ private let nusTxUUID       = CBUUID(string: "6E400003-B5A3-F393-E0A9-E50E24DCCA
 private let log = Logger(subsystem: "com.derekbreden.SodaMachine", category: "BLE")
 
 private let scanTimeout: TimeInterval = 10
-private let imageWidth = 240
-private let imageHeight = 240
-private let imageBytesExpected = 240 * 240 * 2  // RGB565
 
 enum ConnectionState: Equatable {
     case bluetoothOff
@@ -47,6 +44,7 @@ class BLEManager: NSObject, ObservableObject {
     private var imgDownloadData = Data()
     private var imgDownloadExpected: Int = 0
     private var imgDownloadQueue: [Int] = []
+    private var imgIsJpeg: Bool = false
 
     private var centralManager: CBCentralManager!
     private var connectedPeripheral: CBPeripheral?
@@ -124,69 +122,34 @@ class BLEManager: NSObject, ObservableObject {
         let slot = imgDownloadQueue.removeFirst()
         imgDownloadSlot = slot
         imgDownloadData = Data()
-        imgDownloadExpected = imageBytesExpected
+        imgDownloadExpected = 0
+        imgIsJpeg = false
         imageDownloadProgress = 0
-        send("GETIMG:\(slot)")
+        send("GETPNG:\(slot)")
     }
 
     private func handleImageData(_ data: Data) {
         imgDownloadData.append(data)
-        let progress = Double(imgDownloadData.count) / Double(imgDownloadExpected)
-        imageDownloadProgress = min(progress, 1.0)
+        if imgDownloadExpected > 0 {
+            let progress = Double(imgDownloadData.count) / Double(imgDownloadExpected)
+            imageDownloadProgress = min(progress, 1.0)
+        }
 
-        if imgDownloadData.count >= imgDownloadExpected {
-            // Convert RGB565 to UIImage
-            if let image = rgb565ToUIImage(imgDownloadData, width: imageWidth, height: imageHeight) {
-                cachedImages[imgDownloadSlot] = image
-                log.info("Image \(self.imgDownloadSlot) cached (\(self.imgDownloadData.count) bytes)")
-            } else {
-                log.error("Image \(self.imgDownloadSlot) conversion failed: got \(self.imgDownloadData.count) bytes, expected \(self.imgDownloadExpected)")
-            }
-            imgDownloadSlot = -1
-            imgDownloadData = Data()
-            downloadNextImage()
+        if imgDownloadExpected > 0, imgDownloadData.count >= imgDownloadExpected {
+            finishImageDownload()
         }
     }
 
-    private func rgb565ToUIImage(_ data: Data, width: Int, height: Int) -> UIImage? {
-        let pixelCount = width * height
-        guard data.count >= pixelCount * 2 else { return nil }
-
-        // Convert RGB565 (little-endian, matching struct.pack("<H")) to RGBA8888
-        var rgba = [UInt8](repeating: 0, count: pixelCount * 4)
-        data.withUnsafeBytes { rawBuf in
-            let src = rawBuf.bindMemory(to: UInt16.self)
-            for i in 0..<pixelCount {
-                let pixel = src[i]  // native little-endian on ARM
-                let r = UInt8((pixel >> 11) & 0x1F)
-                let g = UInt8((pixel >> 5) & 0x3F)
-                let b = UInt8(pixel & 0x1F)
-                rgba[i * 4 + 0] = (r << 3) | (r >> 2)
-                rgba[i * 4 + 1] = (g << 2) | (g >> 4)
-                rgba[i * 4 + 2] = (b << 3) | (b >> 2)
-                rgba[i * 4 + 3] = 255
-            }
+    private func finishImageDownload() {
+        if let image = UIImage(data: imgDownloadData) {
+            cachedImages[imgDownloadSlot] = image
+            log.info("Image \(self.imgDownloadSlot) cached (\(self.imgDownloadData.count) bytes)")
+        } else {
+            log.error("Image \(self.imgDownloadSlot) decode failed: \(self.imgDownloadData.count) bytes")
         }
-
-        // Create CGImage from RGBA buffer
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
-        guard let provider = CGDataProvider(data: Data(rgba) as CFData),
-              let cgImage = CGImage(
-                width: width,
-                height: height,
-                bitsPerComponent: 8,
-                bitsPerPixel: 32,
-                bytesPerRow: width * 4,
-                space: colorSpace,
-                bitmapInfo: bitmapInfo,
-                provider: provider,
-                decode: nil,
-                shouldInterpolate: false,
-                intent: .defaultIntent
-              ) else { return nil }
-
-        return UIImage(cgImage: cgImage)
+        imgDownloadSlot = -1
+        imgDownloadData = Data()
+        downloadNextImage()
     }
 
     // MARK: - Response parsing
@@ -196,16 +159,7 @@ class BLEManager: NSObject, ObservableObject {
         if imgDownloadSlot >= 0 {
             // Check if it's the IMGEND marker
             if data.count < 20, let text = String(data: data, encoding: .utf8), text == "IMGEND" {
-                // Force complete even if short
-                if let image = rgb565ToUIImage(imgDownloadData, width: imageWidth, height: imageHeight) {
-                    cachedImages[imgDownloadSlot] = image
-                    log.info("Image \(self.imgDownloadSlot) complete (\(self.imgDownloadData.count) bytes)")
-                } else {
-                    log.error("Image \(self.imgDownloadSlot) conversion failed (\(self.imgDownloadData.count) bytes)")
-                }
-                imgDownloadSlot = -1
-                imgDownloadData = Data()
-                downloadNextImage()
+                finishImageDownload()
                 return
             }
 

@@ -94,30 +94,41 @@ static bool loadImageFromFS(uint8_t slot);
 static bool bleImageSending = false;
 static uint8_t bleImageSlot = 0;
 static uint32_t bleImageOffset = 0;
+static uint32_t bleImageSize = 0;  // actual size (JPEG or RGB565)
 
 static void bleImageSendChunks() {
   if (!bleImageSending || !bleConnected || !pTxChar) return;
 
-  // Send one chunk per loop iteration — slower but reliable
-  if (bleImageOffset >= IMAGE_BYTES) {
-    // Done - send completion marker
+  if (bleImageOffset >= bleImageSize) {
     delay(50);
     bleSendLine("IMGEND");
     bleImageSending = false;
-    Serial.printf("BLE image %d send complete\n", bleImageSlot);
+    Serial.printf("BLE image %d send complete (%u bytes)\n", bleImageSlot, bleImageSize);
     return;
   }
 
-  // Use 240-byte chunks (divisible by 2 for RGB565 alignment)
   uint16_t chunkSize = 240;
-  if (bleImageOffset + chunkSize > IMAGE_BYTES) {
-    chunkSize = IMAGE_BYTES - bleImageOffset;
+  if (bleImageOffset + chunkSize > bleImageSize) {
+    chunkSize = bleImageSize - bleImageOffset;
   }
 
   pTxChar->setValue(((uint8_t *)imageBuf) + bleImageOffset, chunkSize);
   pTxChar->notify();
   bleImageOffset += chunkSize;
-  delay(20);  // BLE notify spacing — needs time for iOS to process
+  delay(20);
+}
+
+static bool loadPngFromFS(uint8_t slot) {
+  char path[24];
+  snprintf(path, sizeof(path), "/s3_png%02d.png", slot);
+  if (!LittleFS.exists(path)) return false;
+  File f = LittleFS.open(path, "r");
+  if (!f) return false;
+  size_t n = f.read((uint8_t *)imageBuf, IMAGE_BYTES);
+  f.close();
+  bleImageSize = n;
+  Serial.printf("Loaded PNG slot %d: %u bytes\n", slot, n);
+  return (n > 0);
 }
 
 class BLERxCB : public BLECharacteristicCallbacks {
@@ -138,7 +149,29 @@ class BLERxCB : public BLECharacteristicCallbacks {
       return;
     }
 
-    // GETIMG:N — download image N over BLE
+    // GETPNG:N — download compressed PNG image N over BLE (used by iOS app)
+    if (val.startsWith("GETPNG:")) {
+      int slot = val.substring(7).toInt();
+      if (slot < 0 || slot >= numImages) {
+        bleSendLine("ERR:INVALID_SLOT");
+        return;
+      }
+      if (!loadPngFromFS(slot)) {
+        bleSendLine("ERR:LOAD_FAILED");
+        return;
+      }
+      char hdr[32];
+      snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%u", slot, bleImageSize);
+      bleSendLine(hdr);
+      delay(20);
+      bleImageSlot = slot;
+      bleImageOffset = 0;
+      bleImageSending = true;
+      Serial.printf("BLE PNG download: slot %d, %u bytes\n", slot, bleImageSize);
+      return;
+    }
+
+    // GETIMG:N — download raw RGB565 image N over BLE (legacy)
     if (val.startsWith("GETIMG:")) {
       int slot = val.substring(7).toInt();
       if (slot < 0 || slot >= numImages) {
@@ -149,15 +182,13 @@ class BLERxCB : public BLECharacteristicCallbacks {
         bleSendLine("ERR:LOAD_FAILED");
         return;
       }
-      // Send header: IMGSTART:slot:size
       char hdr[32];
       snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%d", slot, IMAGE_BYTES);
       bleSendLine(hdr);
       delay(20);
-
-      // Start streaming
       bleImageSlot = slot;
       bleImageOffset = 0;
+      bleImageSize = IMAGE_BYTES;
       bleImageSending = true;
       Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
       return;

@@ -489,6 +489,24 @@ def build_data(manifest):
         s3_path.write_bytes(s3_data)
         print(f"    {s3_path.name}: {len(s3_data)} bytes")
 
+        # S3 PNG for iOS BLE (240x240, pngquant-compressed)
+        from PIL import Image
+        import subprocess
+        img = Image.open(str(png_file)).convert("RGBA")
+        img = img.resize((S3_W, S3_H), Image.LANCZOS)
+        png_out = data_dir / f"s3_png{slot:02d}.png"
+        img.save(str(png_out))
+        try:
+            subprocess.run(
+                ["pngquant", "--quality=40-70", "--speed=1", "--force",
+                 "--output", str(png_out), str(png_out)],
+                check=True, capture_output=True
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            # pngquant not available or failed, use unoptimized PNG
+            pass
+        print(f"    {png_out.name}: {png_out.stat().st_size} bytes")
+
     # Write meta.txt (image count)
     meta_path = data_dir / "meta.txt"
     meta_path.write_text(f"{len(slots)}\n")
