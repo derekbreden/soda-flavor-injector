@@ -3,6 +3,9 @@
 #include <Adafruit_NeoPixel.h>
 #include <lvgl.h>
 #include <LittleFS.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLE2902.h>
 #include "CST816D.h"
 #include "font_ratio_64.h"
 
@@ -62,6 +65,67 @@ CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
 // ── LVGL display buffer ──
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t *lvgl_buf;
+
+// ── BLE (built-in NimBLE via Arduino BLE API) ──
+#define NUS_SERVICE_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+#define NUS_RX_UUID             "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define NUS_TX_UUID             "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+static BLECharacteristic *pTxChar = nullptr;
+static bool bleConnected = false;
+
+class BLEServerCB : public BLEServerCallbacks {
+  void onConnect(BLEServer *pServer) override {
+    bleConnected = true;
+    Serial.println("BLE: client connected");
+  }
+  void onDisconnect(BLEServer *pServer) override {
+    bleConnected = false;
+    Serial.println("BLE: client disconnected");
+    pServer->startAdvertising();
+  }
+};
+
+class BLERxCB : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *pChar) override {
+    String val = pChar->getValue();
+    if (val.length() == 0) return;
+    Serial.printf("BLE RX: %s\n", val.c_str());
+    // Phase 1: echo back for testing
+    pTxChar->setValue((uint8_t *)val.c_str(), val.length());
+    pTxChar->notify();
+  }
+};
+
+static void initBLE() {
+  BLEDevice::init("SodaMachine");
+
+  BLEServer *pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new BLEServerCB());
+
+  BLEService *pService = pServer->createService(NUS_SERVICE_UUID);
+
+  pTxChar = pService->createCharacteristic(
+    NUS_TX_UUID,
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
+  pTxChar->addDescriptor(new BLE2902());
+
+  BLECharacteristic *pRxChar = pService->createCharacteristic(
+    NUS_RX_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
+  );
+  pRxChar->setCallbacks(new BLERxCB());
+
+  pService->start();
+
+  BLEAdvertising *pAdv = BLEDevice::getAdvertising();
+  pAdv->addServiceUUID(NUS_SERVICE_UUID);
+  pAdv->setScanResponse(true);
+  pAdv->start();
+
+  Serial.println("BLE: NUS service started, advertising as 'SodaMachine'");
+}
 
 // ── Config state (synced from ESP32 via UART) ──
 uint8_t flavor1Image = 0;
@@ -971,9 +1035,13 @@ void setup() {
   // LVGL init
   lv_init();
 
-  // Allocate full-screen draw buffer (115KB — fits in ESP32-S3 SRAM)
-  lvgl_buf = (lv_color_t *)malloc(240 * 240 * sizeof(lv_color_t));
-  lv_disp_draw_buf_init(&draw_buf, lvgl_buf, NULL, 240 * 240);
+  // Half-screen draw buffer (57KB — leaves room for BLE heap)
+  lvgl_buf = (lv_color_t *)malloc(240 * 120 * sizeof(lv_color_t));
+  if (!lvgl_buf) {
+    Serial.println("FATAL: failed to allocate LVGL buffer!");
+    while (1) delay(1000);
+  }
+  lv_disp_draw_buf_init(&draw_buf, lvgl_buf, NULL, 240 * 120);
 
   // Register display driver
   static lv_disp_drv_t disp_drv;
@@ -987,6 +1055,10 @@ void setup() {
   lastClk = digitalRead(ENCODER_CLK);
 
   drawScreen();
+
+  // Init BLE (after display so UI is visible during BLE init)
+  initBLE();
+
   Serial.println("Ready. Rotate to navigate, tap to edit/confirm.");
 }
 

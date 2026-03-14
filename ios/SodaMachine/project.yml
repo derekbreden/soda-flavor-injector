@@ -1,0 +1,23 @@
+name: SodaMachine
+options:
+  bundleIdPrefix: com.derekbreden
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "16.0"
+
+targets:
+  SodaMachine:
+    type: application
+    platform: iOS
+    sources:
+      - SodaMachine
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.derekbreden.SodaMachine
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: 1
+        INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "SodaMachine uses Bluetooth to connect to your soda machine for configuration and image uploads."
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: true
+        INFOPLIST_KEY_CFBundleDisplayName: "Soda Machine"
