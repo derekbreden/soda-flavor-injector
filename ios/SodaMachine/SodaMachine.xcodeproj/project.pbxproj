@@ -9,7 +9,9 @@
 /* Begin PBXBuildFile section */
 		0C8A1A8CCBF99A55FFCC9E75 /* ConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17B6167123A77140A8416478 /* ConfigView.swift */; };
 		3A7B2C1D4E5F6A8B9C0D1E2F /* ImageProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4E3F2A1B0C9D8E7F6A5B4C /* ImageProcessor.swift */; };
+		4B1C2D3E4F5A6B7C8D9E0F1A /* ImageManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E8F9A0B1C2D3E4F5A6B7C8D /* ImageManagerView.swift */; };
 		59BAD3A33A0F98D9F35F6FA2 /* ImageListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC170A2B701313B188BF412 /* ImageListView.swift */; };
+		6C3D4E5F6A7B8C9D0E1F2A3B /* UploadPreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F0A1B2C3D4E5F6A7B8C9D0E /* UploadPreviewSheet.swift */; };
 		BB2804A1FB6705FB6DC03085 /* BLEManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46ABEC9C6AF332D8A0057E0A /* BLEManager.swift */; };
 		D2CAF8A8E999091D114AE837 /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C75AA5E41E74397887458B /* ScanView.swift */; };
 		DF2FC75183CCB8BB4EBB2475 /* SodaMachineApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46497A459A6F4FDF03D0CBD9 /* SodaMachineApp.swift */; };
@@ -20,7 +22,9 @@
 		46497A459A6F4FDF03D0CBD9 /* SodaMachineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SodaMachineApp.swift; sourceTree = "<group>"; };
 		46ABEC9C6AF332D8A0057E0A /* BLEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEManager.swift; sourceTree = "<group>"; };
 		5D4E3F2A1B0C9D8E7F6A5B4C /* ImageProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageProcessor.swift; sourceTree = "<group>"; };
+		7E8F9A0B1C2D3E4F5A6B7C8D /* ImageManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageManagerView.swift; sourceTree = "<group>"; };
 		80C75AA5E41E74397887458B /* ScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanView.swift; sourceTree = "<group>"; };
+		9F0A1B2C3D4E5F6A7B8C9D0E /* UploadPreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadPreviewSheet.swift; sourceTree = "<group>"; };
 		CEC170A2B701313B188BF412 /* ImageListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageListView.swift; sourceTree = "<group>"; };
 		D850BAB13F260C2F94CF2FC7 /* SodaMachine.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SodaMachine.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -74,7 +78,9 @@
 			children = (
 				17B6167123A77140A8416478 /* ConfigView.swift */,
 				CEC170A2B701313B188BF412 /* ImageListView.swift */,
+				7E8F9A0B1C2D3E4F5A6B7C8D /* ImageManagerView.swift */,
 				80C75AA5E41E74397887458B /* ScanView.swift */,
+				9F0A1B2C3D4E5F6A7B8C9D0E /* UploadPreviewSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -135,8 +141,10 @@
 				BB2804A1FB6705FB6DC03085 /* BLEManager.swift in Sources */,
 				0C8A1A8CCBF99A55FFCC9E75 /* ConfigView.swift in Sources */,
 				59BAD3A33A0F98D9F35F6FA2 /* ImageListView.swift in Sources */,
+				4B1C2D3E4F5A6B7C8D9E0F1A /* ImageManagerView.swift in Sources */,
 				3A7B2C1D4E5F6A8B9C0D1E2F /* ImageProcessor.swift in Sources */,
 				D2CAF8A8E999091D114AE837 /* ScanView.swift in Sources */,
+				6C3D4E5F6A7B8C9D0E1F2A3B /* UploadPreviewSheet.swift in Sources */,
 				DF2FC75183CCB8BB4EBB2475 /* SodaMachineApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

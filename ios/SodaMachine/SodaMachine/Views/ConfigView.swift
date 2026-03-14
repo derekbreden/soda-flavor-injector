@@ -4,6 +4,7 @@ struct ConfigView: View {
     @EnvironmentObject var ble: BLEManager
     @State private var currentPage = 0
     @State private var editing = false
+    @State private var showImageManager = false
 
     private let pageCount = 5
     private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Images"]
@@ -60,9 +61,15 @@ struct ConfigView: View {
                         if editing {
                             editing = false
                             sendCurrentValue()
-                        } else if currentPage < 4 {
+                        } else if currentPage == 4 {
+                            showImageManager = true
+                        } else {
                             editing = true
                         }
+                    }
+                    .sheet(isPresented: $showImageManager) {
+                        ImageManagerView()
+                            .environmentObject(ble)
                     }
 
                     // Fixed nav dots overlay
