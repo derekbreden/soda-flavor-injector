@@ -1327,7 +1327,17 @@ void processConfigCommand(const char *cmd, Stream &out) {
     else if (flavor2Image > slot) flavor2Image--;
     if (flavor1Image >= espNumImages) flavor1Image = 0;
     if (flavor2Image >= espNumImages) flavor2Image = 0;
+    saveUserConfig();
     sendMapToRP();
+
+    // Push updated config to S3 (and onward to BLE/iOS)
+    {
+      char cfgBuf[128];
+      snprintf(cfgBuf, sizeof(cfgBuf),
+               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, espNumImages, numS3Images);
+      stSendText(stS3, cfgBuf);
+    }
     out.printf("OK:STORE_DELETED=%d,NUM_IMAGES=%d\n", slot, espNumImages);
 
   } else if (strcmp(cmd, "LIST_STORE") == 0) {

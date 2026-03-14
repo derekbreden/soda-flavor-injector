@@ -46,9 +46,7 @@ struct ImageManagerView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                if let slot = deleteSlot {
-                    Text("Delete \"\(ble.displayName(for: slot))\"? This cannot be undone.")
-                }
+                Text("This cannot be undone.")
             }
             .onChange(of: selectedPhoto) { newItem in
                 guard let newItem else { return }
@@ -84,8 +82,6 @@ struct ImageManagerView: View {
                 HStack(spacing: 12) {
                     imageThumb(slot: index)
                         .frame(width: 44, height: 44)
-
-                    Text(ble.displayName(for: index))
 
                     Spacer()
 

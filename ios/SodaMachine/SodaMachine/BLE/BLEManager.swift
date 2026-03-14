@@ -146,9 +146,7 @@ class BLEManager: NSObject, ObservableObject {
 
     func deleteImage(slot: Int) {
         send("DELETE_STORE_IMG:\(slot)")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            self?.requestImageList()
-        }
+        // Response "OK:STORE_DELETED=..." triggers cache clear + list refresh in handleTextResponse
     }
 
     func downloadAllImages() {
@@ -335,6 +333,18 @@ class BLEManager: NSObject, ObservableObject {
             failUpload(text)
         } else if text.hasPrefix("OK:UPLOAD_DONE:") {
             completeUpload()
+        } else if text.hasPrefix("OK:STORE_DELETED=") {
+            // OK:STORE_DELETED=3,NUM_IMAGES=3 — update state and refresh
+            let body = String(text.dropFirst(3))
+            for pair in body.split(separator: ",") {
+                let parts = pair.split(separator: "=", maxSplits: 1)
+                if parts.count == 2, let val = Int(parts[1]), String(parts[0]) == "NUM_IMAGES" {
+                    numImages = max(val, 1)
+                }
+            }
+            cachedImages = [:]
+            requestImageList()
+            log.info("Image deleted, refreshing list")
         } else if text.hasPrefix("ERR:") {
             log.error("Error response: \(text)")
             if isUploading {

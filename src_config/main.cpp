@@ -259,6 +259,7 @@ class BLERxCB : public BLECharacteristicCallbacks {
       // Buffer the command for forwarding to ESP32 on main task
       strncpy(bleForwardBuf, val.c_str(), sizeof(bleForwardBuf) - 1);
       bleForwardBuf[sizeof(bleForwardBuf) - 1] = '\0';
+      __sync_synchronize();  // ensure buffer write is visible before setting request flag
       bleRequest = BLE_REQ_FORWARD;
     }
   }
