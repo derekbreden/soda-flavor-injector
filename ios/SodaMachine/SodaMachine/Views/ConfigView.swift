@@ -2,90 +2,188 @@ import SwiftUI
 
 struct ConfigView: View {
     @EnvironmentObject var ble: BLEManager
+    @State private var currentPage = 0
+    @State private var editing = false
+    @State private var dragOffset: CGFloat = 0
+
+    private let pageCount = 5
+    private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Images"]
 
     var body: some View {
-        List {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
             if !ble.configSynced {
-                Section {
-                    HStack {
-                        ProgressView()
-                            .padding(.trailing, 8)
-                        Text("Loading configuration...")
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                ProgressView("Loading configuration...")
+                    .foregroundStyle(.white)
             } else {
-                flavorSection(
-                    title: "Flavor 1",
-                    imageIndex: ble.flavor1Image,
-                    ratio: ble.flavor1Ratio,
-                    imageKey: "F1_IMAGE",
-                    ratioKey: "F1_RATIO"
-                )
+                VStack(spacing: 0) {
+                    Spacer()
 
-                flavorSection(
-                    title: "Flavor 2",
-                    imageIndex: ble.flavor2Image,
-                    ratio: ble.flavor2Ratio,
-                    imageKey: "F2_IMAGE",
-                    ratioKey: "F2_RATIO"
-                )
+                    // Title
+                    Text(pageLabels[currentPage])
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(editing ? .white : .gray)
+                        .padding(.bottom, 12)
 
-                Section {
-                    NavigationLink {
-                        ImageListView()
-                    } label: {
-                        Label("Manage Images", systemImage: "photo.stack")
+                    // Content area
+                    pageContent
+                        .frame(height: 200)
+
+                    Spacer()
+
+                    // Nav dots
+                    HStack(spacing: 12) {
+                        ForEach(0..<pageCount, id: \.self) { i in
+                            Circle()
+                                .fill(i == currentPage ? Color.white : Color.gray.opacity(0.4))
+                                .frame(width: 8, height: 8)
+                        }
                     }
+                    .padding(.bottom, 40)
                 }
+                .contentShape(Rectangle())
+                .gesture(tapGesture)
+                .gesture(editing ? adjustGesture : swipeGesture)
             }
         }
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             ble.requestConfig()
+            ble.requestImageList()
         }
     }
 
-    // MARK: - Flavor Section
+    // MARK: - Page Content
 
-    private func flavorSection(title: String, imageIndex: Int, ratio: Int,
-                                imageKey: String, ratioKey: String) -> some View {
-        Section(title) {
-            // Image picker
-            HStack {
-                Text("Image")
-                Spacer()
-                if ble.imageNames.isEmpty {
-                    Text("Image \(imageIndex)")
-                        .foregroundStyle(.secondary)
+    @ViewBuilder
+    private var pageContent: some View {
+        switch currentPage {
+        case 0: // Flavor 1 Image
+            imageDisplay(index: ble.flavor1Image)
+        case 1: // Flavor 1 Ratio
+            ratioDisplay(ratio: ble.flavor1Ratio)
+        case 2: // Flavor 2 Image
+            imageDisplay(index: ble.flavor2Image)
+        case 3: // Flavor 2 Ratio
+            ratioDisplay(ratio: ble.flavor2Ratio)
+        case 4: // Image Management
+            imageManagementIcon
+        default:
+            EmptyView()
+        }
+    }
+
+    private func imageDisplay(index: Int) -> some View {
+        let size: CGFloat = editing ? 160 : 120
+        return VStack(spacing: 8) {
+            Circle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: size, height: size)
+                .overlay(
+                    Text(ble.displayName(for: index))
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(8)
+                )
+                .animation(.easeInOut(duration: 0.2), value: editing)
+        }
+    }
+
+    private func ratioDisplay(ratio: Int) -> some View {
+        Text("1:\(ratio)")
+            .font(.system(size: editing ? 72 : 36, weight: .regular, design: .rounded))
+            .foregroundStyle(editing ? .white : .gray)
+            .animation(.easeInOut(duration: 0.2), value: editing)
+    }
+
+    private var imageManagementIcon: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "photo.stack")
+                .font(.system(size: 48))
+                .foregroundStyle(.gray)
+            Text("\(ble.numImages) images")
+                .font(.callout)
+                .foregroundStyle(.gray)
+            if editing {
+                Text("Coming soon")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+        }
+    }
+
+    // MARK: - Gestures
+
+    private var tapGesture: some Gesture {
+        TapGesture()
+            .onEnded {
+                if editing {
+                    // Confirm and save
+                    editing = false
+                    sendCurrentValue()
                 } else {
-                    Text(ble.displayName(for: imageIndex))
-                        .foregroundStyle(.secondary)
+                    editing = true
                 }
-                Stepper("", value: Binding(
-                    get: { imageIndex },
-                    set: { newVal in
-                        let clamped = ((newVal % ble.numImages) + ble.numImages) % ble.numImages
-                        ble.sendSet(imageKey, value: clamped)
-                    }
-                ), in: 0...(max(0, ble.numImages - 1)))
-                .labelsHidden()
             }
+    }
 
-            // Ratio slider
-            HStack {
-                Text("Ratio")
-                Spacer()
-                Text("1:\(ratio)")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 40, alignment: .trailing)
-                Stepper("", value: Binding(
-                    get: { ratio },
-                    set: { newVal in
-                        ble.sendSet(ratioKey, value: newVal)
-                    }
-                ), in: 6...24)
-                .labelsHidden()
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 30)
+            .onEnded { value in
+                let dx = value.translation.width
+                if dx < -30 && currentPage < pageCount - 1 {
+                    currentPage += 1
+                } else if dx > 30 && currentPage > 0 {
+                    currentPage -= 1
+                }
             }
+    }
+
+    private var adjustGesture: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onEnded { value in
+                // Horizontal swipe to adjust (like encoder rotation)
+                let dx = value.translation.width
+                let dir = dx > 20 ? 1 : (dx < -20 ? -1 : 0)
+                if dir != 0 {
+                    adjustValue(by: dir)
+                }
+            }
+    }
+
+    // MARK: - Value Adjustment
+
+    private func adjustValue(by delta: Int) {
+        switch currentPage {
+        case 0:
+            let newVal = ((ble.flavor1Image + delta) % ble.numImages + ble.numImages) % ble.numImages
+            ble.flavor1Image = newVal
+        case 1:
+            ble.flavor1Ratio = max(6, min(24, ble.flavor1Ratio + delta))
+        case 2:
+            let newVal = ((ble.flavor2Image + delta) % ble.numImages + ble.numImages) % ble.numImages
+            ble.flavor2Image = newVal
+        case 3:
+            ble.flavor2Ratio = max(6, min(24, ble.flavor2Ratio + delta))
+        default:
+            break
+        }
+    }
+
+    private func sendCurrentValue() {
+        switch currentPage {
+        case 0:
+            ble.sendSet("F1_IMAGE", value: ble.flavor1Image)
+        case 1:
+            ble.sendSet("F1_RATIO", value: ble.flavor1Ratio)
+        case 2:
+            ble.sendSet("F2_IMAGE", value: ble.flavor2Image)
+        case 3:
+            ble.sendSet("F2_RATIO", value: ble.flavor2Ratio)
+        default:
+            break
         }
     }
 }
