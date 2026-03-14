@@ -107,7 +107,7 @@ struct ScanView: View {
                         Text("Response:")
                             .foregroundStyle(.secondary)
                         Text(ble.lastResponse)
-                            .fontDesign(.monospaced)
+                            .font(.system(.callout, design: .monospaced))
                     }
                     .font(.callout)
                 }
