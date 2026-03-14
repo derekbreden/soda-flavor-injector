@@ -6,6 +6,7 @@
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLE2902.h>
+#include <uart_st.h>
 #include "CST816D.h"
 #include "font_ratio_64.h"
 
@@ -65,6 +66,9 @@ CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
 // ── LVGL display buffer ──
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t *lvgl_buf;
+
+// ── UART to ESP32 (Serial0 = UART0, J34 connector) ──
+SerialTransfer stLink;  // SerialTransfer on Serial0 (ESP32 link)
 
 // ── BLE (built-in NimBLE via Arduino BLE API) ──
 #define NUS_SERVICE_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -246,8 +250,7 @@ static void processBleRequest() {
     }
 
     case BLE_REQ_FORWARD:
-      Serial0.println(bleForwardBuf);
-      Serial0.flush();
+      stSendText(stLink, bleForwardBuf);
       break;
 
     default:
@@ -293,7 +296,6 @@ uint8_t flavor2Image = 1;
 uint8_t flavor1Ratio = 20;
 uint8_t flavor2Ratio = 20;
 
-// ── UART to ESP32 (Serial0 = UART0, J34 connector) ──
 bool configSynced = false;
 unsigned long lastGetConfig = 0;
 
@@ -318,35 +320,7 @@ bool lastTouchState = false;
 #define THUMB_MAX    128
 static lv_color_t thumb_buf[THUMB_MAX * THUMB_MAX];
 
-// ════════════════════════════════════════════════════════════
-//  CRC-16/CCITT (poly 0x1021, init 0xFFFF)
-// ════════════════════════════════════════════════════════════
-
-static uint16_t crc16(const uint8_t *data, size_t len) {
-  uint16_t crc = 0xFFFF;
-  for (size_t i = 0; i < len; i++) {
-    crc ^= (uint16_t)data[i] << 8;
-    for (uint8_t j = 0; j < 8; j++) {
-      crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
-    }
-  }
-  return crc;
-}
-
-// ════════════════════════════════════════════════════════════
-//  CRC-32 (standard, same as zlib)
-// ════════════════════════════════════════════════════════════
-
-static uint32_t crc32_update(uint32_t crc, const uint8_t *data, size_t len) {
-  crc = ~crc;
-  for (size_t i = 0; i < len; i++) {
-    crc ^= data[i];
-    for (uint8_t j = 0; j < 8; j++) {
-      crc = (crc & 1) ? (crc >> 1) ^ 0xEDB88320 : crc >> 1;
-    }
-  }
-  return ~crc;
-}
+// CRC-32 provided by uartCrc32Update() in uart_st.h
 
 // ════════════════════════════════════════════════════════════
 //  LittleFS image management
@@ -507,36 +481,7 @@ bool isImageItem() {
 // Forward declaration (needed by UART handler)
 void drawScreen();
 
-// ════════════════════════════════════════════════════════════
-//  Binary protocol constants
-// ════════════════════════════════════════════════════════════
-
-#define STX 0x02
-
-// Commands (ESP32 -> S3)
-#define CMD_UPLOAD_START 0x01
-#define CMD_CHUNK_DATA   0x02
-#define CMD_UPLOAD_DONE  0x03
-#define CMD_QUERY_COUNT  0x04
-#define CMD_DELETE_IMAGE 0x05
-#define CMD_SWAP_IMAGES  0x06
-
-// Responses (S3 -> ESP32)
-#define RESP_READY          0x10
-#define RESP_CHUNK_OK       0x11
-#define RESP_UPLOAD_OK      0x12
-#define RESP_DELETE_OK      0x13
-#define RESP_COUNT          0x14
-#define RESP_SWAP_OK        0x15
-#define ERR_SLOT_INVALID    0xE1
-#define ERR_NO_SPACE        0xE2
-#define ERR_BUSY            0xE3
-#define ERR_CRC             0xE4
-#define ERR_SEQ             0xE5
-#define ERR_WRITE           0xE6
-#define ERR_SIZE_MISMATCH   0xE7
-#define ERR_CRC32_MISMATCH  0xE8
-
+// Packet IDs and payload structs are in uart_st.h
 #define MAX_CHUNK_SIZE 128
 
 // ════════════════════════════════════════════════════════════
@@ -548,6 +493,7 @@ enum UploadState { UPLOAD_IDLE, UPLOAD_RECEIVING };
 static struct {
   UploadState state = UPLOAD_IDLE;
   uint8_t     slot;
+  bool        isPng;
   uint32_t    expectedSize;
   uint32_t    receivedBytes;
   uint8_t     nextSeq;
@@ -556,17 +502,12 @@ static struct {
   File        file;
 } upload;
 
-static void sendBinaryResponse(uint8_t code, uint8_t extra) {
-  uint8_t resp[6];
-  resp[0] = STX;
-  resp[1] = STX;
-  resp[2] = code;
-  resp[3] = extra;
-  uint16_t crc = crc16(resp, 4);
-  resp[4] = crc & 0xFF;
-  resp[5] = (crc >> 8) & 0xFF;
-  Serial0.write(resp, 6);
-  Serial0.flush();
+static void sendStResp(uint8_t pktId, uint8_t value) {
+  stSendResponse(stLink, pktId, value);
+}
+
+static void sendStEmpty(uint8_t pktId) {
+  stSendEmptyResponse(stLink, pktId);
 }
 
 static void abortUpload() {
@@ -578,39 +519,31 @@ static void abortUpload() {
   Serial.println("Upload aborted");
 }
 
-static void handleUploadStart(const uint8_t *msg) {
-  uint8_t slot = msg[3];
-  uint32_t size = msg[4] | (msg[5] << 8) | (msg[6] << 16) | (msg[7] << 24);
-
+static void handleUploadStart(uint8_t slot, uint32_t size, bool isPng) {
   if (upload.state == UPLOAD_RECEIVING) {
     abortUpload();
   }
 
-  bool isPng = (slot >= 100);
-  uint8_t realSlot = isPng ? (slot - 100) : slot;
-
   if (isPng) {
-    // PNG upload: any existing image slot is valid, size varies
-    if (realSlot >= numImages) {
-      sendBinaryResponse(ERR_SLOT_INVALID, 0);
+    if (slot >= numImages) {
+      sendStResp(PKT_ERR_SLOT_INVALID, 0);
       return;
     }
     if (size > IMAGE_BYTES || size == 0) {
-      sendBinaryResponse(ERR_SIZE_MISMATCH, 0);
+      sendStResp(PKT_ERR_SIZE_MISMATCH, 0);
       return;
     }
   } else {
-    // RGB565 upload: fixed size, sequential slots
     if (slot > MAX_IMAGES) {
-      sendBinaryResponse(ERR_SLOT_INVALID, 0);
+      sendStResp(PKT_ERR_SLOT_INVALID, 0);
       return;
     }
     if (size != IMAGE_BYTES) {
-      sendBinaryResponse(ERR_SIZE_MISMATCH, 0);
+      sendStResp(PKT_ERR_SIZE_MISMATCH, 0);
       return;
     }
     if (slot > numImages) {
-      sendBinaryResponse(ERR_SLOT_INVALID, 0);
+      sendStResp(PKT_ERR_SLOT_INVALID, 0);
       return;
     }
   }
@@ -618,67 +551,59 @@ static void handleUploadStart(const uint8_t *msg) {
   LittleFS.remove("/tmp.bin");
   upload.file = LittleFS.open("/tmp.bin", "w");
   if (!upload.file) {
-    sendBinaryResponse(ERR_NO_SPACE, 0);
+    sendStResp(PKT_ERR_NO_SPACE, 0);
     return;
   }
 
   upload.state = UPLOAD_RECEIVING;
   upload.slot = slot;
+  upload.isPng = isPng;
   upload.expectedSize = size;
   upload.receivedBytes = 0;
   upload.nextSeq = 0;
   upload.runningCrc32 = 0;
   upload.lastChunkTime = millis();
 
-  Serial.printf("Upload started: slot %d, %lu bytes\n", slot, size);
-  sendBinaryResponse(RESP_READY, 0);
+  Serial.printf("Upload started: slot %d, %lu bytes%s\n", slot, size, isPng ? " (PNG)" : "");
+  sendStEmpty(PKT_RESP_READY);
 }
 
-static void handleChunkData(const uint8_t *msg, size_t msgLen) {
+static void handleChunkData(uint8_t seq, const uint8_t *data, uint16_t dataLen) {
   if (upload.state != UPLOAD_RECEIVING) {
-    sendBinaryResponse(ERR_BUSY, 0);
+    sendStResp(PKT_ERR_BUSY, 0);
     return;
   }
-
-  uint8_t seq = msg[3];
-  uint16_t payloadLen = msg[4] | (msg[5] << 8);
 
   if (seq != upload.nextSeq) {
-    sendBinaryResponse(ERR_SEQ, upload.nextSeq);
+    sendStResp(PKT_ERR_SEQ, upload.nextSeq);
     return;
   }
 
-  if (payloadLen == 0 || payloadLen > MAX_CHUNK_SIZE) {
-    sendBinaryResponse(ERR_CRC, 0);
+  if (dataLen == 0 || dataLen > MAX_CHUNK_SIZE) {
+    sendStResp(PKT_ERR_CRC, 0);
     return;
   }
 
-  const uint8_t *payload = msg + 6;
-
-  // Write to file
-  size_t written = upload.file.write(payload, payloadLen);
-  if (written != payloadLen) {
-    sendBinaryResponse(ERR_WRITE, 0);
+  size_t written = upload.file.write(data, dataLen);
+  if (written != dataLen) {
+    sendStResp(PKT_ERR_WRITE, 0);
     abortUpload();
     return;
   }
 
-  upload.receivedBytes += payloadLen;
-  upload.runningCrc32 = crc32_update(upload.runningCrc32, payload, payloadLen);
+  upload.receivedBytes += dataLen;
+  upload.runningCrc32 = uartCrc32Update(upload.runningCrc32, data, dataLen);
   upload.nextSeq = (upload.nextSeq + 1) & 0xFF;
   upload.lastChunkTime = millis();
 
-  sendBinaryResponse(RESP_CHUNK_OK, upload.nextSeq);
+  sendStResp(PKT_RESP_CHUNK_OK, upload.nextSeq);
 }
 
-static void handleUploadDone(const uint8_t *msg) {
+static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
   if (upload.state != UPLOAD_RECEIVING) {
-    sendBinaryResponse(ERR_BUSY, 0);
+    sendStResp(PKT_ERR_BUSY, 0);
     return;
   }
-
-  uint8_t slot = msg[3];
-  uint32_t expectedCrc32 = msg[4] | (msg[5] << 8) | (msg[6] << 16) | (msg[7] << 24);
 
   upload.file.close();
 
@@ -687,7 +612,7 @@ static void handleUploadDone(const uint8_t *msg) {
                   upload.receivedBytes, upload.expectedSize);
     LittleFS.remove("/tmp.bin");
     upload.state = UPLOAD_IDLE;
-    sendBinaryResponse(ERR_SIZE_MISMATCH, 0);
+    sendStResp(PKT_ERR_SIZE_MISMATCH, 0);
     return;
   }
 
@@ -696,23 +621,18 @@ static void handleUploadDone(const uint8_t *msg) {
                   upload.runningCrc32, expectedCrc32);
     LittleFS.remove("/tmp.bin");
     upload.state = UPLOAD_IDLE;
-    sendBinaryResponse(ERR_CRC32_MISMATCH, 0);
+    sendStResp(PKT_ERR_CRC32_MISMATCH, 0);
     return;
   }
 
-  // Move temp file to final slot
-  bool isPng = (slot >= 100);
-  uint8_t realSlot = isPng ? (slot - 100) : slot;
-
-  if (isPng) {
+  if (upload.isPng) {
     char path[24];
-    pngPath(path, realSlot);
+    pngPath(path, slot);
     LittleFS.remove(path);
     bool renameOk = LittleFS.rename("/tmp.bin", path);
     upload.state = UPLOAD_IDLE;
     Serial.printf("PNG upload complete: slot %d (%lu bytes) rename=%s\n",
-                  realSlot, upload.receivedBytes, renameOk ? "ok" : "FAIL");
-    // Verify file exists after rename
+                  slot, upload.receivedBytes, renameOk ? "ok" : "FAIL");
     if (LittleFS.exists(path)) {
       File verify = LittleFS.open(path, "r");
       if (verify) {
@@ -722,7 +642,7 @@ static void handleUploadDone(const uint8_t *msg) {
     } else {
       Serial.printf("PNG verify: %s MISSING after rename!\n", path);
     }
-    sendBinaryResponse(RESP_UPLOAD_OK, numImages);
+    sendStResp(PKT_RESP_UPLOAD_OK, numImages);
   } else {
     char path[16];
     imagePath(path, slot);
@@ -731,19 +651,18 @@ static void handleUploadDone(const uint8_t *msg) {
     upload.state = UPLOAD_IDLE;
     updateMeta();
     Serial.printf("Upload complete: slot %d, %d images total\n", slot, numImages);
-    sendBinaryResponse(RESP_UPLOAD_OK, numImages);
+    sendStResp(PKT_RESP_UPLOAD_OK, numImages);
   }
 }
 
 static void handleQueryCount() {
-  sendBinaryResponse(RESP_COUNT, numImages);
+  sendStResp(PKT_RESP_COUNT, numImages);
 }
 
-static void handleDeleteImage(const uint8_t *msg) {
-  uint8_t slot = msg[3];
+static void handleDeleteImage(uint8_t slot) {
 
   if (slot >= numImages || numImages <= 1) {
-    sendBinaryResponse(ERR_SLOT_INVALID, 0);
+    sendStResp(PKT_ERR_SLOT_INVALID, 0);
     return;
   }
 
@@ -787,20 +706,17 @@ static void handleDeleteImage(const uint8_t *msg) {
   if (flavor2Image >= numImages) flavor2Image = 0;
 
   Serial.printf("Deleted slot %d, %d images remain\n", slot, numImages);
-  sendBinaryResponse(RESP_DELETE_OK, numImages);
+  sendStResp(PKT_RESP_DELETE_OK, numImages);
 }
 
-static void handleSwapImages(const uint8_t *msg) {
-  uint8_t slotA = msg[3];
-  uint8_t slotB = msg[4];
-
+static void handleSwapImages(uint8_t slotA, uint8_t slotB) {
   if (slotA >= numImages || slotB >= numImages) {
-    sendBinaryResponse(ERR_SLOT_INVALID, 0);
+    sendStResp(PKT_ERR_SLOT_INVALID, 0);
     return;
   }
 
   if (slotA == slotB) {
-    sendBinaryResponse(RESP_SWAP_OK, numImages);
+    sendStResp(PKT_RESP_SWAP_OK, numImages);
     return;
   }
 
@@ -842,83 +758,11 @@ static void handleSwapImages(const uint8_t *msg) {
   else if (flavor2Image == slotB) flavor2Image = slotA;
 
   Serial.printf("Swapped slots %d <-> %d\n", slotA, slotB);
-  sendBinaryResponse(RESP_SWAP_OK, numImages);
+  sendStResp(PKT_RESP_SWAP_OK, numImages);
 }
-
-// ════════════════════════════════════════════════════════════
-//  UART byte-level parser (text + binary multiplexed)
-// ════════════════════════════════════════════════════════════
-
-#define TEXT_BUF_SIZE 128
-#define BIN_BUF_SIZE 142  // max: 6 header + 128 payload + 2 CRC + margin
-
-static char textBuf[TEXT_BUF_SIZE];
-static uint8_t textPos = 0;
-
-static uint8_t binBuf[BIN_BUF_SIZE];
-static uint8_t binPos = 0;
-static bool inBinary = false;
 
 // Forward declaration
 static void processTextLine(const char *line);
-
-static bool tryParseBinaryMessage() {
-  if (binPos < 3) return false;
-
-  uint8_t cmd = binBuf[2];
-  int expectedLen = -1;
-
-  switch (cmd) {
-    case CMD_UPLOAD_START:
-      expectedLen = 10;
-      break;
-    case CMD_CHUNK_DATA:
-      if (binPos < 6) return false;
-      {
-        uint16_t payloadLen = binBuf[4] | (binBuf[5] << 8);
-        if (payloadLen == 0 || payloadLen > MAX_CHUNK_SIZE) {
-          return true;  // invalid, discard
-        }
-        expectedLen = 6 + payloadLen + 2;
-      }
-      break;
-    case CMD_UPLOAD_DONE:
-      expectedLen = 10;
-      break;
-    case CMD_QUERY_COUNT:
-      expectedLen = 6;
-      break;
-    case CMD_DELETE_IMAGE:
-      expectedLen = 6;
-      break;
-    case CMD_SWAP_IMAGES:
-      expectedLen = 7;
-      break;
-    default:
-      return true;  // unknown, discard
-  }
-
-  if (binPos < expectedLen) return false;
-
-  // Validate CRC-16
-  uint16_t rxCrc = binBuf[expectedLen - 2] | (binBuf[expectedLen - 1] << 8);
-  uint16_t calcCrc = crc16(binBuf, expectedLen - 2);
-  if (rxCrc != calcCrc) {
-    sendBinaryResponse(ERR_CRC, 0);
-    return true;
-  }
-
-  // Dispatch
-  switch (cmd) {
-    case CMD_UPLOAD_START: handleUploadStart(binBuf); break;
-    case CMD_CHUNK_DATA:   handleChunkData(binBuf, expectedLen); break;
-    case CMD_UPLOAD_DONE:  handleUploadDone(binBuf); break;
-    case CMD_QUERY_COUNT:  handleQueryCount(); break;
-    case CMD_DELETE_IMAGE: handleDeleteImage(binBuf); break;
-    case CMD_SWAP_IMAGES:  handleSwapImages(binBuf); break;
-  }
-  return true;
-}
 
 // ── Text line processing (CONFIG: responses, OK:/ERR:, LIST, LABEL:) ──
 
@@ -975,74 +819,92 @@ static void processTextLine(const char *line) {
     // Forward image list responses to BLE
     bleSendLine(line);
   } else if (strcmp(line, "LIST") == 0) {
-    // Return all slot labels as text
     for (uint8_t i = 0; i < numImages; i++) {
-      Serial0.printf("IMG:%d:%s\n", i, labels[i]);
+      char buf[48];
+      snprintf(buf, sizeof(buf), "IMG:%d:%s", i, labels[i]);
+      stSendText(stLink, buf);
+      delay(10);
     }
-    Serial0.println("END");
-    Serial0.flush();
+    stSendText(stLink, "END");
   } else if (strcmp(line, "LISTPNGS") == 0) {
-    // Diagnostic: list all PNG files on S3
-    Serial0.printf("PNGS:%d images\n", numImages);
+    char buf[64];
+    snprintf(buf, sizeof(buf), "PNGS:%d images", numImages);
+    stSendText(stLink, buf);
     for (uint8_t i = 0; i < numImages; i++) {
       char path[24];
       pngPath(path, i);
       if (LittleFS.exists(path)) {
         File f = LittleFS.open(path, "r");
         if (f) {
-          Serial0.printf("PNG:%d:%u:%s\n", i, f.size(), path);
+          snprintf(buf, sizeof(buf), "PNG:%d:%u:%s", i, f.size(), path);
           f.close();
         } else {
-          Serial0.printf("PNG:%d:OPEN_FAIL:%s\n", i, path);
+          snprintf(buf, sizeof(buf), "PNG:%d:OPEN_FAIL:%s", i, path);
         }
       } else {
-        Serial0.printf("PNG:%d:MISSING:%s\n", i, path);
+        snprintf(buf, sizeof(buf), "PNG:%d:MISSING:%s", i, path);
       }
+      stSendText(stLink, buf);
+      delay(10);
     }
-    Serial0.println("END");
-    Serial0.flush();
+    stSendText(stLink, "END");
   }
 }
 
-static void checkUart() {
-  while (Serial0.available()) {
-    uint8_t b = Serial0.read();
+static void checkSerialTransfer() {
+  if (stLink.available()) {
+    uint8_t pktId = stLink.currentPacketID();
 
-    if (inBinary) {
-      if (binPos < BIN_BUF_SIZE) {
-        binBuf[binPos++] = b;
+    switch (pktId) {
+      case PKT_UPLOAD_START: {
+        UploadStartPayload pl;
+        stLink.rxObj(pl);
+        handleUploadStart(pl.slot, pl.size, false);
+        break;
       }
-      if (tryParseBinaryMessage()) {
-        inBinary = false;
-        binPos = 0;
-      } else if (binPos >= BIN_BUF_SIZE) {
-        inBinary = false;
-        binPos = 0;
+      case PKT_UPLOAD_PNG_START: {
+        UploadStartPayload pl;
+        stLink.rxObj(pl);
+        handleUploadStart(pl.slot, pl.size, true);
+        break;
       }
-      continue;
-    }
-
-    // Check for binary sentinel: two consecutive 0x02 bytes
-    if (b == STX && textPos == 1 && textBuf[0] == STX) {
-      inBinary = true;
-      binBuf[0] = STX;
-      binBuf[1] = STX;
-      binPos = 2;
-      textPos = 0;
-      continue;
-    }
-
-    // Regular text accumulation
-    if (b == '\n' || b == '\r') {
-      if (textPos > 0) {
-        textBuf[textPos] = '\0';
-        processTextLine(textBuf);
-        textPos = 0;
+      case PKT_CHUNK_DATA: {
+        ChunkDataPayload hdr;
+        stLink.rxObj(hdr);
+        uint16_t dataLen = stLink.bytesRead - sizeof(hdr);
+        handleChunkData(hdr.seq, stLink.packet.rxBuff + sizeof(hdr), dataLen);
+        break;
       }
-    } else if (textPos < TEXT_BUF_SIZE - 1) {
-      textBuf[textPos++] = b;
-    } else {
-      textPos = 0;  // overflow, discard
+      case PKT_UPLOAD_DONE: {
+        UploadDonePayload pl;
+        stLink.rxObj(pl);
+        handleUploadDone(pl.slot, pl.crc32);
+        break;
+      }
+      case PKT_QUERY_COUNT:
+        handleQueryCount();
+        break;
+      case PKT_DELETE_IMAGE: {
+        SlotPayload pl;
+        stLink.rxObj(pl);
+        handleDeleteImage(pl.slot);
+        break;
+      }
+      case PKT_SWAP_IMAGES: {
+        SwapPayload pl;
+        stLink.rxObj(pl);
+        handleSwapImages(pl.slotA, pl.slotB);
+        break;
+      }
+      case PKT_TEXT: {
+        char line[256];
+        uint16_t len = stLink.bytesRead;
+        uint16_t copyLen = (len < 255) ? len : 255;
+        memcpy(line, stLink.packet.rxBuff, copyLen);
+        line[copyLen] = '\0';
+        processTextLine(line);
+        break;
+      }
     }
   }
 
@@ -1057,12 +919,14 @@ static void checkUart() {
 // ── UART send helpers ──
 
 void sendSetCommand(const char* key, int value) {
-  Serial0.printf("SET:%s=%d\n", key, value);
-  Serial.printf("UART TX: SET:%s=%d\n", key, value);
+  char buf[32];
+  snprintf(buf, sizeof(buf), "SET:%s=%d", key, value);
+  stSendText(stLink, buf);
+  Serial.printf("UART TX: %s\n", buf);
 }
 
 void sendSave() {
-  Serial0.println("SAVE");
+  stSendText(stLink, "SAVE");
   Serial.println("UART TX: SAVE");
 }
 
@@ -1248,6 +1112,7 @@ void handleTap() {
 void setup() {
   Serial.begin(115200);
   Serial0.begin(38400, SERIAL_8N1, 44, 43);  // UART0 on J34 connector (RX=44, TX=43)
+  stLink.begin(Serial0);
   delay(500);
   Serial.println("ESP32-S3 Config Display starting...");
 
@@ -1337,15 +1202,14 @@ void setup() {
 
 void loop() {
   // Boot sync: request config from ESP32 every 500ms until synced
-  // Suppress during binary upload — text on Serial0 corrupts protocol responses
-  if (!configSynced && upload.state != UPLOAD_RECEIVING && millis() - lastGetConfig > 500) {
-    Serial0.println("GET_CONFIG");
+  if (!configSynced && millis() - lastGetConfig > 500) {
+    stSendText(stLink, "GET_CONFIG");
     Serial.println("UART TX: GET_CONFIG (boot sync)");
     lastGetConfig = millis();
   }
 
-  // Check for incoming UART data (text + binary)
-  checkUart();
+  // Check for incoming SerialTransfer packets
+  checkSerialTransfer();
 
   // Process BLE requests on main task (safe for LittleFS + Serial0)
   processBleRequest();
