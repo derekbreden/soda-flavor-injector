@@ -2,14 +2,13 @@ import SwiftUI
 
 struct ScanView: View {
     @EnvironmentObject var ble: BLEManager
-    @State private var textToSend = ""
 
     var body: some View {
         NavigationStack {
             Group {
                 switch ble.connectionState {
                 case .connected:
-                    connectedView
+                    ConfigView()
                 case .notFound:
                     notFoundView
                 default:
@@ -81,52 +80,5 @@ struct ScanView: View {
             Spacer()
         }
         .padding(.horizontal, 32)
-    }
-
-    // MARK: - Connected
-
-    private var connectedView: some View {
-        VStack(spacing: 24) {
-            HStack {
-                Circle()
-                    .fill(.green)
-                    .frame(width: 10, height: 10)
-                Text("Connected")
-                    .font(.headline)
-            }
-            .padding(.top, 20)
-
-            // Echo test (temporary — will be replaced with config UI)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Echo Test")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                HStack {
-                    TextField("Type a message...", text: $textToSend)
-                        .textFieldStyle(.roundedBorder)
-                        .autocorrectionDisabled()
-
-                    Button("Send") {
-                        guard !textToSend.isEmpty else { return }
-                        ble.send(textToSend)
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-
-                if !ble.lastResponse.isEmpty {
-                    HStack {
-                        Text("Response:")
-                            .foregroundStyle(.secondary)
-                        Text(ble.lastResponse)
-                            .font(.system(.callout, design: .monospaced))
-                    }
-                    .font(.callout)
-                }
-            }
-            .padding(.horizontal)
-
-            Spacer()
-        }
     }
 }

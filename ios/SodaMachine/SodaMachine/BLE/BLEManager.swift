@@ -24,6 +24,18 @@ class BLEManager: NSObject, ObservableObject {
     @Published var connectionState: ConnectionState = .bluetoothOff
     @Published var lastResponse: String = ""
 
+    // Config state (synced from ESP32 via S3 bridge)
+    @Published var configSynced = false
+    @Published var flavor1Image: Int = 0
+    @Published var flavor2Image: Int = 1
+    @Published var flavor1Ratio: Int = 20
+    @Published var flavor2Ratio: Int = 20
+    @Published var numImages: Int = 0
+
+    // Image list from S3
+    @Published var imageNames: [String] = []
+    private var pendingImageList: [String] = []
+
     private var centralManager: CBCentralManager!
     private var connectedPeripheral: CBPeripheral?
     private var rxCharacteristic: CBCharacteristic?
@@ -48,8 +60,88 @@ class BLEManager: NSObject, ObservableObject {
         log.info("TX: \(text)")
     }
 
+    func requestConfig() {
+        send("GET_CONFIG")
+    }
+
+    func requestImageList() {
+        pendingImageList = []
+        send("LIST")
+    }
+
+    func sendSet(_ key: String, value: Int) {
+        send("SET:\(key)=\(value)")
+        // Small delay then save + refresh
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.send("SAVE")
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.requestConfig()
+        }
+    }
+
+    func displayName(for index: Int) -> String {
+        guard index >= 0, index < imageNames.count else {
+            return "Image \(index)"
+        }
+        let name = imageNames[index]
+        if name.isEmpty { return "Image \(index)" }
+        // Convert snake_case to title case
+        return name.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
     func retry() {
         startScan()
+    }
+
+    // MARK: - Response parsing
+
+    private func handleResponse(_ text: String) {
+        lastResponse = text
+
+        if text.hasPrefix("CONFIG:") {
+            parseConfig(text)
+        } else if text.hasPrefix("IMG:") {
+            parseImageLine(text)
+        } else if text == "END" {
+            // Image list complete
+            imageNames = pendingImageList
+            pendingImageList = []
+        }
+    }
+
+    private func parseConfig(_ text: String) {
+        // CONFIG:F1_RATIO=20,F2_RATIO=20,F1_IMAGE=0,F2_IMAGE=1,numImages=3,numS3Images=3
+        let body = String(text.dropFirst(7)) // drop "CONFIG:"
+        var values: [String: Int] = [:]
+        for pair in body.split(separator: ",") {
+            let parts = pair.split(separator: "=", maxSplits: 1)
+            if parts.count == 2, let val = Int(parts[1]) {
+                values[String(parts[0])] = val
+            }
+        }
+
+        if let v = values["F1_RATIO"] { flavor1Ratio = v }
+        if let v = values["F2_RATIO"] { flavor2Ratio = v }
+        if let v = values["F1_IMAGE"] { flavor1Image = v }
+        if let v = values["F2_IMAGE"] { flavor2Image = v }
+        if let v = values["numImages"] { numImages = max(v, 1) }
+        configSynced = true
+        log.info("Config synced: F1=\(self.flavor1Image)/\(self.flavor1Ratio) F2=\(self.flavor2Image)/\(self.flavor2Ratio)")
+    }
+
+    private func parseImageLine(_ text: String) {
+        // IMG:0:diet_wild_cherry_pepsi
+        let parts = text.split(separator: ":", maxSplits: 2)
+        if parts.count >= 3 {
+            let name = String(parts[2])
+            let slot = Int(parts[1]) ?? pendingImageList.count
+            // Ensure array is big enough
+            while pendingImageList.count <= slot {
+                pendingImageList.append("")
+            }
+            pendingImageList[slot] = name
+        }
     }
 
     // MARK: - Internal
@@ -57,6 +149,7 @@ class BLEManager: NSObject, ObservableObject {
     private func startScan() {
         guard centralManager.state == .poweredOn else { return }
         connectionState = .searching
+        configSynced = false
         centralManager.scanForPeripherals(withServices: [nusServiceUUID], options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: false
         ])
@@ -122,6 +215,7 @@ extension BLEManager: CBCentralManagerDelegate {
         connectedPeripheral = nil
         rxCharacteristic = nil
         txCharacteristic = nil
+        configSynced = false
         scheduleReconnect()
     }
 }
@@ -160,7 +254,7 @@ extension BLEManager: CBPeripheralDelegate {
         if let text = String(data: data, encoding: .utf8) {
             log.info("RX: \(text)")
             DispatchQueue.main.async {
-                self.lastResponse = text
+                self.handleResponse(text)
             }
         }
     }

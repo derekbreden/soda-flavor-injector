@@ -86,14 +86,30 @@ class BLEServerCB : public BLEServerCallbacks {
   }
 };
 
+// Forward declaration
+static void bleSendLine(const char *line);
+
 class BLERxCB : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pChar) override {
     String val = pChar->getValue();
     if (val.length() == 0) return;
     Serial.printf("BLE RX: %s\n", val.c_str());
-    // Phase 1: echo back for testing
-    pTxChar->setValue((uint8_t *)val.c_str(), val.length());
-    pTxChar->notify();
+
+    // LIST is handled locally on S3 (image list lives here)
+    if (val == "LIST") {
+      for (uint8_t i = 0; i < numImages; i++) {
+        char buf[48];
+        snprintf(buf, sizeof(buf), "IMG:%d:%s", i, labels[i]);
+        bleSendLine(buf);
+        delay(20);  // BLE notify spacing
+      }
+      bleSendLine("END");
+      return;
+    }
+
+    // Everything else forwarded to ESP32 via UART
+    Serial0.println(val.c_str());
+    Serial0.flush();
   }
 };
 
@@ -716,15 +732,26 @@ void parseConfigResponse(const char* line) {
   }
 }
 
+// Forward a text line to BLE client (if connected)
+static void bleSendLine(const char *line) {
+  if (bleConnected && pTxChar) {
+    pTxChar->setValue((uint8_t *)line, strlen(line));
+    pTxChar->notify();
+  }
+}
+
 static void processTextLine(const char *line) {
   Serial.printf("UART RX: %s\n", line);
 
   if (strncmp(line, "CONFIG:", 7) == 0) {
     parseConfigResponse(line);
+    bleSendLine(line);
   } else if (strncmp(line, "OK:", 3) == 0) {
     Serial.printf("ESP32 confirmed: %s\n", line);
+    bleSendLine(line);
   } else if (strncmp(line, "ERR:", 4) == 0) {
     Serial.printf("ESP32 error: %s\n", line);
+    bleSendLine(line);
   } else if (strncmp(line, "LABEL:", 6) == 0) {
     // LABEL:slot:name — set label for a slot
     int slot = atoi(line + 6);
@@ -735,6 +762,9 @@ static void processTextLine(const char *line) {
       saveLabels();
       Serial.printf("Label set: slot %d = %s\n", slot, labels[slot]);
     }
+  } else if (strncmp(line, "IMG:", 4) == 0 || strcmp(line, "END") == 0) {
+    // Forward image list responses to BLE
+    bleSendLine(line);
   } else if (strcmp(line, "LIST") == 0) {
     // Return all slot labels as text
     for (uint8_t i = 0; i < numImages; i++) {

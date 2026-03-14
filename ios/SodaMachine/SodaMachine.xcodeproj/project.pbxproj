@@ -7,16 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0C8A1A8CCBF99A55FFCC9E75 /* ConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17B6167123A77140A8416478 /* ConfigView.swift */; };
+		59BAD3A33A0F98D9F35F6FA2 /* ImageListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC170A2B701313B188BF412 /* ImageListView.swift */; };
 		BB2804A1FB6705FB6DC03085 /* BLEManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46ABEC9C6AF332D8A0057E0A /* BLEManager.swift */; };
 		D2CAF8A8E999091D114AE837 /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C75AA5E41E74397887458B /* ScanView.swift */; };
 		DF2FC75183CCB8BB4EBB2475 /* SodaMachineApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46497A459A6F4FDF03D0CBD9 /* SodaMachineApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		17B6167123A77140A8416478 /* ConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigView.swift; sourceTree = "<group>"; };
 		46497A459A6F4FDF03D0CBD9 /* SodaMachineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SodaMachineApp.swift; sourceTree = "<group>"; };
 		46ABEC9C6AF332D8A0057E0A /* BLEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEManager.swift; sourceTree = "<group>"; };
 		80C75AA5E41E74397887458B /* ScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanView.swift; sourceTree = "<group>"; };
-		D850BAB13F260C2F94CF2FC7 /* SodaMachine.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SodaMachine.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CEC170A2B701313B188BF412 /* ImageListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageListView.swift; sourceTree = "<group>"; };
+		D850BAB13F260C2F94CF2FC7 /* SodaMachine.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SodaMachine.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -57,6 +61,8 @@
 		F89A3B87FAD7340B3B25C49B /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				17B6167123A77140A8416478 /* ConfigView.swift */,
+				CEC170A2B701313B188BF412 /* ImageListView.swift */,
 				80C75AA5E41E74397887458B /* ScanView.swift */,
 			);
 			path = Views;
@@ -90,8 +96,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 89245DF27228688A9038A1C7 /* Build configuration list for PBXProject "SodaMachine" */;
 			developmentRegion = en;
@@ -118,6 +122,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				BB2804A1FB6705FB6DC03085 /* BLEManager.swift in Sources */,
+				0C8A1A8CCBF99A55FFCC9E75 /* ConfigView.swift in Sources */,
+				59BAD3A33A0F98D9F35F6FA2 /* ImageListView.swift in Sources */,
 				D2CAF8A8E999091D114AE837 /* ScanView.swift in Sources */,
 				DF2FC75183CCB8BB4EBB2475 /* SodaMachineApp.swift in Sources */,
 			);
@@ -195,6 +201,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T5WDQ2QJCS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Soda Machine";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "SodaMachine uses Bluetooth to connect to your soda machine for configuration and image uploads.";
@@ -273,6 +280,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T5WDQ2QJCS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Soda Machine";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "SodaMachine uses Bluetooth to connect to your soda machine for configuration and image uploads.";
