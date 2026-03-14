@@ -1,5 +1,6 @@
 import Foundation
 import CoreBluetooth
+import UIKit
 import os
 
 /// Nordic UART Service UUIDs
@@ -9,8 +10,10 @@ private let nusTxUUID       = CBUUID(string: "6E400003-B5A3-F393-E0A9-E50E24DCCA
 
 private let log = Logger(subsystem: "com.derekbreden.SodaMachine", category: "BLE")
 
-/// How long to scan before showing "not found" hints
 private let scanTimeout: TimeInterval = 10
+private let imageWidth = 240
+private let imageHeight = 240
+private let imageBytesExpected = 240 * 240 * 2  // RGB565
 
 enum ConnectionState: Equatable {
     case bluetoothOff
@@ -32,9 +35,18 @@ class BLEManager: NSObject, ObservableObject {
     @Published var flavor2Ratio: Int = 20
     @Published var numImages: Int = 0
 
-    // Image list from S3
+    // Image list and cached images
     @Published var imageNames: [String] = []
+    @Published var cachedImages: [Int: UIImage] = [:]
+    @Published var imageDownloadProgress: Double? = nil  // nil = not downloading
+
     private var pendingImageList: [String] = []
+
+    // Image download state
+    private var imgDownloadSlot: Int = -1
+    private var imgDownloadData = Data()
+    private var imgDownloadExpected: Int = 0
+    private var imgDownloadQueue: [Int] = []
 
     private var centralManager: CBCentralManager!
     private var connectedPeripheral: CBPeripheral?
@@ -42,6 +54,7 @@ class BLEManager: NSObject, ObservableObject {
     private var txCharacteristic: CBCharacteristic?
     private var scanTimer: Timer?
     private var reconnectTimer: Timer?
+    private var pollTimer: Timer?
 
     override init() {
         super.init()
@@ -71,7 +84,6 @@ class BLEManager: NSObject, ObservableObject {
 
     func sendSet(_ key: String, value: Int) {
         send("SET:\(key)=\(value)")
-        // Small delay then save + refresh
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.send("SAVE")
         }
@@ -86,17 +98,124 @@ class BLEManager: NSObject, ObservableObject {
         }
         let name = imageNames[index]
         if name.isEmpty { return "Image \(index)" }
-        // Convert snake_case to title case
         return name.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    func imageFor(slot: Int) -> UIImage? {
+        return cachedImages[slot]
+    }
+
+    func downloadAllImages() {
+        guard imgDownloadSlot < 0 else { return } // already downloading
+        imgDownloadQueue = Array(0..<numImages).filter { cachedImages[$0] == nil }
+        if imgDownloadQueue.isEmpty { return }
+        downloadNextImage()
     }
 
     func retry() {
         startScan()
     }
 
+    // MARK: - Image download
+
+    private func downloadNextImage() {
+        guard !imgDownloadQueue.isEmpty else {
+            imageDownloadProgress = nil
+            return
+        }
+        let slot = imgDownloadQueue.removeFirst()
+        imgDownloadSlot = slot
+        imgDownloadData = Data()
+        imgDownloadExpected = imageBytesExpected
+        imageDownloadProgress = 0
+        send("GETIMG:\(slot)")
+    }
+
+    private func handleImageData(_ data: Data) {
+        imgDownloadData.append(data)
+        let progress = Double(imgDownloadData.count) / Double(imgDownloadExpected)
+        imageDownloadProgress = min(progress, 1.0)
+
+        if imgDownloadData.count >= imgDownloadExpected {
+            // Convert RGB565 to UIImage
+            if let image = rgb565ToUIImage(imgDownloadData, width: imageWidth, height: imageHeight) {
+                cachedImages[imgDownloadSlot] = image
+                log.info("Image \(self.imgDownloadSlot) cached (\(self.imgDownloadData.count) bytes)")
+            }
+            imgDownloadSlot = -1
+            imgDownloadData = Data()
+            downloadNextImage()
+        }
+    }
+
+    private func rgb565ToUIImage(_ data: Data, width: Int, height: Int) -> UIImage? {
+        let pixelCount = width * height
+        guard data.count >= pixelCount * 2 else { return nil }
+
+        var rgba = Data(count: pixelCount * 4)
+        data.withUnsafeBytes { rawBuf in
+            let src = rawBuf.bindMemory(to: UInt16.self)
+            rgba.withUnsafeMutableBytes { dstBuf in
+                let dst = dstBuf.bindMemory(to: UInt8.self)
+                for i in 0..<pixelCount {
+                    let pixel = src[i]
+                    let r = UInt8((pixel >> 11) & 0x1F)
+                    let g = UInt8((pixel >> 5) & 0x3F)
+                    let b = UInt8(pixel & 0x1F)
+                    dst[i * 4 + 0] = (r << 3) | (r >> 2)
+                    dst[i * 4 + 1] = (g << 2) | (g >> 4)
+                    dst[i * 4 + 2] = (b << 3) | (b >> 2)
+                    dst[i * 4 + 3] = 255
+                }
+            }
+        }
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: &rgba[rgba.startIndex],
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ), let cgImage = ctx.makeImage() else { return nil }
+
+        return UIImage(cgImage: cgImage)
+    }
+
     // MARK: - Response parsing
 
-    private func handleResponse(_ text: String) {
+    private func handleNotification(_ data: Data) {
+        // If we're downloading an image, check if this is text or binary
+        if imgDownloadSlot >= 0 {
+            // Check if it's the IMGEND marker
+            if data.count < 20, let text = String(data: data, encoding: .utf8), text == "IMGEND" {
+                // Force complete even if short
+                if let image = rgb565ToUIImage(imgDownloadData, width: imageWidth, height: imageHeight) {
+                    cachedImages[imgDownloadSlot] = image
+                    log.info("Image \(self.imgDownloadSlot) complete (\(self.imgDownloadData.count) bytes)")
+                } else {
+                    log.error("Image \(self.imgDownloadSlot) conversion failed (\(self.imgDownloadData.count) bytes)")
+                }
+                imgDownloadSlot = -1
+                imgDownloadData = Data()
+                downloadNextImage()
+                return
+            }
+
+            // Binary image data
+            handleImageData(data)
+            return
+        }
+
+        // Try as text
+        if let text = String(data: data, encoding: .utf8) {
+            handleTextResponse(text)
+        }
+    }
+
+    private func handleTextResponse(_ text: String) {
         lastResponse = text
 
         if text.hasPrefix("CONFIG:") {
@@ -104,15 +223,25 @@ class BLEManager: NSObject, ObservableObject {
         } else if text.hasPrefix("IMG:") {
             parseImageLine(text)
         } else if text == "END" {
-            // Image list complete
             imageNames = pendingImageList
             pendingImageList = []
+            // Auto-download images after getting list
+            downloadAllImages()
+        } else if text.hasPrefix("IMGSTART:") {
+            // IMGSTART:slot:size
+            let parts = text.split(separator: ":")
+            if parts.count >= 3, let slot = Int(parts[1]), let size = Int(parts[2]) {
+                imgDownloadSlot = slot
+                imgDownloadExpected = size
+                imgDownloadData = Data()
+                imageDownloadProgress = 0
+                log.info("Starting image download: slot \(slot), \(size) bytes")
+            }
         }
     }
 
     private func parseConfig(_ text: String) {
-        // CONFIG:F1_RATIO=20,F2_RATIO=20,F1_IMAGE=0,F2_IMAGE=1,numImages=3,numS3Images=3
-        let body = String(text.dropFirst(7)) // drop "CONFIG:"
+        let body = String(text.dropFirst(7))
         var values: [String: Int] = [:]
         for pair in body.split(separator: ",") {
             let parts = pair.split(separator: "=", maxSplits: 1)
@@ -131,12 +260,10 @@ class BLEManager: NSObject, ObservableObject {
     }
 
     private func parseImageLine(_ text: String) {
-        // IMG:0:diet_wild_cherry_pepsi
         let parts = text.split(separator: ":", maxSplits: 2)
         if parts.count >= 3 {
             let name = String(parts[2])
             let slot = Int(parts[1]) ?? pendingImageList.count
-            // Ensure array is big enough
             while pendingImageList.count <= slot {
                 pendingImageList.append("")
             }
@@ -150,6 +277,7 @@ class BLEManager: NSObject, ObservableObject {
         guard centralManager.state == .poweredOn else { return }
         connectionState = .searching
         configSynced = false
+        cachedImages = [:]
         centralManager.scanForPeripherals(withServices: [nusServiceUUID], options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: false
         ])
@@ -162,6 +290,22 @@ class BLEManager: NSObject, ObservableObject {
             self.connectionState = .notFound
             log.info("Scan timed out, no device found")
         }
+    }
+
+    private func startPolling() {
+        pollTimer?.invalidate()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            // Don't poll during image downloads
+            if self.imgDownloadSlot < 0 {
+                self.requestConfig()
+            }
+        }
+    }
+
+    private func stopPolling() {
+        pollTimer?.invalidate()
+        pollTimer = nil
     }
 
     private func scheduleReconnect() {
@@ -189,7 +333,6 @@ extension BLEManager: CBCentralManagerDelegate {
         let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? "Unknown"
         log.info("Found: \(name) (RSSI: \(RSSI.intValue))")
 
-        // Auto-connect to first NUS device found
         scanTimer?.invalidate()
         centralManager.stopScan()
         connectionState = .connecting
@@ -216,6 +359,9 @@ extension BLEManager: CBCentralManagerDelegate {
         rxCharacteristic = nil
         txCharacteristic = nil
         configSynced = false
+        imgDownloadSlot = -1
+        imgDownloadQueue = []
+        stopPolling()
         scheduleReconnect()
     }
 }
@@ -246,16 +392,14 @@ extension BLEManager: CBPeripheralDelegate {
             connectionState = .connected
             peripheral.maximumWriteValueLength(for: .withResponse)
             log.info("NUS ready")
+            startPolling()
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard characteristic.uuid == nusTxUUID, let data = characteristic.value else { return }
-        if let text = String(data: data, encoding: .utf8) {
-            log.info("RX: \(text)")
-            DispatchQueue.main.async {
-                self.handleResponse(text)
-            }
+        DispatchQueue.main.async {
+            self.handleNotification(data)
         }
     }
 }

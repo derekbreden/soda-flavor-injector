@@ -86,8 +86,40 @@ class BLEServerCB : public BLEServerCallbacks {
   }
 };
 
-// Forward declaration
+// Forward declarations
 static void bleSendLine(const char *line);
+static bool loadImageFromFS(uint8_t slot);
+
+// ── BLE image download state ──
+static bool bleImageSending = false;
+static uint8_t bleImageSlot = 0;
+static uint32_t bleImageOffset = 0;
+
+static void bleImageSendChunks() {
+  if (!bleImageSending || !bleConnected || !pTxChar) return;
+
+  // Send up to 4 chunks per loop iteration to keep UI responsive
+  for (int burst = 0; burst < 4; burst++) {
+    if (bleImageOffset >= IMAGE_BYTES) {
+      // Done - send completion marker
+      bleSendLine("IMGEND");
+      bleImageSending = false;
+      Serial.printf("BLE image %d send complete\n", bleImageSlot);
+      return;
+    }
+
+    // Use 240-byte chunks (divisible by 2 for RGB565 alignment)
+    uint16_t chunkSize = 240;
+    if (bleImageOffset + chunkSize > IMAGE_BYTES) {
+      chunkSize = IMAGE_BYTES - bleImageOffset;
+    }
+
+    pTxChar->setValue(((uint8_t *)imageBuf) + bleImageOffset, chunkSize);
+    pTxChar->notify();
+    bleImageOffset += chunkSize;
+    delay(8);  // BLE notify spacing
+  }
+}
 
 class BLERxCB : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pChar) override {
@@ -104,6 +136,31 @@ class BLERxCB : public BLECharacteristicCallbacks {
         delay(20);  // BLE notify spacing
       }
       bleSendLine("END");
+      return;
+    }
+
+    // GETIMG:N — download image N over BLE
+    if (val.startsWith("GETIMG:")) {
+      int slot = val.substring(7).toInt();
+      if (slot < 0 || slot >= numImages) {
+        bleSendLine("ERR:INVALID_SLOT");
+        return;
+      }
+      if (!loadImageFromFS(slot)) {
+        bleSendLine("ERR:LOAD_FAILED");
+        return;
+      }
+      // Send header: IMGSTART:slot:size
+      char hdr[32];
+      snprintf(hdr, sizeof(hdr), "IMGSTART:%d:%d", slot, IMAGE_BYTES);
+      bleSendLine(hdr);
+      delay(20);
+
+      // Start streaming
+      bleImageSlot = slot;
+      bleImageOffset = 0;
+      bleImageSending = true;
+      Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
       return;
     }
 
@@ -1102,6 +1159,9 @@ void loop() {
 
   // Check for incoming UART data (text + binary)
   checkUart();
+
+  // BLE image streaming (non-blocking, sends a few chunks per loop)
+  bleImageSendChunks();
 
   int dir = readEncoder();
   handleNavigation(dir);
