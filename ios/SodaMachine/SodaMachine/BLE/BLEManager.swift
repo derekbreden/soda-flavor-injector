@@ -51,7 +51,7 @@ class BLEManager: NSObject, ObservableObject {
     private var currentUploadStep = 0
     private var uploadBytesSent = 0
 
-    // Image download state
+    // Image download state — imgDownloadSlot/Data/Expected are accessed from bleQueue
     private var imgDownloadSlot: Int = -1
     private var imgDownloadData = Data()
     private var imgDownloadExpected: Int = 0
@@ -59,6 +59,9 @@ class BLEManager: NSObject, ObservableObject {
     private var isDownloading = false
     private var nusReady = false
 
+    // BLE runs on a dedicated background queue so binary data accumulation
+    // doesn't block the main thread / UI during image downloads.
+    private let bleQueue = DispatchQueue(label: "com.derekbreden.SodaMachine.BLE", qos: .userInitiated)
     private var centralManager: CBCentralManager!
     private var connectedPeripheral: CBPeripheral?
     private var rxCharacteristic: CBCharacteristic?
@@ -68,7 +71,7 @@ class BLEManager: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        centralManager = CBCentralManager(delegate: self, queue: nil)
+        centralManager = CBCentralManager(delegate: self, queue: bleQueue)
     }
 
     // MARK: - Public API
@@ -239,61 +242,16 @@ class BLEManager: NSObject, ObservableObject {
             return
         }
         let slot = imgDownloadQueue.removeFirst()
-        // Don't set imgDownloadSlot here — wait for IMGSTART response.
-        // Setting it early causes IMGSTART text to be routed as binary data.
-        imgDownloadData = Data()
-        imgDownloadExpected = 0
-        // Don't update imageDownloadProgress here — already set in downloadAllImages()
+        // Reset download state on bleQueue before sending GETPNG.
+        // imgDownloadSlot is set later by IMGSTART (also on bleQueue).
+        bleQueue.async {
+            self.imgDownloadData = Data()
+            self.imgDownloadExpected = 0
+        }
         send("GETPNG:\(slot)")
     }
 
-    private func handleImageData(_ data: Data) {
-        imgDownloadData.append(data)
-        // Don't update imageDownloadProgress per chunk — that triggers SwiftUI
-        // re-renders on every ~180-byte BLE notification and freezes the UI.
-        // Progress is set at download start/finish only.
-    }
-
-    private func finishImageDownload() {
-        if let image = UIImage(data: imgDownloadData) {
-            cachedImages[imgDownloadSlot] = image
-            log.info("Image \(self.imgDownloadSlot) cached (\(self.imgDownloadData.count) bytes)")
-        } else {
-            log.error("Image \(self.imgDownloadSlot) decode failed: \(self.imgDownloadData.count) bytes")
-        }
-        imgDownloadSlot = -1
-        imgDownloadData = Data()
-        downloadNextImage()
-    }
-
-    // MARK: - Response parsing
-
-    private func handleNotification(_ data: Data) {
-        // Log all incoming notifications for debugging
-        if let text = String(data: data, encoding: .utf8), data.count < 100 {
-            log.info("RX: \(text) (\(data.count) bytes)")
-        } else {
-            log.info("RX: <binary> (\(data.count) bytes)")
-        }
-
-        // If we're downloading an image, check if this is text or binary
-        if imgDownloadSlot >= 0 {
-            // Check if it's the IMGEND marker
-            if data.count < 20, let text = String(data: data, encoding: .utf8), text == "IMGEND" {
-                finishImageDownload()
-                return
-            }
-
-            // Binary image data
-            handleImageData(data)
-            return
-        }
-
-        // Try as text
-        if let text = String(data: data, encoding: .utf8) {
-            handleTextResponse(text)
-        }
-    }
+    // MARK: - Response parsing (main thread only)
 
     private func handleTextResponse(_ text: String) {
         lastResponse = text
@@ -307,15 +265,6 @@ class BLEManager: NSObject, ObservableObject {
             pendingImageList = []
             // Auto-download images after getting list
             downloadAllImages()
-        } else if text.hasPrefix("IMGSTART:") {
-            // IMGSTART:slot:size
-            let parts = text.split(separator: ":")
-            if parts.count >= 3, let slot = Int(parts[1]), let size = Int(parts[2]) {
-                imgDownloadSlot = slot
-                imgDownloadExpected = size
-                imgDownloadData = Data()
-                log.info("Starting image download: slot \(slot), \(size) bytes")
-            }
         } else if text == "UPLOAD_READY" {
             sendUploadChunks()
         } else if text.hasPrefix("IMG_OK:") {
@@ -342,6 +291,15 @@ class BLEManager: NSObject, ObservableObject {
             cachedImages = [:]
             requestImageList()
             log.info("Image deleted, refreshing list")
+        } else if text == "OK:FACTORY_RESET" {
+            // Factory reset completed — clear everything and re-sync
+            log.info("Factory reset confirmed, re-syncing")
+            cachedImages = [:]
+            imageNames = []
+            requestConfig()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.requestImageList()
+            }
         } else if text.hasPrefix("ERR:") {
             log.error("Error response: \(text)")
             if isUploading {
@@ -369,7 +327,7 @@ class BLEManager: NSObject, ObservableObject {
         if let v = values["F2_IMAGE"] { flavor2Image = v }
         if let v = values["numImages"] { numImages = max(v, 1) }
         configSynced = true
-        log.info("Config synced: F1=\(self.flavor1Image)/\(self.flavor1Ratio) F2=\(self.flavor2Image)/\(self.flavor2Ratio)")
+        log.info("Config synced: F1=\(self.flavor1Image)/\(self.flavor1Ratio) F2=\(self.flavor2Image)/\(self.flavor2Ratio) numImages=\(self.numImages)")
     }
 
     private func parseImageLine(_ text: String) {
@@ -388,32 +346,39 @@ class BLEManager: NSObject, ObservableObject {
 
     private func startScan() {
         guard centralManager.state == .poweredOn else { return }
-        connectionState = .searching
-        configSynced = false
-        cachedImages = [:]
+        DispatchQueue.main.async {
+            self.connectionState = .searching
+            self.configSynced = false
+            self.cachedImages = [:]
+        }
         centralManager.scanForPeripherals(withServices: [nusServiceUUID], options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: false
         ])
         log.info("Auto-scanning for Soda Machine...")
 
         // After timeout, show hints but keep scanning
-        scanTimer?.invalidate()
-        scanTimer = Timer.scheduledTimer(withTimeInterval: scanTimeout, repeats: false) { [weak self] _ in
-            guard let self, self.connectionState == .searching else { return }
-            self.connectionState = .searchingLong
-            log.info("Still scanning, showing hints")
+        DispatchQueue.main.async {
+            self.scanTimer?.invalidate()
+            self.scanTimer = Timer.scheduledTimer(withTimeInterval: scanTimeout, repeats: false) { [weak self] _ in
+                guard let self, self.connectionState == .searching else { return }
+                self.connectionState = .searchingLong
+                log.info("Still scanning, showing hints")
+            }
         }
     }
 
     private func scheduleReconnect() {
-        reconnectTimer?.invalidate()
-        reconnectTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
-            self?.startScan()
+        DispatchQueue.main.async {
+            self.reconnectTimer?.invalidate()
+            self.reconnectTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
+                self?.startScan()
+            }
         }
     }
 }
 
 // MARK: - CBCentralManagerDelegate
+// All delegate methods run on bleQueue. Dispatch to main for @Published updates.
 
 extension BLEManager: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
@@ -421,7 +386,9 @@ extension BLEManager: CBCentralManagerDelegate {
         if central.state == .poweredOn {
             startScan()
         } else {
-            connectionState = .bluetoothOff
+            DispatchQueue.main.async {
+                self.connectionState = .bluetoothOff
+            }
         }
     }
 
@@ -430,9 +397,13 @@ extension BLEManager: CBCentralManagerDelegate {
         let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? "Unknown"
         log.info("Found: \(name) (RSSI: \(RSSI.intValue))")
 
-        scanTimer?.invalidate()
+        DispatchQueue.main.async {
+            self.scanTimer?.invalidate()
+        }
         centralManager.stopScan()
-        connectionState = .connecting
+        DispatchQueue.main.async {
+            self.connectionState = .connecting
+        }
         connectedPeripheral = peripheral
         centralManager.connect(peripheral, options: nil)
     }
@@ -451,19 +422,22 @@ extension BLEManager: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         log.info("Disconnected")
-        connectionState = .searching
+        imgDownloadSlot = -1  // stop binary routing on bleQueue
         connectedPeripheral = nil
         rxCharacteristic = nil
         txCharacteristic = nil
-        configSynced = false
-        imgDownloadSlot = -1
-        imgDownloadQueue = []
-        isDownloading = false
-        isUploading = false
-        uploadProgress = nil
-        uploadSteps = []
         nusReady = false
-        scheduleReconnect()
+        DispatchQueue.main.async {
+            self.connectionState = .searching
+            self.configSynced = false
+            self.imgDownloadQueue = []
+            self.isDownloading = false
+            self.imageDownloadProgress = nil
+            self.isUploading = false
+            self.uploadProgress = nil
+            self.uploadSteps = []
+            self.scheduleReconnect()
+        }
     }
 }
 
@@ -491,22 +465,67 @@ extension BLEManager: CBPeripheralDelegate {
         }
         if rxCharacteristic != nil && txCharacteristic != nil && !nusReady {
             nusReady = true
-            connectionState = .connected
+            DispatchQueue.main.async {
+                self.connectionState = .connected
+            }
             peripheral.maximumWriteValueLength(for: .withResponse)
             log.info("NUS ready")
             // Request config and image list once on connect
-            // ESP32 will push CONFIG: updates proactively after any changes
-            requestConfig()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.requestImageList()
+            DispatchQueue.main.async {
+                self.requestConfig()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    self?.requestImageList()
+                }
             }
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard characteristic.uuid == nusTxUUID, let data = characteristic.value else { return }
+        // This runs on bleQueue.
+
+        // Fast path: binary image data — stays entirely on bleQueue, never touches main
+        if imgDownloadSlot >= 0 {
+            if data.count < 20, let text = String(data: data, encoding: .utf8), text == "IMGEND" {
+                let imgData = self.imgDownloadData
+                let slot = self.imgDownloadSlot
+                self.imgDownloadSlot = -1
+                self.imgDownloadData = Data()
+                DispatchQueue.main.async {
+                    if let image = UIImage(data: imgData) {
+                        self.cachedImages[slot] = image
+                        log.info("Image \(slot) cached (\(imgData.count) bytes)")
+                    } else {
+                        log.error("Image \(slot) decode failed: \(imgData.count) bytes")
+                    }
+                    self.downloadNextImage()
+                }
+            } else {
+                imgDownloadData.append(data)
+            }
+            return
+        }
+
+        // IMGSTART: parse on bleQueue to set imgDownloadSlot before binary chunks arrive
+        if let text = String(data: data, encoding: .utf8), text.hasPrefix("IMGSTART:") {
+            let parts = text.split(separator: ":")
+            if parts.count >= 3, let slot = Int(parts[1]), let size = Int(parts[2]) {
+                imgDownloadSlot = slot
+                imgDownloadExpected = size
+                imgDownloadData = Data()
+                log.info("Starting image download: slot \(slot), \(size) bytes")
+            }
+            return
+        }
+
+        // All other text responses: dispatch to main for @Published updates
         DispatchQueue.main.async {
-            self.handleNotification(data)
+            if let text = String(data: data, encoding: .utf8) {
+                if text.count < 100 {
+                    log.info("RX: \(text)")
+                }
+                self.handleTextResponse(text)
+            }
         }
     }
 }
