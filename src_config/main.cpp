@@ -625,8 +625,9 @@ static void initBLE() {
 }
 
 // ── Menu ──
-enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU_COUNT };
-const char* menuLabels[] = { "Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio" };
+enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU_FACTORY_RESET, MENU_COUNT };
+const char* menuLabels[] = { "Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Factory Reset" };
+static bool factoryResetPending = false;
 
 int menuIndex = 0;
 bool editing = false;
@@ -1138,6 +1139,13 @@ static void processTextLine(const char *line) {
     }
     Serial.printf("ESP32 confirmed: %s\n", line);
     bleSendLine(line);
+  } else if (strncmp(line, "OK:FACTORY_RESET", 16) == 0) {
+    Serial.printf("Factory reset complete: %s\n", line);
+    factoryResetPending = false;
+    // Re-sync config from ESP32
+    stSendText(stLink, "GET_CONFIG");
+    drawScreen();
+    bleSendLine(line);
   } else if (strncmp(line, "OK:", 3) == 0) {
     Serial.printf("ESP32 confirmed: %s\n", line);
     bleSendLine(line);
@@ -1319,7 +1327,18 @@ void drawBrowse() {
   lv_obj_set_style_text_color(title, lv_color_hex(0x808080), 0);
   lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
 
-  if (isImageItem()) {
+  if (menuIndex == MENU_FACTORY_RESET) {
+    lv_obj_t *hint = lv_label_create(scr);
+    if (factoryResetPending) {
+      lv_label_set_text(hint, "Resetting...");
+      lv_obj_set_style_text_color(hint, lv_color_hex(0xFF4444), 0);
+    } else {
+      lv_label_set_text(hint, LV_SYMBOL_REFRESH);
+      lv_obj_set_style_text_color(hint, lv_color_hex(0x808080), 0);
+    }
+    lv_obj_set_style_text_font(hint, &lv_font_montserrat_28, 0);
+    lv_obj_align(hint, LV_ALIGN_CENTER, 0, 10);
+  } else if (isImageItem()) {
     renderCircularThumb(getCurrentImage(), THUMB_BROWSE);
     lv_obj_t *canvas = lv_canvas_create(scr);
     lv_canvas_set_buffer(canvas, thumb_buf, THUMB_BROWSE, THUMB_BROWSE, LV_IMG_CF_TRUE_COLOR);
@@ -1347,7 +1366,16 @@ void drawEdit() {
   lv_label_set_text(title, menuLabels[menuIndex]);
   lv_obj_set_style_text_color(title, lv_color_white(), 0);
 
-  if (isImageItem()) {
+  if (menuIndex == MENU_FACTORY_RESET) {
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 50);
+
+    lv_obj_t *hint = lv_label_create(scr);
+    lv_label_set_text(hint, "Tap to Confirm");
+    lv_obj_set_style_text_font(hint, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(hint, lv_color_hex(0xFF4444), 0);
+    lv_obj_align(hint, LV_ALIGN_CENTER, 0, 10);
+  } else if (isImageItem()) {
     renderCircularThumb(getCurrentImage(), THUMB_EDIT);
     lv_obj_t *canvas = lv_canvas_create(scr);
     lv_canvas_set_buffer(canvas, thumb_buf, THUMB_EDIT, THUMB_EDIT, LV_IMG_CF_TRUE_COLOR);
@@ -1409,8 +1437,10 @@ bool readTap() {
 
 void handleNavigation(int dir) {
   if (dir == 0) return;
+  if (factoryResetPending) return;  // locked during reset
 
   if (editing) {
+    if (menuIndex == MENU_FACTORY_RESET) return;  // no encoder action
     switch (menuIndex) {
       case MENU_F1_IMAGE:
         flavor1Image = (flavor1Image + dir + numImages) % numImages;
@@ -1433,6 +1463,23 @@ void handleNavigation(int dir) {
 }
 
 void handleTap() {
+  if (menuIndex == MENU_FACTORY_RESET) {
+    if (factoryResetPending) return;  // already in progress
+    if (editing) {
+      // Confirmed — send factory reset command
+      editing = false;
+      factoryResetPending = true;
+      Serial.println("Factory Reset confirmed — sending to ESP32");
+      stSendText(stLink, "FACTORY_RESET");
+      drawScreen();
+    } else {
+      // First tap — show confirmation
+      editing = true;
+      Serial.println("Factory Reset — tap again to confirm");
+      drawScreen();
+    }
+    return;
+  }
   if (editing) {
     editing = false;
     Serial.printf("Confirmed: %s\n", menuLabels[menuIndex]);
