@@ -139,6 +139,8 @@ class BLEManager: NSObject, ObservableObject {
             if let image = rgb565ToUIImage(imgDownloadData, width: imageWidth, height: imageHeight) {
                 cachedImages[imgDownloadSlot] = image
                 log.info("Image \(self.imgDownloadSlot) cached (\(self.imgDownloadData.count) bytes)")
+            } else {
+                log.error("Image \(self.imgDownloadSlot) conversion failed: got \(self.imgDownloadData.count) bytes, expected \(self.imgDownloadExpected)")
             }
             imgDownloadSlot = -1
             imgDownloadData = Data()
@@ -150,13 +152,12 @@ class BLEManager: NSObject, ObservableObject {
         let pixelCount = width * height
         guard data.count >= pixelCount * 2 else { return nil }
 
-        // Convert RGB565 (big-endian) to RGBA8888
+        // Convert RGB565 (little-endian, matching struct.pack("<H")) to RGBA8888
         var rgba = [UInt8](repeating: 0, count: pixelCount * 4)
         data.withUnsafeBytes { rawBuf in
-            let bytes = rawBuf.bindMemory(to: UInt8.self)
+            let src = rawBuf.bindMemory(to: UInt16.self)
             for i in 0..<pixelCount {
-                // RGB565 stored big-endian: high byte first
-                let pixel = UInt16(bytes[i * 2]) << 8 | UInt16(bytes[i * 2 + 1])
+                let pixel = src[i]  // native little-endian on ARM
                 let r = UInt8((pixel >> 11) & 0x1F)
                 let g = UInt8((pixel >> 5) & 0x3F)
                 let b = UInt8(pixel & 0x1F)

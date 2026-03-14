@@ -16,54 +16,54 @@ struct ConfigView: View {
                 ProgressView("Loading configuration...")
                     .foregroundStyle(.white)
             } else {
-                VStack(spacing: 0) {
-                    Spacer()
+                // Full-screen TabView paging — title is inside each page
+                TabView(selection: $currentPage) {
+                    ForEach(0..<pageCount, id: \.self) { i in
+                        VStack {
+                            Spacer()
 
-                    // Title
-                    Text(pageLabels[currentPage])
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(editing ? .white : .gray)
-                        .padding(.bottom, 12)
+                            Text(pageLabels[i])
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(editing && i == currentPage ? .white : .gray)
 
-                    // Carousel using native TabView paging
-                    TabView(selection: $currentPage) {
-                        ForEach(0..<pageCount, id: \.self) { i in
+                            Spacer().frame(height: 12)
+
                             pageView(for: i)
-                                .tag(i)
+                                .frame(height: 180)
+
+                            Spacer()
+
+                            // Nav dots
+                            HStack(spacing: 12) {
+                                ForEach(0..<pageCount, id: \.self) { j in
+                                    Circle()
+                                        .fill(j == i ? Color.white : Color(white: 0.3))
+                                        .frame(width: 8, height: 8)
+                                }
+                            }
+                            .padding(.bottom, 50)
                         }
+                        .tag(i)
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-                    .frame(height: 220)
-                    .allowsHitTesting(!editing)
-                    .overlay {
-                        if editing {
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .gesture(
-                                    DragGesture(minimumDistance: 30)
-                                        .onEnded { value in
-                                            let dx = value.translation.width
-                                            if dx > 30 {
-                                                adjustValue(by: 1)
-                                            } else if dx < -30 {
-                                                adjustValue(by: -1)
-                                            }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .allowsHitTesting(!editing)
+                .overlay {
+                    if editing {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 30)
+                                    .onEnded { value in
+                                        let dx = value.translation.width
+                                        if dx > 30 {
+                                            adjustValue(by: 1)
+                                        } else if dx < -30 {
+                                            adjustValue(by: -1)
                                         }
-                                )
-                        }
+                                    }
+                            )
                     }
-
-                    Spacer()
-
-                    // Nav dots
-                    HStack(spacing: 12) {
-                        ForEach(0..<pageCount, id: \.self) { i in
-                            Circle()
-                                .fill(i == currentPage ? Color.white : Color(white: 0.3))
-                                .frame(width: 8, height: 8)
-                        }
-                    }
-                    .padding(.bottom, 50)
                 }
                 .onTapGesture {
                     if editing {
@@ -103,7 +103,7 @@ struct ConfigView: View {
 
     private func imageDisplay(index: Int) -> some View {
         let size: CGFloat = editing ? 160 : 120
-        return VStack(spacing: 6) {
+        return Group {
             if let uiImage = ble.imageFor(slot: index) {
                 Image(uiImage: uiImage)
                     .resizable()
@@ -125,9 +125,6 @@ struct ConfigView: View {
                     }
                 }
             }
-            Text(ble.displayName(for: index))
-                .font(.system(size: 12))
-                .foregroundStyle(.gray)
         }
         .animation(.easeInOut(duration: 0.2), value: editing)
     }

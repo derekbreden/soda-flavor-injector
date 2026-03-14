@@ -98,27 +98,26 @@ static uint32_t bleImageOffset = 0;
 static void bleImageSendChunks() {
   if (!bleImageSending || !bleConnected || !pTxChar) return;
 
-  // Send up to 4 chunks per loop iteration to keep UI responsive
-  for (int burst = 0; burst < 4; burst++) {
-    if (bleImageOffset >= IMAGE_BYTES) {
-      // Done - send completion marker
-      bleSendLine("IMGEND");
-      bleImageSending = false;
-      Serial.printf("BLE image %d send complete\n", bleImageSlot);
-      return;
-    }
-
-    // Use 240-byte chunks (divisible by 2 for RGB565 alignment)
-    uint16_t chunkSize = 240;
-    if (bleImageOffset + chunkSize > IMAGE_BYTES) {
-      chunkSize = IMAGE_BYTES - bleImageOffset;
-    }
-
-    pTxChar->setValue(((uint8_t *)imageBuf) + bleImageOffset, chunkSize);
-    pTxChar->notify();
-    bleImageOffset += chunkSize;
-    delay(8);  // BLE notify spacing
+  // Send one chunk per loop iteration — slower but reliable
+  if (bleImageOffset >= IMAGE_BYTES) {
+    // Done - send completion marker
+    delay(50);
+    bleSendLine("IMGEND");
+    bleImageSending = false;
+    Serial.printf("BLE image %d send complete\n", bleImageSlot);
+    return;
   }
+
+  // Use 240-byte chunks (divisible by 2 for RGB565 alignment)
+  uint16_t chunkSize = 240;
+  if (bleImageOffset + chunkSize > IMAGE_BYTES) {
+    chunkSize = IMAGE_BYTES - bleImageOffset;
+  }
+
+  pTxChar->setValue(((uint8_t *)imageBuf) + bleImageOffset, chunkSize);
+  pTxChar->notify();
+  bleImageOffset += chunkSize;
+  delay(20);  // BLE notify spacing — needs time for iOS to process
 }
 
 class BLERxCB : public BLECharacteristicCallbacks {
