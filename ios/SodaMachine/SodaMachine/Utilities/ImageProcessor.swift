@@ -1,7 +1,7 @@
 import UIKit
 
 struct ImageProcessor {
-    /// Crop to centered square and resize to target dimensions
+    /// Crop to centered square and resize to target dimensions (1x scale — exact pixel size)
     static func cropAndResize(_ image: UIImage, to size: CGSize) -> UIImage? {
         guard let cgImage = image.cgImage else { return nil }
         let sourceW = CGFloat(cgImage.width)
@@ -13,7 +13,9 @@ struct ImageProcessor {
             width: minDim, height: minDim
         )
         guard let cropped = cgImage.cropping(to: cropRect) else { return nil }
-        let renderer = UIGraphicsImageRenderer(size: size)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1.0  // exact pixel dimensions, not device-scaled
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
         return renderer.image { ctx in
             UIImage(cgImage: cropped).draw(in: CGRect(origin: .zero, size: size))
         }

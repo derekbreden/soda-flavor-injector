@@ -321,9 +321,14 @@ static void processBleRequest() {
       break;
 
     case BLE_REQ_UPLOAD_START: {
-      // Validate upload request
+      // Validate upload request — PNGs vary in size, RGB565 must fit in imageBuf
       if (bleUpload.slot < 0 || bleUpload.expectedSize == 0 || bleUpload.expectedSize > IMAGE_BYTES) {
-        bleSendLine("IMG_ERR:INVALID_PARAMS");
+        char err[64];
+        snprintf(err, sizeof(err), "IMG_ERR:INVALID_PARAMS(slot=%d,size=%lu,max=%d)",
+                 bleUpload.slot, bleUpload.expectedSize, IMAGE_BYTES);
+        bleSendLine(err);
+        Serial.printf("Upload rejected: slot=%d size=%lu max=%d\n",
+                      bleUpload.slot, bleUpload.expectedSize, IMAGE_BYTES);
         bleUpload.phase = BLE_UP_IDLE;
         break;
       }

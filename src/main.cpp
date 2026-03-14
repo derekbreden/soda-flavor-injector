@@ -791,8 +791,8 @@ bool pushPngToS3(uint8_t slot) {
   String path = espS3PngPath(slot);
   File f = LittleFS.open(path, "r");
   if (!f) {
-    Serial.printf("Push S3 PNG: %s not found (skipping)\n", path.c_str());
-    return true;  // not fatal — PNG is optional
+    Serial.printf("Push S3 PNG: %s not found\n", path.c_str());
+    return false;
   }
   uint32_t fileSize = f.size();
   if (fileSize == 0 || fileSize > S3_IMAGE_BYTES) {
