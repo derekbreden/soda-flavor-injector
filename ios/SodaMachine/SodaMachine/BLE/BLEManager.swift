@@ -37,7 +37,19 @@ class BLEManager: NSObject, ObservableObject {
     @Published var cachedImages: [Int: UIImage] = [:]
     @Published var imageDownloadProgress: Double? = nil  // nil = not downloading
 
+    // Upload state
+    @Published var uploadProgress: Double? = nil  // nil = not uploading
+    @Published var uploadStatus: String = ""
+
     private var pendingImageList: [String] = []
+
+    // Image upload state
+    private var isUploading = false
+    private var uploadSlot: Int = -1
+    private var uploadLabel: String = ""
+    private var uploadSteps: [(type: String, data: Data)] = []
+    private var currentUploadStep = 0
+    private var uploadBytesSent = 0
 
     // Image download state
     private var imgDownloadSlot: Int = -1
@@ -101,6 +113,41 @@ class BLEManager: NSObject, ObservableObject {
         return cachedImages[slot]
     }
 
+    func uploadImage(_ image: UIImage, toSlot slot: Int, label: String) {
+        guard !isUploading else {
+            log.warning("Upload already in progress")
+            return
+        }
+        guard let pngData = ImageProcessor.generatePNG(from: image),
+              let s3Data = ImageProcessor.generateRGB565(from: image, width: 240, height: 240),
+              let rpData = ImageProcessor.generateRGB565(from: image, width: 128, height: 115) else {
+            uploadStatus = "Image processing failed"
+            return
+        }
+
+        isUploading = true
+        uploadSlot = slot
+        uploadLabel = label
+        uploadSteps = [
+            (type: "png", data: pngData),
+            (type: "s3",  data: s3Data),
+            (type: "rp",  data: rpData)
+        ]
+        currentUploadStep = 0
+        uploadBytesSent = 0
+        uploadProgress = 0
+        uploadStatus = "Uploading PNG..."
+
+        sendNextUploadStep()
+    }
+
+    func deleteImage(slot: Int) {
+        send("DELETE_STORE_IMG:\(slot)")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.requestImageList()
+        }
+    }
+
     func downloadAllImages() {
         guard !isDownloading else { return }
         imgDownloadQueue = Array(0..<numImages).filter { cachedImages[$0] == nil }
@@ -110,6 +157,76 @@ class BLEManager: NSObject, ObservableObject {
     }
 
 
+
+    // MARK: - Image upload
+
+    private func sendNextUploadStep() {
+        guard currentUploadStep < uploadSteps.count else {
+            // All 3 transfers done — send FINALIZE_UPLOAD
+            uploadStatus = "Finalizing..."
+            send("FINALIZE_UPLOAD:\(uploadSlot):\(uploadLabel)")
+            return
+        }
+
+        let step = uploadSteps[currentUploadStep]
+        let crc = ImageProcessor.crc32(step.data)
+        var header = "IMG_UPLOAD:slot=\(uploadSlot),type=\(step.type),size=\(step.data.count),crc32=0x\(String(crc, radix: 16))"
+        if currentUploadStep == 0 {
+            header += ",label=\(uploadLabel)"
+        }
+
+        uploadBytesSent = 0
+        send(header)
+        // Wait for UPLOAD_READY before sending data
+    }
+
+    private func sendUploadChunks() {
+        guard currentUploadStep < uploadSteps.count else { return }
+        let data = uploadSteps[currentUploadStep].data
+        guard let rx = rxCharacteristic, let p = connectedPeripheral else { return }
+        let mtu = p.maximumWriteValueLength(for: .withResponse)
+        let chunkSize = min(mtu, 240)
+
+        func sendChunk() {
+            guard self.uploadBytesSent < data.count, self.isUploading else { return }
+            let end = min(self.uploadBytesSent + chunkSize, data.count)
+            let chunk = data[self.uploadBytesSent..<end]
+            p.writeValue(chunk, for: rx, type: .withResponse)
+            self.uploadBytesSent = end
+
+            // Update progress: 3 steps, each ~33%
+            let stepBase = Double(self.currentUploadStep) / 3.0
+            let stepProgress = Double(self.uploadBytesSent) / Double(data.count) / 3.0
+            self.uploadProgress = stepBase + stepProgress
+
+            if self.uploadBytesSent < data.count {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+                    sendChunk()
+                }
+            }
+        }
+        sendChunk()
+    }
+
+    private func completeUpload() {
+        uploadProgress = 1.0
+        uploadStatus = "Upload complete!"
+        isUploading = false
+        uploadSteps = []
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.uploadProgress = nil
+            self?.cachedImages = [:]
+            self?.requestImageList()
+        }
+    }
+
+    private func failUpload(_ reason: String) {
+        log.error("Upload failed: \(reason)")
+        uploadStatus = "Upload failed: \(reason)"
+        uploadProgress = nil
+        isUploading = false
+        uploadSteps = []
+    }
 
     // MARK: - Image download
 
@@ -201,9 +318,25 @@ class BLEManager: NSObject, ObservableObject {
                 imageDownloadProgress = 0
                 log.info("Starting image download: slot \(slot), \(size) bytes")
             }
+        } else if text == "UPLOAD_READY" {
+            sendUploadChunks()
+        } else if text.hasPrefix("IMG_OK:") {
+            // One upload transfer complete — advance
+            currentUploadStep += 1
+            let stepNames = ["PNG", "S3 RGB565", "RP2040 RGB565"]
+            if currentUploadStep < uploadSteps.count {
+                uploadStatus = "Uploading \(stepNames[currentUploadStep])..."
+            }
+            sendNextUploadStep()
+        } else if text.hasPrefix("IMG_ERR:") {
+            failUpload(text)
+        } else if text.hasPrefix("OK:UPLOAD_DONE:") {
+            completeUpload()
         } else if text.hasPrefix("ERR:") {
             log.error("Error response: \(text)")
-            if isDownloading {
+            if isUploading {
+                failUpload(text)
+            } else if isDownloading {
                 log.error("Skipping failed image download, continuing queue")
                 downloadNextImage()
             }
@@ -316,6 +449,9 @@ extension BLEManager: CBCentralManagerDelegate {
         imgDownloadSlot = -1
         imgDownloadQueue = []
         isDownloading = false
+        isUploading = false
+        uploadProgress = nil
+        uploadSteps = []
         nusReady = false
         scheduleReconnect()
     }
