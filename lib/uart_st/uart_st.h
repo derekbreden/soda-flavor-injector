@@ -93,9 +93,7 @@ inline uint32_t uartCrc32Update(uint32_t prev, const uint8_t *data, size_t len) 
 inline void stSendText(SerialTransfer &st, const char *text) {
   uint16_t len = strlen(text);
   if (len > 254) len = 254;  // SerialTransfer max payload
-  st.txObj(text[0], 0);  // dummy — we'll use sendDatum
-  // Use raw packet: copy text into TX buffer, send with PKT_TEXT ID
-  memcpy(st.txBuff, text, len);
+  memcpy(st.packet.txBuff, text, len);
   st.sendData(len, PKT_TEXT);
 }
 
