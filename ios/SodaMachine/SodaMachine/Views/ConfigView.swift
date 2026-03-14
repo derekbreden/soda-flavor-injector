@@ -44,7 +44,7 @@ struct ConfigView: View {
                 }
                 .contentShape(Rectangle())
                 .gesture(tapGesture)
-                .gesture(editing ? adjustGesture : swipeGesture)
+                .gesture(dragGesture)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -129,26 +129,23 @@ struct ConfigView: View {
             }
     }
 
-    private var swipeGesture: some Gesture {
+    private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 30)
             .onEnded { value in
                 let dx = value.translation.width
-                if dx < -30 && currentPage < pageCount - 1 {
-                    currentPage += 1
-                } else if dx > 30 && currentPage > 0 {
-                    currentPage -= 1
-                }
-            }
-    }
-
-    private var adjustGesture: some Gesture {
-        DragGesture(minimumDistance: 20)
-            .onEnded { value in
-                // Horizontal swipe to adjust (like encoder rotation)
-                let dx = value.translation.width
-                let dir = dx > 20 ? 1 : (dx < -20 ? -1 : 0)
-                if dir != 0 {
-                    adjustValue(by: dir)
+                if editing {
+                    // Swipe to adjust value (like encoder rotation)
+                    let dir = dx > 20 ? 1 : (dx < -20 ? -1 : 0)
+                    if dir != 0 {
+                        adjustValue(by: dir)
+                    }
+                } else {
+                    // Swipe to navigate pages
+                    if dx < -30 && currentPage < pageCount - 1 {
+                        currentPage += 1
+                    } else if dx > 30 && currentPage > 0 {
+                        currentPage -= 1
+                    }
                 }
             }
     }
