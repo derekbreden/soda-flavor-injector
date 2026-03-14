@@ -61,16 +61,9 @@ extern const char factory_defaults_start[] asm("_binary_images_factory_defaults_
 #define CMD_UPLOAD_START  0x01
 #define CMD_CHUNK_DATA    0x02
 #define CMD_UPLOAD_DONE   0x03
-#define CMD_QUERY_COUNT   0x04
-#define CMD_DELETE_IMAGE  0x05
-#define CMD_SWAP_IMAGES   0x06
-
 #define RESP_READY        0x10
 #define RESP_CHUNK_OK     0x11
 #define RESP_UPLOAD_OK    0x12
-#define RESP_DELETE_OK    0x13
-#define RESP_COUNT        0x14
-#define RESP_SWAP_OK      0x15
 
 uint8_t espNumImages = 0;
 char espLabels[MAX_STORE_IMAGES][MAX_LABEL_LEN + 1];
@@ -88,6 +81,7 @@ bool firstBoot = false;
 #define CONFIG_SEND_INTERVAL_MS 30000  // resend image mapping every 30s
 
 SerialTransfer stRP;  // SerialTransfer on Serial2 (RP2040 link)
+SerialTransfer stS3;  // SerialTransfer on Serial1 (S3 link)
 
 void sendMapToRP() {
   char buf[20];
@@ -431,70 +425,22 @@ bool waitStResponse(SerialTransfer &st, uint8_t expectedPktId, unsigned long tim
 }
 
 // ════════════════════════════════════════════════════════════
-//  Query S3 image count (binary protocol via Serial1)
+//  Query S3 image count via SerialTransfer
 // ════════════════════════════════════════════════════════════
-
-// Reset S3 UART parser state.  During ESP32 boot, GPIO 15 (TX) floats and
-// can inject garbage that leaves the S3 parser stuck in binary mode.
-// Sending 150 zero bytes overflows its 142-byte binary buffer (forcing
-// inBinary=false), then \n clears any partial text line.
-void resetS3Parser() {
-  uint8_t zeros[150] = {0};
-  Serial1.write(zeros, sizeof(zeros));
-  Serial1.write('\n');
-  Serial1.flush();
-  delay(50);
-  while (Serial1.available()) Serial1.read();  // drain any error responses
-}
 
 bool queryS3ImageCount() {
-  while (Serial1.available()) Serial1.read();  // drain stale bytes
+  stS3.sendData(0, PKT_QUERY_COUNT);
 
-  // Send QUERY_COUNT: STX STX 0x04 0x00 CRC16
-  uint8_t msg[6];
-  msg[0] = 0x02; msg[1] = 0x02;
-  msg[2] = 0x04; msg[3] = 0x00;
-  uint16_t crc = crc16(msg, 4);
-  msg[4] = crc & 0xFF;
-  msg[5] = (crc >> 8) & 0xFF;
-  Serial1.write(msg, 6);
-  Serial1.flush();
-
-  // Wait up to 500ms for 6-byte response
   unsigned long start = millis();
-  uint8_t resp[6];
-  uint8_t pos = 0;
   while (millis() - start < 500) {
-    if (Serial1.available()) {
-      resp[pos++] = Serial1.read();
-      if (pos == 6) {
-        if (resp[0] == 0x02 && resp[1] == 0x02 && resp[2] == 0x14) {
-          numS3Images = resp[3];
-          Serial.printf("S3 reports %d images\n", numS3Images);
-          return true;
-        }
-        return false;
+    if (stS3.available()) {
+      if (stS3.currentPacketID() == PKT_RESP_COUNT) {
+        ResponsePayload resp;
+        stS3.rxObj(resp);
+        numS3Images = resp.value;
+        Serial.printf("S3 reports %d images\n", numS3Images);
+        return true;
       }
-    }
-  }
-  return false;
-}
-
-// ════════════════════════════════════════════════════════════
-//  Send short binary command to S3 and read 6-byte response
-// ════════════════════════════════════════════════════════════
-
-bool sendS3DisplayCommand(const uint8_t *msg, size_t len, uint8_t *resp) {
-  while (Serial1.available()) Serial1.read();  // drain stale bytes
-  Serial1.write(msg, len);
-  Serial1.flush();
-
-  unsigned long start = millis();
-  uint8_t pos = 0;
-  while (millis() - start < 1000) {
-    if (Serial1.available()) {
-      resp[pos++] = Serial1.read();
-      if (pos == 6) return true;
     }
   }
   return false;
@@ -559,37 +505,6 @@ void saveEspLabels() {
     f.println(espLabels[i]);
   }
   f.close();
-}
-
-// ════════════════════════════════════════════════════════════
-//  S3 upload bridge mode: transparent USB <-> config UART
-// ════════════════════════════════════════════════════════════
-
-void enterS3UploadMode() {
-  Serial.println("Entering S3 upload bridge mode...");
-
-  unsigned long lastActivity = millis();
-  while (true) {
-    // USB -> S3 UART
-    while (Serial.available() && Serial1.availableForWrite()) {
-      Serial1.write(Serial.read());
-      lastActivity = millis();
-    }
-    // S3 UART -> USB
-    while (Serial1.available() && Serial.availableForWrite()) {
-      Serial.write(Serial1.read());
-      lastActivity = millis();
-    }
-    // Exit after 5 seconds of inactivity
-    if (millis() - lastActivity > 5000) {
-      break;
-    }
-  }
-
-  Serial.println("S3 upload bridge mode ended");
-  delay(100);
-  queryS3ImageCount();
-  Serial.printf("numS3Images now %d\n", numS3Images);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -742,21 +657,6 @@ void enterStoreMode(bool isS3, uint8_t slot, bool isPng = false) {
 
 enum DeviceTarget { DEVICE_RP2040, DEVICE_S3 };
 
-bool waitBinaryResponse(HardwareSerial &uart, uint8_t expectedCmd, unsigned long timeoutMs) {
-  unsigned long start = millis();
-  uint8_t resp[6];
-  uint8_t pos = 0;
-  while (millis() - start < timeoutMs) {
-    if (uart.available()) {
-      resp[pos++] = uart.read();
-      if (pos == 6) {
-        return (resp[0] == 0x02 && resp[1] == 0x02 && resp[2] == expectedCmd);
-      }
-    }
-  }
-  return false;
-}
-
 bool pushImageToDevice(DeviceTarget dev, uint8_t slot) {
   const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
   String path = (dev == DEVICE_RP2040) ? espRpPath(slot) : espS3Path(slot);
@@ -823,43 +723,28 @@ bool pushImageToDevice(DeviceTarget dev, uint8_t slot) {
     }
 
   } else {
-    // ── Old STX STX protocol for S3 (migrated in commit 7) ──
-    HardwareSerial &uart = Serial1;
-    while (uart.available()) uart.read();
+    // ── SerialTransfer path for S3 ──
+    UploadStartPayload startPl{slot, expectedSize};
+    stS3.txObj(startPl);
+    stS3.sendData(sizeof(startPl), PKT_UPLOAD_START);
 
-    uint8_t msg[10];
-    msg[0] = 0x02; msg[1] = 0x02;
-    msg[2] = CMD_UPLOAD_START; msg[3] = slot;
-    memcpy(msg + 4, &expectedSize, 4);
-    uint16_t c = crc16(msg, 8);
-    msg[8] = c & 0xFF; msg[9] = (c >> 8) & 0xFF;
-    uart.write(msg, 10);
-    uart.flush();
-
-    if (!waitBinaryResponse(uart, RESP_READY, 3000)) {
+    if (!waitStResponse(stS3, PKT_RESP_READY, 3000)) {
       Serial.printf("Push %s: not ready\n", devName);
       f.close();
       return false;
     }
 
-    uint8_t pkt[6 + STORE_CHUNK_SIZE + 2];
     while (f.available()) {
       int n = f.read(chunkBuf, STORE_CHUNK_SIZE);
       if (n <= 0) break;
 
-      pkt[0] = 0x02; pkt[1] = 0x02;
-      pkt[2] = CMD_CHUNK_DATA; pkt[3] = seq;
-      pkt[4] = n & 0xFF; pkt[5] = (n >> 8) & 0xFF;
-      memcpy(pkt + 6, chunkBuf, n);
-      uint16_t pc = crc16(pkt, 6 + n);
-      pkt[6 + n] = pc & 0xFF;
-      pkt[6 + n + 1] = (pc >> 8) & 0xFF;
+      stS3.packet.txBuff[0] = seq;
+      memcpy(stS3.packet.txBuff + 1, chunkBuf, n);
 
       bool ok = false;
       for (int attempt = 0; attempt < 5; attempt++) {
-        uart.write(pkt, 6 + n + 2);
-        uart.flush();
-        if (waitBinaryResponse(uart, RESP_CHUNK_OK, 2000)) { ok = true; break; }
+        stS3.sendData(1 + n, PKT_CHUNK_DATA);
+        if (waitStResponse(stS3, PKT_RESP_CHUNK_OK, 2000)) { ok = true; break; }
         Serial.printf("Push %s: chunk %d retry %d\n", devName, seq, attempt + 1);
       }
       if (!ok) {
@@ -868,21 +753,16 @@ bool pushImageToDevice(DeviceTarget dev, uint8_t slot) {
         return false;
       }
 
-      runCrc = crc32_update(runCrc, chunkBuf, n);
+      runCrc = uartCrc32Update(runCrc, chunkBuf, n);
       seq++;
     }
     f.close();
 
-    uint8_t done[10];
-    done[0] = 0x02; done[1] = 0x02;
-    done[2] = CMD_UPLOAD_DONE; done[3] = slot;
-    memcpy(done + 4, &runCrc, 4);
-    uint16_t dc = crc16(done, 8);
-    done[8] = dc & 0xFF; done[9] = (dc >> 8) & 0xFF;
-    uart.write(done, 10);
-    uart.flush();
+    UploadDonePayload donePl{slot, runCrc};
+    stS3.txObj(donePl);
+    stS3.sendData(sizeof(donePl), PKT_UPLOAD_DONE);
 
-    if (!waitBinaryResponse(uart, RESP_UPLOAD_OK, 5000)) {
+    if (!waitStResponse(stS3, PKT_RESP_UPLOAD_OK, 5000)) {
       Serial.printf("Push %s: verification failed\n", devName);
       return false;
     }
@@ -906,29 +786,18 @@ bool pushPngToS3(uint8_t slot) {
     return false;
   }
 
-  // Drain stale bytes
-  while (Serial1.available()) Serial1.read();
+  // Send PKT_UPLOAD_PNG_START (0x07) — replaces slot+100 hack
+  UploadStartPayload startPl{slot, fileSize};
+  stS3.txObj(startPl);
+  stS3.sendData(sizeof(startPl), PKT_UPLOAD_PNG_START);
 
-  // Send UPLOAD_START with slot+100 to indicate PNG
-  uint8_t wireSlot = slot + 100;
-  uint8_t msg[10];
-  msg[0] = 0x02; msg[1] = 0x02;
-  msg[2] = CMD_UPLOAD_START; msg[3] = wireSlot;
-  memcpy(msg + 4, &fileSize, 4);
-  uint16_t c = crc16(msg, 8);
-  msg[8] = c & 0xFF; msg[9] = (c >> 8) & 0xFF;
-  Serial1.write(msg, 10);
-  Serial1.flush();
-
-  if (!waitBinaryResponse(Serial1, RESP_READY, 3000)) {
+  if (!waitStResponse(stS3, PKT_RESP_READY, 3000)) {
     Serial.printf("Push S3 PNG: not ready\n");
     f.close();
     return false;
   }
 
-  // Send chunks
   uint8_t chunkBuf[STORE_CHUNK_SIZE];
-  uint8_t pkt[6 + STORE_CHUNK_SIZE + 2];
   uint8_t seq = 0;
   uint32_t runCrc = 0;
 
@@ -936,19 +805,13 @@ bool pushPngToS3(uint8_t slot) {
     int n = f.read(chunkBuf, STORE_CHUNK_SIZE);
     if (n <= 0) break;
 
-    pkt[0] = 0x02; pkt[1] = 0x02;
-    pkt[2] = CMD_CHUNK_DATA; pkt[3] = seq;
-    pkt[4] = n & 0xFF; pkt[5] = (n >> 8) & 0xFF;
-    memcpy(pkt + 6, chunkBuf, n);
-    uint16_t pc = crc16(pkt, 6 + n);
-    pkt[6 + n] = pc & 0xFF;
-    pkt[6 + n + 1] = (pc >> 8) & 0xFF;
+    stS3.packet.txBuff[0] = seq;
+    memcpy(stS3.packet.txBuff + 1, chunkBuf, n);
 
     bool ok = false;
     for (int attempt = 0; attempt < 5; attempt++) {
-      Serial1.write(pkt, 6 + n + 2);
-      Serial1.flush();
-      if (waitBinaryResponse(Serial1, RESP_CHUNK_OK, 2000)) { ok = true; break; }
+      stS3.sendData(1 + n, PKT_CHUNK_DATA);
+      if (waitStResponse(stS3, PKT_RESP_CHUNK_OK, 2000)) { ok = true; break; }
       Serial.printf("Push S3 PNG: chunk %d retry %d\n", seq, attempt + 1);
     }
     if (!ok) {
@@ -957,22 +820,16 @@ bool pushPngToS3(uint8_t slot) {
       return false;
     }
 
-    runCrc = crc32_update(runCrc, chunkBuf, n);
+    runCrc = uartCrc32Update(runCrc, chunkBuf, n);
     seq++;
   }
   f.close();
 
-  // Send UPLOAD_DONE
-  uint8_t done[10];
-  done[0] = 0x02; done[1] = 0x02;
-  done[2] = CMD_UPLOAD_DONE; done[3] = wireSlot;
-  memcpy(done + 4, &runCrc, 4);
-  uint16_t dc = crc16(done, 8);
-  done[8] = dc & 0xFF; done[9] = (dc >> 8) & 0xFF;
-  Serial1.write(done, 10);
-  Serial1.flush();
+  UploadDonePayload donePl{slot, runCrc};
+  stS3.txObj(donePl);
+  stS3.sendData(sizeof(donePl), PKT_UPLOAD_DONE);
 
-  if (!waitBinaryResponse(Serial1, RESP_UPLOAD_OK, 5000)) {
+  if (!waitStResponse(stS3, PKT_RESP_UPLOAD_OK, 5000)) {
     Serial.printf("Push S3 PNG: verification failed\n");
     return false;
   }
@@ -988,13 +845,13 @@ void pushLabelsToDevice(DeviceTarget dev) {
     if (dev == DEVICE_RP2040) {
       stSendText(stRP, lbuf);
     } else {
-      Serial1.printf("LABEL:%d:%s\n", i, espLabels[i]);
+      stSendText(stS3, lbuf);
     }
     delay(50);
   }
 }
 
-// Delete the last image slot on a device (CMD_DELETE_IMAGE).
+// Delete the last image slot on a device (PKT_DELETE_IMAGE).
 // Device handlers shift files down, so always deleting the last slot
 // avoids disrupting lower slots we just pushed.
 bool deleteLastDeviceImage(DeviceTarget dev, uint8_t slot) {
@@ -1010,17 +867,11 @@ bool deleteLastDeviceImage(DeviceTarget dev, uint8_t slot) {
       return false;
     }
   } else {
-    while (Serial1.available()) Serial1.read();
+    SlotPayload sp{slot};
+    stS3.txObj(sp);
+    stS3.sendData(sizeof(sp), PKT_DELETE_IMAGE);
 
-    uint8_t msg[6];
-    msg[0] = 0x02; msg[1] = 0x02;
-    msg[2] = CMD_DELETE_IMAGE; msg[3] = slot;
-    uint16_t c = crc16(msg, 4);
-    msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
-    Serial1.write(msg, 6);
-    Serial1.flush();
-
-    if (!waitBinaryResponse(Serial1, RESP_DELETE_OK, 3000)) {
+    if (!waitStResponse(stS3, PKT_RESP_DELETE_OK, 3000)) {
       Serial.printf("Delete %s slot %d: failed\n", devName, slot);
       return false;
     }
@@ -1149,8 +1000,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
 
     // Push updated config to S3 so it can forward to BLE (iOS app)
     // This eliminates the need for iOS to poll GET_CONFIG every 2 seconds
-    sendConfigResponse(Serial1);
-    Serial1.flush();
+    {
+      char cfgBuf[128];
+      snprintf(cfgBuf, sizeof(cfgBuf),
+               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages, numS3Images);
+      stSendText(stS3, cfgBuf);
+    }
 
   } else if (strcmp(cmd, "QUERY_IMAGES") == 0) {
     queryImageCount();
@@ -1250,75 +1106,56 @@ void processConfigCommand(const char *cmd, Stream &out) {
 
   // ── S3 image management commands ──────────────────────────
 
-  } else if (strncmp(cmd, "UPLOAD_S3_IMG:", 14) == 0) {
-    int slot = atoi(cmd + 14);
-    if (slot < 0 || slot > 99) {
-      out.printf("ERR:invalid slot\n");
-      return;
-    }
-    out.printf("OK:S3_BRIDGE_MODE\n");
-    out.flush();
-    enterS3UploadMode();
-
   } else if (strcmp(cmd, "QUERY_S3_IMAGES") == 0) {
     queryS3ImageCount();
     out.printf("OK:NUM_S3_IMAGES=%d\n", numS3Images);
 
   } else if (strcmp(cmd, "LIST_S3_IMAGES") == 0) {
-    // Send LIST to S3, forward text response lines
-    while (Serial1.available()) Serial1.read();  // drain
-    Serial1.print("LIST\n");
-    Serial1.flush();
+    stSendText(stS3, "LIST");
 
     unsigned long t = millis();
-    String lineBuf = "";
     while (millis() - t < 2000) {
-      if (Serial1.available()) {
-        char c = Serial1.read();
-        if (c == '\n') {
-          lineBuf.trim();
-          if (lineBuf == "END") break;
-          out.println(lineBuf);
-          lineBuf = "";
-          t = millis();  // reset timeout on each line
-        } else {
-          lineBuf += c;
+      if (stS3.available()) {
+        if (stS3.currentPacketID() == PKT_TEXT) {
+          uint16_t len = stS3.bytesRead;
+          char line[256];
+          uint16_t copyLen = (len < 255) ? len : 255;
+          memcpy(line, stS3.packet.rxBuff, copyLen);
+          line[copyLen] = '\0';
+          if (strcmp(line, "END") == 0) break;
+          out.println(line);
+          t = millis();
         }
       }
     }
     out.println("END");
 
   } else if (strcmp(cmd, "LIST_S3_PNGS") == 0) {
-    // Forward LISTPNGS to S3, relay text response lines
-    while (Serial1.available()) Serial1.read();  // drain
-    Serial1.print("LISTPNGS\n");
-    Serial1.flush();
+    stSendText(stS3, "LISTPNGS");
 
     unsigned long t = millis();
-    String lineBuf = "";
     while (millis() - t < 2000) {
-      if (Serial1.available()) {
-        char c = Serial1.read();
-        if (c == '\n') {
-          lineBuf.trim();
-          if (lineBuf == "END") break;
-          out.println(lineBuf);
-          lineBuf = "";
+      if (stS3.available()) {
+        if (stS3.currentPacketID() == PKT_TEXT) {
+          uint16_t len = stS3.bytesRead;
+          char line[256];
+          uint16_t copyLen = (len < 255) ? len : 255;
+          memcpy(line, stS3.packet.rxBuff, copyLen);
+          line[copyLen] = '\0';
+          if (strcmp(line, "END") == 0) break;
+          out.println(line);
           t = millis();
-        } else {
-          lineBuf += c;
         }
       }
     }
     out.println("END");
 
   } else if (strncmp(cmd, "SET_S3_LABEL:", 13) == 0) {
-    // SET_S3_LABEL:slot=name → forward LABEL:slot:name to S3
     int slot;
     char name[33] = {0};
     if (sscanf(cmd + 13, "%d=%32[^\n]", &slot, name) >= 1) {
       if (slot >= 0 && slot < numS3Images) {
-        Serial1.printf("LABEL:%d:%s\n", slot, name);
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); stSendText(stS3, lbuf); }
         out.printf("OK:S3_LABEL=%d:%s\n", slot, name);
       } else {
         out.printf("ERR:invalid slot\n");
@@ -1336,16 +1173,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
       return;
     }
 
-    // Send CMD_DELETE_IMAGE: STX STX 0x05 slot CRC16
-    uint8_t msg[6];
-    msg[0] = 0x02; msg[1] = 0x02;
-    msg[2] = 0x05; msg[3] = (uint8_t)slot;
-    uint16_t c = crc16(msg, 4);
-    msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
+    SlotPayload sp{(uint8_t)slot};
+    stS3.txObj(sp);
+    stS3.sendData(sizeof(sp), PKT_DELETE_IMAGE);
 
-    uint8_t resp[6];
-    if (sendS3DisplayCommand(msg, 6, resp) && resp[2] == 0x13) {
-      numS3Images = resp[3];
+    ResponsePayload rp;
+    if (waitStResponse(stS3, PKT_RESP_DELETE_OK, 3000, &rp)) {
+      numS3Images = rp.value;
       out.printf("OK:S3_DELETED=%d,NUM_S3_IMAGES=%d\n", slot, numS3Images);
     } else {
       out.printf("ERR:s3 delete failed\n");
@@ -1362,15 +1196,11 @@ void processConfigCommand(const char *cmd, Stream &out) {
       return;
     }
 
-    // Send CMD_SWAP_IMAGES: STX STX 0x06 slotA slotB CRC16
-    uint8_t msg[7];
-    msg[0] = 0x02; msg[1] = 0x02;
-    msg[2] = 0x06; msg[3] = (uint8_t)a; msg[4] = (uint8_t)b;
-    uint16_t c = crc16(msg, 5);
-    msg[5] = c & 0xFF; msg[6] = (c >> 8) & 0xFF;
+    SwapPayload sp{(uint8_t)a, (uint8_t)b};
+    stS3.txObj(sp);
+    stS3.sendData(sizeof(sp), PKT_SWAP_IMAGES);
 
-    uint8_t resp[6];
-    if (sendS3DisplayCommand(msg, 7, resp) && resp[2] == 0x15) {
+    if (waitStResponse(stS3, PKT_RESP_SWAP_OK, 3000)) {
       out.printf("OK:S3_SWAPPED=%d,%d\n", a, b);
     } else {
       out.printf("ERR:s3 swap failed\n");
@@ -1418,7 +1248,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
         saveEspLabels();
         // Forward to both devices
         { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); stSendText(stRP, lbuf); }
-        Serial1.printf("LABEL:%d:%s\n", slot, name);
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); stSendText(stS3, lbuf); }
         out.printf("OK:STORE_LABEL=%d:%s\n", slot, name);
       } else {
         out.printf("ERR:invalid slot\n");
@@ -1465,16 +1295,14 @@ void processConfigCommand(const char *cmd, Stream &out) {
       if (waitStResponse(stRP, PKT_RESP_DELETE_OK, 3000, &rp))
         numImages = rp.value;
     }
-    // Forward delete to S3 (old protocol — migrated in commit 7)
+    // Forward delete to S3 (SerialTransfer)
     {
-      uint8_t msg[6];
-      msg[0] = 0x02; msg[1] = 0x02;
-      msg[2] = CMD_DELETE_IMAGE; msg[3] = (uint8_t)slot;
-      uint16_t c = crc16(msg, 4);
-      msg[4] = c & 0xFF; msg[5] = (c >> 8) & 0xFF;
-      uint8_t resp[6];
-      if (sendS3DisplayCommand(msg, 6, resp) && resp[2] == RESP_DELETE_OK)
-        numS3Images = resp[3];
+      SlotPayload sp{(uint8_t)slot};
+      stS3.txObj(sp);
+      stS3.sendData(sizeof(sp), PKT_DELETE_IMAGE);
+      ResponsePayload rp;
+      if (waitStResponse(stS3, PKT_RESP_DELETE_OK, 3000, &rp))
+        numS3Images = rp.value;
     }
 
     // Adjust flavor image references
@@ -1582,14 +1410,51 @@ void checkConfigStream(Stream &stream, char *buf, uint8_t &pos) {
   }
 }
 
+// Stream wrapper that routes printf/println output to SerialTransfer PKT_TEXT packets.
+// Each line (terminated by \n) is sent as a separate packet. This lets processConfigCommand
+// work unchanged — all out.printf() calls automatically become stSendText() calls.
+class StStream : public Stream {
+  SerialTransfer &_st;
+  char _buf[256];
+  uint8_t _pos;
+public:
+  StStream(SerialTransfer &st) : _st(st), _pos(0) {}
+  size_t write(uint8_t c) override {
+    if (c == '\n' || _pos >= 254) {
+      if (_pos > 0) { _buf[_pos] = '\0'; stSendText(_st, _buf); _pos = 0; }
+    } else if (c != '\r') {
+      _buf[_pos++] = c;
+    }
+    return 1;
+  }
+  size_t write(const uint8_t *buffer, size_t size) override {
+    for (size_t i = 0; i < size; i++) write(buffer[i]);
+    return size;
+  }
+  int available() override { return 0; }
+  int read() override { return -1; }
+  int peek() override { return -1; }
+  void flush() override { if (_pos > 0) { _buf[_pos] = '\0'; stSendText(_st, _buf); _pos = 0; } }
+};
+
 char configBuf0[CONFIG_BUF_SIZE];  // USB Serial
 uint8_t configPos0 = 0;
-char configBuf1[CONFIG_BUF_SIZE];  // Serial1 (S3)
-uint8_t configPos1 = 0;
 
 void checkConfigUART() {
-  checkConfigStream(Serial,  configBuf0, configPos0);
-  checkConfigStream(Serial1, configBuf1, configPos1);
+  checkConfigStream(Serial, configBuf0, configPos0);
+  // Poll stS3 for PKT_TEXT commands from S3
+  if (stS3.available()) {
+    if (stS3.currentPacketID() == PKT_TEXT) {
+      uint16_t len = stS3.bytesRead;
+      char cmd[CONFIG_BUF_SIZE];
+      uint16_t copyLen = (len < CONFIG_BUF_SIZE - 1) ? len : CONFIG_BUF_SIZE - 1;
+      memcpy(cmd, stS3.packet.rxBuff, copyLen);
+      cmd[copyLen] = '\0';
+      StStream s3out(stS3);
+      processConfigCommand(cmd, s3out);
+      s3out.flush();
+    }
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1653,13 +1518,12 @@ void setup() {
 
   // UART to config display (ESP32-S3, bidirectional, 38400 baud)
   Serial1.begin(38400, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
+  stS3.begin(Serial1);
 
   // Wait for S3 to boot, init LittleFS, and start UART.
   // First boot seeds 3 images (~345KB writes) which can take several seconds.
+  // COBS framing naturally rejects boot noise — no parser reset needed.
   delay(3000);
-
-  // ESP32 boot noise on GPIO 15 can corrupt S3 parser — flush it
-  resetS3Parser();
 
   // Query S3 image count with retries
   for (int attempt = 0; attempt < 3; attempt++) {
