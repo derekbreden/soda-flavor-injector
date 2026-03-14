@@ -19,9 +19,13 @@ struct ImageManagerView: View {
                     uploadProgressSection
                 }
 
+                if ble.imageDownloadProgress != nil {
+                    downloadProgressSection
+                }
+
                 imagesSection
 
-                if ble.numImages < maxImages && ble.uploadProgress == nil {
+                if ble.numImages < maxImages && ble.uploadProgress == nil && ble.imageDownloadProgress == nil {
                     addImageSection
                 }
             }
@@ -76,6 +80,18 @@ struct ImageManagerView: View {
         }
     }
 
+    private var downloadProgressSection: some View {
+        Section {
+            HStack(spacing: 12) {
+                ProgressView()
+                Text("Loading images…")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
     private var imagesSection: some View {
         Section {
             ForEach(0..<ble.numImages, id: \.self) { index in
@@ -94,7 +110,7 @@ struct ImageManagerView: View {
                 }
             }
             .onDelete { offsets in
-                if ble.numImages > 1, let index = offsets.first {
+                if ble.numImages > 1, ble.imageDownloadProgress == nil, let index = offsets.first {
                     deleteSlot = index
                     showDeleteConfirm = true
                 }
@@ -126,9 +142,8 @@ struct ImageManagerView: View {
                 Circle()
                     .fill(Color(white: 0.15))
                     .overlay {
-                        Image(systemName: "photo")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.gray)
+                        ProgressView()
+                            .scaleEffect(0.7)
                     }
             }
         }
