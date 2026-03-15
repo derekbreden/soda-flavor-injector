@@ -54,12 +54,24 @@ class BLEManager {
     // Factory reset completion signal (toggled on OK:FACTORY_RESET)
     var factoryResetCompleted = false
 
+    // Delete error (shown as alert in UI, nil = no error)
+    var deleteError: String? = nil
+
+    // Demo mode (no hardware needed)
+    var demoMode = false
+
     // ── Internal state (not observed by SwiftUI) ──
 
     // All @ObservationIgnored properties below are fileprivate so
     // the CBDelegateAdapter (same file) can access them directly.
 
     @ObservationIgnored fileprivate var pendingImageList: [String] = []
+
+    // Pending delete state (for optimistic UI rollback)
+    @ObservationIgnored fileprivate var pendingDeleteSlot: Int = -1
+    @ObservationIgnored fileprivate var preDeleteNumImages: Int = 0
+    @ObservationIgnored fileprivate var preDeleteCachedImages: [Int: UIImage] = [:]
+    @ObservationIgnored fileprivate var preDeleteImageNames: [String] = []
 
     // Image upload state
     @ObservationIgnored fileprivate var isUploading = false
@@ -110,15 +122,18 @@ class BLEManager {
     }
 
     func requestConfig() {
+        if demoMode { return }
         send("GET_CONFIG")
     }
 
     func requestImageList() {
+        if demoMode { return }
         pendingImageList = []
         send("LIST")
     }
 
     func requestVersions() {
+        if demoMode { return }
         s3Version = ""
         espVersion = ""
         rpVersion = ""
@@ -126,6 +141,21 @@ class BLEManager {
     }
 
     func factoryReset() {
+        if demoMode {
+            flavor1Image = 0
+            flavor2Image = 1
+            flavor1Ratio = 20
+            flavor2Ratio = 20
+            numImages = 3
+            imageNames = ["diet_wild_cherry_pepsi", "diet_mtn_dew", "diet_coke"]
+            cachedImages = [
+                0: generateDemoImage(label: "Cherry Pepsi", color: UIColor(red: 0.7, green: 0.1, blue: 0.15, alpha: 1)),
+                1: generateDemoImage(label: "Mtn Dew", color: UIColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 1)),
+                2: generateDemoImage(label: "Diet Coke", color: UIColor(red: 0.4, green: 0.4, blue: 0.45, alpha: 1))
+            ]
+            factoryResetCompleted = true
+            return
+        }
         send("FACTORY_RESET")
     }
 
@@ -150,6 +180,10 @@ class BLEManager {
     }
 
     func uploadImage(_ image: UIImage, toSlot slot: Int) {
+        if demoMode {
+            uploadDemoImage(image, toSlot: slot)
+            return
+        }
         guard !isUploading else {
             log.warning("Upload already in progress")
             return
@@ -181,6 +215,33 @@ class BLEManager {
     }
 
     func deleteImage(slot: Int) {
+        if demoMode {
+            deleteDemoImage(slot: slot)
+            return
+        }
+
+        // Save state for rollback on error
+        pendingDeleteSlot = slot
+        preDeleteNumImages = numImages
+        preDeleteCachedImages = cachedImages
+        preDeleteImageNames = imageNames
+
+        // Optimistic UI: remove immediately
+        numImages -= 1
+        // Shift cached images above deleted slot down
+        var newCache: [Int: UIImage] = [:]
+        for (key, img) in cachedImages {
+            if key < slot {
+                newCache[key] = img
+            } else if key > slot {
+                newCache[key - 1] = img
+            }
+        }
+        cachedImages = newCache
+        if slot < imageNames.count {
+            imageNames.remove(at: slot)
+        }
+
         send("DELETE_STORE_IMG:\(slot)")
     }
 
@@ -194,6 +255,113 @@ class BLEManager {
             self.imgDownloadQueue = queue
             self.startNextDownload()
         }
+    }
+
+    // MARK: - Demo mode
+
+    func enterDemoMode() {
+        centralManager.stopScan()
+        scanTimer?.invalidate()
+        reconnectTimer?.invalidate()
+        demoMode = true
+        connectionState = .connected
+        configSynced = true
+        flavor1Image = 0
+        flavor2Image = 1
+        flavor1Ratio = 20
+        flavor2Ratio = 20
+        numImages = 3
+        imageNames = ["diet_wild_cherry_pepsi", "diet_mtn_dew", "diet_coke"]
+        cachedImages = [
+            0: generateDemoImage(label: "Cherry Pepsi", color: UIColor(red: 0.7, green: 0.1, blue: 0.15, alpha: 1)),
+            1: generateDemoImage(label: "Mtn Dew", color: UIColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 1)),
+            2: generateDemoImage(label: "Diet Coke", color: UIColor(red: 0.4, green: 0.4, blue: 0.45, alpha: 1))
+        ]
+        s3Version = "Demo"
+        espVersion = "Demo"
+        rpVersion = "Demo"
+    }
+
+    func exitDemoMode() {
+        demoMode = false
+        configSynced = false
+        cachedImages = [:]
+        imageNames = []
+        numImages = 0
+        s3Version = ""
+        espVersion = ""
+        rpVersion = ""
+        if centralManager.state == .poweredOn {
+            startScan()
+        } else {
+            connectionState = .bluetoothOff
+        }
+    }
+
+    private func generateDemoImage(label: String, color: UIColor) -> UIImage {
+        let size = CGSize(width: 240, height: 240)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            color.setFill()
+            ctx.cgContext.fillEllipse(in: CGRect(origin: .zero, size: size))
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 24, weight: .bold),
+                .foregroundColor: UIColor.white
+            ]
+            let text = label as NSString
+            let textSize = text.size(withAttributes: attrs)
+            let textRect = CGRect(
+                x: (size.width - textSize.width) / 2,
+                y: (size.height - textSize.height) / 2,
+                width: textSize.width,
+                height: textSize.height
+            )
+            text.draw(in: textRect, withAttributes: attrs)
+        }
+    }
+
+    private func uploadDemoImage(_ image: UIImage, toSlot slot: Int) {
+        uploadProgress = 0
+        uploadStatus = "Uploading image..."
+        var step = 0
+        let totalSteps = 20
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+            guard let self, self.demoMode else { timer.invalidate(); return }
+            step += 1
+            self.uploadProgress = Double(step) / Double(totalSteps)
+            if step >= totalSteps {
+                timer.invalidate()
+                self.cachedImages[slot] = image
+                if slot >= self.numImages {
+                    self.numImages = slot + 1
+                    self.imageNames.append("image_\(slot)")
+                }
+                self.uploadProgress = nil
+                self.uploadStatus = ""
+            }
+        }
+    }
+
+    private func deleteDemoImage(slot: Int) {
+        guard numImages > 1 else { return }
+
+        var newNames: [String] = []
+        var newCache: [Int: UIImage] = [:]
+        var j = 0
+        for i in 0..<numImages where i != slot {
+            if i < imageNames.count { newNames.append(imageNames[i]) }
+            if let img = cachedImages[i] { newCache[j] = img }
+            j += 1
+        }
+
+        numImages -= 1
+        imageNames = newNames
+        cachedImages = newCache
+
+        if flavor1Image > slot { flavor1Image -= 1 }
+        else if flavor1Image == slot { flavor1Image = max(0, slot - 1) }
+        if flavor2Image > slot { flavor2Image -= 1 }
+        else if flavor2Image == slot { flavor2Image = max(0, slot - 1) }
     }
 
     // MARK: - Image upload
@@ -310,6 +478,7 @@ class BLEManager {
         } else if text.hasPrefix("OK:UPLOAD_DONE:") {
             completeUpload()
         } else if text.hasPrefix("OK:STORE_DELETED=") {
+            pendingDeleteSlot = -1
             let body = String(text.dropFirst(3))
             for pair in body.split(separator: ",") {
                 let parts = pair.split(separator: "=", maxSplits: 1)
@@ -342,6 +511,13 @@ class BLEManager {
             } else if isDownloading {
                 log.error("Skipping failed image download, continuing queue")
                 bleQueue.async { self.startNextDownload() }
+            } else if pendingDeleteSlot >= 0 {
+                // Roll back optimistic delete
+                numImages = preDeleteNumImages
+                cachedImages = preDeleteCachedImages
+                imageNames = preDeleteImageNames
+                pendingDeleteSlot = -1
+                deleteError = String(text.dropFirst(4)) // strip "ERR:" prefix
             }
         }
     }
@@ -463,6 +639,7 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        if ble.demoMode { return }
         log.info("Disconnected")
         ble.imgDownloadSlot = -1
         ble.connectedPeripheral = nil
@@ -477,6 +654,12 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
             self.ble.isUploading = false
             self.ble.uploadProgress = nil
             self.ble.uploadSteps = []
+            if self.ble.pendingDeleteSlot >= 0 {
+                self.ble.numImages = self.ble.preDeleteNumImages
+                self.ble.cachedImages = self.ble.preDeleteCachedImages
+                self.ble.imageNames = self.ble.preDeleteImageNames
+                self.ble.pendingDeleteSlot = -1
+            }
             self.ble.scheduleReconnect()
         }
     }

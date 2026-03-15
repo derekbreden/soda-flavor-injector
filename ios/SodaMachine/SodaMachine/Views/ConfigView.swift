@@ -71,7 +71,7 @@ private struct SettingsPageView: View {
                     .tint(.white)
                     .padding(.top, 8)
                 Text("Resetting...")
-                    .font(.system(size: 14))
+                    .font(.system(size: 16))
                     .foregroundStyle(.gray)
             } else {
                 VStack(spacing: 0) {
@@ -84,6 +84,11 @@ private struct SettingsPageView: View {
                     settingsButton("About") {
                         ble.requestVersions()
                         inAbout = true
+                    }
+                    if ble.demoMode {
+                        settingsButton("Exit Demo") {
+                            ble.exitDemoMode()
+                        }
                     }
                 }
             }
@@ -108,7 +113,7 @@ private struct SettingsPageView: View {
     private func settingsButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
         }
@@ -125,10 +130,11 @@ private struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Spacer()
+
             Text("About")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(.white)
-                .padding(.top, 80)
 
             Spacer().frame(height: 32)
 
@@ -138,10 +144,10 @@ private struct AboutView: View {
             ForEach(0..<3, id: \.self) { i in
                 VStack(spacing: 4) {
                     Text(labels[i])
-                        .font(.system(size: 14))
+                        .font(.system(size: 16))
                         .foregroundStyle(.gray)
                     Text(versions[i].isEmpty ? "..." : versions[i])
-                        .font(.system(size: 14))
+                        .font(.system(size: 16))
                         .foregroundStyle(.white)
                 }
                 if i < 2 { Spacer().frame(height: 16) }
@@ -174,7 +180,7 @@ struct ConfigView: View {
                         .scaleEffect(1.5)
                         .tint(.white)
                     Text("Loading configuration...")
-                        .font(.title3.weight(.medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.white)
                 }
             } else if inAbout {

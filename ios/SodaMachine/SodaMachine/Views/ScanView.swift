@@ -28,19 +28,19 @@ struct ScanView: View {
 
                 if ble.connectionState == .bluetoothOff {
                     Text("Turn on Bluetooth")
-                        .font(.title3.weight(.medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.white)
                     Text("Bluetooth is required to connect to your Soda Machine.")
-                        .font(.callout)
+                        .font(.system(size: 16))
                         .foregroundStyle(.gray)
                         .multilineTextAlignment(.center)
                 } else if ble.connectionState == .connecting {
                     Text("Connecting...")
-                        .font(.title3.weight(.medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.white)
                 } else if ble.connectionState == .searchingLong {
                     Text("Searching for Soda Machine...")
-                        .font(.title3.weight(.medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.white)
                         .padding(.bottom, 8)
 
@@ -49,15 +49,22 @@ struct ScanView: View {
                         Label("Make sure it is powered on", systemImage: "power")
                         Label("Try rebooting the Soda Machine", systemImage: "arrow.clockwise")
                     }
-                    .font(.callout)
+                    .font(.system(size: 16))
                     .foregroundStyle(.gray)
                 } else {
                     Text("Searching for Soda Machine...")
-                        .font(.title3.weight(.medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.white)
                 }
 
                 Spacer()
+
+                Button("Try Demo Mode") {
+                    ble.enterDemoMode()
+                }
+                .font(.system(size: 14))
+                .foregroundStyle(.gray)
+                .padding(.bottom, 20)
             }
             .padding(.horizontal, 32)
         }
