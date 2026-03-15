@@ -211,11 +211,13 @@ struct ConfigView: View {
                     VStack {
                         Spacer()
 
-                        Text(pageLabels[i])
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(editing && i == currentPage ? .white : .gray)
+                        if i < pageCount - 1 {
+                            Text(pageLabels[i])
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(editing && i == currentPage ? .white : .gray)
 
-                        Spacer().frame(height: 12)
+                            Spacer().frame(height: 12)
+                        }
 
                         pageView(for: i)
                             .frame(height: 180)
