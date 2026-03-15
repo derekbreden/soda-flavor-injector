@@ -507,6 +507,8 @@ struct ConfigView: View {
                 }
             } else if inStats {
                 StatsView(inStats: $inStats)
+                    .onAppear { ble.subscribeStats() }
+                    .onDisappear { ble.unsubscribeStats() }
             } else if inAbout {
                 AboutView()
                     .contentShape(Rectangle())

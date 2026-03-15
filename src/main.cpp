@@ -279,6 +279,11 @@ uint32_t currentEpoch() {
   return timeAnchorEpoch + (millis() - timeAnchorMillis) / 1000;
 }
 
+// Live chart push (ESP32 → S3 → BLE → iOS, no polling)
+bool statsSubscribed = false;
+unsigned long lastChartPush = 0;
+uint32_t lastPushedFlowSum[2] = {};
+
 // ════════════════════════════════════════════════════════════
 //  Factory defaults & LittleFS config persistence
 // ════════════════════════════════════════════════════════════
@@ -1378,8 +1383,21 @@ void processConfigCommand(const char *cmd, Stream &out) {
           pos += snprintf(line + pos, sizeof(line) - pos, ",%lu", (unsigned long)arrHOD[i]);
         }
         out.printf("%s\n", line);
+
+        // Emit baseline currentHour flow_sum (for live delta computation)
+        out.printf("CHART_CUR:F=%d,FS=%lu\n", f, (unsigned long)currentHour[f].flow_sum);
       }
     }
+
+  } else if (strcmp(cmd, "STATS_SUBSCRIBE") == 0) {
+    statsSubscribed = true;
+    lastPushedFlowSum[0] = currentHour[0].flow_sum;
+    lastPushedFlowSum[1] = currentHour[1].flow_sum;
+    out.printf("OK:STATS_SUBSCRIBED\n");
+
+  } else if (strcmp(cmd, "STATS_UNSUBSCRIBE") == 0) {
+    statsSubscribed = false;
+    out.printf("OK:STATS_UNSUBSCRIBED\n");
 
   } else if (strcmp(cmd, "GET_CONFIG") == 0) {
     sendConfigResponse(out);
@@ -2246,6 +2264,18 @@ void loop() {
     if (waterFlowing) {
       currentHour[activeFlavor].flow_sum += count;
       currentHour[activeFlavor].flow_count++;
+
+      // Push live chart update to iOS (throttled to 1/sec)
+      if (statsSubscribed && (now - lastChartPush >= 1000)) {
+        uint32_t fs = currentHour[activeFlavor].flow_sum;
+        if (fs != lastPushedFlowSum[activeFlavor]) {
+          char buf[40];
+          snprintf(buf, sizeof(buf), "CHART_LIVE:F=%d,FS=%lu", activeFlavor, (unsigned long)fs);
+          stSendText(stS3, buf);
+          lastPushedFlowSum[activeFlavor] = fs;
+          lastChartPush = now;
+        }
+      }
     }
 
     // Track readings during active pump cycles for averaging

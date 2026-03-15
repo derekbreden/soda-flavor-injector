@@ -69,6 +69,13 @@ class BLEManager {
 
     @ObservationIgnored fileprivate var chartLinesReceived: Int = 0
 
+    // Live chart baselines (for computing delta from CHART_LIVE pushes)
+    @ObservationIgnored fileprivate var chartBaseFlowSum: [UInt32] = [0, 0]
+    @ObservationIgnored fileprivate var chartBase24H_last: [Double] = [0, 0]
+    @ObservationIgnored fileprivate var chartBase30D_last: [Double] = [0, 0]
+    @ObservationIgnored fileprivate var chartBaseHOD_slot: [Double] = [0, 0]
+    @ObservationIgnored fileprivate var chartBaseHOD_hour: Int = Calendar.current.component(.hour, from: Date())
+
     // Usage statistics
     struct FlavorStats {
         var todayFlowSum: UInt32 = 0
@@ -204,6 +211,16 @@ class BLEManager {
             return
         }
         sendStatsCommands()
+    }
+
+    func subscribeStats() {
+        if demoMode { return }
+        send("STATS_SUBSCRIBE")
+    }
+
+    func unsubscribeStats() {
+        if demoMode { return }
+        send("STATS_UNSUBSCRIBE")
     }
 
     fileprivate func sendStatsCommands() {
@@ -723,21 +740,20 @@ class BLEManager {
     }
 
     private func parseChartLine(_ text: String) {
-        // CHART_24H:F=0,v0,v1,...,v23
-        // CHART_30D:F=0,v0,v1,...,v29
-        // CHART_HOD:F=0,D=N,v0,...,v23
         guard let firstColon = text.firstIndex(of: ":") else { return }
         let prefix = String(text[text.startIndex..<firstColon])
         let body = String(text[text.index(after: firstColon)...])
         let parts = body.split(separator: ",")
         guard parts.count >= 2 else { return }
 
-        // Parse F= value
+        // Parse key=value pairs at start
         var flavor = 0
-        var dataStart = 1
+        var kvValues: [String: String] = [:]
+        var dataStart = 0
         for (i, part) in parts.enumerated() {
             let kv = part.split(separator: "=", maxSplits: 1)
             if kv.count == 2 {
+                kvValues[String(kv[0])] = String(kv[1])
                 if kv[0] == "F" { flavor = Int(kv[1]) ?? 0 }
                 else if kv[0] == "D" { chartDataHODDays = max(Int(kv[1]) ?? 1, 1) }
                 dataStart = i + 1
@@ -745,9 +761,38 @@ class BLEManager {
                 break
             }
         }
-
-        let values = parts[dataStart...].map { Double(UInt32($0) ?? 0) * 0.05 }
         guard flavor >= 0, flavor <= 1 else { return }
+
+        // CHART_CUR: store baseline flow_sum and snapshot chart slot values
+        if prefix == "CHART_CUR" {
+            if let fsStr = kvValues["FS"], let fs = UInt32(fsStr) {
+                chartBaseFlowSum[flavor] = fs
+                chartBase24H_last[flavor] = chartData24H[flavor][23]
+                chartBase30D_last[flavor] = chartData30D[flavor][29]
+                let curHour = Calendar.current.component(.hour, from: Date())
+                chartBaseHOD_hour = curHour
+                chartBaseHOD_slot[flavor] = chartDataHOD[flavor][curHour]
+            }
+            chartLinesReceived += 1
+            if chartLinesReceived >= 8 {
+                chartDataSynced = true
+            }
+            return
+        }
+
+        // CHART_LIVE: push update — apply delta to live slots
+        if prefix == "CHART_LIVE" {
+            if let fsStr = kvValues["FS"], let newFS = UInt32(fsStr) {
+                let delta = Double(newFS - chartBaseFlowSum[flavor]) * 0.05
+                chartData24H[flavor][23] = chartBase24H_last[flavor] + delta
+                chartData30D[flavor][29] = chartBase30D_last[flavor] + delta
+                chartDataHOD[flavor][chartBaseHOD_hour] = chartBaseHOD_slot[flavor] + delta
+            }
+            return
+        }
+
+        // CHART_24H / CHART_30D / CHART_HOD: full array data
+        let values = parts[dataStart...].map { Double(UInt32($0) ?? 0) * 0.05 }
 
         if prefix == "CHART_24H" && values.count == 24 {
             chartData24H[flavor] = values
@@ -758,7 +803,7 @@ class BLEManager {
         }
 
         chartLinesReceived += 1
-        if chartLinesReceived >= 6 {
+        if chartLinesReceived >= 8 {
             chartDataSynced = true
         }
     }
