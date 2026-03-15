@@ -41,22 +41,55 @@ private struct ImageSlotView: View {
     }
 }
 
-private struct ImageManagementIcon: View {
+// ────────────────────────────────────────────────────────────
+// Settings sub-views (About, version display)
+// ────────────────────────────────────────────────────────────
+
+private struct AboutView: View {
     @Environment(BLEManager.self) var ble
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "photo.stack")
-                .font(.system(size: 48))
-                .foregroundStyle(.gray)
-            Text("\(ble.numImages) images")
-                .font(.callout)
-                .foregroundStyle(.gray)
+        VStack(spacing: 0) {
+            Text("About")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.top, 80)
+
+            Spacer().frame(height: 32)
+
+            let labels = ["S3", "ESP32", "RP2040"]
+            let versions = [ble.s3Version, ble.espVersion, ble.rpVersion]
+
+            ForEach(0..<3, id: \.self) { i in
+                VStack(spacing: 4) {
+                    Text(labels[i])
+                        .font(.system(size: 14))
+                        .foregroundStyle(.gray)
+                    Text(versions[i].isEmpty ? "..." : versions[i])
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white)
+                }
+                if i < 2 { Spacer().frame(height: 16) }
+            }
+
+            Spacer()
         }
     }
 }
 
 // ────────────────────────────────────────────────────────────
+
+private enum SettingsItem: Int, CaseIterable {
+    case back, manageImages, factoryReset, about
+    var label: String {
+        switch self {
+        case .back: "Back"
+        case .manageImages: "Manage Images"
+        case .factoryReset: "Factory Reset"
+        case .about: "About"
+        }
+    }
+}
 
 struct ConfigView: View {
     @Environment(BLEManager.self) var ble
@@ -64,8 +97,16 @@ struct ConfigView: View {
     @State private var editing = false
     @State private var showImageManager = false
 
+    // Settings submenu state
+    @State private var inSettings = false
+    @State private var settingsIndex = 0
+    @State private var settingsConfirm = false
+    @State private var confirmIndex = 1  // default to No
+    @State private var inAbout = false
+    @State private var factoryResetPending = false
+
     private let pageCount = 5
-    private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Images"]
+    private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings"]
 
     var body: some View {
         ZStack {
@@ -80,82 +121,219 @@ struct ConfigView: View {
                         .font(.title3.weight(.medium))
                         .foregroundStyle(.white)
                 }
+            } else if inAbout {
+                aboutContent
+            } else if inSettings {
+                settingsContent
             } else {
-                ZStack(alignment: .bottom) {
-                    // Paging TabView — tap gestures are on per-page
-                    // content (not the TabView itself) to avoid
-                    // conflicting with the swipe gesture recognizer.
-                    TabView(selection: $currentPage) {
-                        ForEach(0..<pageCount, id: \.self) { i in
-                            VStack {
-                                Spacer()
+                carouselContent
+            }
+        }
+        .sheet(isPresented: $showImageManager) {
+            ImageManagerView()
+                .environment(ble)
+        }
+        .onChange(of: ble.connectionState) { _, state in
+            if state != .connected {
+                inSettings = false
+                inAbout = false
+                settingsConfirm = false
+                factoryResetPending = false
+            }
+        }
+        .onChange(of: ble.factoryResetCompleted) { _, completed in
+            if completed {
+                factoryResetPending = false
+                settingsConfirm = false
+                inSettings = false
+                ble.factoryResetCompleted = false
+            }
+        }
+    }
 
-                                Text(pageLabels[i])
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(editing && i == currentPage ? .white : .gray)
+    // MARK: - Carousel (main menu)
 
-                                Spacer().frame(height: 12)
+    private var carouselContent: some View {
+        ZStack(alignment: .bottom) {
+            TabView(selection: $currentPage) {
+                ForEach(0..<pageCount, id: \.self) { i in
+                    VStack {
+                        Spacer()
 
-                                pageView(for: i)
-                                    .frame(height: 180)
+                        Text(pageLabels[i])
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(editing && i == currentPage ? .white : .gray)
 
-                                Spacer()
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                if i == 4 {
-                                    showImageManager = true
-                                } else {
-                                    editing = true
-                                }
-                            }
-                            .tag(i)
+                        Spacer().frame(height: 12)
+
+                        pageView(for: i)
+                            .frame(height: 180)
+
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if i == 4 {
+                            enterSettings()
+                        } else {
+                            editing = true
                         }
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-                    .allowsHitTesting(!editing)
-                    .overlay {
-                        // When editing, an overlay captures taps (to
-                        // dismiss) and horizontal drags (to adjust the
-                        // value). The TabView beneath has hit testing
-                        // disabled so swipes don't change pages.
-                        if editing {
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    editing = false
-                                    sendCurrentValue()
-                                }
-                                .gesture(
-                                    DragGesture(minimumDistance: 30)
-                                        .onEnded { value in
-                                            let dx = value.translation.width
-                                            if dx > 30 {
-                                                adjustValue(by: -1)
-                                            } else if dx < -30 {
-                                                adjustValue(by: 1)
-                                            }
-                                        }
-                                )
-                        }
-                    }
-
-                    // Fixed nav dots
-                    HStack(spacing: 12) {
-                        ForEach(0..<pageCount, id: \.self) { j in
-                            Circle()
-                                .fill(j == currentPage ? Color.white : Color(white: 0.3))
-                                .frame(width: 8, height: 8)
-                        }
-                    }
-                    .padding(.bottom, 50)
-                    .allowsHitTesting(false)
-                }
-                .sheet(isPresented: $showImageManager) {
-                    ImageManagerView()
-                        .environment(ble)
+                    .tag(i)
                 }
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .allowsHitTesting(!editing)
+            .overlay {
+                if editing {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editing = false
+                            sendCurrentValue()
+                        }
+                        .gesture(
+                            DragGesture(minimumDistance: 30)
+                                .onEnded { value in
+                                    let dx = value.translation.width
+                                    if dx > 30 {
+                                        adjustValue(by: -1)
+                                    } else if dx < -30 {
+                                        adjustValue(by: 1)
+                                    }
+                                }
+                        )
+                }
+            }
+
+            // Fixed nav dots
+            HStack(spacing: 12) {
+                ForEach(0..<pageCount, id: \.self) { j in
+                    Circle()
+                        .fill(j == currentPage ? Color.white : Color(white: 0.3))
+                        .frame(width: 8, height: 8)
+                }
+            }
+            .padding(.bottom, 50)
+            .allowsHitTesting(false)
+        }
+    }
+
+    // MARK: - Settings submenu
+
+    private var settingsContent: some View {
+        VStack(spacing: 0) {
+            Spacer().frame(height: 80)
+
+            Text(settingsConfirm ? "Factory Reset" : "Settings")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white)
+
+            Spacer()
+
+            if factoryResetPending {
+                Text("Resetting...")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.red)
+            } else if settingsConfirm {
+                confirmList
+            } else {
+                settingsList
+            }
+
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { handleSettingsTap() }
+        .gesture(
+            DragGesture(minimumDistance: 30)
+                .onEnded { value in
+                    guard !factoryResetPending else { return }
+                    let dx = value.translation.width
+                    if dx > 30 {
+                        handleSettingsNav(-1)
+                    } else if dx < -30 {
+                        handleSettingsNav(1)
+                    }
+                }
+        )
+    }
+
+    private var settingsList: some View {
+        VStack(spacing: 28) {
+            ForEach(SettingsItem.allCases, id: \.rawValue) { item in
+                Text(item.label)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(item.rawValue == settingsIndex ? .white : Color(white: 0.25))
+            }
+        }
+    }
+
+    private var confirmList: some View {
+        VStack(spacing: 28) {
+            ForEach(["Yes", "No"], id: \.self) { option in
+                let idx = option == "Yes" ? 0 : 1
+                Text(option)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(idx == confirmIndex ? .white : Color(white: 0.25))
+            }
+        }
+    }
+
+    // MARK: - About
+
+    private var aboutContent: some View {
+        AboutView()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                inAbout = false
+            }
+    }
+
+    // MARK: - Settings logic
+
+    private func enterSettings() {
+        inSettings = true
+        settingsIndex = 0
+        settingsConfirm = false
+    }
+
+    private func handleSettingsNav(_ dir: Int) {
+        if settingsConfirm {
+            confirmIndex = (confirmIndex + dir + 2) % 2
+        } else {
+            let count = SettingsItem.allCases.count
+            settingsIndex = (settingsIndex + dir + count) % count
+        }
+    }
+
+    private func handleSettingsTap() {
+        if factoryResetPending { return }
+
+        if settingsConfirm {
+            if confirmIndex == 0 {
+                // Yes — execute factory reset
+                factoryResetPending = true
+                ble.factoryReset()
+            } else {
+                // No — back to settings list
+                settingsConfirm = false
+            }
+            return
+        }
+
+        guard let item = SettingsItem(rawValue: settingsIndex) else { return }
+        switch item {
+        case .back:
+            inSettings = false
+        case .manageImages:
+            showImageManager = true
+        case .factoryReset:
+            settingsConfirm = true
+            confirmIndex = 1  // default to No
+        case .about:
+            inAbout = true
+            ble.requestVersions()
         }
     }
 
@@ -173,7 +351,7 @@ struct ConfigView: View {
         case 3:
             ratioDisplay(ratio: ble.flavor2Ratio)
         case 4:
-            ImageManagementIcon()
+            settingsIcon
         default:
             EmptyView()
         }
@@ -184,6 +362,12 @@ struct ConfigView: View {
             .font(.system(size: editing ? 72 : 36, weight: .regular, design: .rounded))
             .foregroundStyle(editing ? .white : .gray)
             .animation(.easeInOut(duration: 0.2), value: editing)
+    }
+
+    private var settingsIcon: some View {
+        Image(systemName: "gearshape")
+            .font(.system(size: 48))
+            .foregroundStyle(.gray)
     }
 
     // MARK: - Value Adjustment

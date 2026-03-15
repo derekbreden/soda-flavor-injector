@@ -107,7 +107,7 @@ static uint8_t bleSendChunkBuf[180];  // must fit within negotiated ATT MTU - 3
 // writes directly. Instead, callback sets a request + buffers data, and loop()
 // processes it on the main task.
 enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG, BLE_REQ_FORWARD,
-                  BLE_REQ_UPLOAD_START, BLE_REQ_GET_CONFIG };
+                  BLE_REQ_UPLOAD_START, BLE_REQ_GET_CONFIG, BLE_REQ_GET_VERSION };
 static volatile BleRequest bleRequest = BLE_REQ_NONE;
 static volatile int bleRequestSlot = -1;
 static char bleForwardBuf[64];  // buffered command to forward to ESP32
@@ -248,6 +248,8 @@ class BLERxCB : public BLECharacteristicCallbacks {
 
     } else if (val == "GET_CONFIG") {
       bleRequest = BLE_REQ_GET_CONFIG;
+    } else if (val == "GET_VERSION") {
+      bleRequest = BLE_REQ_GET_VERSION;
     } else if (val == "LIST") {
       bleRequest = BLE_REQ_LIST;
     } else if (val.startsWith("GETPNG:")) {
@@ -337,6 +339,15 @@ static void processBleRequest() {
       bleSendLine(cfg);
       // Also forward to ESP32 so it knows to push a fresh CONFIG update
       stSendText(stLink, "GET_CONFIG");
+      break;
+    }
+
+    case BLE_REQ_GET_VERSION: {
+      // Send S3's own version, then forward to ESP32 for ESP32+RP2040 versions
+      char s3ver[64];
+      snprintf(s3ver, sizeof(s3ver), "VERSION:S3=%s", FW_BUILD_TIME);
+      bleSendLine(s3ver);
+      stSendText(stLink, "GET_VERSION");
       break;
     }
 

@@ -46,6 +46,14 @@ class BLEManager {
     var uploadProgress: Double? = nil  // nil = not uploading
     var uploadStatus: String = ""
 
+    // Firmware versions (populated by GET_VERSION response)
+    var s3Version: String = ""
+    var espVersion: String = ""
+    var rpVersion: String = ""
+
+    // Factory reset completion signal (toggled on OK:FACTORY_RESET)
+    var factoryResetCompleted = false
+
     // ── Internal state (not observed by SwiftUI) ──
 
     // All @ObservationIgnored properties below are fileprivate so
@@ -108,6 +116,17 @@ class BLEManager {
     func requestImageList() {
         pendingImageList = []
         send("LIST")
+    }
+
+    func requestVersions() {
+        s3Version = ""
+        espVersion = ""
+        rpVersion = ""
+        send("GET_VERSION")
+    }
+
+    func factoryReset() {
+        send("FACTORY_RESET")
     }
 
     func sendSet(_ key: String, value: Int) {
@@ -302,10 +321,17 @@ class BLEManager {
             cachedImages = [:]
             requestImageList()
             log.info("Image deleted, refreshing list")
+        } else if text.hasPrefix("VERSION:S3=") {
+            s3Version = String(text.dropFirst(11))
+        } else if text.hasPrefix("VERSION:ESP32=") {
+            espVersion = String(text.dropFirst(14))
+        } else if text.hasPrefix("VERSION:RP2040=") {
+            rpVersion = String(text.dropFirst(15))
         } else if text == "OK:FACTORY_RESET" {
             log.info("Factory reset confirmed, re-syncing")
             cachedImages = [:]
             imageNames = []
+            factoryResetCompleted = true
             requestConfig()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.requestImageList()
