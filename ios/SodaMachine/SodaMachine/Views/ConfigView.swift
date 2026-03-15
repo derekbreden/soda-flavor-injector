@@ -42,7 +42,82 @@ private struct ImageSlotView: View {
 }
 
 // ────────────────────────────────────────────────────────────
-// Settings sub-views (About, version display)
+// Settings page — shown inline on page 4 of the carousel.
+// Tappable items with press-to-highlight feedback.
+// ────────────────────────────────────────────────────────────
+
+private struct SettingsItemButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(configuration.isPressed ? Color.white : Color.gray)
+    }
+}
+
+private struct SettingsPageView: View {
+    @Environment(BLEManager.self) var ble
+    @Binding var showImageManager: Bool
+    @Binding var inAbout: Bool
+    @State private var showResetAlert = false
+    @State private var resetting = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "gearshape")
+                .font(.system(size: 36))
+                .foregroundStyle(.gray)
+
+            if resetting {
+                ProgressView()
+                    .tint(.white)
+                    .padding(.top, 8)
+                Text("Resetting...")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.gray)
+            } else {
+                VStack(spacing: 0) {
+                    settingsButton("Manage Images") {
+                        showImageManager = true
+                    }
+                    settingsButton("Factory Reset") {
+                        showResetAlert = true
+                    }
+                    settingsButton("About") {
+                        ble.requestVersions()
+                        inAbout = true
+                    }
+                }
+            }
+        }
+        .alert("Factory Reset?", isPresented: $showResetAlert) {
+            Button("Reset", role: .destructive) {
+                resetting = true
+                ble.factoryReset()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will reset all settings to factory defaults.")
+        }
+        .onChange(of: ble.factoryResetCompleted) { _, completed in
+            if completed {
+                resetting = false
+                ble.factoryResetCompleted = false
+            }
+        }
+    }
+
+    private func settingsButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 18, weight: .medium))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+        }
+        .buttonStyle(SettingsItemButtonStyle())
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+// About screen (version display)
 // ────────────────────────────────────────────────────────────
 
 private struct AboutView: View {
@@ -79,31 +154,12 @@ private struct AboutView: View {
 
 // ────────────────────────────────────────────────────────────
 
-private enum SettingsItem: Int, CaseIterable {
-    case back, manageImages, factoryReset, about
-    var label: String {
-        switch self {
-        case .back: "Back"
-        case .manageImages: "Manage Images"
-        case .factoryReset: "Factory Reset"
-        case .about: "About"
-        }
-    }
-}
-
 struct ConfigView: View {
     @Environment(BLEManager.self) var ble
     @State private var currentPage = 0
     @State private var editing = false
     @State private var showImageManager = false
-
-    // Settings submenu state
-    @State private var inSettings = false
-    @State private var settingsIndex = 0
-    @State private var settingsConfirm = false
-    @State private var confirmIndex = 1  // default to No
     @State private var inAbout = false
-    @State private var factoryResetPending = false
 
     private let pageCount = 5
     private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings"]
@@ -122,9 +178,9 @@ struct ConfigView: View {
                         .foregroundStyle(.white)
                 }
             } else if inAbout {
-                aboutContent
-            } else if inSettings {
-                settingsContent
+                AboutView()
+                    .contentShape(Rectangle())
+                    .onTapGesture { inAbout = false }
             } else {
                 carouselContent
             }
@@ -135,18 +191,7 @@ struct ConfigView: View {
         }
         .onChange(of: ble.connectionState) { _, state in
             if state != .connected {
-                inSettings = false
                 inAbout = false
-                settingsConfirm = false
-                factoryResetPending = false
-            }
-        }
-        .onChange(of: ble.factoryResetCompleted) { _, completed in
-            if completed {
-                factoryResetPending = false
-                settingsConfirm = false
-                inSettings = false
-                ble.factoryResetCompleted = false
             }
         }
     }
@@ -173,9 +218,10 @@ struct ConfigView: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        if i == 4 {
-                            enterSettings()
-                        } else {
+                        // Pages 0-3 enter editing mode on tap.
+                        // Page 4 (settings) handles its own taps
+                        // via buttons, so no action needed here.
+                        if i < 4 {
                             editing = true
                         }
                     }
@@ -219,124 +265,6 @@ struct ConfigView: View {
         }
     }
 
-    // MARK: - Settings submenu
-
-    private var settingsContent: some View {
-        VStack(spacing: 0) {
-            Spacer().frame(height: 80)
-
-            Text(settingsConfirm ? "Factory Reset" : "Settings")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white)
-
-            Spacer()
-
-            if factoryResetPending {
-                Text("Resetting...")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.red)
-            } else if settingsConfirm {
-                confirmList
-            } else {
-                settingsList
-            }
-
-            Spacer()
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { handleSettingsTap() }
-        .gesture(
-            DragGesture(minimumDistance: 30)
-                .onEnded { value in
-                    guard !factoryResetPending else { return }
-                    let dx = value.translation.width
-                    if dx > 30 {
-                        handleSettingsNav(-1)
-                    } else if dx < -30 {
-                        handleSettingsNav(1)
-                    }
-                }
-        )
-    }
-
-    private var settingsList: some View {
-        VStack(spacing: 28) {
-            ForEach(SettingsItem.allCases, id: \.rawValue) { item in
-                Text(item.label)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(item.rawValue == settingsIndex ? .white : Color(white: 0.25))
-            }
-        }
-    }
-
-    private var confirmList: some View {
-        VStack(spacing: 28) {
-            ForEach(["Yes", "No"], id: \.self) { option in
-                let idx = option == "Yes" ? 0 : 1
-                Text(option)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(idx == confirmIndex ? .white : Color(white: 0.25))
-            }
-        }
-    }
-
-    // MARK: - About
-
-    private var aboutContent: some View {
-        AboutView()
-            .contentShape(Rectangle())
-            .onTapGesture {
-                inAbout = false
-            }
-    }
-
-    // MARK: - Settings logic
-
-    private func enterSettings() {
-        inSettings = true
-        settingsIndex = 0
-        settingsConfirm = false
-    }
-
-    private func handleSettingsNav(_ dir: Int) {
-        if settingsConfirm {
-            confirmIndex = (confirmIndex + dir + 2) % 2
-        } else {
-            let count = SettingsItem.allCases.count
-            settingsIndex = (settingsIndex + dir + count) % count
-        }
-    }
-
-    private func handleSettingsTap() {
-        if factoryResetPending { return }
-
-        if settingsConfirm {
-            if confirmIndex == 0 {
-                // Yes — execute factory reset
-                factoryResetPending = true
-                ble.factoryReset()
-            } else {
-                // No — back to settings list
-                settingsConfirm = false
-            }
-            return
-        }
-
-        guard let item = SettingsItem(rawValue: settingsIndex) else { return }
-        switch item {
-        case .back:
-            inSettings = false
-        case .manageImages:
-            showImageManager = true
-        case .factoryReset:
-            settingsConfirm = true
-            confirmIndex = 1  // default to No
-        case .about:
-            inAbout = true
-            ble.requestVersions()
-        }
-    }
-
     // MARK: - Page Views
 
     @ViewBuilder
@@ -351,7 +279,7 @@ struct ConfigView: View {
         case 3:
             ratioDisplay(ratio: ble.flavor2Ratio)
         case 4:
-            settingsIcon
+            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout)
         default:
             EmptyView()
         }
@@ -362,12 +290,6 @@ struct ConfigView: View {
             .font(.system(size: editing ? 72 : 36, weight: .regular, design: .rounded))
             .foregroundStyle(editing ? .white : .gray)
             .animation(.easeInOut(duration: 0.2), value: editing)
-    }
-
-    private var settingsIcon: some View {
-        Image(systemName: "gearshape")
-            .font(.system(size: 48))
-            .foregroundStyle(.gray)
     }
 
     // MARK: - Value Adjustment
