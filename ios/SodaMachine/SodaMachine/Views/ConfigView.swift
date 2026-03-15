@@ -245,17 +245,16 @@ private struct StatsView: View {
                 .foregroundStyle(Theme.textSecondary)
 
             if total > 0 {
-                Chart {
-                    SectorMark(angle: .value("Flavor 1", f1), innerRadius: .ratio(0.5))
-                        .foregroundStyle(chartPink)
-                    SectorMark(angle: .value("Flavor 2", f2), innerRadius: .ratio(0.5))
-                        .foregroundStyle(chartPurple)
-                }
-                .frame(height: 150)
-
-                HStack(spacing: 16) {
-                    legendItem("Flavor 1", color: chartPink, value: f1, total: total)
-                    legendItem("Flavor 2", color: chartPurple, value: f2, total: total)
+                HStack(spacing: 20) {
+                    flavorLegendImage(slot: ble.flavor1Image, color: chartPink, pct: Int(f1 / total * 100))
+                    Chart {
+                        SectorMark(angle: .value("Flavor 1", f1), innerRadius: .ratio(0.5))
+                            .foregroundStyle(chartPink)
+                        SectorMark(angle: .value("Flavor 2", f2), innerRadius: .ratio(0.5))
+                            .foregroundStyle(chartPurple)
+                    }
+                    .frame(width: 120, height: 120)
+                    flavorLegendImage(slot: ble.flavor2Image, color: chartPurple, pct: Int(f2 / total * 100))
                 }
             } else {
                 Text("No activity")
@@ -265,12 +264,24 @@ private struct StatsView: View {
         }
     }
 
-    private func legendItem(_ label: String, color: Color, value: Double, total: Double) -> some View {
-        HStack(spacing: 4) {
-            Circle().fill(color).frame(width: 8, height: 8)
-            Text("\(label) \(Int(value / total * 100))%")
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.textPrimary)
+    private func flavorLegendImage(slot: Int, color: Color, pct: Int) -> some View {
+        VStack(spacing: 6) {
+            if let uiImage = ble.imageFor(slot: slot) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 56, height: 56)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(color, lineWidth: 3))
+            } else {
+                Circle()
+                    .fill(Theme.placeholder)
+                    .frame(width: 56, height: 56)
+                    .overlay(Circle().stroke(color, lineWidth: 3))
+            }
+            Text("\(pct)%")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(color)
         }
     }
 
