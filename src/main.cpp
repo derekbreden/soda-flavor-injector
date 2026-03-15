@@ -1040,8 +1040,14 @@ void saveCurrentAccum() {
   struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
   memcpy(data.accum, currentHour, sizeof(currentHour));
   data.savedMillis = millis();
-  File f = LittleFS.open(STATS_CURRENT_PATH, "w");
-  if (f) { f.write((uint8_t*)&data, sizeof(data)); f.close(); }
+  const char *tmp = STATS_CURRENT_PATH ".tmp";
+  File f = LittleFS.open(tmp, "w");
+  if (f) {
+    f.write((uint8_t*)&data, sizeof(data));
+    f.close();
+    LittleFS.remove(STATS_CURRENT_PATH);
+    LittleFS.rename(tmp, STATS_CURRENT_PATH);
+  }
 }
 
 // Load current accumulators from flash (called on boot)
@@ -1060,8 +1066,14 @@ void loadCurrentAccum() {
 // ── Pre-sync persistence helpers ──
 
 void savePresyncHeader() {
-  File f = LittleFS.open(PRESYNC_HDR_PATH, "w");
-  if (f) { f.write((uint8_t*)&presyncHdr, sizeof(presyncHdr)); f.close(); }
+  const char *tmp = PRESYNC_HDR_PATH ".tmp";
+  File f = LittleFS.open(tmp, "w");
+  if (f) {
+    f.write((uint8_t*)&presyncHdr, sizeof(presyncHdr));
+    f.close();
+    LittleFS.remove(PRESYNC_HDR_PATH);
+    LittleFS.rename(tmp, PRESYNC_HDR_PATH);
+  }
 }
 
 void loadPresyncHeader() {
