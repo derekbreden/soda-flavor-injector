@@ -281,9 +281,10 @@ unsigned long lastStatsFlush = 0; // last 60s flush
 
 struct PresyncHeader {
   uint32_t seqHour;         // monotonic hour counter, persists across reboots
-  uint32_t lastMillisHour;  // millis()/3600000 at last check (detect hour rollover)
+  uint32_t hourElapsedMs;   // ms elapsed in current seqHour (updated on each flush)
 };
 PresyncHeader presyncHdr = {};
+unsigned long hourStartMillis = 0;  // millis() when current seqHour "started"
 
 static const char *presyncHourlyPath(uint8_t flavor) {
   return flavor == 0 ? "/stats/f0_presync.bin" : "/stats/f1_presync.bin";
@@ -1361,6 +1362,7 @@ void clearStatsFiles() {
   memset(currentHour, 0, sizeof(currentHour));
   currentHourKey = 0;
   presyncHdr = {0, 0};
+  hourStartMillis = millis();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2324,16 +2326,10 @@ void setup() {
   loadCurrentAccum();
   loadPresyncHeader();
 
-  // Flush any loaded accumulators (from current.bin) into presync ring,
-  // then start a fresh hour for this boot session
-  if (!timeSynced) {
-    flushPresyncHour();  // persists partial hour from before reboot
-    presyncHdr.seqHour++;
-    presyncHdr.lastMillisHour = millis() / 3600000UL;
-    memset(currentHour, 0, sizeof(currentHour));
-    savePresyncHeader();
-    saveCurrentAccum();
-  }
+  // Restore hour timing — continue the same seqHour across reboots.
+  // currentHour[] already has the loaded accumulators from current.bin;
+  // the main loop's 60s flush will persist them to the presync ring.
+  hourStartMillis = millis() - presyncHdr.hourElapsedMs;
 
   // Always determine factory image count from compiled-in defaults
   {
@@ -2610,21 +2606,22 @@ void loop() {
 
   // ── 5b. Stats rollup and periodic flush ─────────────────────
   if (!timeSynced) {
-    uint32_t millisHour = millis() / 3600000UL;
-
-    // Hour rollover (also handles millis() wrap naturally)
-    if (millisHour != presyncHdr.lastMillisHour) {
+    // Hour rollover: unsigned subtraction handles millis() wrap correctly
+    if (millis() - hourStartMillis >= 3600000UL) {
       flushPresyncHour();
       presyncHdr.seqHour++;
-      presyncHdr.lastMillisHour = millisHour;
+      presyncHdr.hourElapsedMs = 0;
+      hourStartMillis += 3600000UL;
       memset(currentHour, 0, sizeof(currentHour));
       savePresyncHeader();
     }
 
     // Periodic flush every 60s
     if (now - lastStatsFlush >= 60000) {
+      presyncHdr.hourElapsedMs = millis() - hourStartMillis;
       flushPresyncHour();
       saveCurrentAccum();
+      savePresyncHeader();
       lastStatsFlush = now;
     }
   }
