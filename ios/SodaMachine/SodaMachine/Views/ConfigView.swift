@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 // ────────────────────────────────────────────────────────────
 // Separate View structs create their own @Observable observation
@@ -81,6 +82,7 @@ private struct SettingsPageView: View {
                     }
                     settingsButton("Usage Stats") {
                         ble.requestStats()
+                        ble.requestChartData()
                         inStats = true
                     }
                     settingsButton("Factory Reset") {
@@ -164,15 +166,34 @@ private struct AboutView: View {
 }
 
 // ────────────────────────────────────────────────────────────
-// Stats screen (usage statistics display)
+// Stats screen (usage statistics display with charts)
 // ────────────────────────────────────────────────────────────
+
+private let chartPink = Color(red: 0.9, green: 0.3, blue: 0.5)
+private let chartPurple = Color(red: 0.6, green: 0.3, blue: 0.9)
 
 private struct StatsView: View {
     @Environment(BLEManager.self) var ble
+    @Binding var inStats: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            if !ble.statsSynced {
+            // Back button header
+            HStack {
+                Button(action: { inStats = false }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.textSecondary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+
+            if !ble.statsSynced && !ble.chartDataSynced {
                 Spacer()
                 ProgressView()
                     .tint(Theme.textPrimary)
@@ -183,14 +204,33 @@ private struct StatsView: View {
                 Spacer()
             } else {
                 ScrollView {
-                    VStack(spacing: 20) {
+                    VStack(spacing: 24) {
                         Text("Usage Stats")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(Theme.textPrimary)
-                            .padding(.top, 16)
+                            .padding(.top, 8)
 
-                        flavorSection("Flavor 1", stats: ble.flavor1Stats)
-                        flavorSection("Flavor 2", stats: ble.flavor2Stats)
+                        // Pie chart: 30-day flavor split
+                        if ble.statsSynced {
+                            pieChartSection
+                        }
+
+                        // Charts (show spinner if still loading)
+                        if ble.chartDataSynced {
+                            chart24HSection
+                            chart30DSection
+                            chartHODSection
+                        } else {
+                            ProgressView()
+                                .tint(Theme.textPrimary)
+                                .padding(.vertical, 20)
+                        }
+
+                        // Text stats
+                        if ble.statsSynced {
+                            flavorSection("Flavor 1", stats: ble.flavor1Stats)
+                            flavorSection("Flavor 2", stats: ble.flavor2Stats)
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
@@ -198,6 +238,223 @@ private struct StatsView: View {
             }
         }
     }
+
+    // MARK: - Pie Chart (30-day flavor split)
+
+    private var pieChartSection: some View {
+        let f1 = Double(ble.flavor1Stats.monthFlowSum) * 0.05
+        let f2 = Double(ble.flavor2Stats.monthFlowSum) * 0.05
+        let total = f1 + f2
+
+        return VStack(spacing: 8) {
+            Text("30-Day Flavor Split")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+
+            if total > 0 {
+                Chart {
+                    SectorMark(angle: .value("Flavor 1", f1), innerRadius: .ratio(0.5))
+                        .foregroundStyle(chartPink)
+                    SectorMark(angle: .value("Flavor 2", f2), innerRadius: .ratio(0.5))
+                        .foregroundStyle(chartPurple)
+                }
+                .frame(height: 150)
+
+                HStack(spacing: 16) {
+                    legendItem("Flavor 1", color: chartPink, value: f1, total: total)
+                    legendItem("Flavor 2", color: chartPurple, value: f2, total: total)
+                }
+            } else {
+                Text("No activity")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.textSecondary.opacity(0.6))
+            }
+        }
+    }
+
+    private func legendItem(_ label: String, color: Color, value: Double, total: Double) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text("\(label) \(Int(value / total * 100))%")
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.textPrimary)
+        }
+    }
+
+    // MARK: - 24-Hour Line Chart
+
+    private var chart24HSection: some View {
+        let calendar = Calendar.current
+        let currentHour = calendar.component(.hour, from: Date())
+
+        return VStack(spacing: 8) {
+            Text("Last 24 Hours")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+
+            Chart {
+                ForEach(0..<24, id: \.self) { i in
+                    LineMark(
+                        x: .value("Hour", i),
+                        y: .value("Seconds", ble.chartData24H[0][i])
+                    )
+                    .foregroundStyle(chartPink)
+                    .interpolationMethod(.catmullRom)
+
+                    LineMark(
+                        x: .value("Hour", i),
+                        y: .value("Seconds", ble.chartData24H[1][i])
+                    )
+                    .foregroundStyle(chartPurple)
+                    .interpolationMethod(.catmullRom)
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: [0, 6, 12, 18, 23]) { value in
+                    AxisValueLabel {
+                        if let idx = value.as(Int.self) {
+                            let hour = (currentHour - 23 + idx + 24) % 24
+                            Text(hourLabel(hour))
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text(String(format: "%.0f", v))
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
+                }
+            }
+            .frame(height: 160)
+        }
+    }
+
+    // MARK: - 30-Day Line Chart
+
+    private var chart30DSection: some View {
+        let calendar = Calendar.current
+        let today = Date()
+
+        return VStack(spacing: 8) {
+            Text("Last 30 Days")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+
+            Chart {
+                ForEach(0..<30, id: \.self) { i in
+                    LineMark(
+                        x: .value("Day", i),
+                        y: .value("Seconds", ble.chartData30D[0][i])
+                    )
+                    .foregroundStyle(chartPink)
+                    .interpolationMethod(.catmullRom)
+
+                    LineMark(
+                        x: .value("Day", i),
+                        y: .value("Seconds", ble.chartData30D[1][i])
+                    )
+                    .foregroundStyle(chartPurple)
+                    .interpolationMethod(.catmullRom)
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: [0, 7, 14, 21, 29]) { value in
+                    AxisValueLabel {
+                        if let idx = value.as(Int.self) {
+                            let date = calendar.date(byAdding: .day, value: idx - 29, to: today) ?? today
+                            Text(date.formatted(.dateTime.month(.abbreviated).day()))
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text(String(format: "%.0f", v))
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
+                }
+            }
+            .frame(height: 160)
+        }
+    }
+
+    // MARK: - Hour-of-Day Average Chart
+
+    private var chartHODSection: some View {
+        let days = max(ble.chartDataHODDays, 1)
+
+        return VStack(spacing: 8) {
+            Text("Average by Hour of Day")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+
+            Chart {
+                ForEach(0..<24, id: \.self) { h in
+                    LineMark(
+                        x: .value("Hour", h),
+                        y: .value("Avg Seconds", ble.chartDataHOD[0][h] / Double(days))
+                    )
+                    .foregroundStyle(chartPink)
+                    .interpolationMethod(.catmullRom)
+
+                    LineMark(
+                        x: .value("Hour", h),
+                        y: .value("Avg Seconds", ble.chartDataHOD[1][h] / Double(days))
+                    )
+                    .foregroundStyle(chartPurple)
+                    .interpolationMethod(.catmullRom)
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: [0, 6, 12, 18, 23]) { value in
+                    AxisValueLabel {
+                        if let idx = value.as(Int.self) {
+                            Text(hourLabel(idx))
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text(String(format: "%.1f", v))
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
+                }
+            }
+            .frame(height: 160)
+
+            Text("\(days) day\(days == 1 ? "" : "s") of data")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.textSecondary.opacity(0.6))
+        }
+    }
+
+    // MARK: - Text Stats
 
     private func flavorSection(_ title: String, stats: BLEManager.FlavorStats) -> some View {
         VStack(spacing: 8) {
@@ -235,6 +492,14 @@ private struct StatsView: View {
             }
         }
     }
+
+    // MARK: - Helpers
+
+    private func hourLabel(_ hour: Int) -> String {
+        let h = hour % 12
+        let ampm = hour < 12 ? "AM" : "PM"
+        return "\(h == 0 ? 12 : h) \(ampm)"
+    }
 }
 
 // ────────────────────────────────────────────────────────────
@@ -264,9 +529,7 @@ struct ConfigView: View {
                         .foregroundStyle(Theme.textPrimary)
                 }
             } else if inStats {
-                StatsView()
-                    .contentShape(Rectangle())
-                    .onTapGesture { inStats = false }
+                StatsView(inStats: $inStats)
             } else if inAbout {
                 AboutView()
                     .contentShape(Rectangle())
