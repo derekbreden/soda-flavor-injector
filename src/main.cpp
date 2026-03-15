@@ -9,29 +9,24 @@
 // ════════════════════════════════════════════════════════════
 
 // ── L298N Board A (flavor 1) ──
-#define A_ENA  33
-#define A_IN1  25
-#define A_IN2  26
-#define A_IN3  27
-#define A_IN4  14
-#define A_ENB  12
+#define A_ENA  33    // pump PWM
+#define A_IN1  25    // pump direction
+#define A_IN2  26    // pump direction
+#define A_ENB  12    // dispensing solenoid valve (IN3/IN4 hardwired)
 
 // ── L298N Board B (flavor 2) ──
-#define B_ENA  19
-#define B_IN1  18
-#define B_IN2   5
-#define B_IN3  17
-#define B_IN4  16
-#define B_ENB   4
+#define B_ENA  19    // pump PWM
+#define B_IN1  18    // pump direction
+#define B_IN2   5    // pump direction
+#define B_ENB   4    // dispensing solenoid valve (IN3/IN4 hardwired)
 
 // ── Inputs ──
 #define FLAVOR_SW_PIN   13   // latching toggle: flavor select (air switch)
 #define PRIME_BTN_PIN   22   // momentary: manual prime / activate
 #define FLOW_PIN        23   // flow meter pulse input
 
-// ── LEDs ──
-#define LED_FLAVOR1     21   // lit when flavor 1 is selected (blinks while dispensing)
-#define LED_FLAVOR2      2   // lit when flavor 2 is selected (blinks while dispensing)
+// ── GPIOs freed by 5b (LEDs removed, valve IN3/IN4 hardwired) ──
+// Available: 21, 2, 27, 14, 17, 16
 
 // ── Per-flavor config (runtime, persisted in LittleFS) ──
 // Ratio: flavoring to water in 1:X. Lower = more flavor.
@@ -106,7 +101,7 @@ void sendMapToRP() {
 // ── Config UART (ESP32 ↔ ESP32-S3, bidirectional) ──
 // GPIO 15 for TX: frees GPIO 2 (boot-strap pin that must be LOW to flash).
 // GPIO 15 is a strapping pin too but only affects boot log silence — won't block flashing.
-#define CONFIG_TX_PIN  15    // UART TX to ESP32-S3 (was LED_FLAVOR2)
+#define CONFIG_TX_PIN  15    // UART TX to ESP32-S3
 #define CONFIG_RX_PIN  34    // UART RX from ESP32-S3 (input-only pin)
 
 // ── Pump hard limits (physical constraints) ──
@@ -124,8 +119,6 @@ void sendMapToRP() {
 #define SHAPE_OFF_BASE  660
 #define SHAPE_OFF_SLOPE  60
 
-// ── LED blink while dispensing ──
-#define BLINK_INTERVAL_MS  50
 
 // ── Flow detection ──
 #define FLOW_CHECK_INTERVAL_MS  50
@@ -145,7 +138,7 @@ struct MotorChannel {
 
 struct Flavor {
   MotorChannel pump;
-  MotorChannel valve;
+  uint8_t valvePin;  // ENB only (IN3/IN4 hardwired on L298N)
   uint8_t ratio;
 };
 
@@ -153,13 +146,13 @@ Flavor flavors[] = {
   // Flavor 1 — Board A
   {
     { A_ENA, A_IN1, A_IN2 },   // pump
-    { A_ENB, A_IN3, A_IN4 },   // valve
+    A_ENB,                      // dispensing solenoid valve
     20,                         // ratio (overwritten by loadConfig)
   },
   // Flavor 2 — Board B
   {
     { B_ENA, B_IN1, B_IN2 },   // pump
-    { B_ENB, B_IN3, B_IN4 },   // valve
+    B_ENB,                      // dispensing solenoid valve
     20,                         // ratio (overwritten by loadConfig)
   },
 };
@@ -175,6 +168,9 @@ void motorOff(const MotorChannel& m) {
   digitalWrite(m.in2, LOW);
   analogWrite(m.ena, 0);
 }
+
+void valveOn(uint8_t pin) { analogWrite(pin, 255); }
+void valveOff(uint8_t pin) { analogWrite(pin, 0); }
 
 // ════════════════════════════════════════════════════════════
 //  Flow meter ISR
@@ -246,11 +242,9 @@ unsigned long cyclePulseSum      = 0;     // accumulated during cycle
 unsigned long cyclePulseReadings = 0;     // readings taken during cycle
 bool cycleSawZero                = false; // any 0 reading during this cycle?
 
-// ── Valve + LED ──
+// ── Valve ──
 bool valveOpen                   = false;
 unsigned long lastFlowCheck      = 0;
-unsigned long lastBlinkToggle    = 0;
-bool blinkState                  = true;
 unsigned long lastConfigSend     = 0;
 
 // ── Usage statistics ──
@@ -2393,10 +2387,10 @@ void setup() {
   firstBoot = checkFirstBoot();
   loadUserConfig();
 
-  // Init all motor pins
+  // Init all motor/valve pins
   const uint8_t motorPins[] = {
-    A_ENA, A_IN1, A_IN2, A_IN3, A_IN4, A_ENB,
-    B_ENA, B_IN1, B_IN2, B_IN3, B_IN4, B_ENB
+    A_ENA, A_IN1, A_IN2, A_ENB,
+    B_ENA, B_IN1, B_IN2, B_ENB
   };
   for (uint8_t pin : motorPins) {
     pinMode(pin, OUTPUT);
@@ -2408,17 +2402,11 @@ void setup() {
   pinMode(PRIME_BTN_PIN, INPUT_PULLUP);
   pinMode(FLOW_PIN,      INPUT_PULLUP);
 
-  // LEDs
-  pinMode(LED_FLAVOR1, OUTPUT);
-  pinMode(LED_FLAVOR2, OUTPUT);
-
   // Flow meter interrupt
   attachInterrupt(digitalPinToInterrupt(FLOW_PIN), flowPulse, FALLING);
 
   // Read initial flavor from switch state
   activeFlavor = (digitalRead(FLAVOR_SW_PIN) == LOW) ? 1 : 0;
-  digitalWrite(LED_FLAVOR1, activeFlavor == 0 ? HIGH : LOW);
-  digitalWrite(LED_FLAVOR2, activeFlavor == 1 ? HIGH : LOW);
 
   // UART to display board (bidirectional, 38400 baud)
   Serial2.begin(38400, SERIAL_8N1, DISPLAY_RX_PIN, DISPLAY_TX_PIN);
@@ -2481,8 +2469,6 @@ void loop() {
   if (newFlavor != activeFlavor) {
     if (!valveOpen) {
       activeFlavor = newFlavor;
-      digitalWrite(LED_FLAVOR1, activeFlavor == 0 ? HIGH : LOW);
-      digitalWrite(LED_FLAVOR2, activeFlavor == 1 ? HIGH : LOW);
       Serial.printf("Active flavor: %d\n", activeFlavor + 1);
     } else {
       Serial.println("Cannot toggle flavor while dispensing.");
@@ -2632,27 +2618,14 @@ void loop() {
   bool shouldValveBeOpen = (pumpState != PUMP_IDLE) || waterFlowing || primePressed;
 
   if (shouldValveBeOpen && !valveOpen) {
-    motorOn(active.valve, 255);
+    valveOn(active.valvePin);
     valveOpen = true;
-    blinkState = true;
-    lastBlinkToggle = now;
     Serial.printf("Dispensing flavor %d\n", activeFlavor + 1);
   } else if (!shouldValveBeOpen && valveOpen) {
     motorOff(active.pump);    // defensive
-    motorOff(active.valve);
+    valveOff(active.valvePin);
     valveOpen = false;
-    digitalWrite(LED_FLAVOR1, activeFlavor == 0 ? HIGH : LOW);
-    digitalWrite(LED_FLAVOR2, activeFlavor == 1 ? HIGH : LOW);
     Serial.printf("Stopped dispensing flavor %d\n", activeFlavor + 1);
-  }
-
-  // ── 4. LED control ─────────────────────────────────────────
-
-  if (valveOpen && (now - lastBlinkToggle >= BLINK_INTERVAL_MS)) {
-    blinkState = !blinkState;
-    uint8_t ledPin = (activeFlavor == 0) ? LED_FLAVOR1 : LED_FLAVOR2;
-    digitalWrite(ledPin, blinkState ? HIGH : LOW);
-    lastBlinkToggle = now;
   }
 
   // ── 5. Periodic display config resend ─────────────────────
