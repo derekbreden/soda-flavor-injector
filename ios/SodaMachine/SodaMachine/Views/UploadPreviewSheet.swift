@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct UploadPreviewSheet: View {
-    @EnvironmentObject var ble: BLEManager
+    @Environment(BLEManager.self) var ble
     @Environment(\.dismiss) private var dismiss
     let image: UIImage
     let slot: Int

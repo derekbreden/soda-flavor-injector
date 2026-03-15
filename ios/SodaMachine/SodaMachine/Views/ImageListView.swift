@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ImageListView: View {
-    @EnvironmentObject var ble: BLEManager
+    @Environment(BLEManager.self) var ble
 
     var body: some View {
         List {

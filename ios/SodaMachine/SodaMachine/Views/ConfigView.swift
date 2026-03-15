@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ConfigView: View {
-    @EnvironmentObject var ble: BLEManager
+    @Environment(BLEManager.self) var ble
     @State private var currentPage = 0
     @State private var editing = false
     @State private var showImageManager = false
@@ -75,7 +75,7 @@ struct ConfigView: View {
                     }
                     .sheet(isPresented: $showImageManager) {
                         ImageManagerView()
-                            .environmentObject(ble)
+                            .environment(ble)
                     }
 
                     // Fixed nav dots overlay

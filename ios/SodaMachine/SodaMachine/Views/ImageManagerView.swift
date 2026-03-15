@@ -2,7 +2,7 @@ import SwiftUI
 import PhotosUI
 
 struct ImageManagerView: View {
-    @EnvironmentObject var ble: BLEManager
+    @Environment(BLEManager.self) var ble
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var pickedImage: UIImage?
@@ -39,7 +39,7 @@ struct ImageManagerView: View {
             .sheet(isPresented: $showUploadSheet) {
                 if let image = pickedImage {
                     UploadPreviewSheet(image: image, slot: ble.numImages)
-                        .environmentObject(ble)
+                        .environment(ble)
                 }
             }
             .alert("Delete Image?", isPresented: $showDeleteConfirm) {
