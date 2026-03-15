@@ -175,58 +175,75 @@ private struct StatsView: View {
     @Environment(BLEManager.self) var ble
     @Binding var inStats: Bool
 
+    private var isDisconnected: Bool {
+        ble.connectionState != .connected && !ble.demoMode
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Back button header
-            HStack {
-                Button(action: { inStats = false }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                        Text("Back")
+        ZStack {
+            VStack(spacing: 0) {
+                // Back button header
+                HStack {
+                    Button(action: { inStats = false }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.textSecondary)
                     }
-                    .font(.system(size: 16))
-                    .foregroundStyle(Theme.textSecondary)
+                    Spacer()
                 }
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
 
-            if !ble.chartDataSynced {
-                Spacer()
-                ProgressView()
-                    .tint(Theme.textPrimary)
-                Text("Loading stats...")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.top, 8)
-                Spacer()
-            } else {
-                ScrollView {
-                    VStack(spacing: 24) {
-                        Text("Usage Stats")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(Theme.textPrimary)
-                            .padding(.top, 8)
+                if !ble.chartDataSynced {
+                    Spacer()
+                    ProgressView()
+                        .tint(Theme.textPrimary)
+                    Text("Loading stats...")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.top, 8)
+                    Spacer()
+                } else {
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            Text("Usage Stats")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(Theme.textPrimary)
+                                .padding(.top, 8)
 
-                        // Pie chart: 30-day flavor split
-                        if ble.statsSynced {
-                            pieChartSection
+                            // Pie chart: 30-day flavor split
+                            if ble.statsSynced {
+                                pieChartSection
+                            }
+
+                            // Charts (show spinner if still loading)
+                            if ble.chartDataSynced {
+                                Chart24HView()
+                                Chart30DView()
+                                ChartHODView()
+                            } else {
+                                ProgressView()
+                                    .tint(Theme.textPrimary)
+                                    .padding(.vertical, 20)
+                            }
                         }
-
-                        // Charts (show spinner if still loading)
-                        if ble.chartDataSynced {
-                            Chart24HView()
-                            Chart30DView()
-                            ChartHODView()
-                        } else {
-                            ProgressView()
-                                .tint(Theme.textPrimary)
-                                .padding(.vertical, 20)
-                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 20)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
+                }
+            }
+            .opacity(isDisconnected ? 0.3 : 1.0)
+
+            if isDisconnected {
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .tint(Theme.textPrimary)
+                    Text("Reconnecting...")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Theme.textPrimary)
                 }
             }
         }
@@ -545,10 +562,13 @@ struct ConfigView: View {
             ImageManagerView()
                 .environment(ble)
         }
-        .onChange(of: ble.connectionState) { _, state in
+        .onChange(of: ble.connectionState) { old, state in
             if state != .connected {
                 inAbout = false
-                inStats = false
+            }
+            if state == .connected && old != .connected && inStats {
+                ble.requestStatsAndCharts()
+                ble.subscribeStats()
             }
         }
         .onChange(of: scenePhase) { _, phase in
