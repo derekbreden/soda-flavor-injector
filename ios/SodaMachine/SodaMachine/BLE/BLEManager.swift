@@ -22,7 +22,6 @@ enum ConnectionState: Equatable {
 
 class BLEManager: NSObject, ObservableObject {
     @Published var connectionState: ConnectionState = .bluetoothOff
-    @Published var lastResponse: String = ""
 
     // Config state (synced from ESP32 via S3 bridge)
     @Published var configSynced = false
@@ -51,7 +50,7 @@ class BLEManager: NSObject, ObservableObject {
     private var currentUploadStep = 0
     private var uploadBytesSent = 0
 
-    // Image download state — imgDownloadSlot/Data/Expected are accessed from bleQueue
+    // Image download state — accessed from bleQueue during downloads
     private var imgDownloadSlot: Int = -1
     private var imgDownloadData = Data()
     private var imgDownloadExpected: Int = 0
@@ -60,7 +59,7 @@ class BLEManager: NSObject, ObservableObject {
     private var nusReady = false
 
     // BLE runs on a dedicated background queue so binary data accumulation
-    // doesn't block the main thread / UI during image downloads.
+    // and BLE writes don't block the main thread during image downloads.
     private let bleQueue = DispatchQueue(label: "com.derekbreden.SodaMachine.BLE", qos: .userInitiated)
     private var centralManager: CBCentralManager!
     private var connectedPeripheral: CBPeripheral?
@@ -76,14 +75,18 @@ class BLEManager: NSObject, ObservableObject {
 
     // MARK: - Public API
 
+    /// Send a text command to the S3 via BLE. Always dispatched to bleQueue
+    /// to avoid cross-queue blocking with CoreBluetooth's internal synchronization.
     func send(_ text: String) {
-        guard let rx = rxCharacteristic, let p = connectedPeripheral else {
-            log.warning("Cannot send: not connected")
-            return
+        bleQueue.async { [weak self] in
+            guard let self, let rx = self.rxCharacteristic, let p = self.connectedPeripheral else {
+                log.warning("Cannot send: not connected")
+                return
+            }
+            guard let data = text.data(using: .utf8) else { return }
+            p.writeValue(data, for: rx, type: .withResponse)
+            log.info("TX: \(text)")
         }
-        guard let data = text.data(using: .utf8) else { return }
-        p.writeValue(data, for: rx, type: .withResponse)
-        log.info("TX: \(text)")
     }
 
     func requestConfig() {
@@ -97,7 +100,7 @@ class BLEManager: NSObject, ObservableObject {
 
     func sendSet(_ key: String, value: Int) {
         send("SET:\(key)=\(value)")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        bleQueue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.send("SAVE")
         }
         // No need to request config — ESP32 pushes CONFIG: after SAVE
@@ -154,11 +157,15 @@ class BLEManager: NSObject, ObservableObject {
 
     func downloadAllImages() {
         guard !isDownloading else { return }
-        imgDownloadQueue = Array(0..<numImages).filter { cachedImages[$0] == nil }
-        if imgDownloadQueue.isEmpty { return }
+        let queue = Array(0..<numImages).filter { cachedImages[$0] == nil }
+        if queue.isEmpty { return }
         isDownloading = true
-        imageDownloadProgress = 0  // signal download active (set once, not per-chunk)
-        downloadNextImage()
+        imageDownloadProgress = 0  // signal download active (set once)
+        // Hand off to bleQueue for the entire download loop
+        bleQueue.async {
+            self.imgDownloadQueue = queue
+            self.startNextDownload()
+        }
     }
 
 
@@ -192,21 +199,26 @@ class BLEManager: NSObject, ObservableObject {
         let mtu = p.maximumWriteValueLength(for: .withResponse)
         let chunkSize = min(mtu, 240)
 
+        // Send upload chunks on bleQueue to avoid blocking main
         func sendChunk() {
-            guard self.uploadBytesSent < data.count, self.isUploading else { return }
-            let end = min(self.uploadBytesSent + chunkSize, data.count)
-            let chunk = data[self.uploadBytesSent..<end]
-            p.writeValue(chunk, for: rx, type: .withResponse)
-            self.uploadBytesSent = end
+            self.bleQueue.async {
+                guard self.uploadBytesSent < data.count, self.isUploading else { return }
+                let end = min(self.uploadBytesSent + chunkSize, data.count)
+                let chunk = data[self.uploadBytesSent..<end]
+                p.writeValue(chunk, for: rx, type: .withResponse)
+                self.uploadBytesSent = end
 
-            // Update progress: 3 steps, each ~33%
-            let stepBase = Double(self.currentUploadStep) / 3.0
-            let stepProgress = Double(self.uploadBytesSent) / Double(data.count) / 3.0
-            self.uploadProgress = stepBase + stepProgress
+                DispatchQueue.main.async {
+                    // Update progress: 3 steps, each ~33%
+                    let stepBase = Double(self.currentUploadStep) / 3.0
+                    let stepProgress = Double(self.uploadBytesSent) / Double(data.count) / 3.0
+                    self.uploadProgress = stepBase + stepProgress
+                }
 
-            if self.uploadBytesSent < data.count {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-                    sendChunk()
+                if self.uploadBytesSent < data.count {
+                    self.bleQueue.asyncAfter(deadline: .now() + 0.02) {
+                        sendChunk()
+                    }
                 }
             }
         }
@@ -233,29 +245,31 @@ class BLEManager: NSObject, ObservableObject {
         uploadSteps = []
     }
 
-    // MARK: - Image download
+    // MARK: - Image download (runs entirely on bleQueue)
 
-    private func downloadNextImage() {
+    /// Called on bleQueue to start the next image download.
+    private func startNextDownload() {
+        // Already on bleQueue
         guard !imgDownloadQueue.isEmpty else {
-            imageDownloadProgress = nil
-            isDownloading = false
+            DispatchQueue.main.async {
+                self.imageDownloadProgress = nil
+                self.isDownloading = false
+            }
             return
         }
         let slot = imgDownloadQueue.removeFirst()
-        // Reset download state on bleQueue before sending GETPNG.
-        // imgDownloadSlot is set later by IMGSTART (also on bleQueue).
-        bleQueue.async {
-            self.imgDownloadData = Data()
-            self.imgDownloadExpected = 0
-        }
-        send("GETPNG:\(slot)")
+        imgDownloadData = Data()
+        imgDownloadExpected = 0
+        // Write directly on bleQueue — no cross-queue synchronization
+        guard let rx = rxCharacteristic, let p = connectedPeripheral,
+              let data = "GETPNG:\(slot)".data(using: .utf8) else { return }
+        p.writeValue(data, for: rx, type: .withResponse)
+        log.info("TX: GETPNG:\(slot)")
     }
 
     // MARK: - Response parsing (main thread only)
 
     private func handleTextResponse(_ text: String) {
-        lastResponse = text
-
         if text.hasPrefix("CONFIG:") {
             parseConfig(text)
         } else if text.hasPrefix("IMG:") {
@@ -306,7 +320,7 @@ class BLEManager: NSObject, ObservableObject {
                 failUpload(text)
             } else if isDownloading {
                 log.error("Skipping failed image download, continuing queue")
-                downloadNextImage()
+                bleQueue.async { self.startNextDownload() }
             }
         }
     }
@@ -471,11 +485,9 @@ extension BLEManager: CBPeripheralDelegate {
             peripheral.maximumWriteValueLength(for: .withResponse)
             log.info("NUS ready")
             // Request config and image list once on connect
-            DispatchQueue.main.async {
-                self.requestConfig()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                    self?.requestImageList()
-                }
+            send("GET_CONFIG")
+            bleQueue.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.send("LIST")
             }
         }
     }
@@ -491,15 +503,19 @@ extension BLEManager: CBPeripheralDelegate {
                 let slot = self.imgDownloadSlot
                 self.imgDownloadSlot = -1
                 self.imgDownloadData = Data()
+                // Decode image on bleQueue to keep main free
+                let image = UIImage(data: imgData)
+                // Brief main dispatch for @Published update only
                 DispatchQueue.main.async {
-                    if let image = UIImage(data: imgData) {
+                    if let image {
                         self.cachedImages[slot] = image
                         log.info("Image \(slot) cached (\(imgData.count) bytes)")
                     } else {
                         log.error("Image \(slot) decode failed: \(imgData.count) bytes")
                     }
-                    self.downloadNextImage()
                 }
+                // Continue download loop on bleQueue (no main involvement)
+                self.startNextDownload()
             } else {
                 imgDownloadData.append(data)
             }
@@ -518,12 +534,16 @@ extension BLEManager: CBPeripheralDelegate {
             return
         }
 
+        // Filter out DBG: lines — informational only, no main dispatch needed
+        if let text = String(data: data, encoding: .utf8), text.hasPrefix("DBG:") {
+            log.info("RX: \(text)")
+            return
+        }
+
         // All other text responses: dispatch to main for @Published updates
         DispatchQueue.main.async {
             if let text = String(data: data, encoding: .utf8) {
-                if text.count < 100 {
-                    log.info("RX: \(text)")
-                }
+                log.info("RX: \(text)")
                 self.handleTextResponse(text)
             }
         }

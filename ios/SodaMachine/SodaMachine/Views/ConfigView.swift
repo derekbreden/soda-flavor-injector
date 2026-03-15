@@ -14,8 +14,14 @@ struct ConfigView: View {
             Color.black.ignoresSafeArea()
 
             if !ble.configSynced {
-                ProgressView("Loading configuration...")
-                    .foregroundStyle(.white)
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .tint(.white)
+                    Text("Loading configuration...")
+                        .font(.title3.weight(.medium))
+                        .foregroundStyle(.white)
+                }
             } else {
                 ZStack(alignment: .bottom) {
                     // Full-screen TabView paging
