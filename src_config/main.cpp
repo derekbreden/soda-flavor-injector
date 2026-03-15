@@ -9,6 +9,7 @@
 #include <uart_st.h>
 #include "CST816D.h"
 #include "font_ratio_64.h"
+#include "fw_version.h"
 
 // Seed images (compiled in for first-boot only, then served from LittleFS)
 #include "images/flavor0_240.h"
@@ -637,6 +638,9 @@ bool inSettings = false;       // true when inside the settings sub-menu
 bool settingsConfirm = false;  // true when confirming factory reset
 int confirmIndex = 1;          // 0 = Yes, 1 = No (default to No)
 static bool factoryResetPending = false;
+bool inAbout = false;
+static char espVersion[32] = "";
+static char rpVersion[32] = "";
 
 int menuIndex = 0;
 bool editing = false;
@@ -1163,6 +1167,18 @@ static void processTextLine(const char *line) {
     stSendText(stLink, "GET_CONFIG");
     drawScreen();
     bleSendLine(line);
+  } else if (strncmp(line, "VERSION:ESP32=", 14) == 0) {
+    strncpy(espVersion, line + 14, sizeof(espVersion) - 1);
+    espVersion[sizeof(espVersion) - 1] = '\0';
+    Serial.printf("Got ESP32 version: %s\n", espVersion);
+    if (inAbout) drawScreen();
+    bleSendLine(line);
+  } else if (strncmp(line, "VERSION:RP2040=", 15) == 0) {
+    strncpy(rpVersion, line + 15, sizeof(rpVersion) - 1);
+    rpVersion[sizeof(rpVersion) - 1] = '\0';
+    Serial.printf("Got RP2040 version: %s\n", rpVersion);
+    if (inAbout) drawScreen();
+    bleSendLine(line);
   } else if (strncmp(line, "OK:", 3) == 0) {
     Serial.printf("ESP32 confirmed: %s\n", line);
     bleSendLine(line);
@@ -1403,6 +1419,42 @@ void drawEdit() {
   }
 }
 
+void drawAbout() {
+  lv_obj_t *scr = lv_scr_act();
+  lv_obj_clean(scr);
+  lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
+
+  lv_obj_t *title = lv_label_create(scr);
+  lv_label_set_text(title, "About");
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(title, lv_color_white(), 0);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
+
+  int lineHeight = 24;
+  int startY = 75;
+
+  const char *labelNames[] = { "S3", "ESP32", "RP2040" };
+  const char *versions[] = { FW_BUILD_TIME, espVersion, rpVersion };
+
+  for (int i = 0; i < 3; i++) {
+    lv_obj_t *name = lv_label_create(scr);
+    lv_label_set_text(name, labelNames[i]);
+    lv_obj_set_style_text_font(name, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(name, lv_color_hex(0x808080), 0);
+    lv_obj_align(name, LV_ALIGN_TOP_MID, 0, startY + i * (lineHeight * 2));
+
+    lv_obj_t *ver = lv_label_create(scr);
+    if (versions[i][0] != '\0') {
+      lv_label_set_text(ver, versions[i]);
+    } else {
+      lv_label_set_text(ver, "...");
+    }
+    lv_obj_set_style_text_font(ver, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(ver, lv_color_white(), 0);
+    lv_obj_align(ver, LV_ALIGN_TOP_MID, 0, startY + i * (lineHeight * 2) + lineHeight);
+  }
+}
+
 void drawSettings() {
   lv_obj_t *scr = lv_scr_act();
   lv_obj_clean(scr);
@@ -1410,7 +1462,7 @@ void drawSettings() {
 
   // Title
   lv_obj_t *title = lv_label_create(scr);
-  lv_label_set_text(title, "Settings");
+  lv_label_set_text(title, settingsConfirm ? "Factory Reset" : "Settings");
   lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
   lv_obj_set_style_text_color(title, lv_color_white(), 0);
   lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
@@ -1423,8 +1475,6 @@ void drawSettings() {
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 10);
   } else if (settingsConfirm) {
     // Yes / No confirmation list
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFF4444), 0);
-
     const char *options[] = { "Yes", "No" };
     int lineHeight = 28;
     int startY = (240 - 2 * lineHeight) / 2;
@@ -1444,14 +1494,7 @@ void drawSettings() {
 
     for (int i = 0; i < SETTINGS_COUNT; i++) {
       lv_obj_t *item = lv_label_create(scr);
-      // Show build date inline for About when selected
-      if (i == SET_ABOUT && i == settingsIndex) {
-        char buf[48];
-        snprintf(buf, sizeof(buf), "About  %s", __DATE__);
-        lv_label_set_text(item, buf);
-      } else {
-        lv_label_set_text(item, settingsLabels[i]);
-      }
+      lv_label_set_text(item, settingsLabels[i]);
       lv_obj_set_style_text_font(item, &lv_font_montserrat_16, 0);
       lv_obj_set_style_text_color(item,
         (i == settingsIndex) ? lv_color_white() : lv_color_hex(0x404040), 0);
@@ -1461,7 +1504,9 @@ void drawSettings() {
 }
 
 void drawScreen() {
-  if (inSettings) {
+  if (inAbout) {
+    drawAbout();
+  } else if (inSettings) {
     drawSettings();
   } else if (editing) {
     drawEdit();
@@ -1503,6 +1548,7 @@ bool readTap() {
 void handleNavigation(int dir) {
   if (dir == 0) return;
   if (factoryResetPending) return;  // locked during reset
+  if (inAbout) return;  // About is view-only, tap to go back
 
   if (inSettings) {
     if (settingsConfirm) {
@@ -1535,6 +1581,11 @@ void handleNavigation(int dir) {
 }
 
 void handleTap() {
+  if (inAbout) {
+    inAbout = false;
+    drawScreen();
+    return;
+  }
   if (inSettings) {
     if (factoryResetPending) return;
     if (settingsConfirm) {
@@ -1558,7 +1609,11 @@ void handleTap() {
       Serial.println("Factory Reset — select Yes or No");
       drawScreen();
     } else if (settingsIndex == SET_ABOUT) {
-      // About is view-only — nothing to do
+      inAbout = true;
+      espVersion[0] = '\0';
+      rpVersion[0] = '\0';
+      stSendText(stLink, "GET_VERSION");
+      Serial.println("Entering About — requesting versions");
     }
     return;
   }

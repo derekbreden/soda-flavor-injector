@@ -976,7 +976,28 @@ void sendConfigResponse(Stream &out) {
 }
 
 void processConfigCommand(const char *cmd, Stream &out) {
-  if (strcmp(cmd, "GET_CONFIG") == 0) {
+  if (strcmp(cmd, "GET_VERSION") == 0) {
+    out.printf("VERSION:ESP32=%s\n", FW_VERSION);
+    // Query RP2040 for its version and forward
+    stSendText(stRP, "GET_VERSION");
+    unsigned long t = millis();
+    while (millis() - t < 1000) {
+      if (stRP.available()) {
+        if (stRP.currentPacketID() == PKT_TEXT) {
+          uint16_t len = stRP.bytesRead;
+          char line[64];
+          uint16_t copyLen = (len < 63) ? len : 63;
+          memcpy(line, stRP.packet.rxBuff, copyLen);
+          line[copyLen] = '\0';
+          if (strncmp(line, "VERSION:", 8) == 0) {
+            out.println(line);
+            break;
+          }
+        }
+      }
+    }
+
+  } else if (strcmp(cmd, "GET_CONFIG") == 0) {
     sendConfigResponse(out);
 
   } else if (strncmp(cmd, "SET:", 4) == 0) {

@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 #include <SerialPIO.h>
 #include <uart_st.h>
+#include "fw_version.h"
 
 // Seed images (compiled in for first-boot only, then served from LittleFS)
 #include "flavor1_bitmap.h"
@@ -445,6 +446,11 @@ static void processTextCommand(const char *cmd) {
       saveLabels();
       Serial.printf("Label set: slot %d = %s\n", slot, labels[slot]);
     }
+
+  } else if (strcmp(cmd, "GET_VERSION") == 0) {
+    char buf[48];
+    snprintf(buf, sizeof(buf), "VERSION:RP2040=%s", FW_BUILD_TIME);
+    stSendText(stLink, buf);
 
   } else if (strcmp(cmd, "LIST") == 0) {
     for (uint8_t i = 0; i < numImages; i++) {
