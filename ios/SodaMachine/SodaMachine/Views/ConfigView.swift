@@ -289,19 +289,23 @@ private struct StatsView: View {
                 ForEach(0..<24, id: \.self) { i in
                     LineMark(
                         x: .value("Hour", i),
-                        y: .value("Seconds", ble.chartData24H[0][i])
+                        y: .value("Seconds", ble.chartData24H[0][i]),
+                        series: .value("Flavor", "Flavor 1")
                     )
-                    .foregroundStyle(chartPink)
+                    .foregroundStyle(by: .value("Flavor", "Flavor 1"))
                     .interpolationMethod(.linear)
 
                     LineMark(
                         x: .value("Hour", i),
-                        y: .value("Seconds", ble.chartData24H[1][i])
+                        y: .value("Seconds", ble.chartData24H[1][i]),
+                        series: .value("Flavor", "Flavor 2")
                     )
-                    .foregroundStyle(chartPurple)
+                    .foregroundStyle(by: .value("Flavor", "Flavor 2"))
                     .interpolationMethod(.linear)
                 }
             }
+            .chartForegroundStyleScale(["Flavor 1": chartPink, "Flavor 2": chartPurple])
+            .chartLegend(.hidden)
             .chartXAxis {
                 AxisMarks(values: [0, 6, 12, 18, 23]) { value in
                     AxisValueLabel {
@@ -346,19 +350,23 @@ private struct StatsView: View {
                 ForEach(0..<30, id: \.self) { i in
                     LineMark(
                         x: .value("Day", i),
-                        y: .value("Seconds", ble.chartData30D[0][i])
+                        y: .value("Seconds", ble.chartData30D[0][i]),
+                        series: .value("Flavor", "Flavor 1")
                     )
-                    .foregroundStyle(chartPink)
+                    .foregroundStyle(by: .value("Flavor", "Flavor 1"))
                     .interpolationMethod(.linear)
 
                     LineMark(
                         x: .value("Day", i),
-                        y: .value("Seconds", ble.chartData30D[1][i])
+                        y: .value("Seconds", ble.chartData30D[1][i]),
+                        series: .value("Flavor", "Flavor 2")
                     )
-                    .foregroundStyle(chartPurple)
+                    .foregroundStyle(by: .value("Flavor", "Flavor 2"))
                     .interpolationMethod(.linear)
                 }
             }
+            .chartForegroundStyleScale(["Flavor 1": chartPink, "Flavor 2": chartPurple])
+            .chartLegend(.hidden)
             .chartXAxis {
                 AxisMarks(values: [0, 7, 14, 21, 29]) { value in
                     AxisValueLabel {
@@ -402,19 +410,23 @@ private struct StatsView: View {
                 ForEach(0..<24, id: \.self) { h in
                     LineMark(
                         x: .value("Hour", h),
-                        y: .value("Avg Seconds", ble.chartDataHOD[0][h] / Double(days))
+                        y: .value("Avg Seconds", ble.chartDataHOD[0][h] / Double(days)),
+                        series: .value("Flavor", "Flavor 1")
                     )
-                    .foregroundStyle(chartPink)
+                    .foregroundStyle(by: .value("Flavor", "Flavor 1"))
                     .interpolationMethod(.linear)
 
                     LineMark(
                         x: .value("Hour", h),
-                        y: .value("Avg Seconds", ble.chartDataHOD[1][h] / Double(days))
+                        y: .value("Avg Seconds", ble.chartDataHOD[1][h] / Double(days)),
+                        series: .value("Flavor", "Flavor 2")
                     )
-                    .foregroundStyle(chartPurple)
+                    .foregroundStyle(by: .value("Flavor", "Flavor 2"))
                     .interpolationMethod(.linear)
                 }
             }
+            .chartForegroundStyleScale(["Flavor 1": chartPink, "Flavor 2": chartPurple])
+            .chartLegend(.hidden)
             .chartXAxis {
                 AxisMarks(values: [0, 6, 12, 18, 23]) { value in
                     AxisValueLabel {
