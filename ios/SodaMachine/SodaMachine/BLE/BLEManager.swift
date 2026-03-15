@@ -1046,11 +1046,12 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         ble.frameBuffer.append(data)
 
         while ble.frameBuffer.count >= 3 {
-            let type = ble.frameBuffer[0]
-            let len = Int(ble.frameBuffer[1]) | (Int(ble.frameBuffer[2]) << 8)
+            let si = ble.frameBuffer.startIndex
+            let type = ble.frameBuffer[si]
+            let len = Int(ble.frameBuffer[si + 1]) | (Int(ble.frameBuffer[si + 2]) << 8)
             let frameLen = 3 + len
             guard ble.frameBuffer.count >= frameLen else { break }  // wait for more data
-            let payload = Data(ble.frameBuffer[3..<frameLen])
+            let payload = Data(ble.frameBuffer[(si + 3)..<(si + frameLen)])
             ble.frameBuffer.removeFirst(frameLen)
 
             switch type {
