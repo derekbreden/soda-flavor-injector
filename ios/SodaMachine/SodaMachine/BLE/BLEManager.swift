@@ -122,10 +122,15 @@ class BLEManager {
     @ObservationIgnored fileprivate var imgDownloadSlot: Int = -1
     @ObservationIgnored fileprivate var imgDownloadData = Data()
     @ObservationIgnored fileprivate var imgDownloadExpected: Int = 0
+    @ObservationIgnored fileprivate var imgDownloadCRC: UInt32 = 0
+    @ObservationIgnored fileprivate var imgDownloadRetries: Int = 0
     @ObservationIgnored fileprivate var imgDownloadQueue: [Int] = []
     @ObservationIgnored fileprivate var isDownloading = false
     @ObservationIgnored fileprivate var pendingStatsRequest = false
     @ObservationIgnored fileprivate var nusReady = false
+
+    // BLE frame buffer — accumulates partial frames from notifications
+    @ObservationIgnored fileprivate var frameBuffer = Data()
 
     // BLE runs on a dedicated background queue so binary data accumulation
     // and BLE writes don't block the main thread during image downloads.
@@ -145,18 +150,28 @@ class BLEManager {
 
     // MARK: - Public API
 
-    /// Send a text command to the S3 via BLE. Always dispatched to bleQueue
-    /// to avoid cross-queue blocking with CoreBluetooth's internal synchronization.
+    /// Send a text command to the S3 via BLE, wrapped in a TEXT frame.
+    /// Always dispatched to bleQueue to avoid cross-queue blocking.
     func send(_ text: String) {
         bleQueue.async { [weak self] in
             guard let self, let rx = self.rxCharacteristic, let p = self.connectedPeripheral else {
                 log.warning("Cannot send: not connected")
                 return
             }
-            guard let data = text.data(using: .utf8) else { return }
-            p.writeValue(data, for: rx, type: .withResponse)
+            guard let payload = text.data(using: .utf8) else { return }
+            var frame = Data([0x01, UInt8(payload.count & 0xFF), UInt8((payload.count >> 8) & 0xFF)])
+            frame.append(payload)
+            p.writeValue(frame, for: rx, type: .withResponse)
             log.debug("TX: \(text)")
         }
+    }
+
+    /// Send a raw BLE frame on bleQueue. Caller must already be on bleQueue.
+    fileprivate func sendBLEFrame(type: UInt8, payload: Data) {
+        guard let rx = rxCharacteristic, let p = connectedPeripheral else { return }
+        var frame = Data([type, UInt8(payload.count & 0xFF), UInt8((payload.count >> 8) & 0xFF)])
+        frame.append(payload)
+        p.writeValue(frame, for: rx, type: .withResponse)
     }
 
     func requestConfig() {
@@ -526,13 +541,30 @@ class BLEManager {
 
         let step = uploadSteps[currentUploadStep]
         let crc = ImageProcessor.crc32(step.data)
-        var header = "IMG_UPLOAD:slot=\(uploadSlot),type=\(step.type),size=\(step.data.count),crc32=0x\(String(crc, radix: 16))"
-        if currentUploadStep == 0 {
-            header += ",label=\(uploadLabel)"
+
+        let fileType: UInt8 = step.type == "png" ? 0 : (step.type == "s3" ? 1 : 2)
+
+        // Build BIN_START payload: [slot(1B), fileType(1B), size(4B LE), crc32(4B LE), label...]
+        var startPayload = Data(capacity: 10 + 32)
+        startPayload.append(UInt8(uploadSlot))
+        startPayload.append(fileType)
+        var sizeLE = UInt32(step.data.count).littleEndian
+        withUnsafeBytes(of: &sizeLE) { startPayload.append(contentsOf: $0) }
+        var crcLE = crc.littleEndian
+        withUnsafeBytes(of: &crcLE) { startPayload.append(contentsOf: $0) }
+        if currentUploadStep == 0, let labelData = uploadLabel.data(using: .utf8) {
+            startPayload.append(labelData)
         }
 
         uploadBytesSent = 0
-        send(header)
+
+        bleQueue.async { [weak self] in
+            guard let self else { return }
+            self.sendBLEFrame(type: 0x02, payload: startPayload)
+            self.bleQueue.asyncAfter(deadline: .now() + 0.05) {
+                self.sendUploadChunks()
+            }
+        }
     }
 
     private func sendUploadChunks() {
@@ -540,14 +572,18 @@ class BLEManager {
         let data = uploadSteps[currentUploadStep].data
         guard let rx = rxCharacteristic, let p = connectedPeripheral else { return }
         let mtu = p.maximumWriteValueLength(for: .withResponse)
-        let chunkSize = min(mtu, 240)
+        let chunkSize = min(mtu - 3, 240)  // leave room for frame header
 
         func sendChunk() {
             self.bleQueue.async {
                 guard self.uploadBytesSent < data.count, self.isUploading else { return }
                 let end = min(self.uploadBytesSent + chunkSize, data.count)
                 let chunk = data[self.uploadBytesSent..<end]
-                p.writeValue(chunk, for: rx, type: .withResponse)
+
+                // Build BIN_DATA frame
+                var frame = Data([0x03, UInt8(chunk.count & 0xFF), UInt8((chunk.count >> 8) & 0xFF)])
+                frame.append(chunk)
+                p.writeValue(frame, for: rx, type: .withResponse)
                 self.uploadBytesSent = end
 
                 DispatchQueue.main.async {
@@ -559,6 +595,11 @@ class BLEManager {
                 if self.uploadBytesSent < data.count {
                     self.bleQueue.asyncAfter(deadline: .now() + 0.02) {
                         sendChunk()
+                    }
+                } else {
+                    // All data sent, send BIN_END frame
+                    self.bleQueue.asyncAfter(deadline: .now() + 0.02) {
+                        self.sendBLEFrame(type: 0x04, payload: Data())
                     }
                 }
             }
@@ -602,9 +643,13 @@ class BLEManager {
         let slot = imgDownloadQueue.removeFirst()
         imgDownloadData = Data()
         imgDownloadExpected = 0
+        imgDownloadRetries = 0
         guard let rx = rxCharacteristic, let p = connectedPeripheral,
-              let data = "GETPNG:\(slot)".data(using: .utf8) else { return }
-        p.writeValue(data, for: rx, type: .withResponse)
+              let payload = "GETPNG:\(slot)".data(using: .utf8) else { return }
+        // Send as TEXT frame
+        var frame = Data([0x01, UInt8(payload.count & 0xFF), UInt8((payload.count >> 8) & 0xFF)])
+        frame.append(payload)
+        p.writeValue(frame, for: rx, type: .withResponse)
     }
 
     // MARK: - Response parsing (main thread only)
@@ -618,8 +663,6 @@ class BLEManager {
             imageNames = pendingImageList
             pendingImageList = []
             downloadAllImages()
-        } else if text == "UPLOAD_READY" {
-            sendUploadChunks()
         } else if text.hasPrefix("IMG_OK:") {
             currentUploadStep += 1
             let stepNames = ["PNG", "S3 RGB565", "RP2040 RGB565"]
@@ -938,6 +981,7 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         ble.connectedPeripheral = nil
         ble.rxCharacteristic = nil
         ble.nusReady = false
+        ble.frameBuffer = Data()
         DispatchQueue.main.async {
             self.ble.connectionState = .searching
             self.ble.configSynced = false
@@ -997,53 +1041,97 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard characteristic.uuid == nusTxUUID, let data = characteristic.value else { return }
-        // This runs on bleQueue.
+        // This runs on bleQueue. Parse framed protocol.
 
-        // Fast path: binary image data — stays entirely on bleQueue
-        if ble.imgDownloadSlot >= 0 {
-            if data.count < 20, let text = String(data: data, encoding: .utf8), text == "IMGEND" {
+        ble.frameBuffer.append(data)
+
+        while ble.frameBuffer.count >= 3 {
+            let type = ble.frameBuffer[0]
+            let len = Int(ble.frameBuffer[1]) | (Int(ble.frameBuffer[2]) << 8)
+            let frameLen = 3 + len
+            guard ble.frameBuffer.count >= frameLen else { break }  // wait for more data
+            let payload = Data(ble.frameBuffer[3..<frameLen])
+            ble.frameBuffer.removeFirst(frameLen)
+
+            switch type {
+            case 0x01:  // TEXT
+                guard let text = String(data: payload, encoding: .utf8) else { continue }
+                if text.hasPrefix("DBG:") { continue }
+                DispatchQueue.main.async {
+                    self.ble.handleTextResponse(text)
+                }
+
+            case 0x02:  // BIN_START
+                guard payload.count >= 10 else { continue }
+                let slot = Int(payload[0])
+                // payload[1] = file_type (0=png, 1=s3_rgb)
+                let size = UInt32(payload[2]) | (UInt32(payload[3]) << 8) |
+                           (UInt32(payload[4]) << 16) | (UInt32(payload[5]) << 24)
+                let crc = UInt32(payload[6]) | (UInt32(payload[7]) << 8) |
+                          (UInt32(payload[8]) << 16) | (UInt32(payload[9]) << 24)
+                ble.imgDownloadSlot = slot
+                ble.imgDownloadExpected = Int(size)
+                ble.imgDownloadCRC = crc
+                ble.imgDownloadData = Data()
+                log.info("BIN_START: slot \(slot), \(size) bytes, CRC=0x\(String(crc, radix: 16))")
+
+            case 0x03:  // BIN_DATA
+                ble.imgDownloadData.append(payload)
+
+            case 0x04:  // BIN_END
                 let imgData = ble.imgDownloadData
                 let slot = ble.imgDownloadSlot
+                let expectedSize = ble.imgDownloadExpected
+                let expectedCRC = ble.imgDownloadCRC
                 ble.imgDownloadSlot = -1
                 ble.imgDownloadData = Data()
+
+                // Verify size
+                if imgData.count != expectedSize {
+                    log.error("Image \(slot) size mismatch: got \(imgData.count) expected \(expectedSize)")
+                    retryDownload(slot: slot)
+                    continue
+                }
+
+                // Verify CRC-32
+                let actualCRC = ImageProcessor.crc32(imgData)
+                if actualCRC != expectedCRC {
+                    log.error("Image \(slot) CRC mismatch: got 0x\(String(actualCRC, radix: 16)) expected 0x\(String(expectedCRC, radix: 16))")
+                    retryDownload(slot: slot)
+                    continue
+                }
+
+                ble.imgDownloadRetries = 0
                 let image = UIImage(data: imgData)
                 DispatchQueue.main.async {
                     if let image {
                         self.ble.cachedImages[slot] = image
-                        log.info("Image \(slot) cached (\(imgData.count) bytes)")
+                        log.info("Image \(slot) cached (\(imgData.count) bytes, CRC verified)")
                     } else {
                         log.error("Image \(slot) decode failed: \(imgData.count) bytes")
                     }
                 }
                 ble.startNextDownload()
-            } else {
-                ble.imgDownloadData.append(data)
-            }
-            return
-        }
 
-        // IMGSTART: parse on bleQueue before binary chunks arrive
-        if let text = String(data: data, encoding: .utf8), text.hasPrefix("IMGSTART:") {
-            let parts = text.split(separator: ":")
-            if parts.count >= 3, let slot = Int(parts[1]), let size = Int(parts[2]) {
-                ble.imgDownloadSlot = slot
-                ble.imgDownloadExpected = size
-                ble.imgDownloadData = Data()
-                log.info("Starting image download: slot \(slot), \(size) bytes")
+            default:
+                break
             }
-            return
         }
+    }
 
-        // Filter out DBG: lines (firmware debug output)
-        if let text = String(data: data, encoding: .utf8), text.hasPrefix("DBG:") {
-            return
-        }
-
-        // All other text: dispatch to main for observable property updates
-        DispatchQueue.main.async {
-            if let text = String(data: data, encoding: .utf8) {
-                self.ble.handleTextResponse(text)
-            }
+    private func retryDownload(slot: Int) {
+        self.ble.imgDownloadRetries += 1
+        if self.ble.imgDownloadRetries <= 3 {
+            log.info("Retrying image \(slot) download (attempt \(self.ble.imgDownloadRetries))")
+            guard let rx = self.ble.rxCharacteristic, let p = self.ble.connectedPeripheral,
+                  let payload = "GETPNG:\(slot)".data(using: .utf8) else { return }
+            var frame = Data([0x01, UInt8(payload.count & 0xFF), UInt8((payload.count >> 8) & 0xFF)])
+            frame.append(payload)
+            p.writeValue(frame, for: rx, type: .withResponse)
+        } else {
+            log.error("Image \(slot) download failed after 3 retries")
+            self.ble.imgDownloadRetries = 0
+            self.ble.startNextDownload()
         }
     }
 }
