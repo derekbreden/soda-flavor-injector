@@ -60,6 +60,25 @@ class BLEManager {
     // Demo mode (no hardware needed)
     var demoMode = false
 
+    // Usage statistics
+    struct FlavorStats {
+        var todayFlowSum: UInt32 = 0
+        var todayFlowCount: UInt32 = 0
+        var todayBurstSum: UInt32 = 0
+        var todayBurstCount: UInt32 = 0
+        var weekFlowSum: UInt32 = 0
+        var weekFlowCount: UInt32 = 0
+        var weekBurstSum: UInt32 = 0
+        var weekBurstCount: UInt32 = 0
+        var monthFlowSum: UInt32 = 0
+        var monthFlowCount: UInt32 = 0
+        var monthBurstSum: UInt32 = 0
+        var monthBurstCount: UInt32 = 0
+    }
+    var flavor1Stats = FlavorStats()
+    var flavor2Stats = FlavorStats()
+    var statsSynced = false
+
     // ── Internal state (not observed by SwiftUI) ──
 
     // All @ObservationIgnored properties below are fileprivate so
@@ -138,6 +157,15 @@ class BLEManager {
         espVersion = ""
         rpVersion = ""
         send("GET_VERSION")
+    }
+
+    func requestStats() {
+        if demoMode {
+            populateDemoStats()
+            return
+        }
+        statsSynced = false
+        send("GET_STATS")
     }
 
     func factoryReset() {
@@ -342,6 +370,26 @@ class BLEManager {
         }
     }
 
+    private func populateDemoStats() {
+        flavor1Stats = FlavorStats(
+            todayFlowSum: 2400, todayFlowCount: 800,
+            todayBurstSum: 12000, todayBurstCount: 80,
+            weekFlowSum: 15000, weekFlowCount: 5000,
+            weekBurstSum: 75000, weekBurstCount: 500,
+            monthFlowSum: 60000, monthFlowCount: 20000,
+            monthBurstSum: 300000, monthBurstCount: 2000
+        )
+        flavor2Stats = FlavorStats(
+            todayFlowSum: 1800, todayFlowCount: 600,
+            todayBurstSum: 9000, todayBurstCount: 60,
+            weekFlowSum: 10000, weekFlowCount: 3500,
+            weekBurstSum: 50000, weekBurstCount: 350,
+            monthFlowSum: 40000, monthFlowCount: 14000,
+            monthBurstSum: 200000, monthBurstCount: 1400
+        )
+        statsSynced = true
+    }
+
     private func deleteDemoImage(slot: Int) {
         guard numImages > 1 else { return }
 
@@ -495,10 +543,15 @@ class BLEManager {
             espVersion = String(text.dropFirst(14))
         } else if text.hasPrefix("VERSION:RP2040=") {
             rpVersion = String(text.dropFirst(15))
+        } else if text.hasPrefix("STATS:") {
+            parseStats(text)
+        } else if text == "OK:TIME_SYNCED" {
+            log.info("Time synced with ESP32")
         } else if text == "OK:FACTORY_RESET" {
             log.info("Factory reset confirmed, re-syncing")
             cachedImages = [:]
             imageNames = []
+            statsSynced = false
             factoryResetCompleted = true
             requestConfig()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
@@ -539,6 +592,41 @@ class BLEManager {
         if let v = values["numImages"] { numImages = max(v, 1) }
         configSynced = true
         log.info("Config synced: F1=\(self.flavor1Image)/\(self.flavor1Ratio) F2=\(self.flavor2Image)/\(self.flavor2Ratio) numImages=\(self.numImages)")
+    }
+
+    private func parseStats(_ text: String) {
+        // STATS:F=0,TD_FS=1234,TD_FC=567,...
+        let body = String(text.dropFirst(6)) // drop "STATS:"
+        var values: [String: UInt32] = [:]
+        for pair in body.split(separator: ",") {
+            let parts = pair.split(separator: "=", maxSplits: 1)
+            if parts.count == 2, let val = UInt32(parts[1]) {
+                values[String(parts[0])] = val
+            }
+        }
+
+        let flavor = values["F"] ?? 0
+        let stats = FlavorStats(
+            todayFlowSum: values["TD_FS"] ?? 0,
+            todayFlowCount: values["TD_FC"] ?? 0,
+            todayBurstSum: values["TD_BS"] ?? 0,
+            todayBurstCount: values["TD_BC"] ?? 0,
+            weekFlowSum: values["7D_FS"] ?? 0,
+            weekFlowCount: values["7D_FC"] ?? 0,
+            weekBurstSum: values["7D_BS"] ?? 0,
+            weekBurstCount: values["7D_BC"] ?? 0,
+            monthFlowSum: values["30D_FS"] ?? 0,
+            monthFlowCount: values["30D_FC"] ?? 0,
+            monthBurstSum: values["30D_BS"] ?? 0,
+            monthBurstCount: values["30D_BC"] ?? 0
+        )
+
+        if flavor == 0 {
+            flavor1Stats = stats
+        } else {
+            flavor2Stats = stats
+            statsSynced = true  // both flavors received
+        }
     }
 
     private func parseImageLine(_ text: String) {
@@ -648,6 +736,7 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         DispatchQueue.main.async {
             self.ble.connectionState = .searching
             self.ble.configSynced = false
+            self.ble.statsSynced = false
             self.ble.imgDownloadQueue = []
             self.ble.isDownloading = false
             self.ble.imageDownloadProgress = nil
@@ -689,7 +778,11 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
             DispatchQueue.main.async { self.ble.connectionState = .connected }
             peripheral.maximumWriteValueLength(for: .withResponse)
             log.info("NUS ready")
-            ble.send("GET_CONFIG")
+            let epoch = Int(Date().timeIntervalSince1970)
+            ble.send("SET_TIME:\(epoch)")
+            ble.bleQueue.asyncAfter(deadline: .now() + 0.05) { [weak ble] in
+                ble?.send("GET_CONFIG")
+            }
             ble.bleQueue.asyncAfter(deadline: .now() + 0.1) { [weak ble] in
                 ble?.send("LIST")
             }

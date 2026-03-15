@@ -1216,6 +1216,8 @@ static void processTextLine(const char *line) {
     Serial.printf("Got RP2040 version: %s\n", rpVersion);
     if (inAbout) drawScreen();
     bleSendLine(line);
+  } else if (strncmp(line, "STATS:", 6) == 0) {
+    bleSendLine(line);
   } else if (strncmp(line, "OK:", 3) == 0) {
     Serial.printf("ESP32 confirmed: %s\n", line);
     bleSendLine(line);

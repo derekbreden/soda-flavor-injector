@@ -253,6 +253,32 @@ unsigned long lastBlinkToggle    = 0;
 bool blinkState                  = true;
 unsigned long lastConfigSend     = 0;
 
+// ── Usage statistics ──
+struct StatsAccum {
+  uint32_t flow_sum;       // sum of pulse readings (0-6 each, every 50ms when flowing)
+  uint32_t flow_count;     // number of 50ms readings that contributed
+  uint32_t burst_sum_ms;   // sum of pump burst durations in ms
+  uint32_t burst_count;    // number of bursts
+};
+
+struct StatsBucket {
+  uint32_t epoch_key;      // epoch/3600 (hourly) or epoch/86400 (daily)
+  uint32_t flow_sum, flow_count, burst_sum_ms, burst_count;
+};
+
+StatsAccum currentHour[2] = {};   // per-flavor accumulators for current hour
+uint32_t currentHourKey = 0;      // epoch/3600 for current hour (0 = not yet synced)
+
+// Time sync (iOS sends wall clock via BLE → S3 → ESP32)
+uint32_t timeAnchorEpoch  = 0;    // unix epoch at anchor point
+unsigned long timeAnchorMillis = 0; // millis() at anchor point
+bool timeSynced = false;
+unsigned long lastStatsFlush = 0; // last 60s flush
+
+uint32_t currentEpoch() {
+  return timeAnchorEpoch + (millis() - timeAnchorMillis) / 1000;
+}
+
 // ════════════════════════════════════════════════════════════
 //  Factory defaults & LittleFS config persistence
 // ════════════════════════════════════════════════════════════
@@ -967,6 +993,197 @@ void bootSync() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Usage statistics — persistence and rollup
+// ════════════════════════════════════════════════════════════
+
+#define STATS_DIR         "/stats"
+#define STATS_CURRENT_PATH "/stats/current.bin"
+#define MAX_HOURLY_ENTRIES 720   // 30 days
+#define MAX_DAILY_ENTRIES  365
+
+static const char *statsHourlyPath(uint8_t flavor) {
+  static char buf[24];
+  snprintf(buf, sizeof(buf), "/stats/f%d_hourly.bin", flavor);
+  return buf;
+}
+
+static const char *statsDailyPath(uint8_t flavor) {
+  static char buf[24];
+  snprintf(buf, sizeof(buf), "/stats/f%d_daily.bin", flavor);
+  return buf;
+}
+
+// Save current accumulators to flash (called every 60s)
+void saveCurrentAccum() {
+  struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
+  memcpy(data.accum, currentHour, sizeof(currentHour));
+  data.savedMillis = millis();
+  File f = LittleFS.open(STATS_CURRENT_PATH, "w");
+  if (f) { f.write((uint8_t*)&data, sizeof(data)); f.close(); }
+}
+
+// Load current accumulators from flash (called on boot)
+void loadCurrentAccum() {
+  struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
+  File f = LittleFS.open(STATS_CURRENT_PATH, "r");
+  if (f && f.size() == sizeof(data)) {
+    f.read((uint8_t*)&data, sizeof(data));
+    f.close();
+    memcpy(currentHour, data.accum, sizeof(currentHour));
+    Serial.printf("Loaded stats accumulators from flash\n");
+  } else {
+    if (f) f.close();
+  }
+}
+
+// Append or merge a bucket into an hourly or daily file.
+// If the last entry has the same key, merge (add values). Otherwise append.
+// Trims oldest entries if over maxEntries.
+void appendStatsBucket(const char *path, const StatsBucket &bucket, int maxEntries) {
+  // Read the last entry to check for merge
+  StatsBucket last = {};
+  bool merge = false;
+  File f = LittleFS.open(path, "r");
+  if (f) {
+    size_t fileSize = f.size();
+    int entryCount = fileSize / sizeof(StatsBucket);
+    if (entryCount > 0) {
+      f.seek((entryCount - 1) * sizeof(StatsBucket));
+      f.read((uint8_t*)&last, sizeof(StatsBucket));
+      if (last.epoch_key == bucket.epoch_key) {
+        merge = true;
+        last.flow_sum += bucket.flow_sum;
+        last.flow_count += bucket.flow_count;
+        last.burst_sum_ms += bucket.burst_sum_ms;
+        last.burst_count += bucket.burst_count;
+      }
+    }
+    f.close();
+  }
+
+  if (merge) {
+    // Overwrite the last entry
+    File fw = LittleFS.open(path, "r+");
+    if (fw) {
+      size_t fileSize = fw.size();
+      fw.seek(fileSize - sizeof(StatsBucket));
+      fw.write((uint8_t*)&last, sizeof(StatsBucket));
+      fw.close();
+    }
+  } else {
+    // Append new entry
+    File fa = LittleFS.open(path, "a");
+    if (fa) {
+      fa.write((uint8_t*)&bucket, sizeof(StatsBucket));
+      fa.close();
+    }
+
+    // Trim oldest entries if over limit
+    File fc = LittleFS.open(path, "r");
+    if (fc) {
+      int entryCount = fc.size() / sizeof(StatsBucket);
+      if (entryCount > maxEntries) {
+        int skip = entryCount - maxEntries;
+        // Read entries to keep into a buffer (stack-safe: read one at a time to temp file)
+        File tmp = LittleFS.open("/stats/trim.tmp", "w");
+        if (tmp) {
+          fc.seek(skip * sizeof(StatsBucket));
+          StatsBucket entry;
+          for (int i = 0; i < maxEntries; i++) {
+            fc.read((uint8_t*)&entry, sizeof(StatsBucket));
+            tmp.write((uint8_t*)&entry, sizeof(StatsBucket));
+          }
+          tmp.close();
+          fc.close();
+          LittleFS.remove(path);
+          LittleFS.rename("/stats/trim.tmp", path);
+        } else {
+          fc.close();
+        }
+      } else {
+        fc.close();
+      }
+    }
+  }
+}
+
+// Flush current hour accumulators to hourly files
+void flushCurrentHour() {
+  if (currentHourKey == 0) return;  // no time sync yet
+  for (int f = 0; f < 2; f++) {
+    if (currentHour[f].flow_count == 0 && currentHour[f].burst_count == 0) continue;
+    StatsBucket bucket;
+    bucket.epoch_key = currentHourKey;
+    bucket.flow_sum = currentHour[f].flow_sum;
+    bucket.flow_count = currentHour[f].flow_count;
+    bucket.burst_sum_ms = currentHour[f].burst_sum_ms;
+    bucket.burst_count = currentHour[f].burst_count;
+    appendStatsBucket(statsHourlyPath(f), bucket, MAX_HOURLY_ENTRIES);
+  }
+}
+
+// Rollup: sum a day's hourly entries into one daily entry
+void rollupDaily(uint32_t dayKey) {
+  for (int flav = 0; flav < 2; flav++) {
+    StatsBucket daily = {};
+    daily.epoch_key = dayKey;
+    uint32_t dayStartHour = dayKey * 24;   // epoch_key for hourly = epoch/3600
+    uint32_t dayEndHour = dayStartHour + 24;
+
+    File f = LittleFS.open(statsHourlyPath(flav), "r");
+    if (f) {
+      StatsBucket entry;
+      while (f.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+        if (entry.epoch_key >= dayStartHour && entry.epoch_key < dayEndHour) {
+          daily.flow_sum += entry.flow_sum;
+          daily.flow_count += entry.flow_count;
+          daily.burst_sum_ms += entry.burst_sum_ms;
+          daily.burst_count += entry.burst_count;
+        }
+      }
+      f.close();
+    }
+
+    if (daily.flow_count > 0 || daily.burst_count > 0) {
+      appendStatsBucket(statsDailyPath(flav), daily, MAX_DAILY_ENTRIES);
+    }
+  }
+}
+
+// Sum stats from a file for entries with epoch_key in [startKey, endKey)
+struct StatsSummary {
+  uint32_t flow_sum, flow_count, burst_sum_ms, burst_count;
+};
+
+StatsSummary sumStatsRange(const char *path, uint32_t startKey, uint32_t endKey) {
+  StatsSummary s = {};
+  File f = LittleFS.open(path, "r");
+  if (f) {
+    StatsBucket entry;
+    while (f.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+      if (entry.epoch_key >= startKey && entry.epoch_key < endKey) {
+        s.flow_sum += entry.flow_sum;
+        s.flow_count += entry.flow_count;
+        s.burst_sum_ms += entry.burst_sum_ms;
+        s.burst_count += entry.burst_count;
+      }
+    }
+    f.close();
+  }
+  return s;
+}
+
+void clearStatsFiles() {
+  LittleFS.remove("/stats/f0_hourly.bin");
+  LittleFS.remove("/stats/f1_hourly.bin");
+  LittleFS.remove("/stats/f0_daily.bin");
+  LittleFS.remove("/stats/f1_daily.bin");
+  LittleFS.remove(STATS_CURRENT_PATH);
+  memset(currentHour, 0, sizeof(currentHour));
+  currentHourKey = 0;
+}
+
+// ════════════════════════════════════════════════════════════
 //  Config UART command parser
 // ════════════════════════════════════════════════════════════
 
@@ -994,6 +1211,65 @@ void processConfigCommand(const char *cmd, Stream &out) {
             break;
           }
         }
+      }
+    }
+
+  } else if (strncmp(cmd, "SET_TIME:", 9) == 0) {
+    uint32_t epoch = strtoul(cmd + 9, nullptr, 10);
+    if (epoch > 1000000000) {  // sanity: after ~2001
+      timeAnchorEpoch = epoch;
+      timeAnchorMillis = millis();
+      if (!timeSynced) {
+        timeSynced = true;
+        // Place current accumulators into the correct hour
+        currentHourKey = epoch / 3600;
+      }
+      out.printf("OK:TIME_SYNCED\n");
+      Serial.printf("Time synced: epoch=%lu\n", (unsigned long)epoch);
+    } else {
+      out.printf("ERR:invalid epoch\n");
+    }
+
+  } else if (strcmp(cmd, "GET_STATS") == 0) {
+    if (!timeSynced) {
+      out.printf("ERR:no time sync\n");
+    } else {
+      uint32_t now = currentEpoch();
+      uint32_t todayDayKey = now / 86400;
+      uint32_t todayHourStart = todayDayKey * 24;  // first hourly key of today
+
+      for (int f = 0; f < 2; f++) {
+        // Today: sum hourly entries for today + current accumulators
+        StatsSummary td = sumStatsRange(statsHourlyPath(f), todayHourStart, todayHourStart + 24);
+        td.flow_sum += currentHour[f].flow_sum;
+        td.flow_count += currentHour[f].flow_count;
+        td.burst_sum_ms += currentHour[f].burst_sum_ms;
+        td.burst_count += currentHour[f].burst_count;
+
+        // 7-day: sum daily entries for last 6 days + today
+        StatsSummary w = sumStatsRange(statsDailyPath(f), todayDayKey - 6, todayDayKey);
+        w.flow_sum += td.flow_sum;
+        w.flow_count += td.flow_count;
+        w.burst_sum_ms += td.burst_sum_ms;
+        w.burst_count += td.burst_count;
+
+        // 30-day: sum daily entries for last 29 days + today
+        StatsSummary m = sumStatsRange(statsDailyPath(f), todayDayKey - 29, todayDayKey);
+        m.flow_sum += td.flow_sum;
+        m.flow_count += td.flow_count;
+        m.burst_sum_ms += td.burst_sum_ms;
+        m.burst_count += td.burst_count;
+
+        out.printf("STATS:F=%d,TD_FS=%lu,TD_FC=%lu,TD_BS=%lu,TD_BC=%lu,"
+                   "7D_FS=%lu,7D_FC=%lu,7D_BS=%lu,7D_BC=%lu,"
+                   "30D_FS=%lu,30D_FC=%lu,30D_BS=%lu,30D_BC=%lu\n",
+                   f,
+                   (unsigned long)td.flow_sum, (unsigned long)td.flow_count,
+                   (unsigned long)td.burst_sum_ms, (unsigned long)td.burst_count,
+                   (unsigned long)w.flow_sum, (unsigned long)w.flow_count,
+                   (unsigned long)w.burst_sum_ms, (unsigned long)w.burst_count,
+                   (unsigned long)m.flow_sum, (unsigned long)m.flow_count,
+                   (unsigned long)m.burst_sum_ms, (unsigned long)m.burst_count);
       }
     }
 
@@ -1456,6 +1732,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     numImages = espNumImages;
     numS3Images = espNumImages;
 
+    clearStatsFiles();
     out.printf("OK:FACTORY_RESET\n");
 
   } else if (strncmp(cmd, "PUSH_IMG:", 9) == 0) {
@@ -1735,6 +2012,9 @@ void setup() {
     Serial.println("WARNING: LittleFS init failed");
   }
 
+  LittleFS.mkdir("/stats");
+  loadCurrentAccum();
+
   // Always determine factory image count from compiled-in defaults
   {
     JsonDocument doc;
@@ -1854,6 +2134,12 @@ void loop() {
     flowPulses = count;
     lastFlowCheck = now;
 
+    // Stats: accumulate flow readings when water is flowing
+    if (waterFlowing) {
+      currentHour[activeFlavor].flow_sum += count;
+      currentHour[activeFlavor].flow_count++;
+    }
+
     // Track readings during active pump cycles for averaging
     if (pumpState == PUMP_ON || pumpState == PUMP_OFF) {
       cyclePulseSum += count;
@@ -1902,6 +2188,9 @@ void loop() {
         // On-phase running — wait for it to finish
         if (now - phaseStart >= cycleOnMs) {
           motorOff(active.pump);
+          // Stats: accumulate burst duration
+          currentHour[activeFlavor].burst_sum_ms += cycleOnMs;
+          currentHour[activeFlavor].burst_count++;
           pumpState = PUMP_OFF;
           phaseStart = now;
           Serial.printf("── PUMP OFF  ── (on-phase done, off for %lums)\n", cycleOffMs);
@@ -1985,6 +2274,36 @@ void loop() {
   if (now - lastConfigSend >= CONFIG_SEND_INTERVAL_MS) {
     sendMapToRP();
     lastConfigSend = now;
+  }
+
+  // ── 5b. Stats rollup and periodic flush ─────────────────────
+  if (timeSynced) {
+    uint32_t nowEpoch = currentEpoch();
+    uint32_t hourKey = nowEpoch / 3600;
+
+    // Hour rollover: flush current hour, check for day rollover
+    if (currentHourKey != 0 && hourKey != currentHourKey) {
+      flushCurrentHour();
+
+      // Day rollover: if we crossed a day boundary, rollup yesterday
+      uint32_t oldDay = (currentHourKey * 3600) / 86400;
+      uint32_t newDay = nowEpoch / 86400;
+      if (newDay != oldDay) {
+        rollupDaily(oldDay);
+      }
+
+      memset(currentHour, 0, sizeof(currentHour));
+      currentHourKey = hourKey;
+    } else if (currentHourKey == 0) {
+      currentHourKey = hourKey;
+    }
+
+    // Periodic flush every 60s
+    if (now - lastStatsFlush >= 60000) {
+      flushCurrentHour();
+      saveCurrentAccum();
+      lastStatsFlush = now;
+    }
   }
 
   // ── 6. Config UART commands ─────────────────────────────────

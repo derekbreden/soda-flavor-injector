@@ -57,6 +57,7 @@ private struct SettingsPageView: View {
     @Environment(BLEManager.self) var ble
     @Binding var showImageManager: Bool
     @Binding var inAbout: Bool
+    @Binding var inStats: Bool
     @State private var showResetAlert = false
     @State private var resetting = false
 
@@ -77,6 +78,10 @@ private struct SettingsPageView: View {
                 VStack(spacing: 0) {
                     settingsButton("Manage Images") {
                         showImageManager = true
+                    }
+                    settingsButton("Usage Stats") {
+                        ble.requestStats()
+                        inStats = true
                     }
                     settingsButton("Factory Reset") {
                         showResetAlert = true
@@ -159,6 +164,80 @@ private struct AboutView: View {
 }
 
 // ────────────────────────────────────────────────────────────
+// Stats screen (usage statistics display)
+// ────────────────────────────────────────────────────────────
+
+private struct StatsView: View {
+    @Environment(BLEManager.self) var ble
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if !ble.statsSynced {
+                Spacer()
+                ProgressView()
+                    .tint(Theme.textPrimary)
+                Text("Loading stats...")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.top, 8)
+                Spacer()
+            } else {
+                ScrollView {
+                    VStack(spacing: 20) {
+                        Text("Usage Stats")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Theme.textPrimary)
+                            .padding(.top, 16)
+
+                        flavorSection("Flavor 1", stats: ble.flavor1Stats)
+                        flavorSection("Flavor 2", stats: ble.flavor2Stats)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                }
+            }
+        }
+    }
+
+    private func flavorSection(_ title: String, stats: BLEManager.FlavorStats) -> some View {
+        VStack(spacing: 8) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+
+            periodRow("Today", stats.todayFlowSum, stats.todayFlowCount, stats.todayBurstSum, stats.todayBurstCount)
+            periodRow("7 Day", stats.weekFlowSum, stats.weekFlowCount, stats.weekBurstSum, stats.weekBurstCount)
+            periodRow("30 Day", stats.monthFlowSum, stats.monthFlowCount, stats.monthBurstSum, stats.monthBurstCount)
+        }
+    }
+
+    private func periodRow(_ label: String, _ flowSum: UInt32, _ flowCount: UInt32, _ burstSum: UInt32, _ burstCount: UInt32) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+
+            if flowCount == 0 && burstCount == 0 {
+                Text("No activity")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.textSecondary.opacity(0.6))
+            } else {
+                let flowSecs = Double(flowCount) * 0.05
+                let avgRate = flowCount > 0 ? String(format: "%.1f", Double(flowSum) / Double(flowCount)) : "0"
+                let avgBurst = burstCount > 0 ? "\(burstSum / burstCount)ms" : "0ms"
+
+                Text("Flow: \(String(format: "%.1f", flowSecs))s avg \(avgRate)")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Bursts: \(burstCount) avg \(avgBurst)")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
 
 struct ConfigView: View {
     @Environment(BLEManager.self) var ble
@@ -166,6 +245,7 @@ struct ConfigView: View {
     @State private var editing = false
     @State private var showImageManager = false
     @State private var inAbout = false
+    @State private var inStats = false
 
     private let pageCount = 5
     private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings"]
@@ -183,6 +263,10 @@ struct ConfigView: View {
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(Theme.textPrimary)
                 }
+            } else if inStats {
+                StatsView()
+                    .contentShape(Rectangle())
+                    .onTapGesture { inStats = false }
             } else if inAbout {
                 AboutView()
                     .contentShape(Rectangle())
@@ -198,6 +282,7 @@ struct ConfigView: View {
         .onChange(of: ble.connectionState) { _, state in
             if state != .connected {
                 inAbout = false
+                inStats = false
             }
         }
     }
@@ -287,7 +372,7 @@ struct ConfigView: View {
         case 3:
             ratioDisplay(ratio: ble.flavor2Ratio)
         case 4:
-            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout)
+            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout, inStats: $inStats)
         default:
             EmptyView()
         }
