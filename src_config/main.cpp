@@ -15,6 +15,7 @@
 #include "images/flavor0_240.h"
 #include "images/flavor1_240.h"
 #include "images/flavor2_240.h"
+#include "images/logo_240.h"
 
 // ════════════════════════════════════════════════════════════
 //  ESP32-S3 Config Display — Soda Flavor Injector
@@ -672,6 +673,11 @@ int lastClk = HIGH;
 // ── Touch state ──
 unsigned long lastTapTime = 0;
 bool lastTouchState = false;
+
+// ── Screensaver ──
+#define SCREENSAVER_TIMEOUT 120000  // 120 seconds
+unsigned long lastInputTime = 0;
+bool screensaverActive = false;
 
 // ── Circular image rendering ──
 // Browse: 90px diameter, Edit: 128px diameter (matches external RP2040 display)
@@ -1534,7 +1540,22 @@ void drawSettings() {
   }
 }
 
+void drawScreensaver() {
+  lv_obj_t *scr = lv_scr_act();
+  lv_obj_clean(scr);
+  lv_obj_set_style_bg_color(scr, THEME_BG, 0);
+
+  lv_obj_t *canvas = lv_canvas_create(scr);
+  lv_canvas_set_buffer(canvas, (lv_color_t *)logo_240, 240, 240, LV_IMG_CF_TRUE_COLOR);
+  lv_obj_align(canvas, LV_ALIGN_CENTER, 0, 0);
+  lv_refr_now(NULL);
+}
+
 void drawScreen() {
+  if (screensaverActive) {
+    drawScreensaver();
+    return;
+  }
   if (inAbout) {
     drawAbout();
   } else if (inSettings) {
@@ -1763,6 +1784,7 @@ void setup() {
   lv_disp_drv_register(&disp_drv);
 
   lastClk = digitalRead(ENCODER_CLK);
+  lastInputTime = millis();
 
   drawScreen();
 
@@ -1802,11 +1824,31 @@ void loop() {
   bleImageSendChunks();
 
   int dir = readEncoder();
-  handleNavigation(dir);
+  bool tapped = readTap();
 
-  if (readTap()) {
-    handleTap();
+  // Screensaver: activate after idle timeout
+  if (dir != 0 || tapped) {
+    lastInputTime = millis();
+    if (screensaverActive) {
+      // Wake: return to first page in browse mode
+      screensaverActive = false;
+      menuIndex = 0;
+      editing = false;
+      inSettings = false;
+      inAbout = false;
+      settingsConfirm = false;
+      drawScreen();
+      // Consume this input — don't pass through
+      dir = 0;
+      tapped = false;
+    }
+  } else if (!screensaverActive && millis() - lastInputTime > SCREENSAVER_TIMEOUT) {
+    screensaverActive = true;
+    drawScreen();
   }
+
+  if (dir != 0) handleNavigation(dir);
+  if (tapped) handleTap();
 
   lv_timer_handler();
   delay(5);
