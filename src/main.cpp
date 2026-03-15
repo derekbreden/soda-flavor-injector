@@ -297,6 +297,8 @@ uint32_t currentEpoch() {
 // Live chart push (ESP32 → S3 → BLE → iOS, no polling)
 bool statsSubscribed = false;
 unsigned long lastChartPush = 0;
+unsigned long lastChartAck = 0;
+const unsigned long CHART_ACK_TIMEOUT = 10000;
 uint32_t lastPushedFlowSum[2] = {};
 
 // ════════════════════════════════════════════════════════════
@@ -1576,13 +1578,25 @@ void processConfigCommand(const char *cmd, Stream &out) {
 
   } else if (strcmp(cmd, "STATS_SUBSCRIBE") == 0) {
     statsSubscribed = true;
+    lastChartAck = millis();
     lastPushedFlowSum[0] = currentHour[0].flow_sum;
     lastPushedFlowSum[1] = currentHour[1].flow_sum;
     out.printf("OK:STATS_SUBSCRIBED\n");
 
   } else if (strcmp(cmd, "STATS_UNSUBSCRIBE") == 0) {
     statsSubscribed = false;
+    lastChartAck = 0;
     out.printf("OK:STATS_UNSUBSCRIBED\n");
+
+  } else if (strcmp(cmd, "BLE_DISCONNECTED") == 0) {
+    if (statsSubscribed) {
+      statsSubscribed = false;
+      lastChartAck = 0;
+      Serial.println("Stats unsubscribed (BLE disconnect)");
+    }
+
+  } else if (strcmp(cmd, "CHART_ACK") == 0) {
+    lastChartAck = millis();
 
   } else if (strcmp(cmd, "GET_CONFIG") == 0) {
     sendConfigResponse(out);
@@ -2458,13 +2472,20 @@ void loop() {
 
       // Push live chart update to iOS (throttled to 1/sec)
       if (statsSubscribed && (now - lastChartPush >= 1000)) {
-        uint32_t fs = currentHour[activeFlavor].flow_sum;
-        if (fs != lastPushedFlowSum[activeFlavor]) {
-          char buf[40];
-          snprintf(buf, sizeof(buf), "CHART_LIVE:F=%d,FS=%lu", activeFlavor, (unsigned long)fs);
-          stSendText(stS3, buf);
-          lastPushedFlowSum[activeFlavor] = fs;
-          lastChartPush = now;
+        // Safety net: auto-unsubscribe if S3 stopped acking (rebooted/reflashed)
+        if (lastChartAck != 0 && (now - lastChartAck) > CHART_ACK_TIMEOUT) {
+          statsSubscribed = false;
+          lastChartAck = 0;
+          Serial.println("Stats unsubscribed (ack timeout)");
+        } else {
+          uint32_t fs = currentHour[activeFlavor].flow_sum;
+          if (fs != lastPushedFlowSum[activeFlavor]) {
+            char buf[40];
+            snprintf(buf, sizeof(buf), "CHART_LIVE:F=%d,FS=%lu", activeFlavor, (unsigned long)fs);
+            stSendText(stS3, buf);
+            lastPushedFlowSum[activeFlavor] = fs;
+            lastChartPush = now;
+          }
         }
       }
     }

@@ -159,6 +159,7 @@ class BLEServerCB : public BLEServerCallbacks {
       bleUpload.phase = BLE_UP_IDLE;
       Serial.println("BLE: aborted upload on disconnect");
     }
+    stSendText(stLink, "BLE_DISCONNECTED");
     Serial.println("BLE: client disconnected");
     pServer->startAdvertising();
   }
@@ -1238,6 +1239,9 @@ static void processTextLine(const char *line) {
     bleSendLine(line);
   } else if (strncmp(line, "STATS:", 6) == 0) {
     bleSendLine(line);
+  } else if (strncmp(line, "CHART_LIVE:", 11) == 0) {
+    bleSendLine(line);
+    stSendText(stLink, "CHART_ACK");
   } else if (strncmp(line, "CHART_", 6) == 0) {
     bleSendLine(line);
   } else if (strncmp(line, "OK:", 3) == 0) {
