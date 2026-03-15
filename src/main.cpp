@@ -1432,7 +1432,12 @@ void processConfigCommand(const char *cmd, Stream &out) {
 
   } else if (strcmp(cmd, "GET_STATS") == 0) {
     if (!timeSynced) {
-      out.printf("ERR:no time sync\n");
+      // Return zeroed stats before time sync instead of error
+      for (int f = 0; f < 2; f++) {
+        out.printf("STATS:F=%d,TD_FS=0,TD_FC=0,TD_BS=0,TD_BC=0,"
+                   "7D_FS=0,7D_FC=0,7D_BS=0,7D_BC=0,"
+                   "30D_FS=0,30D_FC=0,30D_BS=0,30D_BC=0\n", f);
+      }
     } else {
       uint32_t now = currentEpoch();
       uint32_t todayDayKey = now / 86400;
@@ -1476,7 +1481,20 @@ void processConfigCommand(const char *cmd, Stream &out) {
 
   } else if (strcmp(cmd, "GET_CHART_DATA") == 0) {
     if (!timeSynced) {
-      out.printf("ERR:no time sync\n");
+      // Return zeroed chart data before time sync instead of error
+      for (int f = 0; f < 2; f++) {
+        char line[256];
+        int pos = snprintf(line, sizeof(line), "CHART_24H:F=%d", f);
+        for (int i = 0; i < 24; i++) pos += snprintf(line + pos, sizeof(line) - pos, ",0");
+        out.printf("%s\n", line);
+        pos = snprintf(line, sizeof(line), "CHART_30D:F=%d", f);
+        for (int i = 0; i < 30; i++) pos += snprintf(line + pos, sizeof(line) - pos, ",0");
+        out.printf("%s\n", line);
+        out.printf("CHART_HOD:F=%d,D=0", f);
+        for (int i = 0; i < 24; i++) out.printf(",0");
+        out.printf("\n");
+        out.printf("CHART_CUR:F=%d,FS=0\n", f);
+      }
     } else {
       uint32_t now = currentEpoch();
       uint32_t nowHourKey = now / 3600;
