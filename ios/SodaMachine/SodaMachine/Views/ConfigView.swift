@@ -506,6 +506,7 @@ private struct ChartHODView: View {
 
 struct ConfigView: View {
     @Environment(BLEManager.self) var ble
+    @Environment(\.scenePhase) private var scenePhase
     @State private var currentPage = 0
     @State private var editing = false
     @State private var showImageManager = false
@@ -548,6 +549,14 @@ struct ConfigView: View {
             if state != .connected {
                 inAbout = false
                 inStats = false
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active && inStats && ble.connectionState == .connected {
+                ble.requestStatsAndCharts()
+                ble.subscribeStats()
+            } else if phase == .background && inStats {
+                ble.unsubscribeStats()
             }
         }
     }
