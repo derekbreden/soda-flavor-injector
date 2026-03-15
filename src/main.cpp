@@ -267,7 +267,6 @@ struct StatsBucket {
 };
 
 StatsAccum currentHour[2] = {};   // per-flavor accumulators for current hour
-StatsAccum flushedHour[2] = {};   // what has already been written to the hourly file
 uint32_t currentHourKey = 0;      // epoch/3600 for current hour (0 = not yet synced)
 
 // Time sync (iOS sends wall clock via BLE → S3 → ESP32)
@@ -1021,9 +1020,8 @@ static const char *statsDailyPath(uint8_t flavor) {
 
 // Save current accumulators to flash (called every 60s)
 void saveCurrentAccum() {
-  struct { StatsAccum accum[2]; StatsAccum flushed[2]; unsigned long savedMillis; } data;
+  struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
   memcpy(data.accum, currentHour, sizeof(currentHour));
-  memcpy(data.flushed, flushedHour, sizeof(flushedHour));
   data.savedMillis = millis();
   File f = LittleFS.open(STATS_CURRENT_PATH, "w");
   if (f) { f.write((uint8_t*)&data, sizeof(data)); f.close(); }
@@ -1031,39 +1029,93 @@ void saveCurrentAccum() {
 
 // Load current accumulators from flash (called on boot)
 void loadCurrentAccum() {
-  struct { StatsAccum accum[2]; StatsAccum flushed[2]; unsigned long savedMillis; } data;
+  struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
   File f = LittleFS.open(STATS_CURRENT_PATH, "r");
-  if (f && f.size() == sizeof(data)) {
+  if (!f) return;
+  size_t fsize = f.size();
+  // Current/legacy format: accum[2] + savedMillis
+  if (fsize == sizeof(data)) {
     f.read((uint8_t*)&data, sizeof(data));
-    f.close();
     memcpy(currentHour, data.accum, sizeof(currentHour));
-    memcpy(flushedHour, data.flushed, sizeof(flushedHour));
     Serial.printf("Loaded stats accumulators from flash\n");
-  } else if (f) {
-    // Legacy format (no flushed data) — assume all was flushed
-    struct { StatsAccum accum[2]; unsigned long savedMillis; } legacy;
-    f.seek(0);
-    if (f.size() == sizeof(legacy)) {
-      f.read((uint8_t*)&legacy, sizeof(legacy));
-      memcpy(currentHour, legacy.accum, sizeof(currentHour));
-      memcpy(flushedHour, legacy.accum, sizeof(flushedHour));  // assume already flushed
-      Serial.printf("Loaded legacy stats accumulators from flash\n");
+  }
+  // Intermediate format (had flushedHour): accum[2] + flushed[2] + savedMillis
+  else if (fsize == sizeof(StatsAccum) * 4 + sizeof(unsigned long)) {
+    f.read((uint8_t*)&data, sizeof(data));  // reads accum[2] + savedMillis from front
+    memcpy(currentHour, data.accum, sizeof(currentHour));
+    Serial.printf("Loaded stats accumulators (migrated from v2 format)\n");
+  }
+  f.close();
+}
+
+// Upsert a bucket into an hourly file: find existing entry by epoch_key and
+// overwrite it, or append if new. Each hour has exactly one entry in the file.
+// Trims oldest entries if over maxEntries.
+void upsertHourlyBucket(const char *path, const StatsBucket &bucket, int maxEntries) {
+  // Scan for existing entry with matching epoch_key
+  File f = LittleFS.open(path, "r");
+  if (f) {
+    StatsBucket entry;
+    int idx = 0;
+    while (f.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+      if (entry.epoch_key == bucket.epoch_key) {
+        f.close();
+        // Overwrite in place
+        File fw = LittleFS.open(path, "r+");
+        if (fw) {
+          fw.seek(idx * sizeof(StatsBucket));
+          fw.write((uint8_t*)&bucket, sizeof(StatsBucket));
+          fw.close();
+        }
+        return;
+      }
+      idx++;
     }
     f.close();
   }
+
+  // No existing entry — append
+  File fa = LittleFS.open(path, "a");
+  if (fa) {
+    fa.write((uint8_t*)&bucket, sizeof(StatsBucket));
+    fa.close();
+  }
+
+  // Trim oldest entries if over limit
+  File fc = LittleFS.open(path, "r");
+  if (fc) {
+    int entryCount = fc.size() / sizeof(StatsBucket);
+    if (entryCount > maxEntries) {
+      int skip = entryCount - maxEntries;
+      File tmp = LittleFS.open("/stats/trim.tmp", "w");
+      if (tmp) {
+        fc.seek(skip * sizeof(StatsBucket));
+        StatsBucket entry;
+        for (int i = 0; i < maxEntries; i++) {
+          fc.read((uint8_t*)&entry, sizeof(StatsBucket));
+          tmp.write((uint8_t*)&entry, sizeof(StatsBucket));
+        }
+        tmp.close();
+        fc.close();
+        LittleFS.remove(path);
+        LittleFS.rename("/stats/trim.tmp", path);
+      } else {
+        fc.close();
+      }
+    } else {
+      fc.close();
+    }
+  }
 }
 
-// Append or merge a bucket into an hourly or daily file.
-// If the last entry has the same key, merge (add values). Otherwise append.
-// Trims oldest entries if over maxEntries.
-void appendStatsBucket(const char *path, const StatsBucket &bucket, int maxEntries) {
-  // Read the last entry to check for merge
+// Append or merge a daily bucket. Used only for daily rollup files
+// (each day rolls up once, so merge handles the rare double-rollup case).
+void appendDailyBucket(const char *path, const StatsBucket &bucket, int maxEntries) {
   StatsBucket last = {};
   bool merge = false;
   File f = LittleFS.open(path, "r");
   if (f) {
-    size_t fileSize = f.size();
-    int entryCount = fileSize / sizeof(StatsBucket);
+    int entryCount = f.size() / sizeof(StatsBucket);
     if (entryCount > 0) {
       f.seek((entryCount - 1) * sizeof(StatsBucket));
       f.read((uint8_t*)&last, sizeof(StatsBucket));
@@ -1079,29 +1131,24 @@ void appendStatsBucket(const char *path, const StatsBucket &bucket, int maxEntri
   }
 
   if (merge) {
-    // Overwrite the last entry
     File fw = LittleFS.open(path, "r+");
     if (fw) {
-      size_t fileSize = fw.size();
-      fw.seek(fileSize - sizeof(StatsBucket));
+      fw.seek(fw.size() - sizeof(StatsBucket));
       fw.write((uint8_t*)&last, sizeof(StatsBucket));
       fw.close();
     }
   } else {
-    // Append new entry
     File fa = LittleFS.open(path, "a");
     if (fa) {
       fa.write((uint8_t*)&bucket, sizeof(StatsBucket));
       fa.close();
     }
-
-    // Trim oldest entries if over limit
+    // Trim
     File fc = LittleFS.open(path, "r");
     if (fc) {
       int entryCount = fc.size() / sizeof(StatsBucket);
       if (entryCount > maxEntries) {
         int skip = entryCount - maxEntries;
-        // Read entries to keep into a buffer (stack-safe: read one at a time to temp file)
         File tmp = LittleFS.open("/stats/trim.tmp", "w");
         if (tmp) {
           fc.seek(skip * sizeof(StatsBucket));
@@ -1124,23 +1171,65 @@ void appendStatsBucket(const char *path, const StatsBucket &bucket, int maxEntri
   }
 }
 
-// Flush current hour accumulators to hourly files (delta since last flush)
+// Deduplicate hourly file: merge entries with the same epoch_key (migration
+// from old delta-append design where multiple entries per hour were summed).
+void deduplicateHourlyFile(const char *path) {
+  File f = LittleFS.open(path, "r");
+  if (!f) return;
+  int entryCount = f.size() / sizeof(StatsBucket);
+  if (entryCount <= 0) { f.close(); return; }
+
+  // Read all entries (720 max × 20 bytes = 14.4KB, fits in ESP32 RAM)
+  StatsBucket *entries = (StatsBucket *)malloc(entryCount * sizeof(StatsBucket));
+  if (!entries) { f.close(); return; }
+  f.read((uint8_t*)entries, entryCount * sizeof(StatsBucket));
+  f.close();
+
+  // Compact: merge entries with the same epoch_key
+  StatsBucket *compacted = (StatsBucket *)malloc(entryCount * sizeof(StatsBucket));
+  if (!compacted) { free(entries); return; }
+  int compactedCount = 0;
+  for (int i = 0; i < entryCount; i++) {
+    bool found = false;
+    for (int j = 0; j < compactedCount; j++) {
+      if (compacted[j].epoch_key == entries[i].epoch_key) {
+        compacted[j].flow_sum += entries[i].flow_sum;
+        compacted[j].flow_count += entries[i].flow_count;
+        compacted[j].burst_sum_ms += entries[i].burst_sum_ms;
+        compacted[j].burst_count += entries[i].burst_count;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      compacted[compactedCount++] = entries[i];
+    }
+  }
+  free(entries);
+
+  if (compactedCount < entryCount) {
+    Serial.printf("Dedup %s: %d entries → %d\n", path, entryCount, compactedCount);
+    File fw = LittleFS.open(path, "w");
+    if (fw) {
+      fw.write((uint8_t*)compacted, compactedCount * sizeof(StatsBucket));
+      fw.close();
+    }
+  }
+  free(compacted);
+}
+
+// Flush current hour accumulators to hourly files (full cumulative values)
 void flushCurrentHour() {
-  if (currentHourKey == 0) return;  // no time sync yet
+  if (currentHourKey == 0) return;
   for (int f = 0; f < 2; f++) {
-    uint32_t dFlow  = currentHour[f].flow_sum    - flushedHour[f].flow_sum;
-    uint32_t dCount = currentHour[f].flow_count   - flushedHour[f].flow_count;
-    uint32_t dBurst = currentHour[f].burst_sum_ms - flushedHour[f].burst_sum_ms;
-    uint32_t dBCnt  = currentHour[f].burst_count  - flushedHour[f].burst_count;
-    if (dCount == 0 && dBCnt == 0) continue;  // nothing new since last flush
+    if (currentHour[f].flow_count == 0 && currentHour[f].burst_count == 0) continue;
     StatsBucket bucket;
     bucket.epoch_key = currentHourKey;
-    bucket.flow_sum = dFlow;
-    bucket.flow_count = dCount;
-    bucket.burst_sum_ms = dBurst;
-    bucket.burst_count = dBCnt;
-    appendStatsBucket(statsHourlyPath(f), bucket, MAX_HOURLY_ENTRIES);
-    flushedHour[f] = currentHour[f];  // mark what we've written
+    bucket.flow_sum = currentHour[f].flow_sum;
+    bucket.flow_count = currentHour[f].flow_count;
+    bucket.burst_sum_ms = currentHour[f].burst_sum_ms;
+    bucket.burst_count = currentHour[f].burst_count;
+    upsertHourlyBucket(statsHourlyPath(f), bucket, MAX_HOURLY_ENTRIES);
   }
 }
 
@@ -1167,7 +1256,7 @@ void rollupDaily(uint32_t dayKey) {
     }
 
     if (daily.flow_count > 0 || daily.burst_count > 0) {
-      appendStatsBucket(statsDailyPath(flav), daily, MAX_DAILY_ENTRIES);
+      appendDailyBucket(statsDailyPath(flav), daily, MAX_DAILY_ENTRIES);
     }
   }
 }
@@ -1177,13 +1266,13 @@ struct StatsSummary {
   uint32_t flow_sum, flow_count, burst_sum_ms, burst_count;
 };
 
-StatsSummary sumStatsRange(const char *path, uint32_t startKey, uint32_t endKey) {
+StatsSummary sumStatsRange(const char *path, uint32_t startKey, uint32_t endKey, uint32_t excludeKey = 0) {
   StatsSummary s = {};
   File f = LittleFS.open(path, "r");
   if (f) {
     StatsBucket entry;
     while (f.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-      if (entry.epoch_key >= startKey && entry.epoch_key < endKey) {
+      if (entry.epoch_key >= startKey && entry.epoch_key < endKey && entry.epoch_key != excludeKey) {
         s.flow_sum += entry.flow_sum;
         s.flow_count += entry.flow_count;
         s.burst_sum_ms += entry.burst_sum_ms;
@@ -1202,7 +1291,6 @@ void clearStatsFiles() {
   LittleFS.remove("/stats/f1_daily.bin");
   LittleFS.remove(STATS_CURRENT_PATH);
   memset(currentHour, 0, sizeof(currentHour));
-  memset(flushedHour, 0, sizeof(flushedHour));
   currentHourKey = 0;
 }
 
@@ -1262,12 +1350,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
       uint32_t todayHourStart = todayDayKey * 24;  // first hourly key of today
 
       for (int f = 0; f < 2; f++) {
-        // Today: sum hourly entries for today + current accumulators
-        StatsSummary td = sumStatsRange(statsHourlyPath(f), todayHourStart, todayHourStart + 24);
-        td.flow_sum += currentHour[f].flow_sum - flushedHour[f].flow_sum;
-        td.flow_count += currentHour[f].flow_count - flushedHour[f].flow_count;
-        td.burst_sum_ms += currentHour[f].burst_sum_ms - flushedHour[f].burst_sum_ms;
-        td.burst_count += currentHour[f].burst_count - flushedHour[f].burst_count;
+        // Today: sum hourly entries for today (excluding current hour's stale
+        // file entry) + current hour's live RAM accumulator
+        StatsSummary td = sumStatsRange(statsHourlyPath(f), todayHourStart, todayHourStart + 24, currentHourKey);
+        td.flow_sum += currentHour[f].flow_sum;
+        td.flow_count += currentHour[f].flow_count;
+        td.burst_sum_ms += currentHour[f].burst_sum_ms;
+        td.burst_count += currentHour[f].burst_count;
 
         // 7-day: sum daily entries for last 6 days + today
         StatsSummary w = sumStatsRange(statsDailyPath(f), todayDayKey - 6, todayDayKey);
@@ -1312,14 +1401,15 @@ void processConfigCommand(const char *cmd, Stream &out) {
         if (hf) {
           StatsBucket entry;
           while (hf.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-            if (entry.epoch_key >= startHourKey && entry.epoch_key <= nowHourKey) {
+            if (entry.epoch_key >= startHourKey && entry.epoch_key <= nowHourKey
+                && entry.epoch_key != currentHourKey) {
               int idx = entry.epoch_key - startHourKey;
               if (idx >= 0 && idx < 24) arr24[idx] += entry.flow_sum;
             }
           }
           hf.close();
         }
-        arr24[23] += currentHour[f].flow_sum - flushedHour[f].flow_sum;  // add unflushed portion only
+        arr24[23] += currentHour[f].flow_sum;  // live RAM accumulator for current hour
 
         // Emit CHART_24H line
         char line[256];
@@ -1346,19 +1436,20 @@ void processConfigCommand(const char *cmd, Stream &out) {
           df.close();
         }
 
-        // Today's slot: sum hourly entries for today + currentHour
+        // Today's slot: sum hourly entries for today (skip current hour) + live RAM
         uint32_t todayHourStart = todayDayKey * 24;
         File hf2 = LittleFS.open(statsHourlyPath(f), "r");
         if (hf2) {
           StatsBucket entry;
           while (hf2.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-            if (entry.epoch_key >= todayHourStart && entry.epoch_key < todayHourStart + 24) {
+            if (entry.epoch_key >= todayHourStart && entry.epoch_key < todayHourStart + 24
+                && entry.epoch_key != currentHourKey) {
               arr30[29] += entry.flow_sum;
             }
           }
           hf2.close();
         }
-        arr30[29] += currentHour[f].flow_sum - flushedHour[f].flow_sum;
+        arr30[29] += currentHour[f].flow_sum;
 
         // Emit CHART_30D line
         pos = snprintf(line, sizeof(line), "CHART_30D:F=%d", f);
@@ -1375,7 +1466,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
         if (hf3) {
           StatsBucket entry;
           while (hf3.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-            if (entry.epoch_key >= hodStartHourKey && entry.epoch_key <= nowHourKey) {
+            if (entry.epoch_key >= hodStartHourKey && entry.epoch_key <= nowHourKey
+                && entry.epoch_key != currentHourKey) {
               int hourOfDay = entry.epoch_key % 24;
               arrHOD[hourOfDay] += entry.flow_sum;
               uint32_t dayIdx = (entry.epoch_key / 24) - (todayDayKey - 29);
@@ -1384,9 +1476,9 @@ void processConfigCommand(const char *cmd, Stream &out) {
           }
           hf3.close();
         }
-        // Add currentHour to its hour-of-day slot
+        // Add live RAM accumulator for current hour
         int curHOD = nowHourKey % 24;
-        arrHOD[curHOD] += currentHour[f].flow_sum - flushedHour[f].flow_sum;
+        arrHOD[curHOD] += currentHour[f].flow_sum;
         daysSeen |= (1u << 29);  // today always counts
 
         // Count set bits in daysSeen
@@ -2158,6 +2250,8 @@ void setup() {
 
   LittleFS.mkdir("/stats");
   loadCurrentAccum();
+  deduplicateHourlyFile(statsHourlyPath(0));
+  deduplicateHourlyFile(statsHourlyPath(1));
 
   // Always determine factory image count from compiled-in defaults
   {
@@ -2449,7 +2543,6 @@ void loop() {
       }
 
       memset(currentHour, 0, sizeof(currentHour));
-      memset(flushedHour, 0, sizeof(flushedHour));
       currentHourKey = hourKey;
     } else if (currentHourKey == 0) {
       currentHourKey = hourKey;
