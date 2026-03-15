@@ -1273,6 +1273,114 @@ void processConfigCommand(const char *cmd, Stream &out) {
       }
     }
 
+  } else if (strcmp(cmd, "GET_CHART_DATA") == 0) {
+    if (!timeSynced) {
+      out.printf("ERR:no time sync\n");
+    } else {
+      uint32_t now = currentEpoch();
+      uint32_t nowHourKey = now / 3600;
+      uint32_t todayDayKey = now / 86400;
+
+      for (int f = 0; f < 2; f++) {
+        // ── 24H: flow_sum per hour, oldest→newest ──
+        uint32_t arr24[24] = {};
+        uint32_t startHourKey = nowHourKey - 23;
+        File hf = LittleFS.open(statsHourlyPath(f), "r");
+        if (hf) {
+          StatsBucket entry;
+          while (hf.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+            if (entry.epoch_key >= startHourKey && entry.epoch_key <= nowHourKey) {
+              int idx = entry.epoch_key - startHourKey;
+              if (idx >= 0 && idx < 24) arr24[idx] += entry.flow_sum;
+            }
+          }
+          hf.close();
+        }
+        arr24[23] += currentHour[f].flow_sum;  // add live accumulator to current slot
+
+        // Emit CHART_24H line
+        char line[256];
+        int pos = snprintf(line, sizeof(line), "CHART_24H:F=%d", f);
+        for (int i = 0; i < 24; i++) {
+          pos += snprintf(line + pos, sizeof(line) - pos, ",%lu", (unsigned long)arr24[i]);
+        }
+        out.printf("%s\n", line);
+
+        // ── 30D: flow_sum per day, oldest→newest ──
+        uint32_t arr30[30] = {};
+        uint32_t startDayKey = todayDayKey - 29;
+
+        // Sum daily file entries for last 29 days
+        File df = LittleFS.open(statsDailyPath(f), "r");
+        if (df) {
+          StatsBucket entry;
+          while (df.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+            if (entry.epoch_key >= startDayKey && entry.epoch_key < todayDayKey) {
+              int idx = entry.epoch_key - startDayKey;
+              if (idx >= 0 && idx < 30) arr30[idx] += entry.flow_sum;
+            }
+          }
+          df.close();
+        }
+
+        // Today's slot: sum hourly entries for today + currentHour
+        uint32_t todayHourStart = todayDayKey * 24;
+        File hf2 = LittleFS.open(statsHourlyPath(f), "r");
+        if (hf2) {
+          StatsBucket entry;
+          while (hf2.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+            if (entry.epoch_key >= todayHourStart && entry.epoch_key < todayHourStart + 24) {
+              arr30[29] += entry.flow_sum;
+            }
+          }
+          hf2.close();
+        }
+        arr30[29] += currentHour[f].flow_sum;
+
+        // Emit CHART_30D line
+        pos = snprintf(line, sizeof(line), "CHART_30D:F=%d", f);
+        for (int i = 0; i < 30; i++) {
+          pos += snprintf(line + pos, sizeof(line) - pos, ",%lu", (unsigned long)arr30[i]);
+        }
+        out.printf("%s\n", line);
+
+        // ── HOD: sum of flow_sum per hour-of-day, D=days with data ──
+        uint32_t arrHOD[24] = {};
+        uint32_t hodStartHourKey = (todayDayKey - 29) * 24;  // 30 days of hourly data
+        uint32_t daysSeen = 0;  // bitmask of distinct days (0-29)
+        File hf3 = LittleFS.open(statsHourlyPath(f), "r");
+        if (hf3) {
+          StatsBucket entry;
+          while (hf3.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+            if (entry.epoch_key >= hodStartHourKey && entry.epoch_key <= nowHourKey) {
+              int hourOfDay = entry.epoch_key % 24;
+              arrHOD[hourOfDay] += entry.flow_sum;
+              uint32_t dayIdx = (entry.epoch_key / 24) - (todayDayKey - 29);
+              if (dayIdx < 30) daysSeen |= (1u << dayIdx);
+            }
+          }
+          hf3.close();
+        }
+        // Add currentHour to its hour-of-day slot
+        int curHOD = nowHourKey % 24;
+        arrHOD[curHOD] += currentHour[f].flow_sum;
+        daysSeen |= (1u << 29);  // today always counts
+
+        // Count set bits in daysSeen
+        int daysWithData = 0;
+        for (uint32_t bits = daysSeen; bits; bits >>= 1) {
+          daysWithData += bits & 1;
+        }
+
+        // Emit CHART_HOD line
+        pos = snprintf(line, sizeof(line), "CHART_HOD:F=%d,D=%d", f, daysWithData);
+        for (int i = 0; i < 24; i++) {
+          pos += snprintf(line + pos, sizeof(line) - pos, ",%lu", (unsigned long)arrHOD[i]);
+        }
+        out.printf("%s\n", line);
+      }
+    }
+
   } else if (strcmp(cmd, "GET_CONFIG") == 0) {
     sendConfigResponse(out);
 
