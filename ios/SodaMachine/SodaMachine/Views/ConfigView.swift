@@ -192,7 +192,7 @@ private struct StatsView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
 
-            if !ble.statsSynced && !ble.chartDataSynced {
+            if !ble.chartDataSynced {
                 Spacer()
                 ProgressView()
                     .tint(Theme.textPrimary)
@@ -219,12 +219,6 @@ private struct StatsView: View {
                             chart24HSection
                             chart30DSection
                             chartHODSection
-
-                            // Text stats below charts
-                            if ble.statsSynced {
-                                flavorSection("Flavor 1", stats: ble.flavor1Stats)
-                                flavorSection("Flavor 2", stats: ble.flavor2Stats)
-                            }
                         } else {
                             ProgressView()
                                 .tint(Theme.textPrimary)
@@ -450,45 +444,6 @@ private struct StatsView: View {
             Text("\(days) day\(days == 1 ? "" : "s") of data")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.textSecondary.opacity(0.6))
-        }
-    }
-
-    // MARK: - Text Stats
-
-    private func flavorSection(_ title: String, stats: BLEManager.FlavorStats) -> some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-
-            periodRow("Today", stats.todayFlowSum, stats.todayFlowCount, stats.todayBurstSum, stats.todayBurstCount)
-            periodRow("7 Day", stats.weekFlowSum, stats.weekFlowCount, stats.weekBurstSum, stats.weekBurstCount)
-            periodRow("30 Day", stats.monthFlowSum, stats.monthFlowCount, stats.monthBurstSum, stats.monthBurstCount)
-        }
-    }
-
-    private func periodRow(_ label: String, _ flowSum: UInt32, _ flowCount: UInt32, _ burstSum: UInt32, _ burstCount: UInt32) -> some View {
-        VStack(spacing: 2) {
-            Text(label)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
-
-            if flowCount == 0 && burstCount == 0 {
-                Text("No activity")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.textSecondary.opacity(0.6))
-            } else {
-                let flowSecs = Double(flowCount) * 0.05
-                let avgRate = flowCount > 0 ? String(format: "%.1f", Double(flowSum) / Double(flowCount)) : "0"
-                let avgBurst = burstCount > 0 ? "\(burstSum / burstCount)ms" : "0ms"
-
-                Text("Flow: \(String(format: "%.1f", flowSecs))s avg \(avgRate)")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.textPrimary)
-                Text("Bursts: \(burstCount) avg \(avgBurst)")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.textPrimary)
-            }
         }
     }
 
