@@ -60,6 +60,15 @@ class BLEManager {
     // Demo mode (no hardware needed)
     var demoMode = false
 
+    // Chart data (populated by GET_CHART_DATA response)
+    var chartData24H: [[Double]] = [Array(repeating: 0, count: 24), Array(repeating: 0, count: 24)]
+    var chartData30D: [[Double]] = [Array(repeating: 0, count: 30), Array(repeating: 0, count: 30)]
+    var chartDataHOD: [[Double]] = [Array(repeating: 0, count: 24), Array(repeating: 0, count: 24)]
+    var chartDataHODDays: Int = 1
+    var chartDataSynced: Bool = false
+
+    @ObservationIgnored fileprivate var chartLinesReceived: Int = 0
+
     // Usage statistics
     struct FlavorStats {
         var todayFlowSum: UInt32 = 0
@@ -166,6 +175,16 @@ class BLEManager {
         }
         statsSynced = false
         send("GET_STATS")
+    }
+
+    func requestChartData() {
+        if demoMode {
+            populateDemoChartData()
+            return
+        }
+        chartDataSynced = false
+        chartLinesReceived = 0
+        send("GET_CHART_DATA")
     }
 
     func factoryReset() {
@@ -390,6 +409,46 @@ class BLEManager {
         statsSynced = true
     }
 
+    private func populateDemoChartData() {
+        // HOD: sine wave peaking at noon (hour 12)
+        var hod0 = [Double](repeating: 0, count: 24)
+        var hod1 = [Double](repeating: 0, count: 24)
+        for h in 0..<24 {
+            let angle = Double(h - 12) / 12.0 * .pi
+            let base = max(0, cos(angle)) * 8.0
+            hod0[h] = base * 1.2
+            hod1[h] = base * 0.8
+        }
+        chartDataHOD = [hod0, hod1]
+        chartDataHODDays = 14
+
+        // 24H: based on HOD pattern with some noise
+        let calendar = Calendar.current
+        let currentHour = calendar.component(.hour, from: Date())
+        var h24_0 = [Double](repeating: 0, count: 24)
+        var h24_1 = [Double](repeating: 0, count: 24)
+        for i in 0..<24 {
+            let hour = (currentHour - 23 + i + 24) % 24
+            let angle = Double(hour - 12) / 12.0 * .pi
+            let base = max(0, cos(angle))
+            h24_0[i] = base * 10.0 * (0.7 + Double.random(in: 0...0.6))
+            h24_1[i] = base * 7.0 * (0.7 + Double.random(in: 0...0.6))
+        }
+        chartData24H = [h24_0, h24_1]
+
+        // 30D: gradual ramp-up with variation
+        var d30_0 = [Double](repeating: 0, count: 30)
+        var d30_1 = [Double](repeating: 0, count: 30)
+        for i in 0..<30 {
+            let ramp = Double(i + 1) / 30.0
+            d30_0[i] = ramp * 60.0 * (0.5 + Double.random(in: 0...1.0))
+            d30_1[i] = ramp * 40.0 * (0.5 + Double.random(in: 0...1.0))
+        }
+        chartData30D = [d30_0, d30_1]
+
+        chartDataSynced = true
+    }
+
     private func deleteDemoImage(slot: Int) {
         guard numImages > 1 else { return }
 
@@ -545,6 +604,8 @@ class BLEManager {
             rpVersion = String(text.dropFirst(15))
         } else if text.hasPrefix("STATS:") {
             parseStats(text)
+        } else if text.hasPrefix("CHART_") {
+            parseChartLine(text)
         } else if text == "OK:TIME_SYNCED" {
             log.info("Time synced with ESP32")
         } else if text == "OK:FACTORY_RESET" {
@@ -552,6 +613,7 @@ class BLEManager {
             cachedImages = [:]
             imageNames = []
             statsSynced = false
+            chartDataSynced = false
             factoryResetCompleted = true
             requestConfig()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
@@ -626,6 +688,47 @@ class BLEManager {
         } else {
             flavor2Stats = stats
             statsSynced = true  // both flavors received
+        }
+    }
+
+    private func parseChartLine(_ text: String) {
+        // CHART_24H:F=0,v0,v1,...,v23
+        // CHART_30D:F=0,v0,v1,...,v29
+        // CHART_HOD:F=0,D=N,v0,...,v23
+        guard let firstColon = text.firstIndex(of: ":") else { return }
+        let prefix = String(text[text.startIndex..<firstColon])
+        let body = String(text[text.index(after: firstColon)...])
+        let parts = body.split(separator: ",")
+        guard parts.count >= 2 else { return }
+
+        // Parse F= value
+        var flavor = 0
+        var dataStart = 1
+        for (i, part) in parts.enumerated() {
+            let kv = part.split(separator: "=", maxSplits: 1)
+            if kv.count == 2 {
+                if kv[0] == "F" { flavor = Int(kv[1]) ?? 0 }
+                else if kv[0] == "D" { chartDataHODDays = max(Int(kv[1]) ?? 1, 1) }
+                dataStart = i + 1
+            } else {
+                break
+            }
+        }
+
+        let values = parts[dataStart...].map { Double(UInt32($0) ?? 0) * 0.05 }
+        guard flavor >= 0, flavor <= 1 else { return }
+
+        if prefix == "CHART_24H" && values.count == 24 {
+            chartData24H[flavor] = values
+        } else if prefix == "CHART_30D" && values.count == 30 {
+            chartData30D[flavor] = values
+        } else if prefix == "CHART_HOD" && values.count == 24 {
+            chartDataHOD[flavor] = values
+        }
+
+        chartLinesReceived += 1
+        if chartLinesReceived >= 6 {
+            chartDataSynced = true
         }
     }
 
@@ -737,6 +840,7 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
             self.ble.connectionState = .searching
             self.ble.configSynced = false
             self.ble.statsSynced = false
+            self.ble.chartDataSynced = false
             self.ble.imgDownloadQueue = []
             self.ble.isDownloading = false
             self.ble.imageDownloadProgress = nil
