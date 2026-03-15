@@ -18,6 +18,15 @@ targets:
         CURRENT_PROJECT_VERSION: 1
         INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "SodaMachine uses Bluetooth to connect to your soda machine for configuration and image uploads."
         INFOPLIST_KEY_UILaunchScreen_Generation: true
+        INFOPLIST_KEY_UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: true
         INFOPLIST_KEY_CFBundleDisplayName: "Soda Machine"

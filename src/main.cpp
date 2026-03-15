@@ -1293,8 +1293,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
       }
     }
 
-  } else if (strncmp(cmd, "DELETE_STORE_IMG:", 16) == 0) {
-    int slot = atoi(cmd + 16);
+  } else if (strncmp(cmd, "DELETE_STORE_IMG:", 17) == 0) {
+    int slot = atoi(cmd + 17);
     if (slot < 0 || slot >= espNumImages) {
       out.printf("ERR:invalid slot (0-%d)\n", espNumImages - 1);
       return;
@@ -1434,8 +1434,15 @@ void processConfigCommand(const char *cmd, Stream &out) {
       LittleFS.remove(espS3PngPath(i));
     }
 
-    // Tell devices about new state (no image re-push needed — factory
-    // images are never deleted, so devices already have them)
+    // Trim excess images from devices (user images that no longer exist)
+    if (oldCount > espNumImages) {
+      for (uint8_t i = oldCount; i > espNumImages; i--) {
+        deleteLastDeviceImage(DEVICE_RP2040, i - 1);
+        deleteLastDeviceImage(DEVICE_S3, i - 1);
+      }
+    }
+
+    // Tell devices about new state
     sendMapToRP();
     pushLabelsToDevice(DEVICE_RP2040);
     pushLabelsToDevice(DEVICE_S3);

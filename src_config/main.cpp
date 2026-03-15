@@ -1125,7 +1125,17 @@ void parseConfigResponse(const char* line) {
              &f1r, &f2r, &f1i, &f2i, &ni) >= 4) {
     // Update numImages if provided (5th field), before constraining image refs
     if (ni > 0 && (uint8_t)ni != numImages) {
-      numImages = (uint8_t)ni;
+      uint8_t newCount = (uint8_t)ni;
+      // Delete orphaned files when count decreases (e.g. factory reset)
+      if (newCount < numImages) {
+        for (uint8_t i = newCount; i < numImages; i++) {
+          char imgP[16];  imagePath(imgP, i);  LittleFS.remove(imgP);
+          char pngP[24];  pngPath(pngP, i);    LittleFS.remove(pngP);
+          Serial.printf("Removed orphaned slot %d\n", i);
+        }
+      }
+      // updateMeta() calls countImages() which counts physical files,
+      // so orphaned files must be deleted first
       updateMeta();
       Serial.printf("numImages updated to %d\n", numImages);
     }

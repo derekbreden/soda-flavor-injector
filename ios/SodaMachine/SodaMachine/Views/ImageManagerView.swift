@@ -52,6 +52,14 @@ struct ImageManagerView: View {
             } message: {
                 Text("This cannot be undone.")
             }
+            .alert("Delete Failed", isPresented: Binding(
+                get: { ble.deleteError != nil },
+                set: { if !$0 { ble.deleteError = nil } }
+            )) {
+                Button("OK") { ble.deleteError = nil }
+            } message: {
+                Text(ble.deleteError ?? "")
+            }
             .onChange(of: selectedPhoto) { _, newItem in
                 guard let newItem else { return }
                 Task {
