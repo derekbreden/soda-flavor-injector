@@ -267,6 +267,7 @@ struct StatsBucket {
 };
 
 StatsAccum currentHour[2] = {};   // per-flavor accumulators for current hour
+StatsAccum flushedHour[2] = {};   // what has already been written to the hourly file
 uint32_t currentHourKey = 0;      // epoch/3600 for current hour (0 = not yet synced)
 
 // Time sync (iOS sends wall clock via BLE → S3 → ESP32)
@@ -1020,8 +1021,9 @@ static const char *statsDailyPath(uint8_t flavor) {
 
 // Save current accumulators to flash (called every 60s)
 void saveCurrentAccum() {
-  struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
+  struct { StatsAccum accum[2]; StatsAccum flushed[2]; unsigned long savedMillis; } data;
   memcpy(data.accum, currentHour, sizeof(currentHour));
+  memcpy(data.flushed, flushedHour, sizeof(flushedHour));
   data.savedMillis = millis();
   File f = LittleFS.open(STATS_CURRENT_PATH, "w");
   if (f) { f.write((uint8_t*)&data, sizeof(data)); f.close(); }
@@ -1029,15 +1031,25 @@ void saveCurrentAccum() {
 
 // Load current accumulators from flash (called on boot)
 void loadCurrentAccum() {
-  struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
+  struct { StatsAccum accum[2]; StatsAccum flushed[2]; unsigned long savedMillis; } data;
   File f = LittleFS.open(STATS_CURRENT_PATH, "r");
   if (f && f.size() == sizeof(data)) {
     f.read((uint8_t*)&data, sizeof(data));
     f.close();
     memcpy(currentHour, data.accum, sizeof(currentHour));
+    memcpy(flushedHour, data.flushed, sizeof(flushedHour));
     Serial.printf("Loaded stats accumulators from flash\n");
-  } else {
-    if (f) f.close();
+  } else if (f) {
+    // Legacy format (no flushed data) — assume all was flushed
+    struct { StatsAccum accum[2]; unsigned long savedMillis; } legacy;
+    f.seek(0);
+    if (f.size() == sizeof(legacy)) {
+      f.read((uint8_t*)&legacy, sizeof(legacy));
+      memcpy(currentHour, legacy.accum, sizeof(currentHour));
+      memcpy(flushedHour, legacy.accum, sizeof(flushedHour));  // assume already flushed
+      Serial.printf("Loaded legacy stats accumulators from flash\n");
+    }
+    f.close();
   }
 }
 
@@ -1112,18 +1124,23 @@ void appendStatsBucket(const char *path, const StatsBucket &bucket, int maxEntri
   }
 }
 
-// Flush current hour accumulators to hourly files
+// Flush current hour accumulators to hourly files (delta since last flush)
 void flushCurrentHour() {
   if (currentHourKey == 0) return;  // no time sync yet
   for (int f = 0; f < 2; f++) {
-    if (currentHour[f].flow_count == 0 && currentHour[f].burst_count == 0) continue;
+    uint32_t dFlow  = currentHour[f].flow_sum    - flushedHour[f].flow_sum;
+    uint32_t dCount = currentHour[f].flow_count   - flushedHour[f].flow_count;
+    uint32_t dBurst = currentHour[f].burst_sum_ms - flushedHour[f].burst_sum_ms;
+    uint32_t dBCnt  = currentHour[f].burst_count  - flushedHour[f].burst_count;
+    if (dCount == 0 && dBCnt == 0) continue;  // nothing new since last flush
     StatsBucket bucket;
     bucket.epoch_key = currentHourKey;
-    bucket.flow_sum = currentHour[f].flow_sum;
-    bucket.flow_count = currentHour[f].flow_count;
-    bucket.burst_sum_ms = currentHour[f].burst_sum_ms;
-    bucket.burst_count = currentHour[f].burst_count;
+    bucket.flow_sum = dFlow;
+    bucket.flow_count = dCount;
+    bucket.burst_sum_ms = dBurst;
+    bucket.burst_count = dBCnt;
     appendStatsBucket(statsHourlyPath(f), bucket, MAX_HOURLY_ENTRIES);
+    flushedHour[f] = currentHour[f];  // mark what we've written
   }
 }
 
@@ -1185,6 +1202,7 @@ void clearStatsFiles() {
   LittleFS.remove("/stats/f1_daily.bin");
   LittleFS.remove(STATS_CURRENT_PATH);
   memset(currentHour, 0, sizeof(currentHour));
+  memset(flushedHour, 0, sizeof(flushedHour));
   currentHourKey = 0;
 }
 
@@ -1246,10 +1264,10 @@ void processConfigCommand(const char *cmd, Stream &out) {
       for (int f = 0; f < 2; f++) {
         // Today: sum hourly entries for today + current accumulators
         StatsSummary td = sumStatsRange(statsHourlyPath(f), todayHourStart, todayHourStart + 24);
-        td.flow_sum += currentHour[f].flow_sum;
-        td.flow_count += currentHour[f].flow_count;
-        td.burst_sum_ms += currentHour[f].burst_sum_ms;
-        td.burst_count += currentHour[f].burst_count;
+        td.flow_sum += currentHour[f].flow_sum - flushedHour[f].flow_sum;
+        td.flow_count += currentHour[f].flow_count - flushedHour[f].flow_count;
+        td.burst_sum_ms += currentHour[f].burst_sum_ms - flushedHour[f].burst_sum_ms;
+        td.burst_count += currentHour[f].burst_count - flushedHour[f].burst_count;
 
         // 7-day: sum daily entries for last 6 days + today
         StatsSummary w = sumStatsRange(statsDailyPath(f), todayDayKey - 6, todayDayKey);
@@ -1301,7 +1319,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
           }
           hf.close();
         }
-        arr24[23] += currentHour[f].flow_sum;  // add live accumulator to current slot
+        arr24[23] += currentHour[f].flow_sum - flushedHour[f].flow_sum;  // add unflushed portion only
 
         // Emit CHART_24H line
         char line[256];
@@ -1340,7 +1358,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
           }
           hf2.close();
         }
-        arr30[29] += currentHour[f].flow_sum;
+        arr30[29] += currentHour[f].flow_sum - flushedHour[f].flow_sum;
 
         // Emit CHART_30D line
         pos = snprintf(line, sizeof(line), "CHART_30D:F=%d", f);
@@ -1368,7 +1386,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
         }
         // Add currentHour to its hour-of-day slot
         int curHOD = nowHourKey % 24;
-        arrHOD[curHOD] += currentHour[f].flow_sum;
+        arrHOD[curHOD] += currentHour[f].flow_sum - flushedHour[f].flow_sum;
         daysSeen |= (1u << 29);  // today always counts
 
         // Count set bits in daysSeen
@@ -2431,6 +2449,7 @@ void loop() {
       }
 
       memset(currentHour, 0, sizeof(currentHour));
+      memset(flushedHour, 0, sizeof(flushedHour));
       currentHourKey = hourKey;
     } else if (currentHourKey == 0) {
       currentHourKey = hourKey;

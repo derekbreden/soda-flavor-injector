@@ -216,9 +216,9 @@ private struct StatsView: View {
 
                         // Charts (show spinner if still loading)
                         if ble.chartDataSynced {
-                            Chart24HView(ble: ble)
-                            Chart30DView(ble: ble)
-                            ChartHODView(ble: ble)
+                            Chart24HView()
+                            Chart30DView()
+                            ChartHODView()
                         } else {
                             ProgressView()
                                 .tint(Theme.textPrimary)
@@ -291,7 +291,7 @@ private struct StatsView: View {
 // ensuring Chart recreation when BLEManager properties change.
 
 private struct Chart24HView: View {
-    var ble: BLEManager
+    @Environment(BLEManager.self) var ble
 
     var body: some View {
         let calendar = Calendar.current
@@ -323,6 +323,7 @@ private struct Chart24HView: View {
                     .interpolationMethod(.linear)
                 }
             }
+
             .chartForegroundStyleScale(["Flavor 1": chartPink, "Flavor 2": chartPurple])
             .chartLegend(.hidden)
             .chartXAxis {
@@ -351,7 +352,6 @@ private struct Chart24HView: View {
                 }
             }
             .frame(height: 160)
-            .id(ble.chartRevision)
         }
     }
 
@@ -363,7 +363,7 @@ private struct Chart24HView: View {
 }
 
 private struct Chart30DView: View {
-    var ble: BLEManager
+    @Environment(BLEManager.self) var ble
 
     var body: some View {
         let calendar = Calendar.current
@@ -395,6 +395,7 @@ private struct Chart30DView: View {
                     .interpolationMethod(.linear)
                 }
             }
+
             .chartForegroundStyleScale(["Flavor 1": chartPink, "Flavor 2": chartPurple])
             .chartLegend(.hidden)
             .chartXAxis {
@@ -423,13 +424,12 @@ private struct Chart30DView: View {
                 }
             }
             .frame(height: 160)
-            .id(ble.chartRevision)
         }
     }
 }
 
 private struct ChartHODView: View {
-    var ble: BLEManager
+    @Environment(BLEManager.self) var ble
 
     var body: some View {
         let days = max(ble.chartDataHODDays, 1)
@@ -460,6 +460,7 @@ private struct ChartHODView: View {
                     .interpolationMethod(.linear)
                 }
             }
+
             .chartForegroundStyleScale(["Flavor 1": chartPink, "Flavor 2": chartPurple])
             .chartLegend(.hidden)
             .chartXAxis {
@@ -487,7 +488,6 @@ private struct ChartHODView: View {
                 }
             }
             .frame(height: 160)
-            .id(ble.chartRevision)
 
             Text("\(days) day\(days == 1 ? "" : "s") of data")
                 .font(.system(size: 11))

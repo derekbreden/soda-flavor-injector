@@ -1,6 +1,7 @@
 import Foundation
 import CoreBluetooth
 import UIKit
+import SwiftUI
 import os
 
 /// Nordic UART Service UUIDs
@@ -75,6 +76,7 @@ class BLEManager {
     @ObservationIgnored fileprivate var chartBase30D_last: [Double] = [0, 0]
     @ObservationIgnored fileprivate var chartBaseHOD_slot: [Double] = [0, 0]
     @ObservationIgnored fileprivate var chartBaseHOD_hour: Int = Calendar.current.component(.hour, from: Date())
+    @ObservationIgnored fileprivate var lastLiveFS: [UInt32] = [0, 0]
 
     // Usage statistics
     struct FlavorStats {
@@ -769,6 +771,7 @@ class BLEManager {
                 let curHour = Calendar.current.component(.hour, from: Date())
                 chartBaseHOD_hour = curHour
                 chartBaseHOD_slot[flavor] = chartDataHOD[flavor][curHour]
+                lastLiveFS[flavor] = fs
             }
             chartLinesReceived += 1
             if chartLinesReceived >= 8 {
@@ -780,21 +783,36 @@ class BLEManager {
         // CHART_LIVE: push update — apply delta to live slots
         // Reassign full arrays to ensure @Observable triggers SwiftUI re-render
         if prefix == "CHART_LIVE" {
-            log.info("CHART_LIVE: F=\(flavor) body=\(body)")
             if let fsStr = kvValues["FS"], let newFS = UInt32(fsStr) {
                 let delta = Double(newFS - chartBaseFlowSum[flavor]) * 0.05
 
                 var new24H = chartData24H
                 new24H[flavor][23] = chartBase24H_last[flavor] + delta
-                chartData24H = new24H
 
                 var new30D = chartData30D
                 new30D[flavor][29] = chartBase30D_last[flavor] + delta
-                chartData30D = new30D
 
                 var newHOD = chartDataHOD
                 newHOD[flavor][chartBaseHOD_hour] = chartBaseHOD_slot[flavor] + delta
-                chartDataHOD = newHOD
+
+                // Incremental flow delta for stats (pie chart)
+                let incr = newFS - lastLiveFS[flavor]
+                lastLiveFS[flavor] = newFS
+
+                withAnimation {
+                    chartData24H = new24H
+                    chartData30D = new30D
+                    chartDataHOD = newHOD
+                    if flavor == 0 {
+                        flavor1Stats.todayFlowSum += incr
+                        flavor1Stats.weekFlowSum += incr
+                        flavor1Stats.monthFlowSum += incr
+                    } else {
+                        flavor2Stats.todayFlowSum += incr
+                        flavor2Stats.weekFlowSum += incr
+                        flavor2Stats.monthFlowSum += incr
+                    }
+                }
             }
             return
         }
