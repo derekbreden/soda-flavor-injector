@@ -290,7 +290,7 @@ private struct StatsView: View {
     private var chart24HSection: some View {
         let calendar = Calendar.current
         let currentHour = calendar.component(.hour, from: Date())
-        // Read observed arrays in View body scope so @Observable tracks them
+        let rev = ble.chartRevision
         let data0 = ble.chartData24H[0]
         let data1 = ble.chartData24H[1]
 
@@ -346,6 +346,7 @@ private struct StatsView: View {
                 }
             }
             .frame(height: 160)
+            .id(rev)
         }
     }
 
@@ -354,6 +355,7 @@ private struct StatsView: View {
     private var chart30DSection: some View {
         let calendar = Calendar.current
         let today = Date()
+        let rev = ble.chartRevision
         let data0 = ble.chartData30D[0]
         let data1 = ble.chartData30D[1]
 
@@ -409,12 +411,14 @@ private struct StatsView: View {
                 }
             }
             .frame(height: 160)
+            .id(rev)
         }
     }
 
     // MARK: - Hour-of-Day Average Chart
 
     private var chartHODSection: some View {
+        let rev = ble.chartRevision
         let days = max(ble.chartDataHODDays, 1)
         let data0 = ble.chartDataHOD[0].map { $0 / Double(days) }
         let data1 = ble.chartDataHOD[1].map { $0 / Double(days) }
@@ -470,6 +474,7 @@ private struct StatsView: View {
                 }
             }
             .frame(height: 160)
+            .id(rev)
 
             Text("\(days) day\(days == 1 ? "" : "s") of data")
                 .font(.system(size: 11))
