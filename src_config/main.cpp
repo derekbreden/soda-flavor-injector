@@ -121,7 +121,13 @@ enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG, BL
                   BLE_REQ_UPLOAD_START, BLE_REQ_GET_CONFIG, BLE_REQ_GET_VERSION };
 static volatile BleRequest bleRequest = BLE_REQ_NONE;
 static volatile int bleRequestSlot = -1;
-static char bleForwardBuf[64];  // buffered command to forward to ESP32
+
+// Ring buffer for BLE→ESP32 text command forwarding (replaces single bleForwardBuf)
+#define BLE_FWD_QUEUE_SIZE 8
+#define BLE_FWD_BUF_LEN    64
+static char bleFwdQueue[BLE_FWD_QUEUE_SIZE][BLE_FWD_BUF_LEN];
+static volatile uint8_t bleFwdHead = 0;  // next write position (NimBLE task)
+static volatile uint8_t bleFwdTail = 0;  // next read position (main task)
 
 // ── BLE upload state (phone → S3, accumulated in imageBuf) ──
 enum BleUploadPhase { BLE_UP_IDLE, BLE_UP_WAIT_DATA, BLE_UP_RECEIVED, BLE_UP_FORWARDING };
@@ -270,11 +276,14 @@ class BLERxCB : public BLECharacteristicCallbacks {
       bleRequestSlot = val.substring(7).toInt();
       bleRequest = BLE_REQ_GETIMG;
     } else {
-      // Buffer the command for forwarding to ESP32 on main task
-      strncpy(bleForwardBuf, val.c_str(), sizeof(bleForwardBuf) - 1);
-      bleForwardBuf[sizeof(bleForwardBuf) - 1] = '\0';
-      __sync_synchronize();  // ensure buffer write is visible before setting request flag
-      bleRequest = BLE_REQ_FORWARD;
+      // Queue the command for forwarding to ESP32 on main task
+      uint8_t nextHead = (bleFwdHead + 1) % BLE_FWD_QUEUE_SIZE;
+      if (nextHead != bleFwdTail) {  // not full
+        strncpy(bleFwdQueue[bleFwdHead], val.c_str(), BLE_FWD_BUF_LEN - 1);
+        bleFwdQueue[bleFwdHead][BLE_FWD_BUF_LEN - 1] = '\0';
+        __sync_synchronize();
+        bleFwdHead = nextHead;
+      }
     }
   }
 };
@@ -363,8 +372,7 @@ static void processBleRequest() {
     }
 
     case BLE_REQ_FORWARD:
-      stSendText(stLink, bleForwardBuf);
-      break;
+      break;  // handled by forward queue below
 
     case BLE_REQ_UPLOAD_START: {
       // Validate upload request — PNGs vary in size, RGB565 must fit in imageBuf
@@ -397,6 +405,18 @@ static void processBleRequest() {
   }
 
   bleRequest = BLE_REQ_NONE;
+}
+
+// Drain BLE→ESP32 forward queue (called from loop, runs on main task)
+static void processBleForwardQueue() {
+  while (bleFwdTail != bleFwdHead) {
+    __sync_synchronize();
+    const char *cmd = bleFwdQueue[bleFwdTail];
+    Serial.printf("BLE FWD: %s\n", cmd);
+    stSendText(stLink, cmd);
+    bleFwdTail = (bleFwdTail + 1) % BLE_FWD_QUEUE_SIZE;
+    delay(10);  // brief gap so ESP32 can process between commands
+  }
 }
 
 // Process completed BLE upload: verify CRC, write to LittleFS
@@ -1811,6 +1831,7 @@ void loop() {
 
   // Process BLE requests on main task (safe for LittleFS + Serial0)
   processBleRequest();
+  processBleForwardQueue();
 
   // Process completed BLE uploads (verify CRC, write to LittleFS, forward)
   processBleUpload();
