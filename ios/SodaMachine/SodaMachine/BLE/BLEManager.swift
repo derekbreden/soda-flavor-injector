@@ -115,6 +115,7 @@ class BLEManager {
     @ObservationIgnored fileprivate var imgDownloadExpected: Int = 0
     @ObservationIgnored fileprivate var imgDownloadQueue: [Int] = []
     @ObservationIgnored fileprivate var isDownloading = false
+    @ObservationIgnored fileprivate var pendingStatsRequest = false
     @ObservationIgnored fileprivate var nusReady = false
 
     // BLE runs on a dedicated background queue so binary data accumulation
@@ -196,6 +197,17 @@ class BLEManager {
         statsSynced = false
         chartDataSynced = false
         chartLinesReceived = 0
+        // Defer until image downloads finish — responses would be
+        // swallowed by the binary image accumulator otherwise.
+        if isDownloading {
+            pendingStatsRequest = true
+            return
+        }
+        sendStatsCommands()
+    }
+
+    fileprivate func sendStatsCommands() {
+        pendingStatsRequest = false
         send("GET_STATS")
         // Stagger to avoid S3 dropping the second command (single bleRequest slot)
         bleQueue.asyncAfter(deadline: .now() + 0.3) { [weak self] in
@@ -565,6 +577,9 @@ class BLEManager {
             DispatchQueue.main.async {
                 self.imageDownloadProgress = nil
                 self.isDownloading = false
+                if self.pendingStatsRequest {
+                    self.sendStatsCommands()
+                }
             }
             return
         }
