@@ -292,14 +292,14 @@ private struct StatsView: View {
                         y: .value("Seconds", ble.chartData24H[0][i])
                     )
                     .foregroundStyle(chartPink)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.linear)
 
                     LineMark(
                         x: .value("Hour", i),
                         y: .value("Seconds", ble.chartData24H[1][i])
                     )
                     .foregroundStyle(chartPurple)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.linear)
                 }
             }
             .chartXAxis {
@@ -349,14 +349,14 @@ private struct StatsView: View {
                         y: .value("Seconds", ble.chartData30D[0][i])
                     )
                     .foregroundStyle(chartPink)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.linear)
 
                     LineMark(
                         x: .value("Day", i),
                         y: .value("Seconds", ble.chartData30D[1][i])
                     )
                     .foregroundStyle(chartPurple)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.linear)
                 }
             }
             .chartXAxis {
@@ -405,14 +405,14 @@ private struct StatsView: View {
                         y: .value("Avg Seconds", ble.chartDataHOD[0][h] / Double(days))
                     )
                     .foregroundStyle(chartPink)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.linear)
 
                     LineMark(
                         x: .value("Hour", h),
                         y: .value("Avg Seconds", ble.chartDataHOD[1][h] / Double(days))
                     )
                     .foregroundStyle(chartPurple)
-                    .interpolationMethod(.catmullRom)
+                    .interpolationMethod(.linear)
                 }
             }
             .chartXAxis {
@@ -431,7 +431,7 @@ private struct StatsView: View {
                 AxisMarks { value in
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
-                            Text(String(format: "%.1f", v))
+                            Text(String(format: "%.0f", v))
                                 .font(.system(size: 10))
                                 .foregroundStyle(Theme.textSecondary)
                         }
