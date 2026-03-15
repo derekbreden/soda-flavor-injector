@@ -1218,6 +1218,8 @@ static void processTextLine(const char *line) {
     bleSendLine(line);
   } else if (strncmp(line, "STATS:", 6) == 0) {
     bleSendLine(line);
+  } else if (strncmp(line, "CHART_", 6) == 0) {
+    bleSendLine(line);
   } else if (strncmp(line, "OK:", 3) == 0) {
     Serial.printf("ESP32 confirmed: %s\n", line);
     bleSendLine(line);
