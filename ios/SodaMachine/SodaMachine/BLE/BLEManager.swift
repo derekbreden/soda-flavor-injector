@@ -778,12 +778,23 @@ class BLEManager {
         }
 
         // CHART_LIVE: push update — apply delta to live slots
+        // Reassign full arrays to ensure @Observable triggers SwiftUI re-render
         if prefix == "CHART_LIVE" {
+            log.info("CHART_LIVE: F=\(flavor) body=\(body)")
             if let fsStr = kvValues["FS"], let newFS = UInt32(fsStr) {
                 let delta = Double(newFS - chartBaseFlowSum[flavor]) * 0.05
-                chartData24H[flavor][23] = chartBase24H_last[flavor] + delta
-                chartData30D[flavor][29] = chartBase30D_last[flavor] + delta
-                chartDataHOD[flavor][chartBaseHOD_hour] = chartBaseHOD_slot[flavor] + delta
+
+                var new24H = chartData24H
+                new24H[flavor][23] = chartBase24H_last[flavor] + delta
+                chartData24H = new24H
+
+                var new30D = chartData30D
+                new30D[flavor][29] = chartBase30D_last[flavor] + delta
+                chartData30D = new30D
+
+                var newHOD = chartDataHOD
+                newHOD[flavor][chartBaseHOD_hour] = chartBaseHOD_slot[flavor] + delta
+                chartDataHOD = newHOD
             }
             return
         }
