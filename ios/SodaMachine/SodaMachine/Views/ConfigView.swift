@@ -24,15 +24,15 @@ private struct ImageSlotView: View {
             } else {
                 ZStack {
                     Circle()
-                        .fill(Color(white: 0.15))
+                        .fill(Theme.placeholder)
                         .frame(width: size, height: size)
                     if ble.imageDownloadProgress != nil {
                         ProgressView()
-                            .tint(.white)
+                            .tint(Theme.textPrimary)
                     } else {
                         Image(systemName: "photo")
                             .font(.system(size: 24))
-                            .foregroundStyle(.gray)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
             }
@@ -49,7 +49,7 @@ private struct ImageSlotView: View {
 private struct SettingsItemButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(configuration.isPressed ? Color.white : Color.gray)
+            .foregroundStyle(configuration.isPressed ? Theme.textPrimary : Theme.textSecondary)
     }
 }
 
@@ -64,15 +64,15 @@ private struct SettingsPageView: View {
         VStack(spacing: 12) {
             Image(systemName: "gearshape")
                 .font(.system(size: 36))
-                .foregroundStyle(.gray)
+                .foregroundStyle(Theme.textSecondary)
 
             if resetting {
                 ProgressView()
-                    .tint(.white)
+                    .tint(Theme.textPrimary)
                     .padding(.top, 8)
                 Text("Resetting...")
                     .font(.system(size: 16))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(Theme.textSecondary)
             } else {
                 VStack(spacing: 0) {
                     settingsButton("Manage Images") {
@@ -134,7 +134,7 @@ private struct AboutView: View {
 
             Text("About")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             Spacer().frame(height: 32)
 
@@ -145,10 +145,10 @@ private struct AboutView: View {
                 VStack(spacing: 4) {
                     Text(labels[i])
                         .font(.system(size: 16))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(Theme.textSecondary)
                     Text(versions[i].isEmpty ? "..." : versions[i])
                         .font(.system(size: 16))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                 }
                 if i < 2 { Spacer().frame(height: 16) }
             }
@@ -172,16 +172,16 @@ struct ConfigView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Theme.background.ignoresSafeArea()
 
             if !ble.configSynced {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(1.5)
-                        .tint(.white)
+                        .tint(Theme.textPrimary)
                     Text("Loading configuration...")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                 }
             } else if inAbout {
                 AboutView()
@@ -214,7 +214,7 @@ struct ConfigView: View {
                         if i < pageCount - 1 {
                             Text(pageLabels[i])
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(editing && i == currentPage ? .white : .gray)
+                                .foregroundStyle(editing && i == currentPage ? Theme.textPrimary : Theme.textSecondary)
 
                             Spacer().frame(height: 12)
                         }
@@ -264,7 +264,7 @@ struct ConfigView: View {
             HStack(spacing: 12) {
                 ForEach(0..<pageCount, id: \.self) { j in
                     Circle()
-                        .fill(j == currentPage ? Color.white : Color(white: 0.3))
+                        .fill(j == currentPage ? Theme.dotActive : Theme.dotInactive)
                         .frame(width: 8, height: 8)
                 }
             }
@@ -296,7 +296,7 @@ struct ConfigView: View {
     private func ratioDisplay(ratio: Int) -> some View {
         Text("1:\(ratio)")
             .font(.system(size: editing ? 72 : 36, weight: .regular, design: .rounded))
-            .foregroundStyle(editing ? .white : .gray)
+            .foregroundStyle(editing ? Theme.textPrimary : Theme.textSecondary)
             .animation(.easeInOut(duration: 0.2), value: editing)
     }
 

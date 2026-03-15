@@ -148,7 +148,7 @@ struct ImageManagerView: View {
                     .clipShape(Circle())
             } else {
                 Circle()
-                    .fill(Color(white: 0.15))
+                    .fill(Theme.placeholder)
                     .overlay {
                         ProgressView()
                             .scaleEffect(0.7)

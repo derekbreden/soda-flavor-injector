@@ -16,32 +16,32 @@ struct ScanView: View {
 
     private var searchingView: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Theme.background.ignoresSafeArea()
 
             VStack(spacing: 16) {
                 Spacer()
 
                 ProgressView()
                     .scaleEffect(1.5)
-                    .tint(.white)
+                    .tint(Theme.textPrimary)
                     .padding(.bottom, 8)
 
                 if ble.connectionState == .bluetoothOff {
                     Text("Turn on Bluetooth")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("Bluetooth is required to connect to your Soda Machine.")
                         .font(.system(size: 16))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                 } else if ble.connectionState == .connecting {
                     Text("Connecting...")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                 } else if ble.connectionState == .searchingLong {
                     Text("Searching for Soda Machine...")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                         .padding(.bottom, 8)
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -50,11 +50,11 @@ struct ScanView: View {
                         Label("Try rebooting the Soda Machine", systemImage: "arrow.clockwise")
                     }
                     .font(.system(size: 16))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(Theme.textSecondary)
                 } else {
                     Text("Searching for Soda Machine...")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                 }
 
                 Spacer()
@@ -63,7 +63,7 @@ struct ScanView: View {
                     ble.enterDemoMode()
                 }
                 .font(.system(size: 14))
-                .foregroundStyle(.gray)
+                .foregroundStyle(Theme.textSecondary)
                 .padding(.bottom, 20)
             }
             .padding(.horizontal, 32)
