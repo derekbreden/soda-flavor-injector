@@ -52,7 +52,7 @@ struct ImageManagerView: View {
             } message: {
                 Text("This cannot be undone.")
             }
-            .onChange(of: selectedPhoto) { newItem in
+            .onChange(of: selectedPhoto) { _, newItem in
                 guard let newItem else { return }
                 Task {
                     if let data = try? await newItem.loadTransferable(type: Data.self),
