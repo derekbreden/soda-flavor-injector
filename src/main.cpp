@@ -1032,18 +1032,10 @@ void loadCurrentAccum() {
   struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
   File f = LittleFS.open(STATS_CURRENT_PATH, "r");
   if (!f) return;
-  size_t fsize = f.size();
-  // Current/legacy format: accum[2] + savedMillis
-  if (fsize == sizeof(data)) {
+  if (f.size() == sizeof(data)) {
     f.read((uint8_t*)&data, sizeof(data));
     memcpy(currentHour, data.accum, sizeof(currentHour));
     Serial.printf("Loaded stats accumulators from flash\n");
-  }
-  // Intermediate format (had flushedHour): accum[2] + flushed[2] + savedMillis
-  else if (fsize == sizeof(StatsAccum) * 4 + sizeof(unsigned long)) {
-    f.read((uint8_t*)&data, sizeof(data));  // reads accum[2] + savedMillis from front
-    memcpy(currentHour, data.accum, sizeof(currentHour));
-    Serial.printf("Loaded stats accumulators (migrated from v2 format)\n");
   }
   f.close();
 }
@@ -1169,53 +1161,6 @@ void appendDailyBucket(const char *path, const StatsBucket &bucket, int maxEntri
       }
     }
   }
-}
-
-// Deduplicate hourly file: merge entries with the same epoch_key (migration
-// from old delta-append design where multiple entries per hour were summed).
-void deduplicateHourlyFile(const char *path) {
-  File f = LittleFS.open(path, "r");
-  if (!f) return;
-  int entryCount = f.size() / sizeof(StatsBucket);
-  if (entryCount <= 0) { f.close(); return; }
-
-  // Read all entries (720 max × 20 bytes = 14.4KB, fits in ESP32 RAM)
-  StatsBucket *entries = (StatsBucket *)malloc(entryCount * sizeof(StatsBucket));
-  if (!entries) { f.close(); return; }
-  f.read((uint8_t*)entries, entryCount * sizeof(StatsBucket));
-  f.close();
-
-  // Compact: merge entries with the same epoch_key
-  StatsBucket *compacted = (StatsBucket *)malloc(entryCount * sizeof(StatsBucket));
-  if (!compacted) { free(entries); return; }
-  int compactedCount = 0;
-  for (int i = 0; i < entryCount; i++) {
-    bool found = false;
-    for (int j = 0; j < compactedCount; j++) {
-      if (compacted[j].epoch_key == entries[i].epoch_key) {
-        compacted[j].flow_sum += entries[i].flow_sum;
-        compacted[j].flow_count += entries[i].flow_count;
-        compacted[j].burst_sum_ms += entries[i].burst_sum_ms;
-        compacted[j].burst_count += entries[i].burst_count;
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      compacted[compactedCount++] = entries[i];
-    }
-  }
-  free(entries);
-
-  if (compactedCount < entryCount) {
-    Serial.printf("Dedup %s: %d entries → %d\n", path, entryCount, compactedCount);
-    File fw = LittleFS.open(path, "w");
-    if (fw) {
-      fw.write((uint8_t*)compacted, compactedCount * sizeof(StatsBucket));
-      fw.close();
-    }
-  }
-  free(compacted);
 }
 
 // Flush current hour accumulators to hourly files (full cumulative values)
@@ -2250,8 +2195,6 @@ void setup() {
 
   LittleFS.mkdir("/stats");
   loadCurrentAccum();
-  deduplicateHourlyFile(statsHourlyPath(0));
-  deduplicateHourlyFile(statsHourlyPath(1));
 
   // Always determine factory image count from compiled-in defaults
   {
