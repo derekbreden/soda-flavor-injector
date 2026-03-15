@@ -105,7 +105,7 @@ class BLEManager {
             }
             guard let data = text.data(using: .utf8) else { return }
             p.writeValue(data, for: rx, type: .withResponse)
-            log.info("TX: \(text)")
+            log.debug("TX: \(text)")
         }
     }
 
@@ -283,7 +283,6 @@ class BLEManager {
         guard let rx = rxCharacteristic, let p = connectedPeripheral,
               let data = "GETPNG:\(slot)".data(using: .utf8) else { return }
         p.writeValue(data, for: rx, type: .withResponse)
-        log.info("TX: GETPNG:\(slot)")
     }
 
     // MARK: - Response parsing (main thread only)
@@ -429,7 +428,7 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
     // MARK: - CBCentralManagerDelegate
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        log.info("Central state: \(central.state.rawValue)")
+        log.debug("Central state: \(central.state.rawValue)")
         if central.state == .poweredOn {
             ble.startScan()
         } else {
@@ -496,10 +495,10 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         for char in chars {
             if char.uuid == nusTxUUID {
                 peripheral.setNotifyValue(true, for: char)
-                log.info("Subscribed to TX notifications")
+                log.debug("Subscribed to TX notifications")
             } else if char.uuid == nusRxUUID {
                 ble.rxCharacteristic = char
-                log.info("Found RX characteristic")
+                log.debug("Found RX characteristic")
             }
         }
         if ble.rxCharacteristic != nil && !ble.nusReady {
@@ -553,16 +552,14 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
             return
         }
 
-        // Filter out DBG: lines
+        // Filter out DBG: lines (firmware debug output)
         if let text = String(data: data, encoding: .utf8), text.hasPrefix("DBG:") {
-            log.info("RX: \(text)")
             return
         }
 
         // All other text: dispatch to main for observable property updates
         DispatchQueue.main.async {
             if let text = String(data: data, encoding: .utf8) {
-                log.info("RX: \(text)")
                 self.ble.handleTextResponse(text)
             }
         }
