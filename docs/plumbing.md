@@ -50,7 +50,7 @@ Platypus bag
     → zip tie joint (blue over black silicone)
       → 1/4" OD black silicone tubing
         → hard tube transition + zip tie
-          → [bag solenoid valve, Beduan 12V NC, 1/4" push-connect]
+          → [dispensing solenoid valve, Beduan 12V NC, 1/4" push-connect]
             → [peristaltic pump, Kamoer 400ml/min 12V]
               → dispensing point (faucet gooseneck)
 ```
@@ -99,13 +99,15 @@ Two new solenoid valves (one per flavor line) and a needle valve for flow restri
 
 ### Layout
 
+The tee connects between the bag and the dispensing solenoid, so clean water can fill the bag itself (not just the line downstream of the solenoid).
+
 ```
-Lilium "tap water" output (1/4" push-connect)
-  → needle valve (set-and-forget flow restriction)
-    → tee split (one line to each flavor)
-      → clean solenoid (per flavor line, Beduan 12V NC)
-        → tee into existing flavor line (between bag solenoid and pump)
+Platypus bag → TEE → [dispensing solenoid] → [pump] → dispensing point
+                ↑
+  water supply → needle valve → [clean solenoid]
 ```
+
+Each flavor line gets its own clean solenoid and tee. The needle valve and water supply are shared — a second tee splits the water line to both clean solenoids.
 
 ### Why a Needle Valve Instead of a Pressure Regulator
 
@@ -115,9 +117,10 @@ A needle valve restricts *flow* by physically narrowing the passage with a screw
 
 ### Clean Cycle Sequence
 
-1. **Flush** (repeat N times): Close bag solenoid, open clean solenoid, pump ON. Water flows through the needle valve, through the tee, through the pump, and out the dispensing point.
-2. **Empty bag**: Close clean solenoid, open bag solenoid, pump ON. Pump pulls remaining liquid (old flavoring + rinse water) from bag and pushes it out the dispensing point. Bag is now empty.
-3. User refills bag with new flavoring (manually now, via hopper system later).
+1. **Fill bag with water**: Dispensing solenoid CLOSED, clean solenoid OPEN, pump OFF. Water flows through the needle valve, through the tee, into the bag. The bag fills with clean water, dissolving residual flavoring.
+2. **Flush**: Dispensing solenoid OPEN, clean solenoid CLOSED, pump ON. Pump pulls the water (plus dissolved flavoring residue) from the bag, through the dispensing point and out.
+3. **Repeat** steps 1-2 as many times as needed until water runs clear.
+4. User refills bag with new flavoring (manually now, via hopper system later).
 
 Room-temperature tap water is preferred over chilled — dissolves sugar/flavoring residue faster and doesn't deplete the chiller reservoir.
 
