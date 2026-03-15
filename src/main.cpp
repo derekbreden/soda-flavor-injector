@@ -1143,6 +1143,7 @@ void upsertHourlyBucket(const char *path, const StatsBucket &bucket, int maxEntr
     int entryCount = fc.size() / sizeof(StatsBucket);
     if (entryCount > maxEntries) {
       int skip = entryCount - maxEntries;
+      Serial.printf("Stats trim: dropping %d oldest entries from %s\n", skip, path);
       File tmp = LittleFS.open("/stats/trim.tmp", "w");
       if (tmp) {
         fc.seek(skip * sizeof(StatsBucket));
