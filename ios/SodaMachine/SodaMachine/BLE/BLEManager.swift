@@ -215,7 +215,13 @@ class BLEManager {
 
     func subscribeStats() {
         if demoMode { return }
-        send("STATS_SUBSCRIBE")
+        // Sent as part of sendStatsCommands stagger chain — calling
+        // separately would collide with the S3's single bleRequest slot.
+        // If stats are already synced (re-entering view), send directly.
+        if chartDataSynced {
+            send("STATS_SUBSCRIBE")
+        }
+        // Otherwise, sendStatsCommands will send it after chart data.
     }
 
     func unsubscribeStats() {
@@ -226,9 +232,12 @@ class BLEManager {
     fileprivate func sendStatsCommands() {
         pendingStatsRequest = false
         send("GET_STATS")
-        // Stagger to avoid S3 dropping the second command (single bleRequest slot)
+        // Stagger to avoid S3 dropping commands (single bleRequest slot)
         bleQueue.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.send("GET_CHART_DATA")
+        }
+        bleQueue.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.send("STATS_SUBSCRIBE")
         }
     }
 
