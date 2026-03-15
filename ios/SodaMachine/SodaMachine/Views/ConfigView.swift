@@ -216,9 +216,9 @@ private struct StatsView: View {
 
                         // Charts (show spinner if still loading)
                         if ble.chartDataSynced {
-                            chart24HSection
-                            chart30DSection
-                            chartHODSection
+                            Chart24HView(ble: ble)
+                            Chart30DView(ble: ble)
+                            ChartHODView(ble: ble)
                         } else {
                             ProgressView()
                                 .tint(Theme.textPrimary)
@@ -285,16 +285,21 @@ private struct StatsView: View {
         }
     }
 
-    // MARK: - 24-Hour Line Chart
+}
 
-    private var chart24HSection: some View {
+// Separate View structs create distinct @Observable tracking boundaries,
+// ensuring Chart recreation when BLEManager properties change.
+
+private struct Chart24HView: View {
+    var ble: BLEManager
+
+    var body: some View {
         let calendar = Calendar.current
         let currentHour = calendar.component(.hour, from: Date())
-        let rev = ble.chartRevision
         let data0 = ble.chartData24H[0]
         let data1 = ble.chartData24H[1]
 
-        return VStack(spacing: 8) {
+        VStack(spacing: 8) {
             Text("Last 24 Hours")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
@@ -346,20 +351,27 @@ private struct StatsView: View {
                 }
             }
             .frame(height: 160)
-            .id(rev)
+            .id(ble.chartRevision)
         }
     }
 
-    // MARK: - 30-Day Line Chart
+    private func hourLabel(_ hour: Int) -> String {
+        let h = hour % 12
+        let ampm = hour < 12 ? "AM" : "PM"
+        return "\(h == 0 ? 12 : h) \(ampm)"
+    }
+}
 
-    private var chart30DSection: some View {
+private struct Chart30DView: View {
+    var ble: BLEManager
+
+    var body: some View {
         let calendar = Calendar.current
         let today = Date()
-        let rev = ble.chartRevision
         let data0 = ble.chartData30D[0]
         let data1 = ble.chartData30D[1]
 
-        return VStack(spacing: 8) {
+        VStack(spacing: 8) {
             Text("Last 30 Days")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
@@ -411,19 +423,20 @@ private struct StatsView: View {
                 }
             }
             .frame(height: 160)
-            .id(rev)
+            .id(ble.chartRevision)
         }
     }
+}
 
-    // MARK: - Hour-of-Day Average Chart
+private struct ChartHODView: View {
+    var ble: BLEManager
 
-    private var chartHODSection: some View {
-        let rev = ble.chartRevision
+    var body: some View {
         let days = max(ble.chartDataHODDays, 1)
         let data0 = ble.chartDataHOD[0].map { $0 / Double(days) }
         let data1 = ble.chartDataHOD[1].map { $0 / Double(days) }
 
-        return VStack(spacing: 8) {
+        VStack(spacing: 8) {
             Text("Average by Hour of Day")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
@@ -474,15 +487,13 @@ private struct StatsView: View {
                 }
             }
             .frame(height: 160)
-            .id(rev)
+            .id(ble.chartRevision)
 
             Text("\(days) day\(days == 1 ? "" : "s") of data")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.textSecondary.opacity(0.6))
         }
     }
-
-    // MARK: - Helpers
 
     private func hourLabel(_ hour: Int) -> String {
         let h = hour % 12
