@@ -1406,6 +1406,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
         // entries to real epoch-based hourly buckets
         flushPresyncHour();
         convertPresyncToReal(epoch / 3600);
+        memset(currentHour, 0, sizeof(currentHour));
         timeSynced = true;
         currentHourKey = epoch / 3600;
       }
