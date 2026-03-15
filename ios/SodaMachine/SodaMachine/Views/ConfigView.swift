@@ -81,8 +81,7 @@ private struct SettingsPageView: View {
                         showImageManager = true
                     }
                     settingsButton("Usage Stats") {
-                        ble.requestStats()
-                        ble.requestChartData()
+                        ble.requestStatsAndCharts()
                         inStats = true
                     }
                     settingsButton("Factory Reset") {
@@ -220,16 +219,16 @@ private struct StatsView: View {
                             chart24HSection
                             chart30DSection
                             chartHODSection
+
+                            // Text stats below charts
+                            if ble.statsSynced {
+                                flavorSection("Flavor 1", stats: ble.flavor1Stats)
+                                flavorSection("Flavor 2", stats: ble.flavor2Stats)
+                            }
                         } else {
                             ProgressView()
                                 .tint(Theme.textPrimary)
                                 .padding(.vertical, 20)
-                        }
-
-                        // Text stats
-                        if ble.statsSynced {
-                            flavorSection("Flavor 1", stats: ble.flavor1Stats)
-                            flavorSection("Flavor 2", stats: ble.flavor2Stats)
                         }
                     }
                     .padding(.horizontal, 20)

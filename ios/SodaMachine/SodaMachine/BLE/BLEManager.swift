@@ -187,6 +187,22 @@ class BLEManager {
         send("GET_CHART_DATA")
     }
 
+    func requestStatsAndCharts() {
+        if demoMode {
+            populateDemoStats()
+            populateDemoChartData()
+            return
+        }
+        statsSynced = false
+        chartDataSynced = false
+        chartLinesReceived = 0
+        send("GET_STATS")
+        // Stagger to avoid S3 dropping the second command (single bleRequest slot)
+        bleQueue.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.send("GET_CHART_DATA")
+        }
+    }
+
     func factoryReset() {
         if demoMode {
             flavor1Image = 0
