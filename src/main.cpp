@@ -273,6 +273,7 @@ uint32_t currentHourKey = 0;      // epoch/3600 for current hour (0 = not yet sy
 uint32_t timeAnchorEpoch  = 0;    // unix epoch at anchor point
 unsigned long timeAnchorMillis = 0; // millis() at anchor point
 bool timeSynced = false;
+bool presyncConverted = false;    // guard: convertPresyncToReal runs at most once per boot
 unsigned long lastStatsFlush = 0; // last 60s flush
 
 // Pre-sync stats persistence (before BLE time sync)
@@ -1418,9 +1419,12 @@ void processConfigCommand(const char *cmd, Stream &out) {
       timeAnchorMillis = millis();
       if (!timeSynced) {
         // Flush latest data to presync ring, then convert all presync
-        // entries to real epoch-based hourly buckets
-        flushPresyncHour();
-        convertPresyncToReal(epoch / 3600);
+        // entries to real epoch-based hourly buckets (once per boot)
+        if (!presyncConverted) {
+          flushPresyncHour();
+          convertPresyncToReal(epoch / 3600);
+          presyncConverted = true;
+        }
         memset(currentHour, 0, sizeof(currentHour));
         timeSynced = true;
         currentHourKey = epoch / 3600;
