@@ -12,10 +12,15 @@ struct ImageManagerView: View {
 
     private let maxImages = 23
 
+    /// Total slots committed: on-device + active upload + queued
+    private var totalPendingSlots: Int {
+        ble.numImages + ble.uploadQueue.count + (ble.uploadProgress != nil ? 1 : 0)
+    }
+
     var body: some View {
         NavigationView {
             List {
-                if ble.uploadProgress != nil {
+                if ble.uploadProgress != nil || !ble.uploadQueue.isEmpty {
                     uploadProgressSection
                 }
 
@@ -25,7 +30,7 @@ struct ImageManagerView: View {
 
                 imagesSection
 
-                if ble.numImages + ble.uploadQueue.count < maxImages && ble.imageDownloadProgress == nil {
+                if totalPendingSlots < maxImages && ble.imageDownloadProgress == nil {
                     addImageSection
                 }
             }
@@ -81,19 +86,52 @@ struct ImageManagerView: View {
     // MARK: - Sections
 
     private var uploadProgressSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(ble.uploadStatus)
-                    .font(.callout)
-                ProgressView(value: ble.uploadProgress ?? 0)
-                    .tint(.blue)
-                if !ble.uploadQueue.isEmpty {
-                    Text("\(ble.uploadQueue.count) more in queue")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Section("Uploads") {
+            // Active upload row
+            if let activeImage = ble.activeUploadImage, ble.uploadProgress != nil {
+                HStack(spacing: 12) {
+                    Image(uiImage: activeImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 44, height: 44)
+                        .clipShape(Circle())
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Slot \(ble.activeUploadSlot)")
+                            .font(.callout)
+                        ProgressView(value: ble.uploadProgress ?? 0)
+                            .tint(.blue)
+                    }
                 }
+                .padding(.vertical, 2)
             }
-            .padding(.vertical, 4)
+
+            // Queued upload rows
+            ForEach(ble.uploadQueue) { item in
+                HStack(spacing: 12) {
+                    Image(uiImage: item.image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 44, height: 44)
+                        .clipShape(Circle())
+                        .opacity(0.6)
+
+                    Text("Slot \(item.slot)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button {
+                        ble.cancelQueuedUpload(id: item.id)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.vertical, 2)
+            }
         }
     }
 
@@ -133,14 +171,13 @@ struct ImageManagerView: View {
                 }
             }
         } footer: {
-            let totalSlots = ble.numImages + ble.uploadQueue.count
-            Text("\(totalSlots) of \(maxImages) image slots used")
+            Text("\(totalPendingSlots) of \(maxImages) image slots used")
         }
     }
 
     private var addImageSection: some View {
         Section {
-            let remaining = maxImages - ble.numImages - ble.uploadQueue.count
+            let remaining = maxImages - totalPendingSlots
             PhotosPicker(
                 selection: $selectedPhotos,
                 maxSelectionCount: remaining,

@@ -37,7 +37,7 @@ struct UploadQueueSheet: View {
 
                 Button {
                     let items = images.enumerated().map { index, image in
-                        (image: image, slot: startSlot + index)
+                        BLEManager.UploadQueueItem(image: image, slot: startSlot + index)
                     }
                     ble.queueUploads(items)
                     dismiss()

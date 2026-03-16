@@ -46,7 +46,15 @@ class BLEManager {
     // Upload state
     var uploadProgress: Double? = nil  // nil = not uploading
     var uploadStatus: String = ""
-    var uploadQueue: [(image: UIImage, slot: Int)] = []
+    var uploadQueue: [UploadQueueItem] = []
+    var activeUploadImage: UIImage? = nil
+    var activeUploadSlot: Int = -1
+
+    struct UploadQueueItem: Identifiable {
+        let id = UUID()
+        let image: UIImage
+        let slot: Int
+    }
 
     // Firmware versions (populated by GET_VERSION response)
     var s3Version: String = ""
@@ -290,7 +298,7 @@ class BLEManager {
         return cachedImages[slot]
     }
 
-    func queueUploads(_ items: [(image: UIImage, slot: Int)]) {
+    func queueUploads(_ items: [UploadQueueItem]) {
         uploadQueue.append(contentsOf: items)
         uploadQueueTotal = uploadQueue.count + (isUploading ? 1 : 0)
         if !isUploading {
@@ -298,15 +306,23 @@ class BLEManager {
         }
     }
 
+    func cancelQueuedUpload(id: UUID) {
+        uploadQueue.removeAll { $0.id == id }
+    }
+
     private func startNextUpload() {
         guard !uploadQueue.isEmpty else {
             uploadQueueTotal = 0
+            activeUploadImage = nil
+            activeUploadSlot = -1
             cachedImages = [:]
             requestImageList()
             return
         }
         let item = uploadQueue.removeFirst()
         uploadImageRef = item.image
+        activeUploadImage = item.image
+        activeUploadSlot = item.slot
         let position = uploadQueueTotal - uploadQueue.count
         uploadStatus = "Uploading \(position) of \(uploadQueueTotal)..."
         uploadImage(item.image, toSlot: item.slot)
@@ -645,6 +661,8 @@ class BLEManager {
             uploadProgress = 1.0
             uploadStatus = "Upload complete!"
             uploadQueueTotal = 0
+            activeUploadImage = nil
+            activeUploadSlot = -1
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.uploadProgress = nil
                 self?.cachedImages = [:]
@@ -668,6 +686,8 @@ class BLEManager {
             uploadStatus = "Upload failed: \(reason)"
             uploadProgress = nil
             uploadQueueTotal = 0
+            activeUploadImage = nil
+            activeUploadSlot = -1
         }
     }
 
@@ -1059,6 +1079,8 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
             self.ble.uploadQueue = []
             self.ble.uploadQueueTotal = 0
             self.ble.uploadImageRef = nil
+            self.ble.activeUploadImage = nil
+            self.ble.activeUploadSlot = -1
             if self.ble.pendingDeleteSlot >= 0 {
                 self.ble.numImages = self.ble.preDeleteNumImages
                 self.ble.cachedImages = self.ble.preDeleteCachedImages
