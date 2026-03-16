@@ -2172,11 +2172,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
     pushLabelsToDevice(DEVICE_S3);
     sendMapToRP();
 
-    // Push CONFIG: update (numImages may have changed)
+    // Push CONFIG: use espNumImages (authoritative store count) not numImages
+    // (RP2040 display count) — RP2040 push may have failed/timed out, and
+    // sending a lower count causes S3 to delete just-uploaded files as "orphans"
     char cfgBuf[128];
     snprintf(cfgBuf, sizeof(cfgBuf),
              "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
-             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages, numS3Images);
+             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, espNumImages, numS3Images);
     stSendText(stS3, cfgBuf);
 
     out.printf("OK:UPLOAD_DONE:%d\n", slot);
