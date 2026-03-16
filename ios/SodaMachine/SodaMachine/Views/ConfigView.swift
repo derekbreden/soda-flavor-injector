@@ -209,6 +209,20 @@ private struct StatsView: View {
                         .foregroundStyle(Theme.textSecondary)
                         .padding(.top, 8)
                     Spacer()
+                } else if isWide {
+                    VStack(spacing: 0) {
+                        Text("Usage Stats")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Theme.textPrimary)
+                            .padding(.top, 8)
+                            .padding(.bottom, 16)
+
+                        GeometryReader { geo in
+                            let chartH = max(160, (geo.size.height - 24 - 40) / 2)
+                            wideLayout(chartHeight: chartH)
+                                .padding(.horizontal, 20)
+                        }
+                    }
                 } else {
                     ScrollView {
                         VStack(spacing: 24) {
@@ -217,11 +231,7 @@ private struct StatsView: View {
                                 .foregroundStyle(Theme.textPrimary)
                                 .padding(.top, 8)
 
-                            if isWide {
-                                wideLayout
-                            } else {
-                                compactLayout
-                            }
+                            compactLayout
                         }
                         .padding(.horizontal, 20)
                         .padding(.bottom, 20)
@@ -259,22 +269,23 @@ private struct StatsView: View {
     // MARK: - Wide layout (iPad)
 
     @ViewBuilder
-    private var wideLayout: some View {
+    private func wideLayout(chartHeight: CGFloat) -> some View {
         if ble.chartDataSynced {
             let columns = [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)]
             LazyVGrid(columns: columns, spacing: 24) {
                 // Top-left: donut
                 if ble.statsSynced {
                     pieChartSection
+                        .frame(height: chartHeight)
                 } else {
-                    Color.clear.frame(height: 160)
+                    Color.clear.frame(height: chartHeight)
                 }
                 // Top-right
-                Chart24HView()
+                Chart24HView(chartHeight: chartHeight)
                 // Bottom-left
-                Chart30DView()
+                Chart30DView(chartHeight: chartHeight)
                 // Bottom-right
-                ChartHODView()
+                ChartHODView(chartHeight: chartHeight)
             }
         } else {
             ProgressView().tint(Theme.textPrimary).padding(.vertical, 20)
@@ -341,6 +352,7 @@ private struct StatsView: View {
 
 private struct Chart24HView: View {
     @Environment(BLEManager.self) var ble
+    var chartHeight: CGFloat = 160
 
     var body: some View {
         let calendar = Calendar.current
@@ -400,7 +412,7 @@ private struct Chart24HView: View {
                     AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
                 }
             }
-            .frame(height: 160)
+            .frame(height: chartHeight)
         }
     }
 
@@ -413,6 +425,7 @@ private struct Chart24HView: View {
 
 private struct Chart30DView: View {
     @Environment(BLEManager.self) var ble
+    var chartHeight: CGFloat = 160
 
     var body: some View {
         let calendar = Calendar.current
@@ -472,13 +485,14 @@ private struct Chart30DView: View {
                     AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
                 }
             }
-            .frame(height: 160)
+            .frame(height: chartHeight)
         }
     }
 }
 
 private struct ChartHODView: View {
     @Environment(BLEManager.self) var ble
+    var chartHeight: CGFloat = 160
 
     var body: some View {
         let days = max(ble.chartDataHODDays, 1)
@@ -536,7 +550,7 @@ private struct ChartHODView: View {
                     AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
                 }
             }
-            .frame(height: 160)
+            .frame(height: chartHeight)
 
             Text("\(days) day\(days == 1 ? "" : "s") of data")
                 .font(.system(size: 11))
