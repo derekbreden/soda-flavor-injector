@@ -135,6 +135,11 @@ enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG, BL
                   BLE_REQ_GET_CONFIG, BLE_REQ_GET_VERSION };
 static volatile BleRequest bleRequest = BLE_REQ_NONE;
 static volatile int bleRequestSlot = -1;
+static volatile uint16_t bleRequestConnHandle = 0;
+
+// Per-client ownership tracking for image transfers
+static uint16_t bleImageSendConnHandle = 0;
+static uint16_t bleUploadConnHandle = 0;
 
 // Ring buffer for BLE→ESP32 text command forwarding (replaces single bleForwardBuf)
 #define BLE_FWD_QUEUE_SIZE 8
@@ -184,31 +189,28 @@ class BLEServerCB : public BLEServerCallbacks {
 static void bleImageSendChunks() {
   if (!bleImageSending || !bleHasClients() || !pTxChar) return;
 
+  uint16_t ch = bleImageSendConnHandle;
+
   if (!bleFile || !bleFile.available()) {
     if (bleFile) bleFile.close();
     delay(50);
-    bleSendFrame(BLE_FRAME_BIN_END, nullptr, 0);
+    bleSendFrameTo(ch, BLE_FRAME_BIN_END, nullptr, 0);
     bleImageSending = false;
     Serial.printf("BLE image %d send complete (%u bytes)\n", bleImageSlot, bleImageSize);
     return;
   }
 
-  // Read chunk into buffer after 3-byte frame header space
-  size_t n = bleFile.read(bleSendChunkBuf + 3, 180);
+  // Read chunk into buffer (reuse bleSendChunkBuf as scratch)
+  size_t n = bleFile.read(bleSendChunkBuf, 180);
   if (n == 0) {
     bleFile.close();
     delay(50);
-    bleSendFrame(BLE_FRAME_BIN_END, nullptr, 0);
+    bleSendFrameTo(ch, BLE_FRAME_BIN_END, nullptr, 0);
     bleImageSending = false;
     return;
   }
 
-  // Build BIN_DATA frame in-place (avoids extra memcpy)
-  bleSendChunkBuf[0] = BLE_FRAME_BIN_DATA;
-  bleSendChunkBuf[1] = n & 0xFF;
-  bleSendChunkBuf[2] = (n >> 8) & 0xFF;
-  pTxChar->setValue(bleSendChunkBuf, 3 + n);
-  pTxChar->notify();
+  bleSendFrameTo(ch, BLE_FRAME_BIN_DATA, bleSendChunkBuf, n);
   delay(20);
 }
 
@@ -249,7 +251,8 @@ static bool openPngForBLE(uint8_t slot) {
 }
 
 class BLERxCB : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic *pChar) override {
+  void onWrite(BLECharacteristic *pChar, ble_gap_conn_desc *desc) override {
+    uint16_t connHandle = desc->conn_handle;
     String val = pChar->getValue();
     size_t len = val.length();
     if (len < 3) return;  // minimum frame: 1B type + 2B length
@@ -270,6 +273,8 @@ class BLERxCB : public BLECharacteristicCallbacks {
 
         // Drop if a previous request hasn't been processed yet
         if (bleRequest != BLE_REQ_NONE) return;
+
+        bleRequestConnHandle = connHandle;
 
         if (strcmp(textBuf, "GET_CONFIG") == 0) {
           bleRequest = BLE_REQ_GET_CONFIG;
@@ -307,14 +312,15 @@ class BLERxCB : public BLECharacteristicCallbacks {
                        ((uint32_t)payload[8] << 16) | ((uint32_t)payload[9] << 24);
 
         if (slot >= MAX_IMAGES || size == 0 || size > IMAGE_BYTES) {
-          bleSendText("IMG_ERR:INVALID_PARAMS");
+          bleSendTextTo(connHandle, "IMG_ERR:INVALID_PARAMS");
           return;
         }
-        if (bleImageSending) {
-          bleSendText("IMG_ERR:BUSY");
+        if (bleImageSending || bleUpload.phase != BLE_UP_IDLE) {
+          bleSendTextTo(connHandle, "IMG_ERR:BUSY");
           return;
         }
 
+        bleUploadConnHandle = connHandle;
         bleUpload.slot = slot;
         bleUpload.fileType = fileType;
         bleUpload.expectedSize = size;
@@ -340,6 +346,7 @@ class BLERxCB : public BLECharacteristicCallbacks {
 
       case BLE_FRAME_BIN_DATA: {
         if (bleUpload.phase != BLE_UP_WAIT_DATA) return;
+        if (connHandle != bleUploadConnHandle) return;  // reject data from wrong client
         if (bleUpload.receivedBytes + payloadLen <= IMAGE_BYTES) {
           memcpy(((uint8_t*)imageBuf) + bleUpload.receivedBytes, payload, payloadLen);
           bleUpload.receivedBytes += payloadLen;
@@ -350,6 +357,7 @@ class BLERxCB : public BLECharacteristicCallbacks {
 
       case BLE_FRAME_BIN_END: {
         if (bleUpload.phase != BLE_UP_WAIT_DATA) return;
+        if (connHandle != bleUploadConnHandle) return;  // reject from wrong client
         bleUpload.phase = BLE_UP_RECEIVED;
         break;
       }
@@ -376,11 +384,14 @@ static void processBleRequest() {
       bleSendText("END");
       break;
 
-    case BLE_REQ_GETPNG:
-      if (slot < 0 || slot >= numImages) {
-        bleSendText("ERR:INVALID_SLOT");
+    case BLE_REQ_GETPNG: {
+      uint16_t ch = bleRequestConnHandle;
+      if (bleImageSending || bleUpload.phase != BLE_UP_IDLE) {
+        bleSendTextTo(ch, "ERR:BUSY");
+      } else if (slot < 0 || slot >= numImages) {
+        bleSendTextTo(ch, "ERR:INVALID_SLOT");
       } else if (!openPngForBLE(slot)) {
-        bleSendText("ERR:LOAD_FAILED");
+        bleSendTextTo(ch, "ERR:LOAD_FAILED");
       } else {
         // Send BIN_START: [slot, file_type=0(png), size(4B LE), crc32(4B LE)]
         uint8_t sp[10];
@@ -394,24 +405,29 @@ static void processBleRequest() {
         sp[7] = (bleImageCrc >> 8) & 0xFF;
         sp[8] = (bleImageCrc >> 16) & 0xFF;
         sp[9] = (bleImageCrc >> 24) & 0xFF;
-        bleSendFrame(BLE_FRAME_BIN_START, sp, 10);
+        bleSendFrameTo(ch, BLE_FRAME_BIN_START, sp, 10);
         delay(20);
         bleImageSlot = slot;
+        bleImageSendConnHandle = ch;
         bleImageSending = true;
         Serial.printf("BLE PNG download: slot %d, %u bytes, CRC 0x%08lX\n",
                       slot, bleImageSize, (unsigned long)bleImageCrc);
       }
       break;
+    }
 
     case BLE_REQ_GETIMG: {
-      if (slot < 0 || slot >= numImages) {
-        bleSendText("ERR:INVALID_SLOT");
+      uint16_t ch = bleRequestConnHandle;
+      if (bleImageSending || bleUpload.phase != BLE_UP_IDLE) {
+        bleSendTextTo(ch, "ERR:BUSY");
+      } else if (slot < 0 || slot >= numImages) {
+        bleSendTextTo(ch, "ERR:INVALID_SLOT");
       } else {
         char path[16];
         imagePath(path, slot);
         bleFile = LittleFS.open(path, "r");
         if (!bleFile) {
-          bleSendText("ERR:LOAD_FAILED");
+          bleSendTextTo(ch, "ERR:LOAD_FAILED");
         } else {
           bleImageSize = IMAGE_BYTES;
           bleImageCrc = computeFileCrc(bleFile);
@@ -426,9 +442,10 @@ static void processBleRequest() {
           sp[7] = (bleImageCrc >> 8) & 0xFF;
           sp[8] = (bleImageCrc >> 16) & 0xFF;
           sp[9] = (bleImageCrc >> 24) & 0xFF;
-          bleSendFrame(BLE_FRAME_BIN_START, sp, 10);
+          bleSendFrameTo(ch, BLE_FRAME_BIN_START, sp, 10);
           delay(20);
           bleImageSlot = slot;
+          bleImageSendConnHandle = ch;
           bleImageSending = true;
           Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
         }
@@ -487,7 +504,7 @@ static void processBleUpload() {
   uint32_t crc = uartCrc32Update(0, (const uint8_t*)imageBuf, bleUpload.expectedSize);
   if (crc != bleUpload.expectedCrc32) {
     Serial.printf("BLE upload CRC mismatch: got 0x%08lX expected 0x%08lX\n", crc, bleUpload.expectedCrc32);
-    bleSendText("IMG_ERR:CRC_MISMATCH");
+    bleSendTextTo(bleUploadConnHandle, "IMG_ERR:CRC_MISMATCH");
     bleUpload.phase = BLE_UP_IDLE;
     return;
   }
@@ -506,7 +523,7 @@ static void processBleUpload() {
     LittleFS.remove(path);
     File f = LittleFS.open(path, "w");
     if (!f) {
-      bleSendText("IMG_ERR:WRITE_FAIL");
+      bleSendTextTo(bleUploadConnHandle, "IMG_ERR:WRITE_FAIL");
       bleUpload.phase = BLE_UP_IDLE;
       return;
     }
@@ -690,9 +707,9 @@ static void processBleUploadForward() {
     const char *typeStr = bleUpload.fileType == 0 ? "png" :
                           (bleUpload.fileType == 1 ? "s3" : "rp");
     snprintf(resp, sizeof(resp), "IMG_OK:%d:%s", bleUpload.slot, typeStr);
-    bleSendText(resp);
+    bleSendTextTo(bleUploadConnHandle, resp);
   } else {
-    bleSendText("IMG_ERR:FORWARD_FAIL");
+    bleSendTextTo(bleUploadConnHandle, "IMG_ERR:FORWARD_FAIL");
   }
 
   bleUpload.phase = BLE_UP_IDLE;
@@ -1933,7 +1950,7 @@ void loop() {
   if (bleUpload.phase == BLE_UP_WAIT_DATA &&
       millis() - bleUpload.lastDataTime > 30000) {
     bleUpload.phase = BLE_UP_IDLE;
-    bleSendText("IMG_ERR:TIMEOUT");
+    bleSendTextTo(bleUploadConnHandle, "IMG_ERR:TIMEOUT");
     Serial.println("BLE upload timed out");
   }
 
