@@ -46,6 +46,7 @@ class BLEManager {
     // Upload state
     var uploadProgress: Double? = nil  // nil = not uploading
     var uploadStatus: String = ""
+    var uploadQueue: [(image: UIImage, slot: Int)] = []
 
     // Firmware versions (populated by GET_VERSION response)
     var s3Version: String = ""
@@ -117,6 +118,8 @@ class BLEManager {
     @ObservationIgnored fileprivate var uploadSteps: [(type: String, data: Data)] = []
     @ObservationIgnored fileprivate var currentUploadStep = 0
     @ObservationIgnored fileprivate var uploadBytesSent = 0
+    @ObservationIgnored fileprivate var uploadQueueTotal = 0
+    @ObservationIgnored fileprivate var uploadImageRef: UIImage?
 
     // Image download state — accessed from bleQueue during downloads
     @ObservationIgnored fileprivate var imgDownloadSlot: Int = -1
@@ -287,13 +290,31 @@ class BLEManager {
         return cachedImages[slot]
     }
 
-    func uploadImage(_ image: UIImage, toSlot slot: Int) {
-        if demoMode {
-            uploadDemoImage(image, toSlot: slot)
+    func queueUploads(_ items: [(image: UIImage, slot: Int)]) {
+        uploadQueue.append(contentsOf: items)
+        uploadQueueTotal = uploadQueue.count + (isUploading ? 1 : 0)
+        if !isUploading {
+            startNextUpload()
+        }
+    }
+
+    private func startNextUpload() {
+        guard !uploadQueue.isEmpty else {
+            uploadQueueTotal = 0
+            cachedImages = [:]
+            requestImageList()
             return
         }
-        guard !isUploading else {
-            log.warning("Upload already in progress")
+        let item = uploadQueue.removeFirst()
+        uploadImageRef = item.image
+        let position = uploadQueueTotal - uploadQueue.count
+        uploadStatus = "Uploading \(position) of \(uploadQueueTotal)..."
+        uploadImage(item.image, toSlot: item.slot)
+    }
+
+    private func uploadImage(_ image: UIImage, toSlot slot: Int) {
+        if demoMode {
+            uploadDemoImage(image, toSlot: slot)
             return
         }
         guard let pngData = ImageProcessor.generatePNG(from: image),
@@ -429,8 +450,10 @@ class BLEManager {
     }
 
     private func uploadDemoImage(_ image: UIImage, toSlot slot: Int) {
+        isUploading = true
+        uploadSlot = slot
+        uploadImageRef = image
         uploadProgress = 0
-        uploadStatus = "Uploading image..."
         var step = 0
         let totalSteps = 20
         Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
@@ -439,13 +462,8 @@ class BLEManager {
             self.uploadProgress = Double(step) / Double(totalSteps)
             if step >= totalSteps {
                 timer.invalidate()
-                self.cachedImages[slot] = image
-                if slot >= self.numImages {
-                    self.numImages = slot + 1
-                    self.imageNames.append("image_\(slot)")
-                }
-                self.uploadProgress = nil
-                self.uploadStatus = ""
+                self.imageNames.append("image_\(slot)")
+                self.completeUpload()
             }
         }
     }
@@ -610,23 +628,47 @@ class BLEManager {
     }
 
     private func completeUpload() {
-        uploadProgress = 1.0
-        uploadStatus = "Upload complete!"
         isUploading = false
         uploadSteps = []
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.uploadProgress = nil
-            self?.cachedImages = [:]
-            self?.requestImageList()
+        numImages = max(numImages, uploadSlot + 1)
+        if let img = uploadImageRef { cachedImages[uploadSlot] = img }
+        uploadImageRef = nil
+
+        if !uploadQueue.isEmpty {
+            let position = uploadQueueTotal - uploadQueue.count + 1
+            uploadStatus = "Uploading \(position) of \(uploadQueueTotal)..."
+            uploadProgress = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.startNextUpload()
+            }
+        } else {
+            uploadProgress = 1.0
+            uploadStatus = "Upload complete!"
+            uploadQueueTotal = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.uploadProgress = nil
+                self?.cachedImages = [:]
+                self?.requestImageList()
+            }
         }
     }
 
     private func failUpload(_ reason: String) {
-        log.error("Upload failed: \(reason)")
-        uploadStatus = "Upload failed: \(reason)"
-        uploadProgress = nil
+        log.error("Upload failed (slot \(self.uploadSlot)): \(reason)")
         isUploading = false
         uploadSteps = []
+        uploadImageRef = nil
+
+        if !uploadQueue.isEmpty {
+            uploadStatus = "Slot \(self.uploadSlot) failed, continuing..."
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.startNextUpload()
+            }
+        } else {
+            uploadStatus = "Upload failed: \(reason)"
+            uploadProgress = nil
+            uploadQueueTotal = 0
+        }
     }
 
     // MARK: - Image download (runs entirely on bleQueue)
@@ -1014,6 +1056,9 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
             self.ble.isUploading = false
             self.ble.uploadProgress = nil
             self.ble.uploadSteps = []
+            self.ble.uploadQueue = []
+            self.ble.uploadQueueTotal = 0
+            self.ble.uploadImageRef = nil
             if self.ble.pendingDeleteSlot >= 0 {
                 self.ble.numImages = self.ble.preDeleteNumImages
                 self.ble.cachedImages = self.ble.preDeleteCachedImages
