@@ -169,17 +169,20 @@ class BLEServerCB : public BLEServerCallbacks {
                   (unsigned long)ESP.getFreeHeap());
     pServer->startAdvertising();  // allow additional clients to connect
   }
-  void onDisconnect(BLEServer *pServer) override {
-    Serial.printf("BLE: client disconnected (remaining=%lu)\n",
-                  (unsigned long)pServer->getConnectedCount());
-    if (bleImageSending) {
+  void onDisconnect(BLEServer *pServer, ble_gap_conn_desc *desc) override {
+    uint16_t handle = desc->conn_handle;
+    Serial.printf("BLE: client disconnected handle=%u (remaining=%lu)\n",
+                  handle, (unsigned long)pServer->getConnectedCount());
+    // Only abort image download if the disconnecting client owns it
+    if (bleImageSending && handle == bleImageSendConnHandle) {
       bleImageSending = false;
       if (bleFile) bleFile.close();
-      Serial.println("BLE: aborted image send on disconnect");
+      Serial.println("BLE: aborted image send (owner disconnected)");
     }
-    if (bleUpload.phase != BLE_UP_IDLE) {
+    // Only abort upload if the disconnecting client owns it
+    if (bleUpload.phase != BLE_UP_IDLE && handle == bleUploadConnHandle) {
       bleUpload.phase = BLE_UP_IDLE;
-      Serial.println("BLE: aborted upload on disconnect");
+      Serial.println("BLE: aborted upload (owner disconnected)");
     }
     stSendText(stLink, "BLE_DISCONNECTED");
     pServer->startAdvertising();
