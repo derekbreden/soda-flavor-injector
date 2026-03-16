@@ -127,6 +127,7 @@ class BLEManager {
     @ObservationIgnored fileprivate var imgDownloadQueue: [Int] = []
     @ObservationIgnored fileprivate var isDownloading = false
     @ObservationIgnored fileprivate var pendingStatsRequest = false
+    @ObservationIgnored fileprivate var timeSyncReceived = false
     @ObservationIgnored fileprivate var nusReady = false
 
     // BLE frame buffer — accumulates partial frames from notifications
@@ -698,6 +699,15 @@ class BLEManager {
             parseChartLine(text)
         } else if text == "OK:TIME_SYNCED" {
             log.info("Time synced with ESP32")
+            if !timeSyncReceived {
+                timeSyncReceived = true
+                // Stats requested before time sync completed get zeroed responses.
+                // Re-request now that the ESP32 has real data.
+                if statsSynced || chartDataSynced || pendingStatsRequest {
+                    log.info("Re-requesting stats after time sync")
+                    sendStatsCommands()
+                }
+            }
         } else if text == "OK:FACTORY_RESET" {
             log.info("Factory reset confirmed, re-syncing")
             cachedImages = [:]
@@ -773,11 +783,13 @@ class BLEManager {
             monthBurstCount: values["30D_BC"] ?? 0
         )
 
-        if flavor == 0 {
-            flavor1Stats = stats
-        } else {
-            flavor2Stats = stats
-            statsSynced = true  // both flavors received
+        withAnimation {
+            if flavor == 0 {
+                flavor1Stats = stats
+            } else {
+                flavor2Stats = stats
+                statsSynced = true  // both flavors received
+            }
         }
     }
 
@@ -863,12 +875,14 @@ class BLEManager {
         // CHART_24H / CHART_30D / CHART_HOD: full array data
         let values = parts[dataStart...].map { Double(UInt32($0) ?? 0) * 0.05 }
 
-        if prefix == "CHART_24H" && values.count == 24 {
-            chartData24H[flavor] = values
-        } else if prefix == "CHART_30D" && values.count == 30 {
-            chartData30D[flavor] = values
-        } else if prefix == "CHART_HOD" && values.count == 24 {
-            chartDataHOD[flavor] = values
+        withAnimation {
+            if prefix == "CHART_24H" && values.count == 24 {
+                chartData24H[flavor] = values
+            } else if prefix == "CHART_30D" && values.count == 30 {
+                chartData30D[flavor] = values
+            } else if prefix == "CHART_HOD" && values.count == 24 {
+                chartDataHOD[flavor] = values
+            }
         }
 
         chartLinesReceived += 1
@@ -982,6 +996,7 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         ble.rxCharacteristic = nil
         ble.nusReady = false
         ble.frameBuffer = Data()
+        ble.timeSyncReceived = false
         DispatchQueue.main.async {
             self.ble.connectionState = .searching
             self.ble.configSynced = false
