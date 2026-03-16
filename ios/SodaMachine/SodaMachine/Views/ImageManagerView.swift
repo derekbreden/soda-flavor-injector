@@ -116,19 +116,9 @@ struct ImageManagerView: View {
                         .clipShape(Circle())
                         .opacity(0.6)
 
-                    Text("Slot \(item.slot)")
+                    Text("Queued")
                         .font(.callout)
                         .foregroundStyle(.secondary)
-
-                    Spacer()
-
-                    Button {
-                        ble.cancelQueuedUpload(id: item.id)
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
                 }
                 .padding(.vertical, 2)
             }

@@ -306,10 +306,6 @@ class BLEManager {
         }
     }
 
-    func cancelQueuedUpload(id: UUID) {
-        uploadQueue.removeAll { $0.id == id }
-    }
-
     private func startNextUpload() {
         guard !uploadQueue.isEmpty else {
             uploadQueueTotal = 0
