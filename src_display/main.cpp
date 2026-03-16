@@ -569,6 +569,10 @@ void setup() {
 
   Serial.printf("Display ready - flavor %d (image %d)\n",
                 activeFlavor + 1, imageMap[activeFlavor]);
+
+  // Announce readiness to ESP32 (image count in payload)
+  stSendResponse(stLink, PKT_DEVICE_READY, numImages);
+  Serial.printf("Sent PKT_DEVICE_READY (numImages=%d)\n", numImages);
 }
 
 // ════════════════════════════════════════════════════════════

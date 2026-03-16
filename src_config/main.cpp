@@ -1878,6 +1878,10 @@ void setup() {
   // Init BLE (after display so UI is visible during BLE init)
   initBLE();
 
+  // Announce readiness to ESP32 (image count in payload)
+  stSendResponse(stLink, PKT_DEVICE_READY, numImages);
+  Serial.printf("Sent PKT_DEVICE_READY (numImages=%d)\n", numImages);
+
   Serial.println("Ready. Rotate to navigate, tap to edit/confirm.");
 }
 

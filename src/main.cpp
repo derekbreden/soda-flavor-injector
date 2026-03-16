@@ -971,6 +971,49 @@ bool pushAllToDevice(DeviceTarget dev) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Sync a single device: push images + labels + config
+// ════════════════════════════════════════════════════════════
+
+void syncDevice(DeviceTarget dev) {
+  const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
+  uint8_t &devCount = (dev == DEVICE_RP2040) ? numImages : numS3Images;
+
+  if (espNumImages == 0) {
+    Serial.printf("syncDevice(%s): store empty — nothing to push\n", devName);
+    return;
+  }
+
+  if (devCount == espNumImages) {
+    Serial.printf("syncDevice(%s): already in sync (%d images)\n", devName, devCount);
+    if (dev == DEVICE_S3) {
+      // Ensure PNGs exist even when counts match
+      for (uint8_t i = 0; i < espNumImages; i++) pushPngToS3(i);
+    }
+  } else {
+    Serial.printf("syncDevice(%s): mismatch %d vs %d — pushing all\n", devName, devCount, espNumImages);
+    if (pushAllToDevice(dev)) {
+      devCount = espNumImages;
+    } else {
+      Serial.printf("syncDevice(%s): push failed — will retry on next ready signal\n", devName);
+      return;  // Don't push labels/config if images failed
+    }
+  }
+
+  // Push labels + config regardless (device may have rebooted and lost them)
+  pushLabelsToDevice(dev);
+  if (dev == DEVICE_RP2040) {
+    sendMapToRP();
+  } else {
+    char cfgBuf[128];
+    snprintf(cfgBuf, sizeof(cfgBuf),
+             "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
+             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, espNumImages, numS3Images);
+    stSendText(stS3, cfgBuf);
+  }
+  Serial.printf("syncDevice(%s): complete\n", devName);
+}
+
+// ════════════════════════════════════════════════════════════
 //  Boot sync: compare store with devices, push if needed
 // ════════════════════════════════════════════════════════════
 
@@ -988,25 +1031,8 @@ void bootSync() {
   }
 
   Serial.printf("Boot sync: store has %d images\n", espNumImages);
-
-  // RP2040: count mismatch → full re-upload
-  if (numImages != espNumImages) {
-    Serial.printf("RP2040 mismatch: %d vs %d — pushing all\n", numImages, espNumImages);
-    if (pushAllToDevice(DEVICE_RP2040)) numImages = espNumImages;
-  } else {
-    Serial.println("RP2040 in sync");
-  }
-
-  // S3: count mismatch → full re-upload
-  if (numS3Images != espNumImages) {
-    Serial.printf("S3 mismatch: %d vs %d — pushing all\n", numS3Images, espNumImages);
-    if (pushAllToDevice(DEVICE_S3)) numS3Images = espNumImages;
-  } else {
-    Serial.println("S3 RGB565 in sync — ensuring PNGs exist");
-    for (uint8_t i = 0; i < espNumImages; i++) {
-      pushPngToS3(i);
-    }
-  }
+  syncDevice(DEVICE_RP2040);
+  syncDevice(DEVICE_S3);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2314,6 +2340,29 @@ void handleS3UploadDone() {
   stSendResponse(stS3, PKT_RESP_UPLOAD_OK, espNumImages);
 }
 
+// ════════════════════════════════════════════════════════════
+//  RP2040 UART handler (called from loop)
+// ════════════════════════════════════════════════════════════
+
+void checkDisplayUART() {
+  if (!stRP.available()) return;
+
+  uint8_t pktId = stRP.currentPacketID();
+  switch (pktId) {
+    case PKT_DEVICE_READY: {
+      ResponsePayload resp;
+      stRP.rxObj(resp);
+      Serial.printf("RP2040 DEVICE_READY: reports %d images\n", resp.value);
+      numImages = resp.value;
+      syncDevice(DEVICE_RP2040);
+      break;
+    }
+    default:
+      Serial.printf("RP2040 unexpected packet 0x%02X — discarded\n", pktId);
+      break;
+  }
+}
+
 void checkConfigUART() {
   checkConfigStream(Serial, configBuf0, configPos0);
 
@@ -2332,19 +2381,20 @@ void checkConfigUART() {
       case PKT_UPLOAD_DONE:
         handleS3UploadDone();
         break;
+      case PKT_DEVICE_READY: {
+        ResponsePayload resp;
+        stS3.rxObj(resp);
+        Serial.printf("S3 DEVICE_READY: reports %d images\n", resp.value);
+        numS3Images = resp.value;
+        syncDevice(DEVICE_S3);
+        break;
+      }
       case PKT_TEXT: {
         uint16_t len = stS3.bytesRead;
         char cmd[CONFIG_BUF_SIZE];
         uint16_t copyLen = (len < CONFIG_BUF_SIZE - 1) ? len : CONFIG_BUF_SIZE - 1;
         memcpy(cmd, stS3.packet.rxBuff, copyLen);
         cmd[copyLen] = '\0';
-        // S3 just sent a command — if we missed its count at boot, fix it now
-        if (numS3Images == 0 && espNumImages > 0) {
-          Serial.println("S3 online but numS3Images=0 — re-querying");
-          if (queryS3ImageCount()) {
-            bootSync();
-          }
-        }
         StStream s3out(stS3);
         processConfigCommand(cmd, s3out);
         s3out.flush();
@@ -2421,11 +2471,14 @@ void setup() {
   // GP27 (RP2040 TX) is floating until pioSerial.begin() — noise on GPIO 35.
   delay(3000);
 
-  // Query with retries (first attempt may still see noise)
+  // Try to query RP2040 now; if it's not ready yet, PKT_DEVICE_READY will catch up
   for (int attempt = 0; attempt < 3; attempt++) {
     if (queryImageCount()) break;
-    Serial.printf("  retry %d/3...\n", attempt + 1);
+    Serial.printf("  RP2040 query retry %d/3...\n", attempt + 1);
     delay(500);
+  }
+  if (numImages == 0 && espNumImages > 0) {
+    Serial.println("RP2040 not ready yet — will sync on PKT_DEVICE_READY");
   }
   sendMapToRP();
 
@@ -2438,25 +2491,28 @@ void setup() {
   // COBS framing naturally rejects boot noise — no parser reset needed.
   delay(3000);
 
-  // Query S3 image count with retries
+  // Try to query S3 now; if it's not ready yet, PKT_DEVICE_READY will catch up
   for (int attempt = 0; attempt < 3; attempt++) {
     if (queryS3ImageCount()) break;
-    Serial.printf("  S3 retry %d/3...\n", attempt + 1);
+    Serial.printf("  S3 query retry %d/3...\n", attempt + 1);
     delay(500);
+  }
+  if (numS3Images == 0 && espNumImages > 0) {
+    Serial.println("S3 not ready yet — will sync on PKT_DEVICE_READY");
   }
 
   // Boot sync: force push on first boot, count-based sync otherwise
   if (firstBoot && espNumImages > 0) {
     Serial.printf("First boot — force pushing %d images to both devices\n", espNumImages);
-    if (pushAllToDevice(DEVICE_RP2040)) { numImages = espNumImages; pushLabelsToDevice(DEVICE_RP2040); }
-    if (pushAllToDevice(DEVICE_S3))     { numS3Images = espNumImages; pushLabelsToDevice(DEVICE_S3); }
+    syncDevice(DEVICE_RP2040);
+    syncDevice(DEVICE_S3);
   } else {
     bootSync();
   }
 
   Serial.println("Dual-Flavor Soda Maker ready!");
   Serial.printf("Active flavor: %d\n", activeFlavor + 1);
-  Serial.printf("RP2040: %d images, S3: %d images\n", numImages, numS3Images);
+  Serial.printf("RP2040: %d/%d images, S3: %d/%d images\n", numImages, espNumImages, numS3Images, espNumImages);
   Serial.printf("Sent image mapping to display: %d,%d\n", flavor1Image, flavor2Image);
 }
 
@@ -2690,8 +2746,29 @@ void loop() {
     }
   }
 
-  // ── 6. Config UART commands ─────────────────────────────────
+  // ── 6. UART commands ─────────────────────────────────────────
+  checkDisplayUART();
   checkConfigUART();
+
+  // ── 7. Periodic device re-sync (safety net) ─────────────────
+  static unsigned long lastResyncCheck = 0;
+  if (now - lastResyncCheck >= 30000) {
+    lastResyncCheck = now;
+    if (espNumImages > 0) {
+      if (numImages != espNumImages) {
+        Serial.printf("Re-sync check: RP2040 mismatch %d vs %d — re-querying\n", numImages, espNumImages);
+        if (queryImageCount()) {
+          if (numImages != espNumImages) syncDevice(DEVICE_RP2040);
+        }
+      }
+      if (numS3Images != espNumImages) {
+        Serial.printf("Re-sync check: S3 mismatch %d vs %d — re-querying\n", numS3Images, espNumImages);
+        if (queryS3ImageCount()) {
+          if (numS3Images != espNumImages) syncDevice(DEVICE_S3);
+        }
+      }
+    }
+  }
 
   delay(10);
 }
