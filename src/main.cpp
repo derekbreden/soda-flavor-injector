@@ -290,7 +290,7 @@ uint32_t currentEpoch() {
 }
 
 // Live chart push (ESP32 → S3 → BLE → iOS, no polling)
-bool statsSubscribed = false;
+uint8_t statsSubscribeCount = 0;
 unsigned long lastChartPush = 0;
 unsigned long lastChartAck = 0;
 const unsigned long CHART_ACK_TIMEOUT = 10000;
@@ -1632,22 +1632,24 @@ void processConfigCommand(const char *cmd, Stream &out) {
     }
 
   } else if (strcmp(cmd, "STATS_SUBSCRIBE") == 0) {
-    statsSubscribed = true;
-    lastChartAck = millis();
+    statsSubscribeCount++;
+    if (statsSubscribeCount == 1) lastChartAck = millis();
     lastPushedFlowSum[0] = currentHour[0].flow_sum;
     lastPushedFlowSum[1] = currentHour[1].flow_sum;
+    Serial.printf("Stats subscribed (count=%d)\n", statsSubscribeCount);
     out.printf("OK:STATS_SUBSCRIBED\n");
 
   } else if (strcmp(cmd, "STATS_UNSUBSCRIBE") == 0) {
-    statsSubscribed = false;
-    lastChartAck = 0;
+    if (statsSubscribeCount > 0) statsSubscribeCount--;
+    if (statsSubscribeCount == 0) lastChartAck = 0;
+    Serial.printf("Stats unsubscribed (count=%d)\n", statsSubscribeCount);
     out.printf("OK:STATS_UNSUBSCRIBED\n");
 
   } else if (strcmp(cmd, "BLE_DISCONNECTED") == 0) {
-    if (statsSubscribed) {
-      statsSubscribed = false;
-      lastChartAck = 0;
-      Serial.println("Stats unsubscribed (BLE disconnect)");
+    if (statsSubscribeCount > 0) {
+      statsSubscribeCount--;
+      if (statsSubscribeCount == 0) lastChartAck = 0;
+      Serial.printf("Stats subscriber disconnected (remaining=%d)\n", statsSubscribeCount);
     }
 
   } else if (strcmp(cmd, "CHART_ACK") == 0) {
@@ -2553,10 +2555,10 @@ void loop() {
       currentHour[activeFlavor].flow_count++;
 
       // Push live chart update to iOS (throttled to 1/sec)
-      if (statsSubscribed && (now - lastChartPush >= 1000)) {
+      if (statsSubscribeCount > 0 && (now - lastChartPush >= 1000)) {
         // Safety net: auto-unsubscribe if S3 stopped acking (rebooted/reflashed)
         if (lastChartAck != 0 && (now - lastChartAck) > CHART_ACK_TIMEOUT) {
-          statsSubscribed = false;
+          statsSubscribeCount = 0;
           lastChartAck = 0;
           Serial.println("Stats unsubscribed (ack timeout)");
         } else {
