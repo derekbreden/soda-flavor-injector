@@ -6,6 +6,8 @@
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLE2902.h>
+#include "host/ble_hs_mbuf.h"
+#include "host/ble_gatt.h"
 #include <uart_st.h>
 #include "CST816D.h"
 #include "font_ratio_64.h"
@@ -1255,9 +1257,26 @@ static void bleSendFrame(uint8_t type, const uint8_t *payload, uint16_t len) {
   pTxChar->notify();
 }
 
-// Send a TEXT frame to BLE client
+// Send a TEXT frame to BLE client (broadcast to all)
 static void bleSendText(const char *text) {
   bleSendFrame(BLE_FRAME_TEXT, (const uint8_t *)text, strlen(text));
+}
+
+// Send a framed BLE notification to a specific client (by conn_handle)
+static void bleSendFrameTo(uint16_t conn_handle, uint8_t type, const uint8_t *payload, uint16_t len) {
+  if (!pTxChar) return;
+  uint8_t buf[256];
+  buf[0] = type;
+  buf[1] = len & 0xFF;
+  buf[2] = (len >> 8) & 0xFF;
+  if (len > 0 && payload) memcpy(buf + 3, payload, len);
+  struct os_mbuf *om = ble_hs_mbuf_from_flat(buf, 3 + len);
+  if (om) ble_gatts_notify_custom(conn_handle, pTxChar->getHandle(), om);
+}
+
+// Send a TEXT frame to a specific client
+static void bleSendTextTo(uint16_t conn_handle, const char *text) {
+  bleSendFrameTo(conn_handle, BLE_FRAME_TEXT, (const uint8_t *)text, strlen(text));
 }
 
 static void processTextLine(const char *line) {
