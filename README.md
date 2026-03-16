@@ -48,9 +48,9 @@ Silicone concentrate lines are zip-tied to the outside of the faucet gooseneck:
 
 The system runs on three microcontrollers:
 
-- **ESP32** — Main controller. Reads the flow meter, drives pumps and valves via L298N motor drivers, manages the pump state machine, stores config in NVS, and coordinates the other boards over UART.
+- **ESP32** — Main controller. Reads the flow meter, drives pumps and valves via L298N motor drivers, manages the pump state machine, stores config in LittleFS, and coordinates the other boards over UART using SerialTransfer (COBS-framed packets).
 - **RP2040** (Waveshare RP2040-LCD-0.99) — Display controller. Shows the selected flavor logo on a 128x115 round LCD. Reads the same physical toggle switch for instant visual feedback.
-- **ESP32-S3** (Meshnology 1.28" Round Rotary Display) — Config display. A 240x240 round touchscreen with a rotary encoder for changing flavor images and ratios at runtime. Syncs config to the ESP32 over UART.
+- **ESP32-S3** (Meshnology 1.28" Round Rotary Display) — Config display. A 240x240 round touchscreen with a rotary encoder for changing flavor images and ratios at runtime. Also serves as a BLE bridge between the iOS app and ESP32. Syncs config to the ESP32 over UART.
 
 ```
                         ┌─────────────────────┐
@@ -151,7 +151,7 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | [Zip Ties (200-pack)](https://www.amazon.com/dp/B0BC1VH4XB) | Secure tubing to faucet, cable management |
 | [12"x24" Laminate Shelf](https://www.homedepot.com/p/328395734) | Cut in half and screwed together as mounting panel |
 | [#8 x 1/2" Wood Screws (100-pack)](https://www.homedepot.com/p/204275505) | Mount components to panel |
-| [Pre-wired 12V LEDs (120-pack, 6 colors)](https://www.amazon.com/dp/B07PVVL2S6) | Flavor indicator LEDs |
+| ~~[Pre-wired 12V LEDs (120-pack, 6 colors)](https://www.amazon.com/dp/B07PVVL2S6)~~ | ~~Flavor indicator LEDs~~ (removed — RP2040 display replaced LEDs) |
 
 ### Carbonated Water
 
@@ -187,45 +187,43 @@ Most builders will already have these on hand.
 
 **L298N Board A (Flavor 1):**
 
-| Function | GPIO |
-|----------|------|
-| ENA (pump PWM) | 33 |
-| IN1 (pump dir) | 25 |
-| IN2 (pump dir) | 26 |
-| IN3 (valve dir) | 27 |
-| IN4 (valve dir) | 14 |
-| ENB (valve PWM) | 12 |
+| Function | GPIO | Notes |
+|----------|------|-------|
+| ENA (pump PWM) | 33 | |
+| IN1 (pump dir) | 25 | |
+| IN2 (pump dir) | 26 | |
+| ENB (valve on/off) | 12 | IN3/IN4 hardwired on board (IN3→5V, IN4→GND) |
 
 **L298N Board B (Flavor 2):**
 
-| Function | GPIO |
-|----------|------|
-| ENA (pump PWM) | 19 |
-| IN1 (pump dir) | 18 |
-| IN2 (pump dir) | 5 |
-| IN3 (valve dir) | 17 |
-| IN4 (valve dir) | 16 |
-| ENB (valve PWM) | 4 |
+| Function | GPIO | Notes |
+|----------|------|-------|
+| ENA (pump PWM) | 19 | |
+| IN1 (pump dir) | 18 | |
+| IN2 (pump dir) | 5 | |
+| ENB (valve on/off) | 4 | IN3/IN4 hardwired on board (IN3→5V, IN4→GND) |
 
-**Inputs and Outputs:**
+**Inputs and Communication:**
 
 | Function | GPIO | Notes |
 |----------|------|-------|
 | Flavor toggle switch | 13 | Air switch, INPUT_PULLUP |
 | Prime button | 22 | Momentary, INPUT_PULLUP |
 | Flow meter | 23 | Hall effect, FALLING edge interrupt |
-| Flavor 1 LED | 21 | Steady = selected, blink = dispensing |
-| Flavor 2 LED | 2 | Steady = selected, blink = dispensing |
-| Display UART TX | 32 | 9600 baud, one-way to RP2040 (Serial2) |
-| Config UART TX | 15 | 9600 baud, to ESP32-S3 (Serial1) |
-| Config UART RX | 34 | 9600 baud, from ESP32-S3 (input-only pin) |
+| Display UART TX | 32 | 38400 baud, SerialTransfer to RP2040 (Serial2) |
+| Display UART RX | 35 | 38400 baud, SerialTransfer from RP2040 |
+| Config UART TX | 15 | 38400 baud, SerialTransfer to ESP32-S3 (Serial1) |
+| Config UART RX | 34 | 38400 baud, SerialTransfer from ESP32-S3 (input-only pin) |
+
+**Freed GPIOs** (LEDs removed, valve IN3/IN4 hardwired): 21, 2, 27, 14, 17, 16. GPIOs 21 and 2 are reserved for clean cycle solenoids (L298N Board #3).
 
 ### RP2040 Pin Assignments
 
 | Function | GPIO | Notes |
 |----------|------|-------|
 | Flavor toggle switch | 29 | Same physical switch as ESP32 |
-| UART RX (from ESP32) | 26 | PIO-based serial, 9600 baud |
+| UART TX (to ESP32) | 27 | PIO-based serial, 38400 baud, SerialTransfer |
+| UART RX (from ESP32) | 26 | PIO-based serial, 38400 baud, SerialTransfer |
 | LCD DC | 8 | Fixed on board |
 | LCD CS | 9 | Fixed on board |
 | LCD CLK | 10 | Fixed on board |
@@ -255,29 +253,22 @@ All pins are fixed by the board design.
 | Encoder DT | 42 | |
 | Encoder BTN | 41 | |
 | RGB LEDs | 48 | WS2812 x5 (unused) |
-| UART TX (J34) | 43 | 9600 baud to ESP32 |
-| UART RX (J34) | 44 | 9600 baud from ESP32 |
+| UART TX (J34) | 43 | 38400 baud, SerialTransfer to ESP32 |
+| UART RX (J34) | 44 | 38400 baud, SerialTransfer from ESP32 |
 
 ### Inter-Board Communication
 
-**ESP32 → RP2040 (one-way, Serial2, GPIO 32):**
+All inter-MCU communication uses the [SerialTransfer](https://github.com/PowerBroker2/SerialTransfer) library at 38400 baud with COBS framing. Text commands are sent inside `PKT_TEXT` packets; binary image uploads use dedicated packet IDs for chunked transfer with CRC verification.
 
-The ESP32 sends a UART message to the RP2040 to configure which flavor image maps to which position:
+**ESP32 ↔ RP2040 (bidirectional, Serial2, GPIO 32 TX / GPIO 35 RX):**
 
-```
-Format: MAP:<image0>,<image1>\n
-Example: MAP:0,1\n
-```
-
-Image indices: 0 = Diet Wild Cherry Pepsi, 1 = Diet Mountain Dew, 2 = Diet Coke
-
-The RP2040 persists this mapping to flash (LittleFS) so it survives power cycles. The ESP32 resends the mapping every 30 seconds for resilience.
+The ESP32 pushes flavor images, label mappings, and config to the RP2040. The RP2040 sends `PKT_DEVICE_READY` at boot with its image count, triggering a full sync. The ESP32 also re-syncs periodically (every 30 seconds) as a safety net.
 
 **ESP32 ↔ ESP32-S3 (bidirectional, Serial1, GPIO 15 TX / GPIO 34 RX):**
 
-The ESP32-S3 config display communicates with the ESP32 to read and write runtime configuration. The ESP32 is the single source of truth; config is persisted in NVS.
+The ESP32-S3 config display communicates with the ESP32 to read and write runtime configuration. The ESP32 is the single source of truth; config is persisted in LittleFS. The S3 also acts as a BLE bridge, forwarding commands from the iOS app to the ESP32.
 
-On boot, the S3 sends `GET_CONFIG` every 500ms until the ESP32 responds. When the user changes a value on the config display and confirms with a tap, the S3 sends `SET:` followed by `SAVE`.
+Text commands are wrapped in `PKT_TEXT` packets. On boot, the S3 sends `GET_CONFIG` until the ESP32 responds. When the user changes a value on the config display (or via the iOS app over BLE), the S3 sends `SET:` followed by `SAVE`.
 
 ```
 S3 → ESP32:  GET_CONFIG
@@ -287,18 +278,18 @@ S3 → ESP32:  SET:F1_RATIO=18
 ESP32 → S3:  OK:F1_RATIO=18
 
 S3 → ESP32:  SET:F1_IMAGE=2
-ESP32 → S3:  OK:F1_IMAGE=2         (also sends MAP:2,1 to RP2040)
+ESP32 → S3:  OK:F1_IMAGE=2
 
 S3 → ESP32:  SET:F1_RATIO=30
 ESP32 → S3:  ERR:F1_RATIO out of range
 
 S3 → ESP32:  SAVE
-ESP32 → S3:  OK:SAVED              (persists to NVS)
+ESP32 → S3:  OK:SAVED              (persists to LittleFS)
 ```
 
-Valid keys and ranges: `F1_RATIO` (6-24), `F2_RATIO` (6-24), `F1_IMAGE` (0-2), `F2_IMAGE` (0-2). The same commands work over USB serial for testing.
+Valid keys and ranges: `F1_RATIO` (6-24), `F2_RATIO` (6-24), `F1_IMAGE` (0-NUM_IMAGES-1), `F2_IMAGE` (0-NUM_IMAGES-1). The same text commands work over USB serial (115200 baud) for testing.
 
-Boot order does not matter. The S3 retries `GET_CONFIG` until the ESP32 is ready, and the ESP32 loads config from NVS independently.
+Boot order does not matter. The S3 retries `GET_CONFIG` until the ESP32 is ready. Both the RP2040 and S3 send `PKT_DEVICE_READY` at the end of their `setup()`, and the ESP32 uses this to trigger initial sync.
 
 ## Building and Flashing
 
@@ -328,36 +319,30 @@ The ESP32-S3 uses the [pioarduino platform](https://github.com/pioarduino/platfo
 
 ### Adding a New Flavor Image
 
-Flavor images exist in two sizes: 128x115 for the RP2040 display and 240x240 for the ESP32-S3 config display.
+Flavor images can be uploaded at runtime from the iOS app over BLE. The iOS app resizes images to the correct dimensions (128x115 for RP2040, 240x240 for S3), converts them to RGB565 format, and uploads them over the framed BLE/UART protocol. Images are stored in LittleFS on each device and survive power cycles.
 
-**RP2040 (128x115):**
+Factory default images are compiled into the ESP32 firmware via `board_build.embed_txtfiles` and pushed to devices on first boot.
 
-1. Create a 128x115 pixel image
-2. Convert it to a C header with a `uint16_t[]` array in RGB565 format
-3. Add the header as `src_display/flavor<N>_bitmap.h`
-4. Include it in `src_display/main.cpp` and add the pointer to the `bitmaps[]` array
+**Adding a new factory default image:**
 
-**ESP32-S3 (240x240):**
-
-1. Place the source PNG in `tools/` and run `python tools/png_to_rgb565.py <input>.png src_config/images/flavor<N>_240.h flavor<N>_240`
-2. Include the header in `src_config/main.cpp` and add the pointer to the `images[]` array
-
-Update `NUM_IMAGES` in both `src/main.cpp` and `src_config/main.cpp` to match the new count.
+1. Place the source PNG in `tools/` and run `python tools/png_to_rgb565.py` to generate RGB565 binary files
+2. Add the binary files to `data/` for LittleFS upload
+3. Update the factory defaults configuration
 
 ## Configuration
 
-### Runtime Config (via Config Display or USB Serial)
+### Runtime Config (via iOS App, Config Display, or USB Serial)
 
-Flavor ratios and display image assignments are stored in the ESP32's NVS (non-volatile storage) and can be changed at runtime using the ESP32-S3 config display or by sending commands over USB serial:
+Flavor ratios and display image assignments are stored in the ESP32's LittleFS filesystem and can be changed at runtime using the ESP32-S3 config display, the iOS app (over BLE), or by sending commands over USB serial:
 
 | Parameter | Range | Default | Description |
 |-----------|-------|---------|-------------|
 | F1_RATIO | 6-24 | 20 | Flavor 1 concentrate-to-water ratio (lower = stronger) |
 | F2_RATIO | 6-24 | 20 | Flavor 2 concentrate-to-water ratio |
-| F1_IMAGE | 0-2 | 0 | Flavor 1 display image (0=Pepsi Cherry, 1=Dew, 2=Coke) |
-| F2_IMAGE | 0-2 | 1 | Flavor 2 display image |
+| F1_IMAGE | 0-N | 0 | Flavor 1 display image index (images uploadable via iOS app) |
+| F2_IMAGE | 0-N | 1 | Flavor 2 display image index |
 
-To change config over USB serial (115200 baud), connect to the ESP32 and send commands like `SET:F1_RATIO=18` followed by `SAVE`. Send `GET_CONFIG` to see current values.
+To change config over USB serial (115200 baud), connect to the ESP32 and send text commands like `SET:F1_RATIO=18` followed by `SAVE`. Send `GET_CONFIG` to see current values.
 
 ### Compile-Time Tuning
 
@@ -397,7 +382,6 @@ Prices as of March 2026.
 | [Dupont Jumper Wires (120-pack)](https://www.amazon.com/dp/B0BRTJXND9) | $5.97 | 1 | $5.97 |
 | [Female Spade Crimp Terminals (60-pack)](https://www.amazon.com/dp/B0B9MZJ2ML) | $9.99 | 1 | $9.99 |
 | [Male Spade Connectors (100-pack)](https://www.amazon.com/dp/B01MZZGAJP) | $5.99 | 1 | $5.99 |
-| [Pre-wired 12V LEDs (120-pack)](https://www.amazon.com/dp/B07PVVL2S6) | $12.99 | 1 | $12.99 |
 | [TAPRITE CO2 Regulator](https://www.amazon.com/dp/B00L38DRD0) | $92.95 | 1 | $92.95 |
 | 5 lb CO2 Tank + First Refill | $139.00 | 1 | $139.00 |
 | [Zip Ties (200-pack)](https://www.amazon.com/dp/B0BC1VH4XB) | $3.99 | 1 | $3.99 |
@@ -405,9 +389,9 @@ Prices as of March 2026.
 | [#8 x 1/2" Wood Screws (100-pack)](https://www.homedepot.com/p/204275505) | $6.87 | 1 | $6.87 |
 | [SodaStream Pepsi Wild Cherry (4-pack)](https://www.amazon.com/dp/B0G4NRDQB8) | $28.99 | 1 | $28.99 |
 | [SodaStream Diet MTN Dew (4-pack)](https://www.amazon.com/dp/B0CS191QMW) | ~$29 | 1 | ~$29 |
-| **Subtotal (without carbonator)** | | | **~$779** |
+| **Subtotal (without carbonator)** | | | **~$766** |
 | [Lilium Under-Sink Carbonator](https://liliumfaucet.com/products/under-sink-carbonated-soda-maker-sparkling-water-dispenser-with-3-way-faucet) | $1,039.00 | 1 | $1,039.00 |
-| **Subtotal (all parts)** | | | **~$1,818** |
+| **Subtotal (all parts)** | | | **~$1,805** |
 | *Tools (if not already owned):* | | | |
 | [RYOBI Drill/Driver Kit](https://www.homedepot.com/p/326680222) | $49.97 | 1 | $49.97 |
 | [RYOBI Drill Bit Set (15-piece)](https://www.homedepot.com/p/315853368) | $12.97 | 1 | $12.97 |
@@ -417,7 +401,7 @@ Prices as of March 2026.
 | [Klein Tools 3005CR Ratcheting Crimper](https://www.amazon.com/dp/B07WMB61J5) | $34.96 | 1 | $34.96 |
 | [Apple USB-C to USB-C Cable (2m)](https://www.amazon.com/dp/B0DCH5B2HF) | $18.00 | 1 | $18.00 |
 | [LISEN USB-C to Micro USB Cable (2-pack)](https://www.amazon.com/dp/B0D3BXM91B) | $7.59 | 1 | $7.59 |
-| **Total (with tools)** | | | **~$1,985** |
+| **Total (with tools)** | | | **~$1,972** |
 
 ## License
 
