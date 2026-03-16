@@ -210,19 +210,20 @@ private struct StatsView: View {
                         .padding(.top, 8)
                     Spacer()
                 } else if isWide {
+                    // iPad: even spacing between title→row1 and row1→row2,
+                    // with bottom padding matching the top for a grounded feel.
                     VStack(spacing: 0) {
                         Text("Usage Stats")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(Theme.textPrimary)
                             .padding(.top, 8)
-                            .padding(.bottom, 16)
 
-                        GeometryReader { geo in
-                            let chartH = max(160, (geo.size.height - 24 - 40) / 2)
-                            wideLayout(chartHeight: chartH)
-                                .padding(.horizontal, 20)
-                        }
+                        Spacer()
+                        wideLayout
+                        Spacer()
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 } else {
                     ScrollView {
                         VStack(spacing: 24) {
@@ -269,23 +270,22 @@ private struct StatsView: View {
     // MARK: - Wide layout (iPad)
 
     @ViewBuilder
-    private func wideLayout(chartHeight: CGFloat) -> some View {
+    private var wideLayout: some View {
         if ble.chartDataSynced {
             let columns = [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)]
             LazyVGrid(columns: columns, spacing: 24) {
                 // Top-left: donut
                 if ble.statsSynced {
                     pieChartSection
-                        .frame(height: chartHeight)
                 } else {
-                    Color.clear.frame(height: chartHeight)
+                    Color.clear.frame(height: 160)
                 }
                 // Top-right
-                Chart24HView(chartHeight: chartHeight)
+                Chart24HView()
                 // Bottom-left
-                Chart30DView(chartHeight: chartHeight)
+                Chart30DView()
                 // Bottom-right
-                ChartHODView(chartHeight: chartHeight)
+                ChartHODView()
             }
         } else {
             ProgressView().tint(Theme.textPrimary).padding(.vertical, 20)
@@ -352,8 +352,6 @@ private struct StatsView: View {
 
 private struct Chart24HView: View {
     @Environment(BLEManager.self) var ble
-    var chartHeight: CGFloat = 160
-
     var body: some View {
         let calendar = Calendar.current
         let currentHour = calendar.component(.hour, from: Date())
@@ -412,7 +410,7 @@ private struct Chart24HView: View {
                     AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
                 }
             }
-            .frame(height: chartHeight)
+            .frame(height: 160)
         }
     }
 
@@ -425,7 +423,7 @@ private struct Chart24HView: View {
 
 private struct Chart30DView: View {
     @Environment(BLEManager.self) var ble
-    var chartHeight: CGFloat = 160
+
 
     var body: some View {
         let calendar = Calendar.current
@@ -485,14 +483,14 @@ private struct Chart30DView: View {
                     AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
                 }
             }
-            .frame(height: chartHeight)
+            .frame(height: 160)
         }
     }
 }
 
 private struct ChartHODView: View {
     @Environment(BLEManager.self) var ble
-    var chartHeight: CGFloat = 160
+
 
     var body: some View {
         let days = max(ble.chartDataHODDays, 1)
@@ -550,7 +548,7 @@ private struct ChartHODView: View {
                     AxisGridLine().foregroundStyle(Theme.textSecondary.opacity(0.2))
                 }
             }
-            .frame(height: chartHeight)
+            .frame(height: 160)
 
             Text("\(days) day\(days == 1 ? "" : "s") of data")
                 .font(.system(size: 11))
