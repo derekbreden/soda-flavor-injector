@@ -108,6 +108,8 @@ static bool bleHasClients() {
 // Forward declarations
 static void bleSendFrame(uint8_t type, const uint8_t *payload, uint16_t len);
 static void bleSendText(const char *text);
+static void bleSendFrameTo(uint16_t conn_handle, uint8_t type, const uint8_t *payload, uint16_t len);
+static void bleSendTextTo(uint16_t conn_handle, const char *text);
 static bool loadImageFromFS(uint8_t slot);
 static void imagePath(char *buf, uint8_t slot);
 static void updateMeta();
