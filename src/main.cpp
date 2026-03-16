@@ -1641,14 +1641,12 @@ void processConfigCommand(const char *cmd, Stream &out) {
       } else if (strcmp(key, "F2_RATIO") == 0 && val >= 6 && val <= 24) {
         flavor2Ratio = val; flavors[1].ratio = val; ok = true;
       } else if (strcmp(key, "F1_IMAGE") == 0) {
-        uint8_t maxImg = min(numImages, numS3Images);
-        if (val >= 0 && val < maxImg) {
+        if (val >= 0 && val < espNumImages) {
           flavor1Image = val; ok = true;
           sendMapToRP();
         }
       } else if (strcmp(key, "F2_IMAGE") == 0) {
-        uint8_t maxImg = min(numImages, numS3Images);
-        if (val >= 0 && val < maxImg) {
+        if (val >= 0 && val < espNumImages) {
           flavor2Image = val; ok = true;
           sendMapToRP();
         }
@@ -2340,6 +2338,13 @@ void checkConfigUART() {
         uint16_t copyLen = (len < CONFIG_BUF_SIZE - 1) ? len : CONFIG_BUF_SIZE - 1;
         memcpy(cmd, stS3.packet.rxBuff, copyLen);
         cmd[copyLen] = '\0';
+        // S3 just sent a command — if we missed its count at boot, fix it now
+        if (numS3Images == 0 && espNumImages > 0) {
+          Serial.println("S3 online but numS3Images=0 — re-querying");
+          if (queryS3ImageCount()) {
+            bootSync();
+          }
+        }
         StStream s3out(stS3);
         processConfigCommand(cmd, s3out);
         s3out.flush();
