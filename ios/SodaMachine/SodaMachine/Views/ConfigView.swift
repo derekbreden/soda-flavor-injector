@@ -173,11 +173,14 @@ private let chartPurple = Color(red: 0.6, green: 0.3, blue: 0.9)
 
 private struct StatsView: View {
     @Environment(BLEManager.self) var ble
+    @Environment(\.horizontalSizeClass) var sizeClass
     @Binding var inStats: Bool
 
     private var isDisconnected: Bool {
         ble.connectionState != .connected && !ble.demoMode
     }
+
+    private var isWide: Bool { sizeClass == .regular }
 
     var body: some View {
         ZStack {
@@ -214,20 +217,10 @@ private struct StatsView: View {
                                 .foregroundStyle(Theme.textPrimary)
                                 .padding(.top, 8)
 
-                            // Pie chart: 30-day flavor split
-                            if ble.statsSynced {
-                                pieChartSection
-                            }
-
-                            // Charts (show spinner if still loading)
-                            if ble.chartDataSynced {
-                                Chart24HView()
-                                Chart30DView()
-                                ChartHODView()
+                            if isWide {
+                                wideLayout
                             } else {
-                                ProgressView()
-                                    .tint(Theme.textPrimary)
-                                    .padding(.vertical, 20)
+                                compactLayout
                             }
                         }
                         .padding(.horizontal, 20)
@@ -246,6 +239,45 @@ private struct StatsView: View {
                         .foregroundStyle(Theme.textPrimary)
                 }
             }
+        }
+    }
+
+    // MARK: - Compact layout (iPhone)
+
+    @ViewBuilder
+    private var compactLayout: some View {
+        if ble.statsSynced { pieChartSection }
+        if ble.chartDataSynced {
+            Chart24HView()
+            Chart30DView()
+            ChartHODView()
+        } else {
+            ProgressView().tint(Theme.textPrimary).padding(.vertical, 20)
+        }
+    }
+
+    // MARK: - Wide layout (iPad)
+
+    @ViewBuilder
+    private var wideLayout: some View {
+        if ble.chartDataSynced {
+            let columns = [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)]
+            LazyVGrid(columns: columns, spacing: 24) {
+                // Top-left: donut
+                if ble.statsSynced {
+                    pieChartSection
+                } else {
+                    Color.clear.frame(height: 160)
+                }
+                // Top-right
+                Chart24HView()
+                // Bottom-left
+                Chart30DView()
+                // Bottom-right
+                ChartHODView()
+            }
+        } else {
+            ProgressView().tint(Theme.textPrimary).padding(.vertical, 20)
         }
     }
 
