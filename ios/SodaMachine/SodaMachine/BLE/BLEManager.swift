@@ -126,6 +126,7 @@ class BLEManager {
     @ObservationIgnored fileprivate var imgDownloadRetries: Int = 0
     @ObservationIgnored fileprivate var imgDownloadQueue: [Int] = []
     @ObservationIgnored fileprivate var isDownloading = false
+    @ObservationIgnored fileprivate var binStartReceived = false
     @ObservationIgnored fileprivate var pendingStatsRequest = false
     @ObservationIgnored fileprivate var timeSyncReceived = false
     @ObservationIgnored fileprivate var nusReady = false
@@ -672,6 +673,10 @@ class BLEManager {
             }
             sendNextUploadStep()
         } else if text.hasPrefix("IMG_ERR:") {
+            guard isUploading else {
+                log.debug("Ignoring IMG_ERR (not uploading): \(text)")
+                return
+            }
             failUpload(text)
         } else if text.hasPrefix("OK:UPLOAD_DONE:") {
             completeUpload()
@@ -992,6 +997,7 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         if ble.demoMode { return }
         log.info("Disconnected")
         ble.imgDownloadSlot = -1
+        ble.binStartReceived = false
         ble.connectedPeripheral = nil
         ble.rxCharacteristic = nil
         ble.nusReady = false
@@ -1078,6 +1084,10 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
                 }
 
             case 0x02:  // BIN_START
+                guard ble.isDownloading else {
+                    log.debug("Ignoring unsolicited BIN_START")
+                    continue
+                }
                 guard payload.count >= 10 else { continue }
                 let slot = Int(payload[0])
                 // payload[1] = file_type (0=png, 1=s3_rgb)
@@ -1089,12 +1099,16 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
                 ble.imgDownloadExpected = Int(size)
                 ble.imgDownloadCRC = crc
                 ble.imgDownloadData = Data()
+                ble.binStartReceived = true
                 log.info("BIN_START: slot \(slot), \(size) bytes, CRC=0x\(String(crc, radix: 16))")
 
             case 0x03:  // BIN_DATA
+                guard ble.binStartReceived else { continue }
                 ble.imgDownloadData.append(payload)
 
             case 0x04:  // BIN_END
+                guard ble.binStartReceived else { continue }
+                ble.binStartReceived = false
                 let imgData = ble.imgDownloadData
                 let slot = ble.imgDownloadSlot
                 let expectedSize = ble.imgDownloadExpected
