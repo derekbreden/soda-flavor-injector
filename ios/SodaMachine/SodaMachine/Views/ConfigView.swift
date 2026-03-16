@@ -210,8 +210,8 @@ private struct StatsView: View {
                         .padding(.top, 8)
                     Spacer()
                 } else if isWide {
-                    // iPad: even spacing between title→row1 and row1→row2,
-                    // with bottom padding matching the top for a grounded feel.
+                    // iPad: equal spacing between title→row1 and row1→row2,
+                    // bottom of row2 close to screen edge (small fixed padding).
                     VStack(spacing: 0) {
                         Text("Usage Stats")
                             .font(.system(size: 16, weight: .medium))
@@ -219,8 +219,9 @@ private struct StatsView: View {
                             .padding(.top, 8)
 
                         Spacer()
-                        wideLayout
+                        wideRow1
                         Spacer()
+                        wideRow2
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
@@ -267,28 +268,38 @@ private struct StatsView: View {
         }
     }
 
-    // MARK: - Wide layout (iPad)
+    // MARK: - Wide layout (iPad) — two rows with even spacing
 
     @ViewBuilder
-    private var wideLayout: some View {
+    private var wideRow1: some View {
         if ble.chartDataSynced {
-            let columns = [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)]
-            LazyVGrid(columns: columns, spacing: 24) {
-                // Top-left: donut
-                if ble.statsSynced {
-                    pieChartSection
-                } else {
-                    Color.clear.frame(height: 160)
+            HStack(spacing: 24) {
+                Group {
+                    if ble.statsSynced {
+                        pieChartSection
+                    } else {
+                        Color.clear.frame(height: 160)
+                    }
                 }
-                // Top-right
+                .frame(maxWidth: .infinity)
+
                 Chart24HView()
-                // Bottom-left
-                Chart30DView()
-                // Bottom-right
-                ChartHODView()
+                    .frame(maxWidth: .infinity)
             }
         } else {
             ProgressView().tint(Theme.textPrimary).padding(.vertical, 20)
+        }
+    }
+
+    @ViewBuilder
+    private var wideRow2: some View {
+        if ble.chartDataSynced {
+            HStack(spacing: 24) {
+                Chart30DView()
+                    .frame(maxWidth: .infinity)
+                ChartHODView()
+                    .frame(maxWidth: .infinity)
+            }
         }
     }
 
