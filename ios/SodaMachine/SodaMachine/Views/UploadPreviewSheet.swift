@@ -5,10 +5,6 @@ struct UploadQueueSheet: View {
     @Environment(\.dismiss) private var dismiss
     let images: [UIImage]
 
-    private var startSlot: Int {
-        ble.numImages + ble.uploadQueue.count
-    }
-
     var body: some View {
         NavigationView {
             VStack(spacing: 24) {
@@ -16,18 +12,13 @@ struct UploadQueueSheet: View {
 
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
-                        ForEach(Array(images.enumerated()), id: \.offset) { index, image in
-                            VStack(spacing: 4) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 70, height: 70)
-                                    .clipShape(Circle())
-                                    .overlay(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                                Text("Slot \(startSlot + index)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
+                        ForEach(Array(images.enumerated()), id: \.offset) { _, image in
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 70, height: 70)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
                         }
                     }
                     .padding()
@@ -36,9 +27,7 @@ struct UploadQueueSheet: View {
                 Spacer()
 
                 Button {
-                    let items = images.enumerated().map { index, image in
-                        BLEManager.UploadQueueItem(image: image, slot: startSlot + index)
-                    }
+                    let items = images.map { BLEManager.UploadQueueItem(image: $0) }
                     ble.queueUploads(items)
                     dismiss()
                 } label: {

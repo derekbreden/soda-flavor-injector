@@ -97,11 +97,19 @@ struct ImageManagerView: View {
                         .clipShape(Circle())
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Slot \(ble.activeUploadSlot)")
+                        Text(ble.uploadStatus)
                             .font(.callout)
                         ProgressView(value: ble.uploadProgress ?? 0)
                             .tint(.blue)
                     }
+
+                    Button {
+                        ble.cancelActiveUpload()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.vertical, 2)
             }
@@ -119,6 +127,16 @@ struct ImageManagerView: View {
                     Text("Queued")
                         .font(.callout)
                         .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button {
+                        ble.cancelQueuedUpload(id: item.id)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.vertical, 2)
             }

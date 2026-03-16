@@ -53,7 +53,6 @@ class BLEManager {
     struct UploadQueueItem: Identifiable {
         let id = UUID()
         let image: UIImage
-        let slot: Int
     }
 
     // Firmware versions (populated by GET_VERSION response)
@@ -316,12 +315,13 @@ class BLEManager {
             return
         }
         let item = uploadQueue.removeFirst()
+        let slot = numImages  // lazy slot assignment: always next sequential slot
         uploadImageRef = item.image
         activeUploadImage = item.image
-        activeUploadSlot = item.slot
+        activeUploadSlot = slot
         let position = uploadQueueTotal - uploadQueue.count
         uploadStatus = "Uploading \(position) of \(uploadQueueTotal)..."
-        uploadImage(item.image, toSlot: item.slot)
+        uploadImage(item.image, toSlot: slot)
     }
 
     private func uploadImage(_ image: UIImage, toSlot slot: Int) {
@@ -469,7 +469,7 @@ class BLEManager {
         var step = 0
         let totalSteps = 20
         Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
-            guard let self, self.demoMode else { timer.invalidate(); return }
+            guard let self, self.demoMode, self.isUploading else { timer.invalidate(); return }
             step += 1
             self.uploadProgress = Double(step) / Double(totalSteps)
             if step >= totalSteps {
@@ -687,6 +687,33 @@ class BLEManager {
         }
     }
 
+    func cancelActiveUpload() {
+        guard isUploading else { return }
+        isUploading = false
+        uploadSteps = []
+        uploadImageRef = nil
+        if !demoMode { send("ABORT_UPLOAD") }
+
+        if !uploadQueue.isEmpty {
+            uploadStatus = "Cancelled, continuing..."
+            uploadProgress = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.startNextUpload()
+            }
+        } else {
+            uploadProgress = nil
+            uploadStatus = ""
+            uploadQueueTotal = 0
+            activeUploadImage = nil
+            activeUploadSlot = -1
+        }
+    }
+
+    func cancelQueuedUpload(id: UUID) {
+        uploadQueue.removeAll { $0.id == id }
+        uploadQueueTotal = uploadQueue.count + (isUploading ? 1 : 0)
+    }
+
     // MARK: - Image download (runs entirely on bleQueue)
 
     fileprivate func startNextDownload() {
@@ -724,6 +751,10 @@ class BLEManager {
             pendingImageList = []
             downloadAllImages()
         } else if text.hasPrefix("IMG_OK:") {
+            guard isUploading else {
+                log.debug("Ignoring IMG_OK (not uploading): \(text)")
+                return
+            }
             currentUploadStep += 1
             let stepNames = ["PNG", "S3 RGB565", "RP2040 RGB565"]
             if currentUploadStep < uploadSteps.count {
@@ -736,7 +767,13 @@ class BLEManager {
                 return
             }
             failUpload(text)
+        } else if text == "OK:UPLOAD_ABORTED" {
+            log.info("Upload abort acknowledged by S3")
         } else if text.hasPrefix("OK:UPLOAD_DONE:") {
+            guard isUploading else {
+                log.debug("Ignoring OK:UPLOAD_DONE (not uploading): \(text)")
+                return
+            }
             completeUpload()
         } else if text.hasPrefix("OK:STORE_DELETED=") {
             pendingDeleteSlot = -1

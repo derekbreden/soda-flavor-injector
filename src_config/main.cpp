@@ -162,7 +162,10 @@ static struct {
   char     label[MAX_LABEL_LEN + 1];
   bool     hasLabel;
   unsigned long lastDataTime;
+  volatile bool abortRequested = false;
 } bleUpload;
+
+static void cleanupAbortedUpload(uint8_t slot);  // forward decl (used in disconnect + RX handlers)
 
 class BLEServerCB : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) override {
@@ -183,7 +186,14 @@ class BLEServerCB : public BLEServerCallbacks {
     }
     // Only abort upload if the disconnecting client owns it
     if (bleUpload.phase != BLE_UP_IDLE && handle == bleUploadConnHandle) {
-      bleUpload.phase = BLE_UP_IDLE;
+      if (bleUpload.phase == BLE_UP_FORWARDING) {
+        // Forwarding loop will exit between chunks, cleanup in processBleUploadForward
+        bleUpload.abortRequested = true;
+      } else {
+        // WAIT_DATA or RECEIVED: clean up immediately
+        cleanupAbortedUpload(bleUpload.slot);
+        bleUpload.phase = BLE_UP_IDLE;
+      }
       Serial.println("BLE: aborted upload (owner disconnected)");
     }
     stSendText(stLink, "BLE_DISCONNECTED");
@@ -276,6 +286,20 @@ class BLERxCB : public BLECharacteristicCallbacks {
         memcpy(textBuf, payload, tLen);
         textBuf[tLen] = '\0';
 
+        // ABORT_UPLOAD: handle immediately on NimBLE task (before bleRequest guard)
+        // so it executes even when main loop is blocked during forwarding
+        if (strcmp(textBuf, "ABORT_UPLOAD") == 0) {
+          bleUpload.abortRequested = true;
+          if (bleUpload.phase == BLE_UP_WAIT_DATA || bleUpload.phase == BLE_UP_RECEIVED) {
+            cleanupAbortedUpload(bleUpload.slot);
+            bleUpload.phase = BLE_UP_IDLE;
+            bleUpload.abortRequested = false;
+          }
+          // FORWARDING phase: flag is set, chunk loop will exit and cleanup in processBleUploadForward
+          bleSendTextTo(connHandle, "OK:UPLOAD_ABORTED");
+          break;
+        }
+
         // Drop if a previous request hasn't been processed yet
         if (bleRequest != BLE_REQ_NONE) return;
 
@@ -332,6 +356,7 @@ class BLERxCB : public BLECharacteristicCallbacks {
         bleUpload.expectedCrc32 = crc;
         bleUpload.receivedBytes = 0;
         bleUpload.hasLabel = false;
+        bleUpload.abortRequested = false;
 
         // Parse label from remaining payload bytes
         if (payloadLen > 10) {
@@ -501,9 +526,31 @@ static void processBleForwardQueue() {
   }
 }
 
+// Forward declarations for cleanup (defined later in image management section)
+static void imagePath(char *buf, uint8_t slot);
+static void updateMeta();
+
+// Clean up files from an aborted upload
+static void cleanupAbortedUpload(uint8_t slot) {
+  char path[24];
+  snprintf(path, sizeof(path), "/s3_png%02d.png", slot);
+  if (LittleFS.exists(path)) LittleFS.remove(path);
+  imagePath(path, slot);
+  if (LittleFS.exists(path)) LittleFS.remove(path);
+  updateMeta();
+  Serial.printf("Abort cleanup: slot %d, numImages=%d\n", slot, numImages);
+}
+
 // Process completed BLE upload: verify CRC, write to LittleFS
 static void processBleUpload() {
   if (bleUpload.phase != BLE_UP_RECEIVED) return;
+
+  if (bleUpload.abortRequested) {
+    cleanupAbortedUpload(bleUpload.slot);
+    bleUpload.phase = BLE_UP_IDLE;
+    bleUpload.abortRequested = false;
+    return;
+  }
 
   // Verify CRC-32
   uint32_t crc = uartCrc32Update(0, (const uint8_t*)imageBuf, bleUpload.expectedSize);
@@ -593,6 +640,10 @@ static bool stForwardToEsp(uint8_t slot, uint8_t startPktId,
   uint32_t runCrc = 0;
 
   while (offset < dataSize) {
+    if (bleUpload.abortRequested) {
+      Serial.println("Forward: aborted by user");
+      return false;
+    }
     uint16_t chunkLen = min((uint32_t)MAX_CHUNK_SIZE, dataSize - offset);
 
     stLink.packet.txBuff[0] = seq;
@@ -655,6 +706,11 @@ static bool stForwardFileToEsp(const char *path, uint8_t slot, uint8_t startPktI
   uint8_t chunkBuf[MAX_CHUNK_SIZE];
 
   while (f.available()) {
+    if (bleUpload.abortRequested) {
+      Serial.println("Forward file: aborted by user");
+      f.close();
+      return false;
+    }
     int n = f.read(chunkBuf, MAX_CHUNK_SIZE);
     if (n <= 0) break;
 
@@ -707,7 +763,12 @@ static void processBleUploadForward() {
                         (const uint8_t*)imageBuf, bleUpload.expectedSize);
   }
 
-  if (ok) {
+  if (bleUpload.abortRequested) {
+    cleanupAbortedUpload(bleUpload.slot);
+    stSendText(stLink, "ABORT_S3_UPLOAD");
+    // OK:UPLOAD_ABORTED already sent by BLE RX callback (or disconnect handler)
+    bleUpload.abortRequested = false;
+  } else if (ok) {
     char resp[32];
     const char *typeStr = bleUpload.fileType == 0 ? "png" :
                           (bleUpload.fileType == 1 ? "s3" : "rp");

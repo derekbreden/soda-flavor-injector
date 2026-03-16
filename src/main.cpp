@@ -1410,6 +1410,8 @@ void sendConfigResponse(Stream &out) {
              flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages, numS3Images);
 }
 
+void abortS3Upload();  // forward decl
+
 void processConfigCommand(const char *cmd, Stream &out) {
   if (strcmp(cmd, "GET_VERSION") == 0) {
     out.printf("VERSION:ESP32=%s\n", FW_VERSION);
@@ -1644,6 +1646,9 @@ void processConfigCommand(const char *cmd, Stream &out) {
     if (statsSubscribeCount == 0) lastChartAck = 0;
     Serial.printf("Stats unsubscribed (count=%d)\n", statsSubscribeCount);
     out.printf("OK:STATS_UNSUBSCRIBED\n");
+
+  } else if (strcmp(cmd, "ABORT_S3_UPLOAD") == 0) {
+    if (s3Upload.active) abortS3Upload();
 
   } else if (strcmp(cmd, "BLE_DISCONNECTED") == 0) {
     if (statsSubscribeCount > 0) {
