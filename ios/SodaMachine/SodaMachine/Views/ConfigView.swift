@@ -210,8 +210,7 @@ private struct StatsView: View {
                         .padding(.top, 8)
                     Spacer()
                 } else if isWide {
-                    // iPad: equal spacing between title→row1 and row1→row2,
-                    // bottom of row2 close to screen edge (small fixed padding).
+                    // iPad: 3-way equal spacing — title→row1, row1→row2, row2→bottom.
                     VStack(spacing: 0) {
                         Text("Usage Stats")
                             .font(.system(size: 16, weight: .medium))
@@ -222,9 +221,9 @@ private struct StatsView: View {
                         wideRow1
                         Spacer()
                         wideRow2
+                        Spacer()
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
                 } else {
                     ScrollView {
                         VStack(spacing: 24) {
