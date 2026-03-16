@@ -97,7 +97,11 @@ SerialTransfer stLink;  // SerialTransfer on Serial0 (ESP32 link)
 #define NUS_TX_UUID             "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 static BLECharacteristic *pTxChar = nullptr;
-static bool bleConnected = false;
+static BLEServer *pBLEServer = nullptr;
+
+static bool bleHasClients() {
+  return pBLEServer && pBLEServer->getConnectedCount() > 0;
+}
 
 // Forward declarations
 static void bleSendFrame(uint8_t type, const uint8_t *payload, uint16_t len);
@@ -153,11 +157,14 @@ static struct {
 
 class BLEServerCB : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) override {
-    bleConnected = true;
-    Serial.printf("BLE: client connected (heap=%lu)\n", (unsigned long)ESP.getFreeHeap());
+    Serial.printf("BLE: client connected (count=%lu, heap=%lu)\n",
+                  (unsigned long)pServer->getConnectedCount(),
+                  (unsigned long)ESP.getFreeHeap());
+    pServer->startAdvertising();  // allow additional clients to connect
   }
   void onDisconnect(BLEServer *pServer) override {
-    bleConnected = false;
+    Serial.printf("BLE: client disconnected (remaining=%lu)\n",
+                  (unsigned long)pServer->getConnectedCount());
     if (bleImageSending) {
       bleImageSending = false;
       if (bleFile) bleFile.close();
@@ -168,13 +175,12 @@ class BLEServerCB : public BLEServerCallbacks {
       Serial.println("BLE: aborted upload on disconnect");
     }
     stSendText(stLink, "BLE_DISCONNECTED");
-    Serial.println("BLE: client disconnected");
     pServer->startAdvertising();
   }
 };
 
 static void bleImageSendChunks() {
-  if (!bleImageSending || !bleConnected || !pTxChar) return;
+  if (!bleImageSending || !bleHasClients() || !pTxChar) return;
 
   if (!bleFile || !bleFile.available()) {
     if (bleFile) bleFile.close();
@@ -693,10 +699,10 @@ static void processBleUploadForward() {
 static void initBLE() {
   BLEDevice::init("SodaMachine");
 
-  BLEServer *pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new BLEServerCB());
+  pBLEServer = BLEDevice::createServer();
+  pBLEServer->setCallbacks(new BLEServerCB());
 
-  BLEService *pService = pServer->createService(NUS_SERVICE_UUID);
+  BLEService *pService = pBLEServer->createService(NUS_SERVICE_UUID);
 
   pTxChar = pService->createCharacteristic(
     NUS_TX_UUID,
@@ -1240,7 +1246,7 @@ void parseConfigResponse(const char* line) {
 
 // Send a framed BLE notification: [type(1B), len(2B LE), payload...]
 static void bleSendFrame(uint8_t type, const uint8_t *payload, uint16_t len) {
-  if (!bleConnected || !pTxChar) return;
+  if (!bleHasClients() || !pTxChar) return;
   bleSendChunkBuf[0] = type;
   bleSendChunkBuf[1] = len & 0xFF;
   bleSendChunkBuf[2] = (len >> 8) & 0xFF;
