@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
-#include <Adafruit_NeoPixel.h>
 #include <lvgl.h>
 #include <LittleFS.h>
 #include <BLEDevice.h>
@@ -42,20 +41,20 @@
 #define TFT_SCLK 10
 #define TFT_DC    3
 
+// ── Board power pins (Meshnology hardware requirement) ──
+#define PWR_EN   40
+#define PWR_3V3   1
+#define PWR_VBUS  2
+
 // ── Rotary Encoder ──
 #define ENCODER_CLK 45
 #define ENCODER_DT  42
-#define ENCODER_BTN 41
 
 // ── Touch (CST816D) ──
 #define TOUCH_SDA  6
 #define TOUCH_SCL  7
 #define TOUCH_INT  5
 #define TOUCH_RST 13
-
-// ── RGB LEDs (WS2812, 5 units) ──
-#define LED_DATA  48
-#define LED_COUNT  5
 
 // ── Image constants ──
 #define S3_SCREEN_W   240
@@ -83,7 +82,6 @@ unsigned long lastGetConfig = 0;
 // ── Hardware objects ──
 Arduino_ESP32SPI *spi_bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCLK, TFT_MOSI, GFX_NOT_DEFINED, FSPI, true);
 Arduino_GC9A01 *hw_display = new Arduino_GC9A01(spi_bus, TFT_RST, 0, true);
-Adafruit_NeoPixel leds(LED_COUNT, LED_DATA, NEO_GRB + NEO_KHZ800);
 CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
 
 // ── LVGL display buffer ──
@@ -133,7 +131,7 @@ static uint8_t bleSendChunkBuf[256];
 // BLE RX callback runs on NimBLE task — must not do LittleFS I/O or Serial0
 // writes directly. Instead, callback sets a request + buffers data, and loop()
 // processes it on the main task.
-enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG, BLE_REQ_FORWARD,
+enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG,
                   BLE_REQ_GET_CONFIG, BLE_REQ_GET_VERSION };
 static volatile BleRequest bleRequest = BLE_REQ_NONE;
 static volatile int bleRequestSlot = -1;
@@ -504,9 +502,6 @@ static void processBleRequest() {
       break;
     }
 
-    case BLE_REQ_FORWARD:
-      break;  // handled by forward queue below
-
     default:
       break;
   }
@@ -525,10 +520,6 @@ static void processBleForwardQueue() {
     delay(10);  // brief gap so ESP32 can process between commands
   }
 }
-
-// Forward declarations for cleanup (defined later in image management section)
-static void imagePath(char *buf, uint8_t slot);
-static void updateMeta();
 
 // Clean up files from an aborted upload
 static void cleanupAbortedUpload(uint8_t slot) {
@@ -598,7 +589,7 @@ static void processBleUpload() {
 //  SerialTransfer sender: forward BLE uploads to ESP32
 // ════════════════════════════════════════════════════════════
 
-static void processTextLine(const char *line);  // forward decl
+static void processTextLine(const char *line);
 
 static bool waitForEspResponse(uint8_t expectedPktId, unsigned long timeoutMs) {
   unsigned long start = millis();
@@ -848,8 +839,6 @@ bool screensaverActive = false;
 #define THUMB_EDIT   128
 #define THUMB_MAX    128
 static lv_color_t thumb_buf[THUMB_MAX * THUMB_MAX];
-
-// CRC-32 provided by uartCrc32Update() in uart_st.h
 
 // ════════════════════════════════════════════════════════════
 //  LittleFS image management
@@ -1288,9 +1277,6 @@ static void handleSwapImages(uint8_t slotA, uint8_t slotB) {
   Serial.printf("Swapped slots %d <-> %d\n", slotA, slotB);
   sendStResp(PKT_RESP_SWAP_OK, numImages);
 }
-
-// Forward declaration
-static void processTextLine(const char *line);
 
 // ── Text line processing (CONFIG: responses, OK:/ERR:, LIST, LABEL:) ──
 
@@ -1930,18 +1916,13 @@ void setup() {
     }
   }
 
-  // RGB LEDs (unused, turned off)
-  leds.begin();
-  leds.clear();
-  leds.show();
-
   // Power pins (required by board hardware)
-  pinMode(40, OUTPUT);
-  digitalWrite(40, LOW);
-  pinMode(1, OUTPUT);
-  digitalWrite(1, HIGH);
-  pinMode(2, OUTPUT);
-  digitalWrite(2, HIGH);
+  pinMode(PWR_EN, OUTPUT);
+  digitalWrite(PWR_EN, LOW);
+  pinMode(PWR_3V3, OUTPUT);
+  digitalWrite(PWR_3V3, HIGH);
+  pinMode(PWR_VBUS, OUTPUT);
+  digitalWrite(PWR_VBUS, HIGH);
 
   // Backlight
   pinMode(TFT_BLK, OUTPUT);
@@ -1950,7 +1931,6 @@ void setup() {
   // Encoder
   pinMode(ENCODER_CLK, INPUT_PULLUP);
   pinMode(ENCODER_DT, INPUT_PULLUP);
-  pinMode(ENCODER_BTN, INPUT_PULLUP);
 
   // Touch
   touch.begin();

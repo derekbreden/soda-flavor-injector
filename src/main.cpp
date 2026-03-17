@@ -12,21 +12,18 @@
 #define A_ENA  33    // pump PWM
 #define A_IN1  25    // pump direction
 #define A_IN2  26    // pump direction
-#define A_ENB  12    // dispensing solenoid valve (IN3/IN4 hardwired)
+#define A_ENB  12    // dispensing solenoid valve
 
 // ── L298N Board B (flavor 2) ──
 #define B_ENA  19    // pump PWM
 #define B_IN1  18    // pump direction
 #define B_IN2   5    // pump direction
-#define B_ENB   4    // dispensing solenoid valve (IN3/IN4 hardwired)
+#define B_ENB   4    // dispensing solenoid valve
 
 // ── Inputs ──
 #define FLAVOR_SW_PIN   13   // latching toggle: flavor select (air switch)
 #define PRIME_BTN_PIN   22   // momentary: manual prime / activate
 #define FLOW_PIN        23   // flow meter pulse input
-
-// ── GPIOs freed by 5b (LEDs removed, valve IN3/IN4 hardwired) ──
-// Available: 21, 2, 27, 14, 17, 16
 
 // ── Per-flavor config (runtime, persisted in LittleFS) ──
 // Ratio: flavoring to water in 1:X. Lower = more flavor.
@@ -82,8 +79,6 @@ uint8_t flavor2Ratio = 20;
 uint8_t flavor1Image = 0;
 uint8_t flavor2Image = 1;
 
-bool firstBoot = false;
-
 // ── Display UART (ESP32 ↔ RP2040, bidirectional) ──
 #define DISPLAY_TX_PIN          32     // UART TX to RP2040 display
 #define DISPLAY_RX_PIN          35     // UART RX from RP2040 (input-only GPIO)
@@ -127,18 +122,18 @@ void sendMapToRP() {
 #define COOLDOWN_MS           1000   // settle time after zero detected in cycle
 
 // ════════════════════════════════════════════════════════════
-//  Motor abstraction
+//  Pump and valve abstraction
 // ════════════════════════════════════════════════════════════
 
-struct MotorChannel {
+struct PumpChannel {
   uint8_t ena;
   uint8_t in1;
   uint8_t in2;
 };
 
 struct Flavor {
-  MotorChannel pump;
-  uint8_t valvePin;  // ENB only (IN3/IN4 hardwired on L298N)
+  PumpChannel pump;
+  uint8_t valvePin;
   uint8_t ratio;
 };
 
@@ -157,13 +152,13 @@ Flavor flavors[] = {
   },
 };
 
-void motorOn(const MotorChannel& m, uint8_t speed) {
+void pumpOn(const PumpChannel& m, uint8_t speed) {
   digitalWrite(m.in1, HIGH);
   digitalWrite(m.in2, LOW);
   analogWrite(m.ena, speed);
 }
 
-void motorOff(const MotorChannel& m) {
+void pumpOff(const PumpChannel& m) {
   digitalWrite(m.in1, LOW);
   digitalWrite(m.in2, LOW);
   analogWrite(m.ena, 0);
@@ -419,17 +414,6 @@ static uint16_t crc16(const uint8_t *data, size_t len) {
   return crc;
 }
 
-static uint32_t crc32_update(uint32_t prev, const uint8_t *data, size_t len) {
-  uint32_t crc = ~prev;
-  for (size_t i = 0; i < len; i++) {
-    crc ^= data[i];
-    for (uint8_t j = 0; j < 8; j++) {
-      crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
-    }
-  }
-  return ~crc;
-}
-
 // ════════════════════════════════════════════════════════════
 //  Query RP2040 image count (binary protocol)
 // ════════════════════════════════════════════════════════════
@@ -644,7 +628,7 @@ void enterStoreMode(bool isS3, uint8_t slot, bool isPng = false) {
 
       if (fileOpen) {
         f.write(buf + 6, dataLen);
-        runCrc = crc32_update(runCrc, buf + 6, dataLen);
+        runCrc = uartCrc32Update(runCrc, buf + 6, dataLen);
         receivedBytes += dataLen;
       }
 
@@ -1028,7 +1012,6 @@ void bootSync() {
 //  Usage statistics — persistence and rollup
 // ════════════════════════════════════════════════════════════
 
-#define STATS_DIR         "/stats"
 #define STATS_CURRENT_PATH "/stats/current.bin"
 
 // Save current accumulators to flash (called every 60s)
@@ -2057,17 +2040,6 @@ void setup() {
 
   LittleFS.mkdir("/stats");
 
-  // Migrate old presync file names to new stats names (one-time)
-  if (LittleFS.exists("/stats/f0_presync.bin")) {
-    LittleFS.rename("/stats/f0_presync.bin", "/stats/f0_hourly.bin");
-  }
-  if (LittleFS.exists("/stats/f1_presync.bin")) {
-    LittleFS.rename("/stats/f1_presync.bin", "/stats/f1_hourly.bin");
-  }
-  if (LittleFS.exists("/stats/presync_hdr.bin")) {
-    LittleFS.rename("/stats/presync_hdr.bin", "/stats/stats_hdr.bin");
-  }
-
   loadCurrentAccum();
   loadStatsHeader();
 
@@ -2085,15 +2057,15 @@ void setup() {
   }
 
   // Detect new firmware → apply factory defaults; otherwise load user config
-  firstBoot = checkFirstBoot();
+  bool firstBoot = checkFirstBoot();
   loadUserConfig();
 
-  // Init all motor/valve pins
-  const uint8_t motorPins[] = {
+  // Init all pump/valve pins
+  const uint8_t gpioPins[] = {
     A_ENA, A_IN1, A_IN2, A_ENB,
     B_ENA, B_IN1, B_IN2, B_ENB
   };
-  for (uint8_t pin : motorPins) {
+  for (uint8_t pin : gpioPins) {
     pinMode(pin, OUTPUT);
     digitalWrite(pin, LOW);
   }
@@ -2236,13 +2208,13 @@ void loop() {
   if (primePressed) {
     // Prime overrides cycling: pump runs continuously
     if (pumpState != PUMP_PRIME) {
-      motorOn(active.pump, PUMP_SPEED);
+      pumpOn(active.pump, PUMP_SPEED);
       pumpState = PUMP_PRIME;
       phaseStart = now;
     }
   } else if (pumpState == PUMP_PRIME) {
     // Prime released → go idle
-    motorOff(active.pump);
+    pumpOff(active.pump);
     pumpState = PUMP_IDLE;
   } else {
     switch (pumpState) {
@@ -2254,7 +2226,7 @@ void loop() {
           cyclePulseSum = 0;
           cyclePulseReadings = 0;
           cycleSawZero = false;
-          motorOn(active.pump, PUMP_SPEED);
+          pumpOn(active.pump, PUMP_SPEED);
           pumpState = PUMP_ON;
           phaseStart = now;
           Serial.printf("── CYCLE START ── pulses=%lu → on=%lums off=%lums\n",
@@ -2265,7 +2237,7 @@ void loop() {
       case PUMP_ON:
         // On-phase running — wait for it to finish
         if (now - phaseStart >= cycleOnMs) {
-          motorOff(active.pump);
+          pumpOff(active.pump);
           // Stats: accumulate burst duration
           currentHour[activeFlavor].burst_sum_ms += cycleOnMs;
           currentHour[activeFlavor].burst_count++;
@@ -2295,7 +2267,7 @@ void loop() {
             cyclePulseSum = 0;
             cyclePulseReadings = 0;
             cycleSawZero = false;
-            motorOn(active.pump, PUMP_SPEED);
+            pumpOn(active.pump, PUMP_SPEED);
             pumpState = PUMP_ON;
             phaseStart = now;
             Serial.printf("── CYCLE START ── avg=%lu → on=%lums off=%lums\n",
@@ -2329,19 +2301,19 @@ void loop() {
     valveOpen = true;
     Serial.printf("Dispensing flavor %d\n", activeFlavor + 1);
   } else if (!shouldValveBeOpen && valveOpen) {
-    motorOff(active.pump);    // defensive
+    pumpOff(active.pump);    // defensive
     valveOff(active.valvePin);
     valveOpen = false;
     Serial.printf("Stopped dispensing flavor %d\n", activeFlavor + 1);
   }
 
-  // ── 5. Periodic display config resend ─────────────────────
+  // ── 4. Periodic display config resend ─────────────────────
   if (now - lastConfigSend >= CONFIG_SEND_INTERVAL_MS) {
     sendMapToRP();
     lastConfigSend = now;
   }
 
-  // ── 5b. Stats hourly rollover and periodic flush ─────────────────────
+  // ── 5. Stats hourly rollover and periodic flush ──────────────────────
   // Hour rollover: unsigned subtraction handles millis() wrap correctly
   if (millis() - hourStartMillis >= 3600000UL) {
     flushCurrentHour();

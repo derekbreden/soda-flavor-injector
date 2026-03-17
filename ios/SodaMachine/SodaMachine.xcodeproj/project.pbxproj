@@ -10,14 +10,13 @@
 		0C8A1A8CCBF99A55FFCC9E75 /* ConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17B6167123A77140A8416478 /* ConfigView.swift */; };
 		275517646EB3A11CF0EB0917 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EC8801DFD62475C35E32F1F2 /* LaunchScreen.storyboard */; };
 		44CDAD052031D99FC84FBF20 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 39C5CC1EBAB73C1BFCDDA171 /* Assets.xcassets */; };
-		59BAD3A33A0F98D9F35F6FA2 /* ImageListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC170A2B701313B188BF412 /* ImageListView.swift */; };
 		6C93DAD5E946A3A9C3363922 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23D0AF4ACE05C15DEFA2BB4 /* Theme.swift */; };
 		BB2804A1FB6705FB6DC03085 /* BLEManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46ABEC9C6AF332D8A0057E0A /* BLEManager.swift */; };
 		D2CAF8A8E999091D114AE837 /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C75AA5E41E74397887458B /* ScanView.swift */; };
 		DAFEBC827E77F835CF75F250 /* ImageProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC09AC31F29B7C4403271380 /* ImageProcessor.swift */; };
 		DF2FC75183CCB8BB4EBB2475 /* SodaMachineApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46497A459A6F4FDF03D0CBD9 /* SodaMachineApp.swift */; };
 		EDF5F2B34A2F803B7CDA24F7 /* ImageManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 823F86F06E4DF6A375CF19B8 /* ImageManagerView.swift */; };
-		F1E168EC88F608E87EE82B6E /* UploadPreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5C84CC08D4039133BBE80 /* UploadPreviewSheet.swift */; };
+		F1E168EC88F608E87EE82B6E /* UploadQueueSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5C84CC08D4039133BBE80 /* UploadQueueSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,8 +28,7 @@
 		823F86F06E4DF6A375CF19B8 /* ImageManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageManagerView.swift; sourceTree = "<group>"; };
 		AC09AC31F29B7C4403271380 /* ImageProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageProcessor.swift; sourceTree = "<group>"; };
 		B23D0AF4ACE05C15DEFA2BB4 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		C5A5C84CC08D4039133BBE80 /* UploadPreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadPreviewSheet.swift; sourceTree = "<group>"; };
-		CEC170A2B701313B188BF412 /* ImageListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageListView.swift; sourceTree = "<group>"; };
+		C5A5C84CC08D4039133BBE80 /* UploadQueueSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueSheet.swift; sourceTree = "<group>"; };
 		D850BAB13F260C2F94CF2FC7 /* SodaMachine.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SodaMachine.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC8801DFD62475C35E32F1F2 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -86,10 +84,9 @@
 			isa = PBXGroup;
 			children = (
 				17B6167123A77140A8416478 /* ConfigView.swift */,
-				CEC170A2B701313B188BF412 /* ImageListView.swift */,
 				823F86F06E4DF6A375CF19B8 /* ImageManagerView.swift */,
 				80C75AA5E41E74397887458B /* ScanView.swift */,
-				C5A5C84CC08D4039133BBE80 /* UploadPreviewSheet.swift */,
+				C5A5C84CC08D4039133BBE80 /* UploadQueueSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -162,13 +159,12 @@
 			files = (
 				BB2804A1FB6705FB6DC03085 /* BLEManager.swift in Sources */,
 				0C8A1A8CCBF99A55FFCC9E75 /* ConfigView.swift in Sources */,
-				59BAD3A33A0F98D9F35F6FA2 /* ImageListView.swift in Sources */,
 				EDF5F2B34A2F803B7CDA24F7 /* ImageManagerView.swift in Sources */,
 				DAFEBC827E77F835CF75F250 /* ImageProcessor.swift in Sources */,
 				D2CAF8A8E999091D114AE837 /* ScanView.swift in Sources */,
 				DF2FC75183CCB8BB4EBB2475 /* SodaMachineApp.swift in Sources */,
 				6C93DAD5E946A3A9C3363922 /* Theme.swift in Sources */,
-				F1E168EC88F608E87EE82B6E /* UploadPreviewSheet.swift in Sources */,
+				F1E168EC88F608E87EE82B6E /* UploadQueueSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

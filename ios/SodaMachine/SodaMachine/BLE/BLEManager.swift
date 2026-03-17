@@ -88,20 +88,9 @@ class BLEManager {
     @ObservationIgnored fileprivate var chartBaseHOD_hour: Int = Calendar.current.component(.hour, from: Date())
     @ObservationIgnored fileprivate var lastLiveFS: [UInt32] = [0, 0]
 
-    // Usage statistics
+    // Usage statistics (used by pie chart)
     struct FlavorStats {
-        var todayFlowSum: UInt32 = 0
-        var todayFlowCount: UInt32 = 0
-        var todayBurstSum: UInt32 = 0
-        var todayBurstCount: UInt32 = 0
-        var weekFlowSum: UInt32 = 0
-        var weekFlowCount: UInt32 = 0
-        var weekBurstSum: UInt32 = 0
-        var weekBurstCount: UInt32 = 0
         var monthFlowSum: UInt32 = 0
-        var monthFlowCount: UInt32 = 0
-        var monthBurstSum: UInt32 = 0
-        var monthBurstCount: UInt32 = 0
     }
     var flavor1Stats = FlavorStats()
     var flavor2Stats = FlavorStats()
@@ -152,7 +141,6 @@ class BLEManager {
     @ObservationIgnored fileprivate var centralManager: CBCentralManager!
     @ObservationIgnored fileprivate var connectedPeripheral: CBPeripheral?
     @ObservationIgnored fileprivate var rxCharacteristic: CBCharacteristic?
-    @ObservationIgnored fileprivate var txCharacteristic: CBCharacteristic?
     @ObservationIgnored fileprivate var scanTimer: Timer?
     @ObservationIgnored fileprivate var reconnectTimer: Timer?
 
@@ -206,22 +194,6 @@ class BLEManager {
         send("GET_VERSION")
     }
 
-    func requestStats() {
-        // Stats are now computed from chart data (no separate GET_STATS command)
-        requestStatsAndCharts()
-    }
-
-    func requestChartData() {
-        if demoMode {
-            populateDemoChartData()
-            return
-        }
-        chartDataSynced = false
-        rawHourlyData = [[], []]
-        chartCurReceived = 0
-        send("GET_CHART_DATA")
-    }
-
     func requestStatsAndCharts() {
         if demoMode {
             populateDemoStats()
@@ -238,7 +210,8 @@ class BLEManager {
             pendingStatsRequest = true
             return
         }
-        sendStatsCommands()
+        pendingStatsRequest = false
+        send("GET_CHART_DATA")
     }
 
     func subscribeStats() {
@@ -249,11 +222,6 @@ class BLEManager {
     func unsubscribeStats() {
         if demoMode { return }
         send("STATS_UNSUBSCRIBE")
-    }
-
-    fileprivate func sendStatsCommands() {
-        pendingStatsRequest = false
-        send("GET_CHART_DATA")
     }
 
     func factoryReset() {
@@ -479,22 +447,8 @@ class BLEManager {
     }
 
     private func populateDemoStats() {
-        flavor1Stats = FlavorStats(
-            todayFlowSum: 2400, todayFlowCount: 800,
-            todayBurstSum: 12000, todayBurstCount: 80,
-            weekFlowSum: 15000, weekFlowCount: 5000,
-            weekBurstSum: 75000, weekBurstCount: 500,
-            monthFlowSum: 60000, monthFlowCount: 20000,
-            monthBurstSum: 300000, monthBurstCount: 2000
-        )
-        flavor2Stats = FlavorStats(
-            todayFlowSum: 1800, todayFlowCount: 600,
-            todayBurstSum: 9000, todayBurstCount: 60,
-            weekFlowSum: 10000, weekFlowCount: 3500,
-            weekBurstSum: 50000, weekBurstCount: 350,
-            monthFlowSum: 40000, monthFlowCount: 14000,
-            monthBurstSum: 200000, monthBurstCount: 1400
-        )
+        flavor1Stats = FlavorStats(monthFlowSum: 60000)
+        flavor2Stats = FlavorStats(monthFlowSum: 40000)
         statsSynced = true
     }
 
@@ -720,7 +674,8 @@ class BLEManager {
                 self.imageDownloadProgress = nil
                 self.isDownloading = false
                 if self.pendingStatsRequest {
-                    self.sendStatsCommands()
+                    self.pendingStatsRequest = false
+                    self.send("GET_CHART_DATA")
                 }
             }
             return
@@ -868,10 +823,6 @@ class BLEManager {
         if prefix == "CHART_HOURLY" {
             if let seqStr = kvValues["SEQ"], let seq = UInt32(seqStr) {
                 currentSeqHour = seq
-                // First CHART_HOURLY for this flavor clears accumulated data
-                if rawHourlyData[flavor].isEmpty || chartCurReceived > 0 {
-                    // Reset if we're starting a new request cycle
-                }
             }
             // Parse seqHour:flowSum pairs after the key=value prefix
             for part in parts[dataStart...] {
@@ -930,12 +881,8 @@ class BLEManager {
                     chartData30D = new30D
                     chartDataHOD = newHOD
                     if flavor == 0 {
-                        flavor1Stats.todayFlowSum += incr
-                        flavor1Stats.weekFlowSum += incr
                         flavor1Stats.monthFlowSum += incr
                     } else {
-                        flavor2Stats.todayFlowSum += incr
-                        flavor2Stats.weekFlowSum += incr
                         flavor2Stats.monthFlowSum += incr
                     }
                 }
