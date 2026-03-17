@@ -256,37 +256,26 @@ struct StatsAccum {
 };
 
 struct StatsBucket {
-  uint32_t epoch_key;      // epoch/3600 (hourly) or epoch/86400 (daily)
+  uint32_t seq_hour;       // seqHour key (monotonic hour counter)
   uint32_t flow_sum, flow_count, burst_sum_ms, burst_count;
 };
 
 StatsAccum currentHour[2] = {};   // per-flavor accumulators for current hour
-uint32_t currentHourKey = 0;      // epoch/3600 for current hour (0 = not yet synced)
-
-// Time sync (iOS sends wall clock via BLE → S3 → ESP32)
-uint32_t timeAnchorEpoch  = 0;    // unix epoch at anchor point
-unsigned long timeAnchorMillis = 0; // millis() at anchor point
-bool timeSynced = false;
-bool presyncConverted = false;    // guard: convertPresyncToReal runs at most once per boot
 unsigned long lastStatsFlush = 0; // last 60s flush
 
-// Pre-sync stats persistence (before BLE time sync)
-#define PRESYNC_RING_SIZE   720   // 30 days of hourly buckets (matches MAX_HOURLY_ENTRIES)
-#define PRESYNC_HDR_PATH    "/stats/presync_hdr.bin"
+// Stats persistence
+#define HOURLY_RING_SIZE   720   // 30 days of hourly buckets
+#define STATS_HDR_PATH     "/stats/stats_hdr.bin"
 
-struct PresyncHeader {
+struct StatsHeader {
   uint32_t seqHour;         // monotonic hour counter, persists across reboots
   uint32_t hourElapsedMs;   // ms elapsed in current seqHour (updated on each flush)
 };
-PresyncHeader presyncHdr = {};
+StatsHeader statsHdr = {};
 unsigned long hourStartMillis = 0;  // millis() when current seqHour "started"
 
-static const char *presyncHourlyPath(uint8_t flavor) {
-  return flavor == 0 ? "/stats/f0_presync.bin" : "/stats/f1_presync.bin";
-}
-
-uint32_t currentEpoch() {
-  return timeAnchorEpoch + (millis() - timeAnchorMillis) / 1000;
+static const char *statsHourlyPath(uint8_t flavor) {
+  return flavor == 0 ? "/stats/f0_hourly.bin" : "/stats/f1_hourly.bin";
 }
 
 // Live chart push (ESP32 → S3 → BLE → iOS, no polling)
@@ -1041,20 +1030,6 @@ void bootSync() {
 
 #define STATS_DIR         "/stats"
 #define STATS_CURRENT_PATH "/stats/current.bin"
-#define MAX_HOURLY_ENTRIES 720   // 30 days
-#define MAX_DAILY_ENTRIES  365
-
-static const char *statsHourlyPath(uint8_t flavor) {
-  static char buf[24];
-  snprintf(buf, sizeof(buf), "/stats/f%d_hourly.bin", flavor);
-  return buf;
-}
-
-static const char *statsDailyPath(uint8_t flavor) {
-  static char buf[24];
-  snprintf(buf, sizeof(buf), "/stats/f%d_daily.bin", flavor);
-  return buf;
-}
 
 // Save current accumulators to flash (called every 60s)
 void saveCurrentAccum() {
@@ -1084,58 +1059,58 @@ void loadCurrentAccum() {
   f.close();
 }
 
-// ── Pre-sync persistence helpers ──
+// ── Stats persistence helpers ──
 
-void savePresyncHeader() {
-  const char *tmp = PRESYNC_HDR_PATH ".tmp";
+void saveStatsHeader() {
+  const char *tmp = STATS_HDR_PATH ".tmp";
   File f = LittleFS.open(tmp, "w");
   if (f) {
-    f.write((uint8_t*)&presyncHdr, sizeof(presyncHdr));
+    f.write((uint8_t*)&statsHdr, sizeof(statsHdr));
     f.close();
-    LittleFS.remove(PRESYNC_HDR_PATH);
-    LittleFS.rename(tmp, PRESYNC_HDR_PATH);
+    LittleFS.remove(STATS_HDR_PATH);
+    LittleFS.rename(tmp, STATS_HDR_PATH);
   }
 }
 
-void loadPresyncHeader() {
-  File f = LittleFS.open(PRESYNC_HDR_PATH, "r");
-  if (f && f.size() == sizeof(presyncHdr)) {
-    f.read((uint8_t*)&presyncHdr, sizeof(presyncHdr));
+void loadStatsHeader() {
+  File f = LittleFS.open(STATS_HDR_PATH, "r");
+  if (f && f.size() == sizeof(statsHdr)) {
+    f.read((uint8_t*)&statsHdr, sizeof(statsHdr));
     f.close();
-    Serial.printf("Loaded presync header: seqHour=%lu\n", (unsigned long)presyncHdr.seqHour);
+    Serial.printf("Loaded stats header: seqHour=%lu\n", (unsigned long)statsHdr.seqHour);
   } else {
     if (f) f.close();
-    presyncHdr = {0, 0};
+    statsHdr = {0, 0};
   }
 }
 
 // Forward declaration (defined below)
 void upsertHourlyBucket(const char *path, const StatsBucket &bucket, int maxEntries);
 
-void flushPresyncHour() {
+void flushCurrentHour() {
   for (int f = 0; f < 2; f++) {
     if (currentHour[f].flow_count == 0 && currentHour[f].burst_count == 0) continue;
     StatsBucket bucket;
-    bucket.epoch_key = presyncHdr.seqHour;
+    bucket.seq_hour = statsHdr.seqHour;
     bucket.flow_sum = currentHour[f].flow_sum;
     bucket.flow_count = currentHour[f].flow_count;
     bucket.burst_sum_ms = currentHour[f].burst_sum_ms;
     bucket.burst_count = currentHour[f].burst_count;
-    upsertHourlyBucket(presyncHourlyPath(f), bucket, PRESYNC_RING_SIZE);
+    upsertHourlyBucket(statsHourlyPath(f), bucket, HOURLY_RING_SIZE);
   }
 }
 
-// Upsert a bucket into an hourly file: find existing entry by epoch_key and
+// Upsert a bucket into an hourly file: find existing entry by seq_hour and
 // overwrite it, or append if new. Each hour has exactly one entry in the file.
 // Trims oldest entries if over maxEntries.
 void upsertHourlyBucket(const char *path, const StatsBucket &bucket, int maxEntries) {
-  // Scan for existing entry with matching epoch_key
+  // Scan for existing entry with matching seq_hour
   File f = LittleFS.open(path, "r");
   if (f) {
     StatsBucket entry;
     int idx = 0;
     while (f.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-      if (entry.epoch_key == bucket.epoch_key) {
+      if (entry.seq_hour == bucket.seq_hour) {
         f.close();
         // Overwrite in place
         File fw = LittleFS.open(path, "r+");
@@ -1186,218 +1161,14 @@ void upsertHourlyBucket(const char *path, const StatsBucket &bucket, int maxEntr
   }
 }
 
-// Append or merge a daily bucket. Used only for daily rollup files
-// (each day rolls up once, so merge handles the rare double-rollup case).
-void appendDailyBucket(const char *path, const StatsBucket &bucket, int maxEntries) {
-  StatsBucket last = {};
-  bool merge = false;
-  File f = LittleFS.open(path, "r");
-  if (f) {
-    int entryCount = f.size() / sizeof(StatsBucket);
-    if (entryCount > 0) {
-      f.seek((entryCount - 1) * sizeof(StatsBucket));
-      f.read((uint8_t*)&last, sizeof(StatsBucket));
-      if (last.epoch_key == bucket.epoch_key) {
-        merge = true;
-        last.flow_sum += bucket.flow_sum;
-        last.flow_count += bucket.flow_count;
-        last.burst_sum_ms += bucket.burst_sum_ms;
-        last.burst_count += bucket.burst_count;
-      }
-    }
-    f.close();
-  }
-
-  if (merge) {
-    File fw = LittleFS.open(path, "r+");
-    if (fw) {
-      fw.seek(fw.size() - sizeof(StatsBucket));
-      fw.write((uint8_t*)&last, sizeof(StatsBucket));
-      fw.close();
-    }
-  } else {
-    File fa = LittleFS.open(path, "a");
-    if (fa) {
-      fa.write((uint8_t*)&bucket, sizeof(StatsBucket));
-      fa.close();
-    }
-    // Trim
-    File fc = LittleFS.open(path, "r");
-    if (fc) {
-      int entryCount = fc.size() / sizeof(StatsBucket);
-      if (entryCount > maxEntries) {
-        int skip = entryCount - maxEntries;
-        File tmp = LittleFS.open("/stats/trim.tmp", "w");
-        if (tmp) {
-          fc.seek(skip * sizeof(StatsBucket));
-          StatsBucket entry;
-          for (int i = 0; i < maxEntries; i++) {
-            fc.read((uint8_t*)&entry, sizeof(StatsBucket));
-            tmp.write((uint8_t*)&entry, sizeof(StatsBucket));
-          }
-          tmp.close();
-          fc.close();
-          LittleFS.remove(path);
-          LittleFS.rename("/stats/trim.tmp", path);
-        } else {
-          fc.close();
-        }
-      } else {
-        fc.close();
-      }
-    }
-  }
-}
-
-// Flush current hour accumulators to hourly files (full cumulative values)
-void flushCurrentHour() {
-  if (currentHourKey == 0) return;
-  for (int f = 0; f < 2; f++) {
-    if (currentHour[f].flow_count == 0 && currentHour[f].burst_count == 0) continue;
-    StatsBucket bucket;
-    bucket.epoch_key = currentHourKey;
-    bucket.flow_sum = currentHour[f].flow_sum;
-    bucket.flow_count = currentHour[f].flow_count;
-    bucket.burst_sum_ms = currentHour[f].burst_sum_ms;
-    bucket.burst_count = currentHour[f].burst_count;
-    upsertHourlyBucket(statsHourlyPath(f), bucket, MAX_HOURLY_ENTRIES);
-  }
-}
-
-// Rollup: sum a day's hourly entries into one daily entry
-void rollupDaily(uint32_t dayKey) {
-  for (int flav = 0; flav < 2; flav++) {
-    StatsBucket daily = {};
-    daily.epoch_key = dayKey;
-    uint32_t dayStartHour = dayKey * 24;   // epoch_key for hourly = epoch/3600
-    uint32_t dayEndHour = dayStartHour + 24;
-
-    File f = LittleFS.open(statsHourlyPath(flav), "r");
-    if (f) {
-      StatsBucket entry;
-      while (f.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-        if (entry.epoch_key >= dayStartHour && entry.epoch_key < dayEndHour) {
-          daily.flow_sum += entry.flow_sum;
-          daily.flow_count += entry.flow_count;
-          daily.burst_sum_ms += entry.burst_sum_ms;
-          daily.burst_count += entry.burst_count;
-        }
-      }
-      f.close();
-    }
-
-    if (daily.flow_count > 0 || daily.burst_count > 0) {
-      appendDailyBucket(statsDailyPath(flav), daily, MAX_DAILY_ENTRIES);
-    }
-  }
-}
-
-// Convert pre-sync ring buffer entries to real epoch-based hourly buckets.
-// Called once when SET_TIME first arrives.
-void convertPresyncToReal(uint32_t nowHourKey) {
-  for (int f = 0; f < 2; f++) {
-    File pf = LittleFS.open(presyncHourlyPath(f), "r");
-    if (!pf) continue;
-    int entryCount = pf.size() / sizeof(StatsBucket);
-    if (entryCount <= 0) { pf.close(); continue; }
-
-    // Read all presync entries
-    StatsBucket *entries = (StatsBucket *)malloc(entryCount * sizeof(StatsBucket));
-    if (!entries) { pf.close(); continue; }
-    pf.read((uint8_t*)entries, entryCount * sizeof(StatsBucket));
-    pf.close();
-
-    // Convert seqHour keys to real epoch hour keys, aggregate duplicates
-    // (reboots can split one real hour across two seqHour values)
-    StatsBucket *real = (StatsBucket *)malloc(entryCount * sizeof(StatsBucket));
-    if (!real) { free(entries); continue; }
-    int realCount = 0;
-
-    for (int i = 0; i < entryCount; i++) {
-      if (entries[i].flow_count == 0 && entries[i].burst_count == 0) continue;
-      uint32_t hoursAgo = presyncHdr.seqHour - entries[i].epoch_key;
-      if (hoursAgo > PRESYNC_RING_SIZE) continue;  // stale, skip
-      uint32_t realKey = nowHourKey - hoursAgo;
-
-      // Find existing entry with same realKey to aggregate
-      bool found = false;
-      for (int j = 0; j < realCount; j++) {
-        if (real[j].epoch_key == realKey) {
-          real[j].flow_sum += entries[i].flow_sum;
-          real[j].flow_count += entries[i].flow_count;
-          real[j].burst_sum_ms += entries[i].burst_sum_ms;
-          real[j].burst_count += entries[i].burst_count;
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        real[realCount] = entries[i];
-        real[realCount].epoch_key = realKey;
-        realCount++;
-      }
-    }
-    free(entries);
-
-    // Upsert aggregated entries into real hourly files
-    for (int i = 0; i < realCount; i++) {
-      upsertHourlyBucket(statsHourlyPath(f), real[i], MAX_HOURLY_ENTRIES);
-    }
-    free(real);
-
-    Serial.printf("Converted %d presync entries for flavor %d\n", realCount, f);
-  }
-
-  // Rollup completed past days
-  uint32_t nowDayKey = (nowHourKey * 3600UL) / 86400;
-  uint32_t oldestHoursAgo = presyncHdr.seqHour < PRESYNC_RING_SIZE
-                            ? presyncHdr.seqHour : PRESYNC_RING_SIZE;
-  uint32_t oldestDayKey = ((nowHourKey - oldestHoursAgo) * 3600UL) / 86400;
-  for (uint32_t d = oldestDayKey; d < nowDayKey; d++) {
-    rollupDaily(d);
-  }
-
-  // Clean up presync files
-  LittleFS.remove(presyncHourlyPath(0));
-  LittleFS.remove(presyncHourlyPath(1));
-  LittleFS.remove(PRESYNC_HDR_PATH);
-}
-
-// Sum stats from a file for entries with epoch_key in [startKey, endKey)
-struct StatsSummary {
-  uint32_t flow_sum, flow_count, burst_sum_ms, burst_count;
-};
-
-StatsSummary sumStatsRange(const char *path, uint32_t startKey, uint32_t endKey, uint32_t excludeKey = 0) {
-  StatsSummary s = {};
-  File f = LittleFS.open(path, "r");
-  if (f) {
-    StatsBucket entry;
-    while (f.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-      if (entry.epoch_key >= startKey && entry.epoch_key < endKey && entry.epoch_key != excludeKey) {
-        s.flow_sum += entry.flow_sum;
-        s.flow_count += entry.flow_count;
-        s.burst_sum_ms += entry.burst_sum_ms;
-        s.burst_count += entry.burst_count;
-      }
-    }
-    f.close();
-  }
-  return s;
-}
 
 void clearStatsFiles() {
-  LittleFS.remove("/stats/f0_hourly.bin");
-  LittleFS.remove("/stats/f1_hourly.bin");
-  LittleFS.remove("/stats/f0_daily.bin");
-  LittleFS.remove("/stats/f1_daily.bin");
   LittleFS.remove(STATS_CURRENT_PATH);
-  LittleFS.remove(presyncHourlyPath(0));
-  LittleFS.remove(presyncHourlyPath(1));
-  LittleFS.remove(PRESYNC_HDR_PATH);
+  LittleFS.remove(statsHourlyPath(0));
+  LittleFS.remove(statsHourlyPath(1));
+  LittleFS.remove(STATS_HDR_PATH);
   memset(currentHour, 0, sizeof(currentHour));
-  currentHourKey = 0;
-  presyncHdr = {0, 0};
+  statsHdr = {0, 0};
   hourStartMillis = millis();
 }
 
@@ -1434,203 +1205,57 @@ void processConfigCommand(const char *cmd, Stream &out) {
       }
     }
 
-  } else if (strncmp(cmd, "SET_TIME:", 9) == 0) {
-    uint32_t epoch = strtoul(cmd + 9, nullptr, 10);
-    if (epoch > 1000000000) {  // sanity: after ~2001
-      timeAnchorEpoch = epoch;
-      timeAnchorMillis = millis();
-      if (!timeSynced) {
-        // Flush latest data to presync ring, then convert all presync
-        // entries to real epoch-based hourly buckets (once per boot)
-        if (!presyncConverted) {
-          flushPresyncHour();
-          convertPresyncToReal(epoch / 3600);
-          presyncConverted = true;
-        }
-        memset(currentHour, 0, sizeof(currentHour));
-        timeSynced = true;
-        currentHourKey = epoch / 3600;
-      }
-      out.printf("OK:TIME_SYNCED\n");
-      Serial.printf("Time synced: epoch=%lu\n", (unsigned long)epoch);
-    } else {
-      out.printf("ERR:invalid epoch\n");
-    }
-
-  } else if (strcmp(cmd, "GET_STATS") == 0) {
-    if (!timeSynced) {
-      // Return zeroed stats before time sync instead of error
-      for (int f = 0; f < 2; f++) {
-        out.printf("STATS:F=%d,TD_FS=0,TD_FC=0,TD_BS=0,TD_BC=0,"
-                   "7D_FS=0,7D_FC=0,7D_BS=0,7D_BC=0,"
-                   "30D_FS=0,30D_FC=0,30D_BS=0,30D_BC=0\n", f);
-      }
-    } else {
-      uint32_t now = currentEpoch();
-      uint32_t todayDayKey = now / 86400;
-      uint32_t todayHourStart = todayDayKey * 24;  // first hourly key of today
-
-      for (int f = 0; f < 2; f++) {
-        // Today: sum hourly entries for today (excluding current hour's stale
-        // file entry) + current hour's live RAM accumulator
-        StatsSummary td = sumStatsRange(statsHourlyPath(f), todayHourStart, todayHourStart + 24, currentHourKey);
-        td.flow_sum += currentHour[f].flow_sum;
-        td.flow_count += currentHour[f].flow_count;
-        td.burst_sum_ms += currentHour[f].burst_sum_ms;
-        td.burst_count += currentHour[f].burst_count;
-
-        // 7-day: sum daily entries for last 6 days + today
-        StatsSummary w = sumStatsRange(statsDailyPath(f), todayDayKey - 6, todayDayKey);
-        w.flow_sum += td.flow_sum;
-        w.flow_count += td.flow_count;
-        w.burst_sum_ms += td.burst_sum_ms;
-        w.burst_count += td.burst_count;
-
-        // 30-day: sum daily entries for last 29 days + today
-        StatsSummary m = sumStatsRange(statsDailyPath(f), todayDayKey - 29, todayDayKey);
-        m.flow_sum += td.flow_sum;
-        m.flow_count += td.flow_count;
-        m.burst_sum_ms += td.burst_sum_ms;
-        m.burst_count += td.burst_count;
-
-        out.printf("STATS:F=%d,TD_FS=%lu,TD_FC=%lu,TD_BS=%lu,TD_BC=%lu,"
-                   "7D_FS=%lu,7D_FC=%lu,7D_BS=%lu,7D_BC=%lu,"
-                   "30D_FS=%lu,30D_FC=%lu,30D_BS=%lu,30D_BC=%lu\n",
-                   f,
-                   (unsigned long)td.flow_sum, (unsigned long)td.flow_count,
-                   (unsigned long)td.burst_sum_ms, (unsigned long)td.burst_count,
-                   (unsigned long)w.flow_sum, (unsigned long)w.flow_count,
-                   (unsigned long)w.burst_sum_ms, (unsigned long)w.burst_count,
-                   (unsigned long)m.flow_sum, (unsigned long)m.flow_count,
-                   (unsigned long)m.burst_sum_ms, (unsigned long)m.burst_count);
-      }
-    }
-
   } else if (strcmp(cmd, "GET_CHART_DATA") == 0) {
-    if (!timeSynced) {
-      // Return zeroed chart data before time sync instead of error
-      for (int f = 0; f < 2; f++) {
-        char line[256];
-        int pos = snprintf(line, sizeof(line), "CHART_24H:F=%d", f);
-        for (int i = 0; i < 24; i++) pos += snprintf(line + pos, sizeof(line) - pos, ",0");
-        out.printf("%s\n", line);
-        pos = snprintf(line, sizeof(line), "CHART_30D:F=%d", f);
-        for (int i = 0; i < 30; i++) pos += snprintf(line + pos, sizeof(line) - pos, ",0");
-        out.printf("%s\n", line);
-        out.printf("CHART_HOD:F=%d,D=0", f);
-        for (int i = 0; i < 24; i++) out.printf(",0");
-        out.printf("\n");
-        out.printf("CHART_CUR:F=%d,FS=0\n", f);
+    // Send raw seqHour-keyed data — iOS does the time mapping and chart computation
+    for (int f = 0; f < 2; f++) {
+      char line[200];
+      int pos = snprintf(line, sizeof(line), "CHART_HOURLY:F=%d,SEQ=%lu",
+                         f, (unsigned long)statsHdr.seqHour);
+
+      // Read all entries from hourly ring buffer
+      File hf = LittleFS.open(statsHourlyPath(f), "r");
+      if (hf) {
+        StatsBucket entry;
+        while (hf.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+          // Skip current seqHour (stale file entry; live RAM is authoritative)
+          if (entry.seq_hour == statsHdr.seqHour) continue;
+          if (entry.flow_sum == 0) continue;
+
+          char pair[24];
+          int pairLen = snprintf(pair, sizeof(pair), ",%lu:%lu",
+                                 (unsigned long)entry.seq_hour, (unsigned long)entry.flow_sum);
+
+          // If this pair would exceed line limit, emit current line and start new one
+          if (pos + pairLen >= (int)sizeof(line) - 1) {
+            out.printf("%s\n", line);
+            pos = snprintf(line, sizeof(line), "CHART_HOURLY:F=%d,SEQ=%lu",
+                           f, (unsigned long)statsHdr.seqHour);
+          }
+          memcpy(line + pos, pair, pairLen + 1);
+          pos += pairLen;
+        }
+        hf.close();
       }
-    } else {
-      uint32_t now = currentEpoch();
-      uint32_t nowHourKey = now / 3600;
-      uint32_t todayDayKey = now / 86400;
 
-      for (int f = 0; f < 2; f++) {
-        // ── 24H: flow_sum per hour, oldest→newest ──
-        uint32_t arr24[24] = {};
-        uint32_t startHourKey = nowHourKey - 23;
-        File hf = LittleFS.open(statsHourlyPath(f), "r");
-        if (hf) {
-          StatsBucket entry;
-          while (hf.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-            if (entry.epoch_key >= startHourKey && entry.epoch_key <= nowHourKey
-                && entry.epoch_key != currentHourKey) {
-              int idx = entry.epoch_key - startHourKey;
-              if (idx >= 0 && idx < 24) arr24[idx] += entry.flow_sum;
-            }
-          }
-          hf.close();
+      // Include current hour's live RAM accumulator
+      if (currentHour[f].flow_sum > 0) {
+        char pair[24];
+        int pairLen = snprintf(pair, sizeof(pair), ",%lu:%lu",
+                               (unsigned long)statsHdr.seqHour,
+                               (unsigned long)currentHour[f].flow_sum);
+        if (pos + pairLen >= (int)sizeof(line) - 1) {
+          out.printf("%s\n", line);
+          pos = snprintf(line, sizeof(line), "CHART_HOURLY:F=%d,SEQ=%lu",
+                         f, (unsigned long)statsHdr.seqHour);
         }
-        arr24[23] += currentHour[f].flow_sum;  // live RAM accumulator for current hour
-
-        // Emit CHART_24H line
-        char line[256];
-        int pos = snprintf(line, sizeof(line), "CHART_24H:F=%d", f);
-        for (int i = 0; i < 24; i++) {
-          pos += snprintf(line + pos, sizeof(line) - pos, ",%lu", (unsigned long)arr24[i]);
-        }
-        out.printf("%s\n", line);
-
-        // ── 30D: flow_sum per day, oldest→newest ──
-        uint32_t arr30[30] = {};
-        uint32_t startDayKey = todayDayKey - 29;
-
-        // Sum daily file entries for last 29 days
-        File df = LittleFS.open(statsDailyPath(f), "r");
-        if (df) {
-          StatsBucket entry;
-          while (df.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-            if (entry.epoch_key >= startDayKey && entry.epoch_key < todayDayKey) {
-              int idx = entry.epoch_key - startDayKey;
-              if (idx >= 0 && idx < 30) arr30[idx] += entry.flow_sum;
-            }
-          }
-          df.close();
-        }
-
-        // Today's slot: sum hourly entries for today (skip current hour) + live RAM
-        uint32_t todayHourStart = todayDayKey * 24;
-        File hf2 = LittleFS.open(statsHourlyPath(f), "r");
-        if (hf2) {
-          StatsBucket entry;
-          while (hf2.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-            if (entry.epoch_key >= todayHourStart && entry.epoch_key < todayHourStart + 24
-                && entry.epoch_key != currentHourKey) {
-              arr30[29] += entry.flow_sum;
-            }
-          }
-          hf2.close();
-        }
-        arr30[29] += currentHour[f].flow_sum;
-
-        // Emit CHART_30D line
-        pos = snprintf(line, sizeof(line), "CHART_30D:F=%d", f);
-        for (int i = 0; i < 30; i++) {
-          pos += snprintf(line + pos, sizeof(line) - pos, ",%lu", (unsigned long)arr30[i]);
-        }
-        out.printf("%s\n", line);
-
-        // ── HOD: sum of flow_sum per hour-of-day, D=days with data ──
-        uint32_t arrHOD[24] = {};
-        uint32_t hodStartHourKey = (todayDayKey - 29) * 24;  // 30 days of hourly data
-        uint32_t daysSeen = 0;  // bitmask of distinct days (0-29)
-        File hf3 = LittleFS.open(statsHourlyPath(f), "r");
-        if (hf3) {
-          StatsBucket entry;
-          while (hf3.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
-            if (entry.epoch_key >= hodStartHourKey && entry.epoch_key <= nowHourKey
-                && entry.epoch_key != currentHourKey) {
-              int hourOfDay = entry.epoch_key % 24;
-              arrHOD[hourOfDay] += entry.flow_sum;
-              uint32_t dayIdx = (entry.epoch_key / 24) - (todayDayKey - 29);
-              if (dayIdx < 30) daysSeen |= (1u << dayIdx);
-            }
-          }
-          hf3.close();
-        }
-        // Add live RAM accumulator for current hour
-        int curHOD = nowHourKey % 24;
-        arrHOD[curHOD] += currentHour[f].flow_sum;
-        daysSeen |= (1u << 29);  // today always counts
-
-        // Count set bits in daysSeen
-        int daysWithData = 0;
-        for (uint32_t bits = daysSeen; bits; bits >>= 1) {
-          daysWithData += bits & 1;
-        }
-
-        // Emit CHART_HOD line
-        pos = snprintf(line, sizeof(line), "CHART_HOD:F=%d,D=%d", f, daysWithData);
-        for (int i = 0; i < 24; i++) {
-          pos += snprintf(line + pos, sizeof(line) - pos, ",%lu", (unsigned long)arrHOD[i]);
-        }
-        out.printf("%s\n", line);
-
-        // Emit baseline currentHour flow_sum (for live delta computation)
-        out.printf("CHART_CUR:F=%d,FS=%lu\n", f, (unsigned long)currentHour[f].flow_sum);
+        memcpy(line + pos, pair, pairLen + 1);
+        pos += pairLen;
       }
+
+      out.printf("%s\n", line);
+
+      // Baseline for live delta computation (unchanged format)
+      out.printf("CHART_CUR:F=%d,FS=%lu\n", f, (unsigned long)currentHour[f].flow_sum);
     }
 
   } else if (strcmp(cmd, "STATS_SUBSCRIBE") == 0) {
@@ -2431,13 +2056,25 @@ void setup() {
   }
 
   LittleFS.mkdir("/stats");
+
+  // Migrate old presync file names to new stats names (one-time)
+  if (LittleFS.exists("/stats/f0_presync.bin")) {
+    LittleFS.rename("/stats/f0_presync.bin", "/stats/f0_hourly.bin");
+  }
+  if (LittleFS.exists("/stats/f1_presync.bin")) {
+    LittleFS.rename("/stats/f1_presync.bin", "/stats/f1_hourly.bin");
+  }
+  if (LittleFS.exists("/stats/presync_hdr.bin")) {
+    LittleFS.rename("/stats/presync_hdr.bin", "/stats/stats_hdr.bin");
+  }
+
   loadCurrentAccum();
-  loadPresyncHeader();
+  loadStatsHeader();
 
   // Restore hour timing — continue the same seqHour across reboots.
   // currentHour[] already has the loaded accumulators from current.bin;
-  // the main loop's 60s flush will persist them to the presync ring.
-  hourStartMillis = millis() - presyncHdr.hourElapsedMs;
+  // the main loop's 60s flush will persist them to the hourly ring.
+  hourStartMillis = millis() - statsHdr.hourElapsedMs;
 
   // Always determine factory image count from compiled-in defaults
   {
@@ -2704,55 +2341,24 @@ void loop() {
     lastConfigSend = now;
   }
 
-  // ── 5b. Stats rollup and periodic flush ─────────────────────
-  if (!timeSynced) {
-    // Hour rollover: unsigned subtraction handles millis() wrap correctly
-    if (millis() - hourStartMillis >= 3600000UL) {
-      flushPresyncHour();
-      presyncHdr.seqHour++;
-      presyncHdr.hourElapsedMs = 0;
-      hourStartMillis += 3600000UL;
-      memset(currentHour, 0, sizeof(currentHour));
-      savePresyncHeader();
-    }
-
-    // Periodic flush every 60s
-    if (now - lastStatsFlush >= 60000) {
-      presyncHdr.hourElapsedMs = millis() - hourStartMillis;
-      flushPresyncHour();
-      saveCurrentAccum();
-      savePresyncHeader();
-      lastStatsFlush = now;
-    }
+  // ── 5b. Stats hourly rollover and periodic flush ─────────────────────
+  // Hour rollover: unsigned subtraction handles millis() wrap correctly
+  if (millis() - hourStartMillis >= 3600000UL) {
+    flushCurrentHour();
+    statsHdr.seqHour++;
+    statsHdr.hourElapsedMs = 0;
+    hourStartMillis += 3600000UL;
+    memset(currentHour, 0, sizeof(currentHour));
+    saveStatsHeader();
   }
 
-  if (timeSynced) {
-    uint32_t nowEpoch = currentEpoch();
-    uint32_t hourKey = nowEpoch / 3600;
-
-    // Hour rollover: flush current hour, check for day rollover
-    if (currentHourKey != 0 && hourKey != currentHourKey) {
-      flushCurrentHour();
-
-      // Day rollover: if we crossed a day boundary, rollup yesterday
-      uint32_t oldDay = (currentHourKey * 3600) / 86400;
-      uint32_t newDay = nowEpoch / 86400;
-      if (newDay != oldDay) {
-        rollupDaily(oldDay);
-      }
-
-      memset(currentHour, 0, sizeof(currentHour));
-      currentHourKey = hourKey;
-    } else if (currentHourKey == 0) {
-      currentHourKey = hourKey;
-    }
-
-    // Periodic flush every 60s
-    if (now - lastStatsFlush >= 60000) {
-      flushCurrentHour();
-      saveCurrentAccum();
-      lastStatsFlush = now;
-    }
+  // Periodic flush every 60s
+  if (now - lastStatsFlush >= 60000) {
+    statsHdr.hourElapsedMs = millis() - hourStartMillis;
+    flushCurrentHour();
+    saveCurrentAccum();
+    saveStatsHeader();
+    lastStatsFlush = now;
   }
 
   // ── 6. UART commands ─────────────────────────────────────────

@@ -76,7 +76,9 @@ class BLEManager {
     var chartDataHODDays: Int = 1
     var chartDataSynced: Bool = false
 
-    @ObservationIgnored fileprivate var chartLinesReceived: Int = 0
+    @ObservationIgnored fileprivate var rawHourlyData: [[(seqHour: UInt32, flowSum: UInt32)]] = [[], []]
+    @ObservationIgnored fileprivate var currentSeqHour: UInt32 = 0
+    @ObservationIgnored fileprivate var chartCurReceived: Int = 0
 
     // Live chart baselines (for computing delta from CHART_LIVE pushes)
     @ObservationIgnored fileprivate var chartBaseFlowSum: [UInt32] = [0, 0]
@@ -138,7 +140,6 @@ class BLEManager {
     @ObservationIgnored fileprivate var isDownloading = false
     @ObservationIgnored fileprivate var binStartReceived = false
     @ObservationIgnored fileprivate var pendingStatsRequest = false
-    @ObservationIgnored fileprivate var timeSyncReceived = false
     @ObservationIgnored fileprivate var nusReady = false
 
     // BLE frame buffer — accumulates partial frames from notifications
@@ -206,12 +207,8 @@ class BLEManager {
     }
 
     func requestStats() {
-        if demoMode {
-            populateDemoStats()
-            return
-        }
-        statsSynced = false
-        send("GET_STATS")
+        // Stats are now computed from chart data (no separate GET_STATS command)
+        requestStatsAndCharts()
     }
 
     func requestChartData() {
@@ -220,7 +217,8 @@ class BLEManager {
             return
         }
         chartDataSynced = false
-        chartLinesReceived = 0
+        rawHourlyData = [[], []]
+        chartCurReceived = 0
         send("GET_CHART_DATA")
     }
 
@@ -232,7 +230,8 @@ class BLEManager {
         }
         statsSynced = false
         chartDataSynced = false
-        chartLinesReceived = 0
+        rawHourlyData = [[], []]
+        chartCurReceived = 0
         // Defer until image downloads finish — responses would be
         // swallowed by the binary image accumulator otherwise.
         if isDownloading {
@@ -254,7 +253,6 @@ class BLEManager {
 
     fileprivate func sendStatsCommands() {
         pendingStatsRequest = false
-        send("GET_STATS")
         send("GET_CHART_DATA")
     }
 
@@ -793,21 +791,8 @@ class BLEManager {
             espVersion = String(text.dropFirst(14))
         } else if text.hasPrefix("VERSION:RP2040=") {
             rpVersion = String(text.dropFirst(15))
-        } else if text.hasPrefix("STATS:") {
-            parseStats(text)
         } else if text.hasPrefix("CHART_") {
             parseChartLine(text)
-        } else if text == "OK:TIME_SYNCED" {
-            log.info("Time synced with ESP32")
-            if !timeSyncReceived {
-                timeSyncReceived = true
-                // Stats requested before time sync completed get zeroed responses.
-                // Re-request now that the ESP32 has real data.
-                if statsSynced || chartDataSynced || pendingStatsRequest {
-                    log.info("Re-requesting stats after time sync")
-                    sendStatsCommands()
-                }
-            }
         } else if text == "OK:FACTORY_RESET" {
             log.info("Factory reset confirmed, re-syncing")
             cachedImages = [:]
@@ -856,43 +841,6 @@ class BLEManager {
         log.info("Config synced: F1=\(self.flavor1Image)/\(self.flavor1Ratio) F2=\(self.flavor2Image)/\(self.flavor2Ratio) numImages=\(self.numImages)")
     }
 
-    private func parseStats(_ text: String) {
-        // STATS:F=0,TD_FS=1234,TD_FC=567,...
-        let body = String(text.dropFirst(6)) // drop "STATS:"
-        var values: [String: UInt32] = [:]
-        for pair in body.split(separator: ",") {
-            let parts = pair.split(separator: "=", maxSplits: 1)
-            if parts.count == 2, let val = UInt32(parts[1]) {
-                values[String(parts[0])] = val
-            }
-        }
-
-        let flavor = values["F"] ?? 0
-        let stats = FlavorStats(
-            todayFlowSum: values["TD_FS"] ?? 0,
-            todayFlowCount: values["TD_FC"] ?? 0,
-            todayBurstSum: values["TD_BS"] ?? 0,
-            todayBurstCount: values["TD_BC"] ?? 0,
-            weekFlowSum: values["7D_FS"] ?? 0,
-            weekFlowCount: values["7D_FC"] ?? 0,
-            weekBurstSum: values["7D_BS"] ?? 0,
-            weekBurstCount: values["7D_BC"] ?? 0,
-            monthFlowSum: values["30D_FS"] ?? 0,
-            monthFlowCount: values["30D_FC"] ?? 0,
-            monthBurstSum: values["30D_BS"] ?? 0,
-            monthBurstCount: values["30D_BC"] ?? 0
-        )
-
-        withAnimation {
-            if flavor == 0 {
-                flavor1Stats = stats
-            } else {
-                flavor2Stats = stats
-                statsSynced = true  // both flavors received
-            }
-        }
-    }
-
     private func parseChartLine(_ text: String) {
         guard let firstColon = text.firstIndex(of: ":") else { return }
         let prefix = String(text[text.startIndex..<firstColon])
@@ -909,7 +857,6 @@ class BLEManager {
             if kv.count == 2 {
                 kvValues[String(kv[0])] = String(kv[1])
                 if kv[0] == "F" { flavor = Int(kv[1]) ?? 0 }
-                else if kv[0] == "D" { chartDataHODDays = max(Int(kv[1]) ?? 1, 1) }
                 dataStart = i + 1
             } else {
                 break
@@ -917,9 +864,32 @@ class BLEManager {
         }
         guard flavor >= 0, flavor <= 1 else { return }
 
-        // CHART_CUR: store baseline flow_sum and snapshot chart slot values
+        // CHART_HOURLY: sparse seqHour:flowSum pairs from ESP32
+        if prefix == "CHART_HOURLY" {
+            if let seqStr = kvValues["SEQ"], let seq = UInt32(seqStr) {
+                currentSeqHour = seq
+                // First CHART_HOURLY for this flavor clears accumulated data
+                if rawHourlyData[flavor].isEmpty || chartCurReceived > 0 {
+                    // Reset if we're starting a new request cycle
+                }
+            }
+            // Parse seqHour:flowSum pairs after the key=value prefix
+            for part in parts[dataStart...] {
+                let pair = part.split(separator: ":", maxSplits: 1)
+                if pair.count == 2, let seq = UInt32(pair[0]), let fs = UInt32(pair[1]) {
+                    rawHourlyData[flavor].append((seqHour: seq, flowSum: fs))
+                }
+            }
+            return
+        }
+
+        // CHART_CUR: compute charts from raw data, then store baseline
         if prefix == "CHART_CUR" {
             if let fsStr = kvValues["FS"], let fs = UInt32(fsStr) {
+                // Compute charts from raw hourly data for this flavor
+                computeChartsFromRaw(flavor: flavor)
+
+                // Store baseline for live delta computation
                 chartBaseFlowSum[flavor] = fs
                 chartBase24H_last[flavor] = chartData24H[flavor][23]
                 chartBase30D_last[flavor] = chartData30D[flavor][29]
@@ -928,15 +898,16 @@ class BLEManager {
                 chartBaseHOD_slot[flavor] = chartDataHOD[flavor][curHour]
                 lastLiveFS[flavor] = fs
             }
-            chartLinesReceived += 1
-            if chartLinesReceived >= 8 {
+            chartCurReceived += 1
+            if chartCurReceived >= 2 {
                 chartDataSynced = true
+                statsSynced = true
+                chartCurReceived = 0
             }
             return
         }
 
         // CHART_LIVE: push update — apply delta to live slots
-        // Reassign full arrays to ensure @Observable triggers SwiftUI re-render
         if prefix == "CHART_LIVE" {
             if let fsStr = kvValues["FS"], let newFS = UInt32(fsStr) {
                 let delta = Double(newFS - chartBaseFlowSum[flavor]) * 0.05
@@ -971,24 +942,62 @@ class BLEManager {
             }
             return
         }
+    }
 
-        // CHART_24H / CHART_30D / CHART_HOD: full array data
-        let values = parts[dataStart...].map { Double(UInt32($0) ?? 0) * 0.05 }
+    private func computeChartsFromRaw(flavor: Int) {
+        let now = Date()
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
 
-        withAnimation {
-            if prefix == "CHART_24H" && values.count == 24 {
-                chartData24H[flavor] = values
-            } else if prefix == "CHART_30D" && values.count == 30 {
-                chartData30D[flavor] = values
-            } else if prefix == "CHART_HOD" && values.count == 24 {
-                chartDataHOD[flavor] = values
+        var arr24H = [Double](repeating: 0, count: 24)
+        var arr30D = [Double](repeating: 0, count: 30)
+        var arrHOD = [Double](repeating: 0, count: 24)
+        var daysWithData = Set<Int>()
+        var monthFlowSum: UInt32 = 0
+
+        for entry in rawHourlyData[flavor] {
+            let hoursAgo = Int(currentSeqHour) - Int(entry.seqHour)
+            guard hoursAgo >= 0 else { continue }
+            let bucketDate = now.addingTimeInterval(-Double(hoursAgo) * 3600)
+            let flowValue = Double(entry.flowSum) * 0.05
+
+            // CHART_24H: last 24 hours
+            if hoursAgo < 24 {
+                arr24H[23 - hoursAgo] += flowValue
+            }
+
+            // CHART_30D: last 30 days by calendar day
+            let bucketDay = calendar.startOfDay(for: bucketDate)
+            let daysAgo = calendar.dateComponents([.day], from: bucketDay, to: startOfToday).day ?? 999
+            if daysAgo >= 0, daysAgo < 30 {
+                arr30D[29 - daysAgo] += flowValue
+                daysWithData.insert(daysAgo)
+                monthFlowSum += entry.flowSum
+            }
+
+            // CHART_HOD: hour-of-day distribution
+            if daysAgo >= 0, daysAgo < 30 {
+                let hourOfDay = calendar.component(.hour, from: bucketDate)
+                arrHOD[hourOfDay] += flowValue
             }
         }
 
-        chartLinesReceived += 1
-        if chartLinesReceived >= 8 {
-            chartDataSynced = true
+        chartDataHODDays = max(daysWithData.count, 1)
+
+        withAnimation {
+            chartData24H[flavor] = arr24H
+            chartData30D[flavor] = arr30D
+            chartDataHOD[flavor] = arrHOD
+            let stats = FlavorStats(monthFlowSum: monthFlowSum)
+            if flavor == 0 {
+                flavor1Stats = stats
+            } else {
+                flavor2Stats = stats
+            }
         }
+
+        // Clear raw data for this flavor
+        rawHourlyData[flavor] = []
     }
 
     private func parseImageLine(_ text: String) {
@@ -1097,7 +1106,6 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         ble.rxCharacteristic = nil
         ble.nusReady = false
         ble.frameBuffer = Data()
-        ble.timeSyncReceived = false
         DispatchQueue.main.async {
             self.ble.connectionState = .searching
             self.ble.configSynced = false
@@ -1149,8 +1157,6 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
             DispatchQueue.main.async { self.ble.connectionState = .connected }
             peripheral.maximumWriteValueLength(for: .withResponse)
             log.info("NUS ready")
-            let epoch = Int(Date().timeIntervalSince1970)
-            ble.send("SET_TIME:\(epoch)")
             ble.bleQueue.asyncAfter(deadline: .now() + 0.05) { [weak ble] in
                 ble?.send("GET_CONFIG")
             }
