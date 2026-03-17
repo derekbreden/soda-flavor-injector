@@ -31,7 +31,7 @@
 //  20  = tuned for SodaStream concentrates
 //  24  = minimum strength (hard limit floor)
 // Image: index into the RP2040's LittleFS image store
-uint8_t numImages   = 0;  // updated at boot via QUERY_COUNT to RP2040
+uint8_t numRpImages = 0;  // updated at boot via QUERY_COUNT to RP2040
 uint8_t numS3Images = 0;  // updated at boot via QUERY_COUNT to S3
 
 // ── Image store (ESP32 LittleFS — authoritative source) ──
@@ -57,7 +57,7 @@ extern const char factory_manifest_start[] asm("_binary_images_factory_manifest_
 #define RESP_CHUNK_OK     0x11
 #define RESP_UPLOAD_OK    0x12
 
-uint8_t espNumImages = 0;
+uint8_t numEspImages = 0;
 uint8_t factoryImageCount = 0;  // slots 0..factoryImageCount-1 are protected
 char espLabels[MAX_STORE_IMAGES][MAX_LABEL_LEN + 1];
 
@@ -316,7 +316,7 @@ void applyFactoryDefaults() {
   }
 
   // Update store count to match factory defaults and persist
-  espNumImages = count;
+  numEspImages = count;
   factoryImageCount = count;
   saveEspMeta();
   saveEspLabels();
@@ -428,8 +428,8 @@ bool queryImageCount() {
       if (stRP.currentPacketID() == PKT_RESP_COUNT) {
         ResponsePayload resp;
         stRP.rxObj(resp);
-        numImages = resp.value;
-        Serial.printf("RP2040 reports %d images\n", numImages);
+        numRpImages = resp.value;
+        Serial.printf("RP2040 reports %d images\n", numRpImages);
         return true;
       }
     }
@@ -504,7 +504,7 @@ String espS3PngPath(uint8_t slot) {
 void readEspMeta() {
   File f = LittleFS.open(ESP_META_PATH, "r");
   if (f) {
-    espNumImages = f.parseInt();
+    numEspImages = f.parseInt();
     f.close();
   }
 }
@@ -512,7 +512,7 @@ void readEspMeta() {
 void saveEspMeta() {
   File f = LittleFS.open(ESP_META_PATH, "w");
   if (f) {
-    f.println(espNumImages);
+    f.println(numEspImages);
     f.close();
   }
 }
@@ -534,7 +534,7 @@ void loadEspLabels() {
 void saveEspLabels() {
   File f = LittleFS.open(ESP_LABELS_PATH, "w");
   if (!f) return;
-  for (uint8_t i = 0; i < espNumImages; i++) {
+  for (uint8_t i = 0; i < numEspImages; i++) {
     f.println(espLabels[i]);
   }
   f.close();
@@ -657,15 +657,15 @@ void enterStoreMode(bool isS3, uint8_t slot, bool isPng = false) {
       bool crcOk = (runCrc == expectedCrc);
 
       // Update slot count (only for image files, not PNGs)
-      if (!isPng && slot >= espNumImages) {
-        espNumImages = slot + 1;
+      if (!isPng && slot >= numEspImages) {
+        numEspImages = slot + 1;
         saveEspMeta();
       }
 
       // Send RESP_UPLOAD_OK
       uint8_t resp[6];
       resp[0] = 0x02; resp[1] = 0x02;
-      resp[2] = RESP_UPLOAD_OK; resp[3] = espNumImages;
+      resp[2] = RESP_UPLOAD_OK; resp[3] = numEspImages;
       uint16_t c = crc16(resp, 4);
       resp[4] = c & 0xFF; resp[5] = (c >> 8) & 0xFF;
       Serial.write(resp, 6);
@@ -872,7 +872,7 @@ bool pushPngToS3(uint8_t slot) {
 }
 
 void pushLabelsToDevice(DeviceTarget dev) {
-  for (uint8_t i = 0; i < espNumImages; i++) {
+  for (uint8_t i = 0; i < numEspImages; i++) {
     char lbuf[48];
     snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
     if (dev == DEVICE_RP2040) {
@@ -916,24 +916,24 @@ bool deleteLastDeviceImage(DeviceTarget dev, uint8_t slot) {
 
 bool pushAllToDevice(DeviceTarget dev) {
   const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
-  Serial.printf("Pushing %d images to %s...\n", espNumImages, devName);
+  Serial.printf("Pushing %d images to %s...\n", numEspImages, devName);
 
-  for (uint8_t i = 0; i < espNumImages; i++) {
-    Serial.printf("  Slot %d/%d...\n", i + 1, espNumImages);
+  for (uint8_t i = 0; i < numEspImages; i++) {
+    Serial.printf("  Slot %d/%d...\n", i + 1, numEspImages);
     if (!pushImageToDevice(dev, i)) return false;
   }
 
-  // Delete extra slots beyond espNumImages.  After pushing, the device's
+  // Delete extra slots beyond numEspImages.  After pushing, the device's
   // countImages() still sees old files in higher slots.  Repeatedly delete
-  // slot espNumImages: the device shifts higher files down each time, so
+  // slot numEspImages: the device shifts higher files down each time, so
   // this converges.  Stops when the device rejects (count already matches).
-  while (deleteLastDeviceImage(dev, espNumImages)) {
-    // keep trimming until device's count == espNumImages
+  while (deleteLastDeviceImage(dev, numEspImages)) {
+    // keep trimming until device's count == numEspImages
   }
 
   // Push compressed PNGs to S3 (for iOS BLE image serving)
   if (dev == DEVICE_S3) {
-    for (uint8_t i = 0; i < espNumImages; i++) {
+    for (uint8_t i = 0; i < numEspImages; i++) {
       pushPngToS3(i);
     }
   }
@@ -949,23 +949,23 @@ bool pushAllToDevice(DeviceTarget dev) {
 
 void syncDevice(DeviceTarget dev) {
   const char *devName = (dev == DEVICE_RP2040) ? "RP2040" : "S3";
-  uint8_t &devCount = (dev == DEVICE_RP2040) ? numImages : numS3Images;
+  uint8_t &devCount = (dev == DEVICE_RP2040) ? numRpImages : numS3Images;
 
-  if (espNumImages == 0) {
+  if (numEspImages == 0) {
     Serial.printf("syncDevice(%s): store empty — nothing to push\n", devName);
     return;
   }
 
-  if (devCount == espNumImages) {
+  if (devCount == numEspImages) {
     Serial.printf("syncDevice(%s): already in sync (%d images)\n", devName, devCount);
     if (dev == DEVICE_S3) {
       // Ensure PNGs exist even when counts match
-      for (uint8_t i = 0; i < espNumImages; i++) pushPngToS3(i);
+      for (uint8_t i = 0; i < numEspImages; i++) pushPngToS3(i);
     }
   } else {
-    Serial.printf("syncDevice(%s): mismatch %d vs %d — pushing all\n", devName, devCount, espNumImages);
+    Serial.printf("syncDevice(%s): mismatch %d vs %d — pushing all\n", devName, devCount, numEspImages);
     if (pushAllToDevice(dev)) {
-      devCount = espNumImages;
+      devCount = numEspImages;
     } else {
       Serial.printf("syncDevice(%s): push failed — will retry on next ready signal\n", devName);
       return;  // Don't push labels/config if images failed
@@ -979,8 +979,8 @@ void syncDevice(DeviceTarget dev) {
   } else {
     char cfgBuf[128];
     snprintf(cfgBuf, sizeof(cfgBuf),
-             "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
-             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, espNumImages, numS3Images);
+             "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
+             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
     stSendText(stS3, cfgBuf);
   }
   Serial.printf("syncDevice(%s): complete\n", devName);
@@ -998,12 +998,12 @@ void bootSync() {
   readEspMeta();
   loadEspLabels();
 
-  if (espNumImages == 0) {
+  if (numEspImages == 0) {
     Serial.println("Store empty — skipping boot sync");
     return;
   }
 
-  Serial.printf("Boot sync: store has %d images\n", espNumImages);
+  Serial.printf("Boot sync: store has %d images\n", numEspImages);
   syncDevice(DEVICE_RP2040);
   syncDevice(DEVICE_S3);
 }
@@ -1160,8 +1160,8 @@ void clearStatsFiles() {
 // ════════════════════════════════════════════════════════════
 
 void sendConfigResponse(Stream &out) {
-  out.printf("CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d\n",
-             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages, numS3Images);
+  out.printf("CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d\n",
+             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
 }
 
 void abortS3Upload();  // forward decl
@@ -1282,12 +1282,12 @@ void processConfigCommand(const char *cmd, Stream &out) {
       } else if (strcmp(key, "F2_RATIO") == 0 && val >= 6 && val <= 24) {
         flavor2Ratio = val; flavors[1].ratio = val; ok = true;
       } else if (strcmp(key, "F1_IMAGE") == 0) {
-        if (val >= 0 && val < espNumImages) {
+        if (val >= 0 && val < numEspImages) {
           flavor1Image = val; ok = true;
           sendMapToRP();
         }
       } else if (strcmp(key, "F2_IMAGE") == 0) {
-        if (val >= 0 && val < espNumImages) {
+        if (val >= 0 && val < numEspImages) {
           flavor2Image = val; ok = true;
           sendMapToRP();
         }
@@ -1310,14 +1310,14 @@ void processConfigCommand(const char *cmd, Stream &out) {
     {
       char cfgBuf[128];
       snprintf(cfgBuf, sizeof(cfgBuf),
-               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
-               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages, numS3Images);
+               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
       stSendText(stS3, cfgBuf);
     }
 
   } else if (strcmp(cmd, "QUERY_IMAGES") == 0) {
     queryImageCount();
-    out.printf("OK:NUM_IMAGES=%d\n", numImages);
+    out.printf("OK:NUM_IMAGES=%d\n", numRpImages);
 
   } else if (strcmp(cmd, "LIST_IMAGES") == 0) {
     // Send LIST to RP2040 via SerialTransfer, read PKT_TEXT responses
@@ -1345,7 +1345,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     int slot;
     char name[33] = {0};
     if (sscanf(cmd + 10, "%d=%32[^\n]", &slot, name) >= 1) {
-      if (slot >= 0 && slot < numImages) {
+      if (slot >= 0 && slot < numRpImages) {
         { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); stSendText(stRP, lbuf); }
         out.printf("OK:LABEL=%d:%s\n", slot, name);
       } else {
@@ -1355,11 +1355,11 @@ void processConfigCommand(const char *cmd, Stream &out) {
 
   } else if (strncmp(cmd, "DELETE_IMG:", 11) == 0) {
     int slot = atoi(cmd + 11);
-    if (slot < 0 || slot >= numImages) {
-      out.printf("ERR:invalid slot (0-%d)\n", numImages - 1);
+    if (slot < 0 || slot >= numRpImages) {
+      out.printf("ERR:invalid slot (0-%d)\n", numRpImages - 1);
       return;
     }
-    if (numImages <= 1) {
+    if (numRpImages <= 1) {
       out.printf("ERR:cannot delete last image\n");
       return;
     }
@@ -1370,16 +1370,16 @@ void processConfigCommand(const char *cmd, Stream &out) {
 
     ResponsePayload rp;
     if (waitStResponse(stRP, PKT_RESP_DELETE_OK, 3000, &rp)) {
-      numImages = rp.value;
+      numRpImages = rp.value;
       // Adjust ESP32-side image references
       if (flavor1Image == slot) flavor1Image = 0;
       else if (flavor1Image > slot) flavor1Image--;
       if (flavor2Image == slot) flavor2Image = 0;
       else if (flavor2Image > slot) flavor2Image--;
-      if (flavor1Image >= numImages) flavor1Image = 0;
-      if (flavor2Image >= numImages) flavor2Image = 0;
+      if (flavor1Image >= numRpImages) flavor1Image = 0;
+      if (flavor2Image >= numRpImages) flavor2Image = 0;
       sendMapToRP();
-      out.printf("OK:DELETED=%d,NUM_IMAGES=%d\n", slot, numImages);
+      out.printf("OK:DELETED=%d,NUM_IMAGES=%d\n", slot, numRpImages);
     } else {
       out.printf("ERR:delete failed\n");
     }
@@ -1390,8 +1390,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
       out.printf("ERR:usage SWAP_IMG:A,B\n");
       return;
     }
-    if (a < 0 || a >= numImages || b < 0 || b >= numImages) {
-      out.printf("ERR:invalid slots (0-%d)\n", numImages - 1);
+    if (a < 0 || a >= numRpImages || b < 0 || b >= numRpImages) {
+      out.printf("ERR:invalid slots (0-%d)\n", numRpImages - 1);
       return;
     }
 
@@ -1549,7 +1549,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     int slot;
     char name[MAX_LABEL_LEN + 1] = {0};
     if (sscanf(cmd + 12, "%d=%32[^\n]", &slot, name) >= 1) {
-      if (slot >= 0 && slot < espNumImages) {
+      if (slot >= 0 && slot < numEspImages) {
         strncpy(espLabels[slot], name, MAX_LABEL_LEN);
         espLabels[slot][MAX_LABEL_LEN] = '\0';
         saveEspLabels();
@@ -1564,15 +1564,15 @@ void processConfigCommand(const char *cmd, Stream &out) {
 
   } else if (strncmp(cmd, "DELETE_STORE_IMG:", 17) == 0) {
     int slot = atoi(cmd + 17);
-    if (slot < 0 || slot >= espNumImages) {
-      out.printf("ERR:invalid slot (0-%d)\n", espNumImages - 1);
+    if (slot < 0 || slot >= numEspImages) {
+      out.printf("ERR:invalid slot (0-%d)\n", numEspImages - 1);
       return;
     }
     if (slot < factoryImageCount) {
       out.printf("ERR:cannot delete factory image (slot %d)\n", slot);
       return;
     }
-    if (espNumImages <= factoryImageCount) {
+    if (numEspImages <= factoryImageCount) {
       out.printf("ERR:only factory images remain\n");
       return;
     }
@@ -1583,7 +1583,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     LittleFS.remove(espS3PngPath(slot));
 
     // Shift remaining slots down
-    for (int i = slot + 1; i < espNumImages; i++) {
+    for (int i = slot + 1; i < numEspImages; i++) {
       LittleFS.rename(espRpPath(i), espRpPath(i - 1));
       LittleFS.rename(espS3Path(i), espS3Path(i - 1));
       String pngFrom = espS3PngPath(i);
@@ -1592,8 +1592,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
       }
       strncpy(espLabels[i - 1], espLabels[i], MAX_LABEL_LEN);
     }
-    espNumImages--;
-    espLabels[espNumImages][0] = '\0';
+    numEspImages--;
+    espLabels[numEspImages][0] = '\0';
     saveEspMeta();
     saveEspLabels();
 
@@ -1604,7 +1604,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
       stRP.sendData(sizeof(sp), PKT_DELETE_IMAGE);
       ResponsePayload rp;
       if (waitStResponse(stRP, PKT_RESP_DELETE_OK, 3000, &rp))
-        numImages = rp.value;
+        numRpImages = rp.value;
     }
     // Forward delete to S3 (SerialTransfer)
     {
@@ -1621,8 +1621,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
     else if (flavor1Image > slot) flavor1Image--;
     if (flavor2Image == slot) flavor2Image = 0;
     else if (flavor2Image > slot) flavor2Image--;
-    if (flavor1Image >= espNumImages) flavor1Image = 0;
-    if (flavor2Image >= espNumImages) flavor2Image = 0;
+    if (flavor1Image >= numEspImages) flavor1Image = 0;
+    if (flavor2Image >= numEspImages) flavor2Image = 0;
     saveUserConfig();
     sendMapToRP();
 
@@ -1630,15 +1630,15 @@ void processConfigCommand(const char *cmd, Stream &out) {
     {
       char cfgBuf[128];
       snprintf(cfgBuf, sizeof(cfgBuf),
-               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
-               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, espNumImages, numS3Images);
+               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
       stSendText(stS3, cfgBuf);
     }
-    out.printf("OK:STORE_DELETED=%d,NUM_IMAGES=%d\n", slot, espNumImages);
+    out.printf("OK:STORE_DELETED=%d,NUM_IMAGES=%d\n", slot, numEspImages);
 
   } else if (strcmp(cmd, "LIST_STORE") == 0) {
-    out.printf("STORE_COUNT:%d\n", espNumImages);
-    for (uint8_t i = 0; i < espNumImages; i++) {
+    out.printf("STORE_COUNT:%d\n", numEspImages);
+    for (uint8_t i = 0; i < numEspImages; i++) {
       const char *lbl = espLabels[i][0] ? espLabels[i] : "";
       bool rpOk = LittleFS.exists(espRpPath(i));
       bool s3Ok = LittleFS.exists(espS3Path(i));
@@ -1650,35 +1650,35 @@ void processConfigCommand(const char *cmd, Stream &out) {
     out.println("END");
 
   } else if (strcmp(cmd, "PUSH_TO_DEVICES") == 0) {
-    if (espNumImages == 0) {
+    if (numEspImages == 0) {
       out.printf("ERR:store empty\n");
       return;
     }
-    out.printf("OK:PUSHING %d images\n", espNumImages);
+    out.printf("OK:PUSHING %d images\n", numEspImages);
     out.flush();
     bool rpOk = pushAllToDevice(DEVICE_RP2040);
     bool s3Ok = pushAllToDevice(DEVICE_S3);
-    if (rpOk) numImages = espNumImages;
-    if (s3Ok) numS3Images = espNumImages;
+    if (rpOk) numRpImages = numEspImages;
+    if (s3Ok) numS3Images = numEspImages;
     sendMapToRP();
     out.printf("OK:PUSH_DONE rp=%s s3=%s\n",
                rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
 
   } else if (strcmp(cmd, "SYNC_DEVICES") == 0) {
-    if (espNumImages == 0) {
+    if (numEspImages == 0) {
       out.printf("ERR:store empty\n");
       return;
     }
     out.printf("OK:SYNCING\n");
     out.flush();
     bool rpPushed = false, s3Pushed = false;
-    if (numImages != espNumImages) {
+    if (numRpImages != numEspImages) {
       rpPushed = pushAllToDevice(DEVICE_RP2040);
-      if (rpPushed) numImages = espNumImages;
+      if (rpPushed) numRpImages = numEspImages;
     }
-    if (numS3Images != espNumImages) {
+    if (numS3Images != numEspImages) {
       s3Pushed = pushAllToDevice(DEVICE_S3);
-      if (s3Pushed) numS3Images = espNumImages;
+      if (s3Pushed) numS3Images = numEspImages;
     }
     sendMapToRP();
     out.printf("OK:SYNC_DONE rp=%s s3=%s\n",
@@ -1686,7 +1686,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
                s3Pushed ? "pushed" : "in_sync");
 
   } else if (strcmp(cmd, "FACTORY_RESET") == 0) {
-    uint8_t oldCount = espNumImages;
+    uint8_t oldCount = numEspImages;
 
     // Reset config + metadata to compiled-in factory defaults (instant)
     applyFactoryDefaults();
@@ -1704,8 +1704,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
     }
 
     // Trim excess images from devices (user images that no longer exist)
-    if (oldCount > espNumImages) {
-      for (uint8_t i = oldCount; i > espNumImages; i--) {
+    if (oldCount > numEspImages) {
+      for (uint8_t i = oldCount; i > numEspImages; i--) {
         deleteLastDeviceImage(DEVICE_RP2040, i - 1);
         deleteLastDeviceImage(DEVICE_S3, i - 1);
       }
@@ -1718,12 +1718,12 @@ void processConfigCommand(const char *cmd, Stream &out) {
     {
       char cfgBuf[128];
       snprintf(cfgBuf, sizeof(cfgBuf),
-               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
-               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, espNumImages, espNumImages);
+               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
       stSendText(stS3, cfgBuf);
     }
-    numImages = espNumImages;
-    numS3Images = espNumImages;
+    numRpImages = numEspImages;
+    numS3Images = numEspImages;
 
     clearStatsFiles();
     out.printf("OK:FACTORY_RESET\n");
@@ -1736,15 +1736,15 @@ void processConfigCommand(const char *cmd, Stream &out) {
       out.printf("ERR:usage PUSH_IMG:slot:target\n");
       return;
     }
-    if (slot < 0 || slot >= espNumImages) {
-      out.printf("ERR:invalid slot (0-%d)\n", espNumImages - 1);
+    if (slot < 0 || slot >= numEspImages) {
+      out.printf("ERR:invalid slot (0-%d)\n", numEspImages - 1);
       return;
     }
 
     bool rpOk = true, s3Ok = true;
     if (strcmp(target, "rp2040") == 0 || strcmp(target, "both") == 0) {
       rpOk = pushImageToDevice(DEVICE_RP2040, slot);
-      if (rpOk) { numImages = max(numImages, (uint8_t)(slot + 1)); pushLabelsToDevice(DEVICE_RP2040); sendMapToRP(); }
+      if (rpOk) { numRpImages = max(numRpImages, (uint8_t)(slot + 1)); pushLabelsToDevice(DEVICE_RP2040); sendMapToRP(); }
     }
     if (strcmp(target, "s3") == 0 || strcmp(target, "both") == 0) {
       s3Ok = pushImageToDevice(DEVICE_S3, slot);
@@ -1769,14 +1769,14 @@ void processConfigCommand(const char *cmd, Stream &out) {
     // Update metadata
     strncpy(espLabels[slot], label, MAX_LABEL_LEN);
     espLabels[slot][MAX_LABEL_LEN] = '\0';
-    if ((uint8_t)slot >= espNumImages) espNumImages = slot + 1;
+    if ((uint8_t)slot >= numEspImages) numEspImages = slot + 1;
     saveEspMeta();
     saveEspLabels();
 
     // Push RP2040 RGB565 to RP2040
     bool rpOk = pushImageToDevice(DEVICE_RP2040, slot);
     if (rpOk) {
-      numImages = max(numImages, (uint8_t)(slot + 1));
+      numRpImages = max(numRpImages, (uint8_t)(slot + 1));
     }
     numS3Images = max(numS3Images, (uint8_t)(slot + 1));
 
@@ -1785,13 +1785,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
     pushLabelsToDevice(DEVICE_S3);
     sendMapToRP();
 
-    // Push CONFIG: use espNumImages (authoritative store count) not numImages
-    // (RP2040 display count) — RP2040 push may have failed/timed out, and
-    // sending a lower count causes S3 to delete just-uploaded files as "orphans"
+    // Push CONFIG with authoritative store count — RP2040 push may have
+    // failed/timed out, and sending a lower count causes S3 to delete
+    // just-uploaded files as "orphans"
     char cfgBuf[128];
     snprintf(cfgBuf, sizeof(cfgBuf),
-             "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
-             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, espNumImages, numS3Images);
+             "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
+             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
     stSendText(stS3, cfgBuf);
 
     out.printf("OK:UPLOAD_DONE:%d\n", slot);
@@ -1954,7 +1954,7 @@ void handleS3UploadDone() {
 
   Serial.printf("S3 upload OK: %s slot %d (%lu bytes)\n",
                 destPath.c_str(), s3Upload.slot, s3Upload.receivedBytes);
-  stSendResponse(stS3, PKT_RESP_UPLOAD_OK, espNumImages);
+  stSendResponse(stS3, PKT_RESP_UPLOAD_OK, numEspImages);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1970,7 +1970,7 @@ void checkDisplayUART() {
       ResponsePayload resp;
       stRP.rxObj(resp);
       Serial.printf("RP2040 DEVICE_READY: reports %d images\n", resp.value);
-      numImages = resp.value;
+      numRpImages = resp.value;
       syncDevice(DEVICE_RP2040);
       break;
     }
@@ -2095,7 +2095,7 @@ void setup() {
     Serial.printf("  RP2040 query retry %d/3...\n", attempt + 1);
     delay(500);
   }
-  if (numImages == 0 && espNumImages > 0) {
+  if (numRpImages == 0 && numEspImages > 0) {
     Serial.println("RP2040 not ready yet — will sync on PKT_DEVICE_READY");
   }
   sendMapToRP();
@@ -2115,13 +2115,13 @@ void setup() {
     Serial.printf("  S3 query retry %d/3...\n", attempt + 1);
     delay(500);
   }
-  if (numS3Images == 0 && espNumImages > 0) {
+  if (numS3Images == 0 && numEspImages > 0) {
     Serial.println("S3 not ready yet — will sync on PKT_DEVICE_READY");
   }
 
   // Boot sync: force push on first boot, count-based sync otherwise
-  if (firstBoot && espNumImages > 0) {
-    Serial.printf("First boot — force pushing %d images to both devices\n", espNumImages);
+  if (firstBoot && numEspImages > 0) {
+    Serial.printf("First boot — force pushing %d images to both devices\n", numEspImages);
     syncDevice(DEVICE_RP2040);
     syncDevice(DEVICE_S3);
   } else {
@@ -2130,7 +2130,7 @@ void setup() {
 
   Serial.println("Dual-Flavor Soda Maker ready!");
   Serial.printf("Active flavor: %d\n", activeFlavor + 1);
-  Serial.printf("RP2040: %d/%d images, S3: %d/%d images\n", numImages, espNumImages, numS3Images, espNumImages);
+  Serial.printf("RP2040: %d/%d images, S3: %d/%d images\n", numRpImages, numEspImages, numS3Images, numEspImages);
   Serial.printf("Sent image mapping to display: %d,%d\n", flavor1Image, flavor2Image);
 }
 
@@ -2341,17 +2341,17 @@ void loop() {
   static unsigned long lastResyncCheck = 0;
   if (now - lastResyncCheck >= 30000) {
     lastResyncCheck = now;
-    if (espNumImages > 0) {
-      if (numImages != espNumImages) {
-        Serial.printf("Re-sync check: RP2040 mismatch %d vs %d — re-querying\n", numImages, espNumImages);
+    if (numEspImages > 0) {
+      if (numRpImages != numEspImages) {
+        Serial.printf("Re-sync check: RP2040 mismatch %d vs %d — re-querying\n", numRpImages, numEspImages);
         if (queryImageCount()) {
-          if (numImages != espNumImages) syncDevice(DEVICE_RP2040);
+          if (numRpImages != numEspImages) syncDevice(DEVICE_RP2040);
         }
       }
-      if (numS3Images != espNumImages) {
-        Serial.printf("Re-sync check: S3 mismatch %d vs %d — re-querying\n", numS3Images, espNumImages);
+      if (numS3Images != numEspImages) {
+        Serial.printf("Re-sync check: S3 mismatch %d vs %d — re-querying\n", numS3Images, numEspImages);
         if (queryS3ImageCount()) {
-          if (numS3Images != espNumImages) syncDevice(DEVICE_S3);
+          if (numS3Images != numEspImages) syncDevice(DEVICE_S3);
         }
       }
     }

@@ -485,8 +485,8 @@ static void processBleRequest() {
       // Respond from cached config — avoids losing the request if ESP32 is busy
       char cfg[128];
       snprintf(cfg, sizeof(cfg),
-               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d,numS3Images=%d",
-               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages, numImages);
+               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages);
       bleSendText(cfg);
       // Also forward to ESP32 so it knows to push a fresh CONFIG update
       stSendText(stLink, "GET_CONFIG");
