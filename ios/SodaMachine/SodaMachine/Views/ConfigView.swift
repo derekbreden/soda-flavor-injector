@@ -179,6 +179,7 @@ private struct CleanPrimeSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var showCleanConfirm = false
     @State private var selectedCleanFlavor = 1
+    @State private var selectedPrimeFlavor: Int? = nil
     @State private var tickTimer: Timer?
 
     var body: some View {
@@ -206,6 +207,39 @@ private struct CleanPrimeSheet: View {
                         ble.abortCleanCycle()
                     }
                     .buttonStyle(SettingsItemButtonStyle())
+                } else if let flavor = selectedPrimeFlavor {
+                    // ── Hold-to-prime screen for selected flavor ──
+                    Text("Prime Flavor \(flavor)")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+
+                    Spacer().frame(height: 12)
+
+                    Text(ble.primeActive ? "Priming..." : "Hold to Prime")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(ble.primeActive ? primeBlue : Theme.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { _ in
+                                    guard !ble.primeActive else { return }
+                                    ble.startPrime(flavor: flavor)
+                                    startTickTimer()
+                                }
+                                .onEnded { _ in
+                                    guard ble.primeActive else { return }
+                                    ble.stopPrime()
+                                    stopTickTimer()
+                                }
+                        )
+
+                    Button("Back") {
+                        selectedPrimeFlavor = nil
+                    }
+                    .buttonStyle(SettingsItemButtonStyle())
+                    .disabled(ble.primeActive)
                 } else {
                     // ── Prime section ──
                     Text("Prime")
@@ -213,15 +247,11 @@ private struct CleanPrimeSheet: View {
                         .foregroundStyle(Theme.textSecondary)
                         .padding(.top, 4)
 
-                    if ble.primeActive {
-                        Text("Priming Flavor \(ble.primeFlavor)...")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(primeBlue)
-                    }
-
                     VStack(spacing: 0) {
-                        primeButton("Flavor 1", flavor: 1)
-                        primeButton("Flavor 2", flavor: 2)
+                        Button("Flavor 1") { selectedPrimeFlavor = 1 }
+                            .buttonStyle(SettingsItemButtonStyle())
+                        Button("Flavor 2") { selectedPrimeFlavor = 2 }
+                            .buttonStyle(SettingsItemButtonStyle())
                     }
 
                     Spacer().frame(height: 16)
@@ -261,31 +291,6 @@ private struct CleanPrimeSheet: View {
             }
         }
         .interactiveDismissDisabled(ble.cleanCycleActive || ble.primeActive)
-    }
-
-    private func primeButton(_ title: String, flavor: Int) -> some View {
-        Text(title)
-            .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(
-                ble.primeActive && ble.primeFlavor == flavor
-                    ? primeBlue : Theme.textPrimary
-            )
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard !ble.primeActive && !ble.cleanCycleActive else { return }
-                        ble.startPrime(flavor: flavor)
-                        startTickTimer()
-                    }
-                    .onEnded { _ in
-                        guard ble.primeActive else { return }
-                        ble.stopPrime()
-                        stopTickTimer()
-                    }
-            )
     }
 
     private func cleanButton(_ title: String, action: @escaping () -> Void) -> some View {
