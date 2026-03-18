@@ -66,6 +66,11 @@ class BLEManager {
     // Delete error (shown as alert in UI, nil = no error)
     var deleteError: String? = nil
 
+    // Clean cycle state
+    var cleanCycleActive = false
+    var cleanCyclePhase: String? = nil   // "Filling... (1/3)", "Flushing... (2/3)", nil
+    var cleanCycleCompleted = false
+
     // Demo mode (no hardware needed)
     var demoMode = false
 
@@ -241,6 +246,46 @@ class BLEManager {
             return
         }
         send("FACTORY_RESET")
+    }
+
+    func startCleanCycle(flavor: Int) {
+        if demoMode {
+            cleanCycleActive = true
+            cleanCyclePhase = "Filling... (1/3)"
+            // Simulate fill+flush cycles
+            let phases = [
+                (0.5, "Flushing... (1/3)"),
+                (1.0, "Filling... (2/3)"),
+                (1.5, "Flushing... (2/3)"),
+                (2.0, "Filling... (3/3)"),
+                (2.5, "Flushing... (3/3)")
+            ]
+            for (delay, phase) in phases {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self, self.cleanCycleActive else { return }
+                    self.cleanCyclePhase = phase
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+                guard let self, self.cleanCycleActive else { return }
+                self.cleanCycleActive = false
+                self.cleanCyclePhase = nil
+                self.cleanCycleCompleted = true
+            }
+            return
+        }
+        cleanCycleActive = true
+        cleanCyclePhase = "Starting..."
+        send("CLEAN:\(flavor)")
+    }
+
+    func abortCleanCycle() {
+        if demoMode {
+            cleanCycleActive = false
+            cleanCyclePhase = nil
+            return
+        }
+        send("CLEAN_ABORT")
     }
 
     func sendSet(_ key: String, value: Int) {
@@ -748,6 +793,37 @@ class BLEManager {
             rpVersion = String(text.dropFirst(15))
         } else if text.hasPrefix("CHART_") {
             parseChartLine(text)
+        } else if text.hasPrefix("CLEAN:FILLING:") {
+            // CLEAN:FILLING:n:c/t
+            let parts = text.dropFirst(14)
+            if let slashIdx = parts.firstIndex(of: "/"),
+               let colonIdx = parts.firstIndex(of: ":") {
+                let c = parts[parts.index(after: colonIdx)..<slashIdx]
+                let t = parts[parts.index(after: slashIdx)...]
+                cleanCyclePhase = "Filling... (\(c)/\(t))"
+            } else {
+                cleanCyclePhase = "Filling..."
+            }
+        } else if text.hasPrefix("CLEAN:FLUSHING:") {
+            let parts = text.dropFirst(15)
+            if let slashIdx = parts.firstIndex(of: "/"),
+               let colonIdx = parts.firstIndex(of: ":") {
+                let c = parts[parts.index(after: colonIdx)..<slashIdx]
+                let t = parts[parts.index(after: slashIdx)...]
+                cleanCyclePhase = "Flushing... (\(c)/\(t))"
+            } else {
+                cleanCyclePhase = "Flushing..."
+            }
+        } else if text.hasPrefix("OK:CLEAN:") {
+            cleanCycleActive = false
+            cleanCyclePhase = nil
+            cleanCycleCompleted = true
+        } else if text == "OK:CLEAN_ABORT" {
+            cleanCycleActive = false
+            cleanCyclePhase = nil
+        } else if text.hasPrefix("ERR:CLEAN") {
+            cleanCycleActive = false
+            cleanCyclePhase = nil
         } else if text == "OK:FACTORY_RESET" {
             log.info("Factory reset confirmed, re-syncing")
             cachedImages = [:]

@@ -22,6 +22,10 @@
 #define B_IN2   5    // pump direction
 #define B_ENB   4    // dispensing solenoid valve
 
+// ── L298N Board C (clean solenoids) ──
+#define CLEAN_SOL1_PIN 27   // clean solenoid flavor 1, L298N #3 Channel A ENA
+#define CLEAN_SOL2_PIN 17   // clean solenoid flavor 2, L298N #3 Channel B ENB
+
 // ── Inputs ──
 #define FLAVOR_SW_PIN   13   // latching toggle: flavor select (air switch)
 #define PRIME_BTN_PIN   14   // momentary: manual prime / activate
@@ -238,6 +242,17 @@ unsigned long cycleOffMs         = 0;     // locked for entire cycle
 unsigned long cyclePulseSum      = 0;     // accumulated during cycle
 unsigned long cyclePulseReadings = 0;     // readings taken during cycle
 bool cycleSawZero                = false; // any 0 reading during this cycle?
+
+// ── Clean cycle state ──
+enum CleanState { CLEAN_IDLE, CLEAN_FILLING, CLEAN_FLUSHING };
+CleanState cleanState = CLEAN_IDLE;
+uint8_t    cleanFlavor = 0;        // 0 or 1 (index into flavors[])
+uint8_t    cleanCycle  = 0;        // current cycle (0-based)
+unsigned long cleanPhaseStart = 0;
+
+#define CLEAN_CYCLES     3      // number of fill+flush rounds
+#define CLEAN_FILL_MS   10000   // 10 seconds fill
+#define CLEAN_FLUSH_MS  15000   // 15 seconds flush
 
 // ── Valve ──
 bool valveOpen                   = false;
@@ -1157,6 +1172,63 @@ void clearStatsFiles() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Clean cycle functions
+// ════════════════════════════════════════════════════════════
+
+uint8_t cleanSolPin(uint8_t flavor) {
+  return (flavor == 0) ? CLEAN_SOL1_PIN : CLEAN_SOL2_PIN;
+}
+
+void broadcastCleanStatus(const char *msg) {
+  Serial.println(msg);
+  stSendText(stS3, msg);
+}
+
+void startCleanFill(uint8_t flavor) {
+  Flavor& f = flavors[flavor];
+  valveOff(f.valvePin);                      // dispensing solenoid CLOSED
+  analogWrite(cleanSolPin(flavor), 255);     // clean solenoid OPEN
+  pumpOff(f.pump);                           // pump OFF
+  cleanState = CLEAN_FILLING;
+  cleanPhaseStart = millis();
+  char buf[40];
+  snprintf(buf, sizeof(buf), "CLEAN:FILLING:%d:%d/%d", flavor + 1, cleanCycle + 1, CLEAN_CYCLES);
+  broadcastCleanStatus(buf);
+}
+
+void startCleanFlush(uint8_t flavor) {
+  Flavor& f = flavors[flavor];
+  analogWrite(cleanSolPin(flavor), 0);       // clean solenoid CLOSED
+  valveOn(f.valvePin);                       // dispensing solenoid OPEN
+  pumpOn(f.pump, PUMP_SPEED);               // pump ON full speed
+  cleanState = CLEAN_FLUSHING;
+  cleanPhaseStart = millis();
+  char buf[40];
+  snprintf(buf, sizeof(buf), "CLEAN:FLUSHING:%d:%d/%d", flavor + 1, cleanCycle + 1, CLEAN_CYCLES);
+  broadcastCleanStatus(buf);
+}
+
+void finishClean(uint8_t flavor) {
+  Flavor& f = flavors[flavor];
+  pumpOff(f.pump);
+  valveOff(f.valvePin);
+  analogWrite(cleanSolPin(flavor), 0);
+  cleanState = CLEAN_IDLE;
+  char buf[20];
+  snprintf(buf, sizeof(buf), "OK:CLEAN:%d", flavor + 1);
+  broadcastCleanStatus(buf);
+}
+
+void abortClean() {
+  Flavor& f = flavors[cleanFlavor];
+  pumpOff(f.pump);
+  valveOff(f.valvePin);
+  analogWrite(cleanSolPin(cleanFlavor), 0);
+  cleanState = CLEAN_IDLE;
+  broadcastCleanStatus("OK:CLEAN_ABORT");
+}
+
+// ════════════════════════════════════════════════════════════
 //  Config UART command parser
 // ════════════════════════════════════════════════════════════
 
@@ -1798,6 +1870,25 @@ void processConfigCommand(const char *cmd, Stream &out) {
     out.printf("OK:UPLOAD_DONE:%d\n", slot);
     Serial.printf("FINALIZE_UPLOAD: slot %d label=%s rpPush=%s\n",
                   slot, label, rpOk ? "ok" : "fail");
+
+  } else if (strncmp(cmd, "CLEAN:", 6) == 0) {
+    int flav = atoi(cmd + 6);
+    if (flav < 1 || flav > 2) {
+      out.printf("ERR:CLEAN_INVALID\n");
+    } else if (cleanState != CLEAN_IDLE) {
+      out.printf("ERR:CLEAN_BUSY\n");
+    } else {
+      cleanFlavor = flav - 1;
+      cleanCycle = 0;
+      startCleanFill(cleanFlavor);
+    }
+
+  } else if (strcmp(cmd, "CLEAN_ABORT") == 0) {
+    if (cleanState != CLEAN_IDLE) {
+      abortClean();
+    } else {
+      out.printf("OK:CLEAN_ABORT\n");
+    }
   }
 }
 
@@ -2087,10 +2178,11 @@ void setup() {
   bool firstBoot = checkFirstBoot();
   loadUserConfig();
 
-  // Init all pump/valve pins
+  // Init all pump/valve/clean pins
   const uint8_t gpioPins[] = {
     A_ENA, A_IN1, A_IN2, A_ENB,
-    B_ENA, B_IN1, B_IN2, B_ENB
+    B_ENA, B_IN1, B_IN2, B_ENB,
+    CLEAN_SOL1_PIN, CLEAN_SOL2_PIN
   };
   for (uint8_t pin : gpioPins) {
     pinMode(pin, OUTPUT);
@@ -2228,11 +2320,29 @@ void loop() {
   // Prime button
   primePressed = (digitalRead(PRIME_BTN_PIN) == LOW);
 
+  // ── Clean cycle state machine ──────────────────────────────
+  if (cleanState != CLEAN_IDLE) {
+    if (cleanState == CLEAN_FILLING && (now - cleanPhaseStart >= CLEAN_FILL_MS)) {
+      startCleanFlush(cleanFlavor);
+    } else if (cleanState == CLEAN_FLUSHING && (now - cleanPhaseStart >= CLEAN_FLUSH_MS)) {
+      cleanCycle++;
+      if (cleanCycle < CLEAN_CYCLES) {
+        startCleanFill(cleanFlavor);
+      } else {
+        finishClean(cleanFlavor);
+      }
+    }
+  }
+
   Flavor& active = flavors[activeFlavor];
 
   // ── 2. Pump state machine ─────────────────────────────────
+  // Skip pump/valve control if clean cycle is active on the current flavor
+  bool cleaningActiveFlavor = (cleanState != CLEAN_IDLE && cleanFlavor == activeFlavor);
 
-  if (primePressed) {
+  if (cleaningActiveFlavor) {
+    // Clean cycle controls pump and valve directly — skip normal dispensing
+  } else if (primePressed) {
     // Prime overrides cycling: pump runs continuously
     if (pumpState != PUMP_PRIME) {
       pumpOn(active.pump, PUMP_SPEED);
@@ -2320,18 +2430,20 @@ void loop() {
   }
 
   // ── 3. Valve control ───────────────────────────────────────
+  // Clean cycle controls valve directly — skip normal valve logic
+  if (!cleaningActiveFlavor) {
+    bool shouldValveBeOpen = (pumpState != PUMP_IDLE) || waterFlowing || primePressed;
 
-  bool shouldValveBeOpen = (pumpState != PUMP_IDLE) || waterFlowing || primePressed;
-
-  if (shouldValveBeOpen && !valveOpen) {
-    valveOn(active.valvePin);
-    valveOpen = true;
-    Serial.printf("Dispensing flavor %d\n", activeFlavor + 1);
-  } else if (!shouldValveBeOpen && valveOpen) {
-    pumpOff(active.pump);    // defensive
-    valveOff(active.valvePin);
-    valveOpen = false;
-    Serial.printf("Stopped dispensing flavor %d\n", activeFlavor + 1);
+    if (shouldValveBeOpen && !valveOpen) {
+      valveOn(active.valvePin);
+      valveOpen = true;
+      Serial.printf("Dispensing flavor %d\n", activeFlavor + 1);
+    } else if (!shouldValveBeOpen && valveOpen) {
+      pumpOff(active.pump);    // defensive
+      valveOff(active.valvePin);
+      valveOpen = false;
+      Serial.printf("Stopped dispensing flavor %d\n", activeFlavor + 1);
+    }
   }
 
   // ── 4. Periodic display config resend ─────────────────────

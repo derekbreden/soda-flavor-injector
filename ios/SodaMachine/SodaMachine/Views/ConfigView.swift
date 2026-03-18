@@ -59,6 +59,7 @@ private struct SettingsPageView: View {
     @Binding var showImageManager: Bool
     @Binding var inAbout: Bool
     @Binding var inStats: Bool
+    @Binding var inCleanCycle: Bool
     @State private var showResetAlert = false
     @State private var resetting = false
 
@@ -83,6 +84,9 @@ private struct SettingsPageView: View {
                     settingsButton("Usage Stats") {
                         ble.requestStatsAndCharts()
                         inStats = true
+                    }
+                    settingsButton("Clean Cycle") {
+                        inCleanCycle = true
                     }
                     settingsButton("Factory Reset") {
                         showResetAlert = true
@@ -161,6 +165,99 @@ private struct AboutView: View {
 
             Spacer()
         }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+// Clean Cycle sheet — flavor selection + progress + abort
+// ────────────────────────────────────────────────────────────
+
+private struct CleanCycleSheet: View {
+    @Environment(BLEManager.self) var ble
+    @Environment(\.dismiss) var dismiss
+    @State private var showConfirm = false
+    @State private var selectedFlavor = 1
+
+    var body: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+
+            VStack(spacing: 24) {
+                Text("Clean Cycle")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.top, 32)
+
+                if ble.cleanCycleActive {
+                    // Progress view
+                    Spacer()
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .tint(Theme.textPrimary)
+                        .padding(.bottom, 16)
+                    Text(ble.cleanCyclePhase ?? "Starting...")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(Color(red: 0.27, green: 0.53, blue: 1.0))
+                    Spacer()
+
+                    Button("Abort") {
+                        ble.abortCleanCycle()
+                    }
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.red)
+                    .padding(.bottom, 40)
+                } else {
+                    // Flavor selection
+                    Spacer()
+
+                    VStack(spacing: 16) {
+                        Button {
+                            selectedFlavor = 1
+                            showConfirm = true
+                        } label: {
+                            Text("Clean Flavor 1")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(Theme.textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Theme.placeholder)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+
+                        Button {
+                            selectedFlavor = 2
+                            showConfirm = true
+                        } label: {
+                            Text("Clean Flavor 2")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(Theme.textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Theme.placeholder)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                    .padding(.horizontal, 40)
+
+                    Spacer()
+                }
+            }
+        }
+        .alert("Clean Flavor \(selectedFlavor)?", isPresented: $showConfirm) {
+            Button("Start") {
+                ble.startCleanCycle(flavor: selectedFlavor)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will flush the line with water. Make sure the water supply is connected.")
+        }
+        .onChange(of: ble.cleanCycleCompleted) { _, completed in
+            if completed {
+                ble.cleanCycleCompleted = false
+                dismiss()
+            }
+        }
+        .interactiveDismissDisabled(ble.cleanCycleActive)
     }
 }
 
@@ -583,6 +680,7 @@ struct ConfigView: View {
     @State private var showImageManager = false
     @State private var inAbout = false
     @State private var inStats = false
+    @State private var inCleanCycle = false
 
     private let pageCount = 5
     private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings"]
@@ -614,6 +712,10 @@ struct ConfigView: View {
         }
         .sheet(isPresented: $showImageManager) {
             ImageManagerView()
+                .environment(ble)
+        }
+        .sheet(isPresented: $inCleanCycle) {
+            CleanCycleSheet()
                 .environment(ble)
         }
         .onChange(of: ble.connectionState) { old, state in
@@ -720,7 +822,7 @@ struct ConfigView: View {
         case 3:
             ratioDisplay(ratio: ble.flavor2Ratio)
         case 4:
-            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout, inStats: $inStats)
+            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout, inStats: $inStats, inCleanCycle: $inCleanCycle)
         default:
             EmptyView()
         }

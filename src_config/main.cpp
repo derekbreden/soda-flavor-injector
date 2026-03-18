@@ -807,14 +807,24 @@ enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU
 const char* menuLabels[] = { "Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings" };
 
 // ── Settings sub-menu ──
-enum SettingsItem { SET_BACK, SET_FACTORY_RESET, SET_ABOUT, SETTINGS_COUNT };
-const char* settingsLabels[] = { "Back", "Factory Reset", "About" };
+enum SettingsItem { SET_BACK, SET_FACTORY_RESET, SET_CLEAN_CYCLE, SET_ABOUT, SETTINGS_COUNT };
+const char* settingsLabels[] = { "Back", "Factory Reset", "Clean Cycle", "About" };
 int settingsIndex = 0;
 bool inSettings = false;       // true when inside the settings sub-menu
 bool settingsConfirm = false;  // true when confirming factory reset
 int confirmIndex = 1;          // 0 = Yes, 1 = No (default to No)
 static bool factoryResetPending = false;
 bool inAbout = false;
+
+// ── Clean cycle UI state ──
+bool inCleanCycle = false;      // inside clean cycle sub-page
+int cleanFlavorIndex = 0;       // 0 = Flavor 1, 1 = Flavor 2, 2 = Back
+bool cleanConfirm = false;      // confirming clean start
+int cleanConfirmIndex = 1;      // 0 = Yes, 1 = No
+bool cleanPending = false;      // waiting for ESP32 to finish
+uint8_t cleanPhase = 0;         // 0=idle, 1=filling, 2=flushing
+uint8_t cleanCycleNum = 0;      // current cycle (1-based)
+uint8_t cleanCycleTotal = 0;    // total cycles
 static char espVersion[32] = "";
 static char rpVersion[32] = "";
 
@@ -1378,6 +1388,40 @@ static void processTextLine(const char *line) {
     stSendText(stLink, "GET_CONFIG");
     drawScreen();
     bleSendText(line);
+  } else if (strncmp(line, "CLEAN:FILLING:", 14) == 0) {
+    cleanPhase = 1;
+    // Parse "n:c/t" from remainder
+    int n, c, t;
+    if (sscanf(line + 14, "%d:%d/%d", &n, &c, &t) == 3) {
+      cleanCycleNum = c;
+      cleanCycleTotal = t;
+    }
+    drawScreen();
+    bleSendText(line);
+  } else if (strncmp(line, "CLEAN:FLUSHING:", 15) == 0) {
+    cleanPhase = 2;
+    int n, c, t;
+    if (sscanf(line + 15, "%d:%d/%d", &n, &c, &t) == 3) {
+      cleanCycleNum = c;
+      cleanCycleTotal = t;
+    }
+    drawScreen();
+    bleSendText(line);
+  } else if (strncmp(line, "OK:CLEAN:", 9) == 0) {
+    cleanPending = false;
+    cleanPhase = 0;
+    drawScreen();
+    bleSendText(line);
+  } else if (strcmp(line, "OK:CLEAN_ABORT") == 0) {
+    cleanPending = false;
+    cleanPhase = 0;
+    drawScreen();
+    bleSendText(line);
+  } else if (strncmp(line, "ERR:CLEAN", 9) == 0) {
+    cleanPending = false;
+    cleanPhase = 0;
+    drawScreen();
+    bleSendText(line);
   } else if (strncmp(line, "VERSION:ESP32=", 14) == 0) {
     strncpy(espVersion, line + 14, sizeof(espVersion) - 1);
     espVersion[sizeof(espVersion) - 1] = '\0';
@@ -1721,6 +1765,76 @@ void drawSettings() {
   }
 }
 
+void drawCleanCycle() {
+  lv_obj_t *scr = lv_scr_act();
+  lv_obj_clean(scr);
+  lv_obj_set_style_bg_color(scr, THEME_BG, 0);
+
+  // Title
+  lv_obj_t *title = lv_label_create(scr);
+  lv_label_set_text(title, "Clean Cycle");
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
+  lv_obj_set_style_text_color(title, THEME_TEXT_SECONDARY, 0);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+
+  if (cleanPending) {
+    // Show progress
+    lv_obj_t *label = lv_label_create(scr);
+    char buf[32];
+    if (cleanPhase == 1) {
+      snprintf(buf, sizeof(buf), "Filling... (%d/%d)", cleanCycleNum, cleanCycleTotal);
+    } else if (cleanPhase == 2) {
+      snprintf(buf, sizeof(buf), "Flushing... (%d/%d)", cleanCycleNum, cleanCycleTotal);
+    } else {
+      snprintf(buf, sizeof(buf), "Starting...");
+    }
+    lv_label_set_text(label, buf);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(0x4488FF), 0);
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+
+    lv_obj_t *hint = lv_label_create(scr);
+    lv_label_set_text(hint, "Tap to abort");
+    lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(hint, THEME_TEXT_INACTIVE, 0);
+    lv_obj_align(hint, LV_ALIGN_CENTER, 0, 40);
+  } else if (cleanConfirm) {
+    // Confirm: "Clean Flavor N?"
+    lv_obj_t *prompt = lv_label_create(scr);
+    char buf[24];
+    snprintf(buf, sizeof(buf), "Clean Flavor %d?", cleanFlavorIndex + 1);
+    lv_label_set_text(prompt, buf);
+    lv_obj_set_style_text_font(prompt, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(prompt, THEME_TEXT_PRIMARY, 0);
+    lv_obj_align(prompt, LV_ALIGN_CENTER, 0, -20);
+
+    const char *options[] = { "Yes", "No" };
+    int lineHeight = 28;
+    int startY = 130;
+    for (int i = 0; i < 2; i++) {
+      lv_obj_t *item = lv_label_create(scr);
+      lv_label_set_text(item, options[i]);
+      lv_obj_set_style_text_font(item, &lv_font_montserrat_16, 0);
+      lv_obj_set_style_text_color(item,
+        (i == cleanConfirmIndex) ? THEME_TEXT_PRIMARY : THEME_TEXT_INACTIVE, 0);
+      lv_obj_align(item, LV_ALIGN_TOP_MID, 0, startY + i * lineHeight);
+    }
+  } else {
+    // Flavor selection: "Flavor 1" / "Flavor 2" / "Back"
+    const char *items[] = { "Flavor 1", "Flavor 2", "Back" };
+    int lineHeight = 28;
+    int startY = (240 - 3 * lineHeight) / 2 + 15;
+    for (int i = 0; i < 3; i++) {
+      lv_obj_t *item = lv_label_create(scr);
+      lv_label_set_text(item, items[i]);
+      lv_obj_set_style_text_font(item, &lv_font_montserrat_16, 0);
+      lv_obj_set_style_text_color(item,
+        (i == cleanFlavorIndex) ? THEME_TEXT_PRIMARY : THEME_TEXT_INACTIVE, 0);
+      lv_obj_align(item, LV_ALIGN_TOP_MID, 0, startY + i * lineHeight);
+    }
+  }
+}
+
 void drawScreensaver() {
   lv_obj_t *scr = lv_scr_act();
   lv_obj_clean(scr);
@@ -1737,7 +1851,9 @@ void drawScreen() {
     drawScreensaver();
     return;
   }
-  if (inAbout) {
+  if (inCleanCycle) {
+    drawCleanCycle();
+  } else if (inAbout) {
     drawAbout();
   } else if (inSettings) {
     drawSettings();
@@ -1783,6 +1899,17 @@ void handleNavigation(int dir) {
   if (factoryResetPending) return;  // locked during reset
   if (inAbout) return;  // About is view-only, tap to go back
 
+  if (inCleanCycle) {
+    if (cleanPending) return;  // locked during active clean
+    if (cleanConfirm) {
+      cleanConfirmIndex = (cleanConfirmIndex + dir + 2) % 2;
+    } else {
+      cleanFlavorIndex = (cleanFlavorIndex + dir + 3) % 3;
+    }
+    drawScreen();
+    return;
+  }
+
   if (inSettings) {
     if (settingsConfirm) {
       confirmIndex = (confirmIndex + dir + 2) % 2;
@@ -1814,6 +1941,40 @@ void handleNavigation(int dir) {
 }
 
 void handleTap() {
+  if (inCleanCycle) {
+    if (cleanPending) {
+      // Tap during active clean = abort
+      stSendText(stLink, "CLEAN_ABORT");
+      return;
+    }
+    if (cleanConfirm) {
+      if (cleanConfirmIndex == 0) {
+        // Yes — start clean
+        cleanPending = true;
+        cleanPhase = 0;
+        char buf[10];
+        snprintf(buf, sizeof(buf), "CLEAN:%d", cleanFlavorIndex + 1);
+        stSendText(stLink, buf);
+        Serial.printf("Clean cycle requested: flavor %d\n", cleanFlavorIndex + 1);
+      } else {
+        // No — back to flavor selection
+        cleanConfirm = false;
+      }
+      drawScreen();
+      return;
+    }
+    if (cleanFlavorIndex == 2) {
+      // Back
+      inCleanCycle = false;
+      drawScreen();
+      return;
+    }
+    // Select flavor — show confirmation
+    cleanConfirm = true;
+    cleanConfirmIndex = 1;  // default to No
+    drawScreen();
+    return;
+  }
   if (inAbout) {
     inAbout = false;
     drawScreen();
@@ -1840,6 +2001,14 @@ void handleTap() {
       settingsConfirm = true;
       confirmIndex = 1;  // default to No
       Serial.println("Factory Reset — select Yes or No");
+      drawScreen();
+    } else if (settingsIndex == SET_CLEAN_CYCLE) {
+      inCleanCycle = true;
+      cleanFlavorIndex = 0;
+      cleanConfirm = false;
+      cleanPending = false;
+      cleanPhase = 0;
+      Serial.println("Entering Clean Cycle");
       drawScreen();
     } else if (settingsIndex == SET_ABOUT) {
       inAbout = true;
