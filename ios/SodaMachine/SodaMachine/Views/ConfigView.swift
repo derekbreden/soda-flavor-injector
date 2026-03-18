@@ -182,65 +182,42 @@ private struct CleanCycleSheet: View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            VStack(spacing: 24) {
+            VStack(spacing: 12) {
+                Spacer()
+
                 Text("Clean Cycle")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .padding(.top, 32)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
+
+                Spacer().frame(height: 12)
 
                 if ble.cleanCycleActive {
-                    // Progress view
-                    Spacer()
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .tint(Theme.textPrimary)
-                        .padding(.bottom, 16)
+                    // Progress — matches S3 blue text + abort hint
                     Text(ble.cleanCyclePhase ?? "Starting...")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(Color(red: 0.27, green: 0.53, blue: 1.0))
-                    Spacer()
+
+                    Spacer().frame(height: 24)
 
                     Button("Abort") {
                         ble.abortCleanCycle()
                     }
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color.red)
-                    .padding(.bottom, 40)
+                    .buttonStyle(SettingsItemButtonStyle())
                 } else {
-                    // Flavor selection
-                    Spacer()
-
-                    VStack(spacing: 16) {
-                        Button {
+                    // Flavor selection — same style as settings menu items
+                    VStack(spacing: 0) {
+                        cleanButton("Flavor 1") {
                             selectedFlavor = 1
                             showConfirm = true
-                        } label: {
-                            Text("Clean Flavor 1")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(Theme.textPrimary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Theme.placeholder)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
-
-                        Button {
+                        cleanButton("Flavor 2") {
                             selectedFlavor = 2
                             showConfirm = true
-                        } label: {
-                            Text("Clean Flavor 2")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(Theme.textPrimary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Theme.placeholder)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }
-                    .padding(.horizontal, 40)
-
-                    Spacer()
                 }
+
+                Spacer()
             }
         }
         .alert("Clean Flavor \(selectedFlavor)?", isPresented: $showConfirm) {
@@ -258,6 +235,16 @@ private struct CleanCycleSheet: View {
             }
         }
         .interactiveDismissDisabled(ble.cleanCycleActive)
+    }
+
+    private func cleanButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 16, weight: .medium))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+        }
+        .buttonStyle(SettingsItemButtonStyle())
     }
 }
 
