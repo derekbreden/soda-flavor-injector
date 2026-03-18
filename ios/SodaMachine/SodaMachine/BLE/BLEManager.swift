@@ -183,11 +183,15 @@ class BLEManager {
     }
 
     fileprivate func drainPendingWrites(_ stream: OutputStream) {
+        // Cap each write to 1024 bytes to stay within L2CAP SDU/MTU limits.
+        // Writing more than the peer's MTU in one call can produce an oversized SDU.
+        let maxWriteSize = 1024
         while !pendingWriteData.isEmpty && stream.hasSpaceAvailable {
+            let writeLen = min(pendingWriteData.count, maxWriteSize)
             let written = pendingWriteData.withUnsafeBytes { ptr in
                 stream.write(
                     ptr.bindMemory(to: UInt8.self).baseAddress!,
-                    maxLength: pendingWriteData.count
+                    maxLength: writeLen
                 )
             }
             if written > 0 {
@@ -614,8 +618,9 @@ class BLEManager {
     private func sendUploadChunks() {
         guard currentUploadStep < uploadSteps.count else { return }
         let data = uploadSteps[currentUploadStep].data
-        // L2CAP handles flow control — send 1024B chunks with no delay
-        let chunkSize = 1024
+        // L2CAP handles flow control — chunk size + 5B wire header must fit in one SDU (≤ MTU).
+        // With MTU=1024 on the S3 side, keep wire messages under 1024 to avoid oversized SDUs.
+        let chunkSize = 512
 
         func sendChunk() {
             self.bleQueue.async {

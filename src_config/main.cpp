@@ -91,7 +91,7 @@ SerialTransfer stLink;  // SerialTransfer on Serial0 (ESP32 link)
 
 // ── BLE (L2CAP CoC via NimBLE-Arduino) ──
 #define SODA_L2CAP_PSM  0x0080
-#define L2CAP_MTU       1024
+#define L2CAP_MTU       2048
 #define L2CAP_MAX_CHANS 3
 
 static NimBLEL2CAPChannel *l2capChans[L2CAP_MAX_CHANS] = {};
@@ -102,10 +102,10 @@ static bool bleHasClients() {
 }
 
 // Forward declarations
-static void bleSendTo(NimBLEL2CAPChannel *chan, uint8_t type,
+static bool bleSendTo(NimBLEL2CAPChannel *chan, uint8_t type,
                       const uint8_t *data, uint16_t dataLen);
 static void bleSendText(const char *text);
-static void bleSendBin(NimBLEL2CAPChannel *chan, uint8_t type,
+static bool bleSendBin(NimBLEL2CAPChannel *chan, uint8_t type,
                        const uint8_t *data, uint16_t len);
 static void bleSendTextTo(NimBLEL2CAPChannel *chan, const char *text);
 static bool loadImageFromFS(uint8_t slot);
@@ -125,7 +125,7 @@ static uint8_t bleImageSlot = 0;
 static uint32_t bleImageSize = 0;
 static uint32_t bleImageCrc = 0;
 static File bleFile;
-static uint8_t bleSendChunkBuf[256];
+static uint8_t bleSendChunkBuf[512];
 
 // ── BLE cross-task safety ──
 // BLE RX callback runs on NimBLE task — must not do LittleFS I/O or Serial0
@@ -202,11 +202,17 @@ static void bleImageSendChunks() {
     return;
   }
 
-  // Send multiple chunks per loop iteration — write() blocks until credits available
-  for (int i = 0; i < 4 && bleFile.available(); i++) {
-    size_t n = bleFile.read(bleSendChunkBuf, 512);
-    if (n == 0) break;
-    bleSendBin(chan, BLE_MSG_BIN_DATA, bleSendChunkBuf, n);
+  // Send one chunk per loop iteration — L2CAP CoC memory pool is small (15 blocks
+  // shared with RX buffer), so avoid queuing multiple large writes at once.
+  // write() blocks until credits are available, so throughput is still good.
+  size_t n = bleFile.read(bleSendChunkBuf, 512);
+  if (n > 0) {
+    if (!bleSendBin(chan, BLE_MSG_BIN_DATA, bleSendChunkBuf, n)) {
+      // Write failed — abort the transfer
+      bleFile.close();
+      bleImageSending = false;
+      Serial.printf("BLE image %d send aborted (write failed)\n", bleImageSlot);
+    }
   }
 }
 
@@ -1332,7 +1338,7 @@ void parseConfigResponse(const char* line) {
 
 // ── L2CAP CoC send functions ──
 // Wire format: [length(4B LE)] [type(1B)] [payload...]
-static void bleSendTo(NimBLEL2CAPChannel *chan, uint8_t type,
+static bool bleSendTo(NimBLEL2CAPChannel *chan, uint8_t type,
                       const uint8_t *data, uint16_t dataLen) {
   uint32_t msgLen = 1 + dataLen;
   std::vector<uint8_t> wire;
@@ -1343,7 +1349,7 @@ static void bleSendTo(NimBLEL2CAPChannel *chan, uint8_t type,
   wire.push_back((msgLen >> 24) & 0xFF);
   wire.push_back(type);
   if (dataLen > 0 && data) wire.insert(wire.end(), data, data + dataLen);
-  chan->write(wire);
+  return chan->write(wire);
 }
 
 // Send a TEXT message to all connected L2CAP clients
@@ -1355,9 +1361,9 @@ static void bleSendText(const char *text) {
 }
 
 // Send a binary message to a specific L2CAP client
-static void bleSendBin(NimBLEL2CAPChannel *chan, uint8_t type,
+static bool bleSendBin(NimBLEL2CAPChannel *chan, uint8_t type,
                        const uint8_t *data, uint16_t len) {
-  bleSendTo(chan, type, data, len);
+  return bleSendTo(chan, type, data, len);
 }
 
 // Send a TEXT message to a specific L2CAP client
