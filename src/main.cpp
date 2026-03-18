@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <Wire.h>
+#include <RTClib.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <uart_st.h>
@@ -22,7 +24,7 @@
 
 // ── Inputs ──
 #define FLAVOR_SW_PIN   13   // latching toggle: flavor select (air switch)
-#define PRIME_BTN_PIN   22   // momentary: manual prime / activate
+#define PRIME_BTN_PIN   14   // momentary: manual prime / activate
 #define FLOW_PIN        23   // flow meter pulse input
 
 // ── Per-flavor config (runtime, persisted in LittleFS) ──
@@ -260,14 +262,11 @@ unsigned long lastStatsFlush = 0; // last 60s flush
 
 // Stats persistence
 #define HOURLY_RING_SIZE   720   // 30 days of hourly buckets
-#define STATS_HDR_PATH     "/stats/stats_hdr.bin"
+#define RTC_EPOCH_PATH     "/stats/rtc_epoch.bin"
 
-struct StatsHeader {
-  uint32_t seqHour;         // monotonic hour counter, persists across reboots
-  uint32_t hourElapsedMs;   // ms elapsed in current seqHour (updated on each flush)
-};
-StatsHeader statsHdr = {};
-unsigned long hourStartMillis = 0;  // millis() when current seqHour "started"
+RTC_DS3231 rtc;
+uint32_t rtcEpoch = 0;   // RTC timestamp when seqHour was 0 (persisted)
+uint32_t seqHour = 0;    // derived: (rtcNow - rtcEpoch) / 3600
 
 static const char *statsHourlyPath(uint8_t flavor) {
   return flavor == 0 ? "/stats/f0_hourly.bin" : "/stats/f1_hourly.bin";
@@ -1012,58 +1011,60 @@ void bootSync() {
 //  Usage statistics — persistence and rollup
 // ════════════════════════════════════════════════════════════
 
-#define STATS_CURRENT_PATH "/stats/current.bin"
+// ── RTC epoch persistence ──
 
-// Save current accumulators to flash (called every 60s)
-void saveCurrentAccum() {
-  struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
-  memcpy(data.accum, currentHour, sizeof(currentHour));
-  data.savedMillis = millis();
-  const char *tmp = STATS_CURRENT_PATH ".tmp";
+void saveRtcEpoch() {
+  const char *tmp = RTC_EPOCH_PATH ".tmp";
   File f = LittleFS.open(tmp, "w");
   if (f) {
-    f.write((uint8_t*)&data, sizeof(data));
+    f.write((uint8_t*)&rtcEpoch, sizeof(rtcEpoch));
     f.close();
-    LittleFS.remove(STATS_CURRENT_PATH);
-    LittleFS.rename(tmp, STATS_CURRENT_PATH);
+    LittleFS.remove(RTC_EPOCH_PATH);
+    LittleFS.rename(tmp, RTC_EPOCH_PATH);
   }
 }
 
-// Load current accumulators from flash (called on boot)
-void loadCurrentAccum() {
-  struct { StatsAccum accum[2]; unsigned long savedMillis; } data;
-  File f = LittleFS.open(STATS_CURRENT_PATH, "r");
-  if (!f) return;
-  if (f.size() == sizeof(data)) {
-    f.read((uint8_t*)&data, sizeof(data));
-    memcpy(currentHour, data.accum, sizeof(currentHour));
-    Serial.printf("Loaded stats accumulators from flash\n");
+bool loadRtcEpoch() {
+  File f = LittleFS.open(RTC_EPOCH_PATH, "r");
+  if (f && f.size() == sizeof(rtcEpoch)) {
+    f.read((uint8_t*)&rtcEpoch, sizeof(rtcEpoch));
+    f.close();
+    return true;
   }
-  f.close();
+  if (f) f.close();
+  return false;
 }
 
-// ── Stats persistence helpers ──
-
-void saveStatsHeader() {
-  const char *tmp = STATS_HDR_PATH ".tmp";
-  File f = LittleFS.open(tmp, "w");
-  if (f) {
-    f.write((uint8_t*)&statsHdr, sizeof(statsHdr));
+// Scan both ring buffer files for the highest seq_hour (battery-death recovery)
+uint32_t recoverMaxSeqHour() {
+  uint32_t maxSH = 0;
+  for (int flavor = 0; flavor < 2; flavor++) {
+    File f = LittleFS.open(statsHourlyPath(flavor), "r");
+    if (!f) continue;
+    StatsBucket entry;
+    while (f.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+      if (entry.seq_hour > maxSH) maxSH = entry.seq_hour;
+    }
     f.close();
-    LittleFS.remove(STATS_HDR_PATH);
-    LittleFS.rename(tmp, STATS_HDR_PATH);
   }
+  return maxSH;
 }
 
-void loadStatsHeader() {
-  File f = LittleFS.open(STATS_HDR_PATH, "r");
-  if (f && f.size() == sizeof(statsHdr)) {
-    f.read((uint8_t*)&statsHdr, sizeof(statsHdr));
+// Load current hour's accumulator from ring buffer (replaces current.bin)
+void loadCurrentHourFromRing() {
+  for (int flavor = 0; flavor < 2; flavor++) {
+    File f = LittleFS.open(statsHourlyPath(flavor), "r");
+    if (!f) continue;
+    StatsBucket entry;
+    while (f.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
+      if (entry.seq_hour == seqHour) {
+        currentHour[flavor].flow_sum = entry.flow_sum;
+        currentHour[flavor].flow_count = entry.flow_count;
+        currentHour[flavor].burst_sum_ms = entry.burst_sum_ms;
+        currentHour[flavor].burst_count = entry.burst_count;
+      }
+    }
     f.close();
-    Serial.printf("Loaded stats header: seqHour=%lu\n", (unsigned long)statsHdr.seqHour);
-  } else {
-    if (f) f.close();
-    statsHdr = {0, 0};
   }
 }
 
@@ -1074,7 +1075,7 @@ void flushCurrentHour() {
   for (int f = 0; f < 2; f++) {
     if (currentHour[f].flow_count == 0 && currentHour[f].burst_count == 0) continue;
     StatsBucket bucket;
-    bucket.seq_hour = statsHdr.seqHour;
+    bucket.seq_hour = seqHour;
     bucket.flow_sum = currentHour[f].flow_sum;
     bucket.flow_count = currentHour[f].flow_count;
     bucket.burst_sum_ms = currentHour[f].burst_sum_ms;
@@ -1146,13 +1147,13 @@ void upsertHourlyBucket(const char *path, const StatsBucket &bucket, int maxEntr
 
 
 void clearStatsFiles() {
-  LittleFS.remove(STATS_CURRENT_PATH);
   LittleFS.remove(statsHourlyPath(0));
   LittleFS.remove(statsHourlyPath(1));
-  LittleFS.remove(STATS_HDR_PATH);
+  LittleFS.remove(RTC_EPOCH_PATH);
   memset(currentHour, 0, sizeof(currentHour));
-  statsHdr = {0, 0};
-  hourStartMillis = millis();
+  rtcEpoch = rtc.now().unixtime();
+  seqHour = 0;
+  saveRtcEpoch();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1193,7 +1194,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     for (int f = 0; f < 2; f++) {
       char line[200];
       int pos = snprintf(line, sizeof(line), "CHART_HOURLY:F=%d,SEQ=%lu",
-                         f, (unsigned long)statsHdr.seqHour);
+                         f, (unsigned long)seqHour);
 
       // Read all entries from hourly ring buffer
       File hf = LittleFS.open(statsHourlyPath(f), "r");
@@ -1201,7 +1202,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
         StatsBucket entry;
         while (hf.read((uint8_t*)&entry, sizeof(StatsBucket)) == sizeof(StatsBucket)) {
           // Skip current seqHour (stale file entry; live RAM is authoritative)
-          if (entry.seq_hour == statsHdr.seqHour) continue;
+          if (entry.seq_hour == seqHour) continue;
           if (entry.flow_sum == 0) continue;
 
           char pair[24];
@@ -1212,7 +1213,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
           if (pos + pairLen >= (int)sizeof(line) - 1) {
             out.printf("%s\n", line);
             pos = snprintf(line, sizeof(line), "CHART_HOURLY:F=%d,SEQ=%lu",
-                           f, (unsigned long)statsHdr.seqHour);
+                           f, (unsigned long)seqHour);
           }
           memcpy(line + pos, pair, pairLen + 1);
           pos += pairLen;
@@ -1224,12 +1225,12 @@ void processConfigCommand(const char *cmd, Stream &out) {
       if (currentHour[f].flow_sum > 0) {
         char pair[24];
         int pairLen = snprintf(pair, sizeof(pair), ",%lu:%lu",
-                               (unsigned long)statsHdr.seqHour,
+                               (unsigned long)seqHour,
                                (unsigned long)currentHour[f].flow_sum);
         if (pos + pairLen >= (int)sizeof(line) - 1) {
           out.printf("%s\n", line);
           pos = snprintf(line, sizeof(line), "CHART_HOURLY:F=%d,SEQ=%lu",
-                         f, (unsigned long)statsHdr.seqHour);
+                         f, (unsigned long)seqHour);
         }
         memcpy(line + pos, pair, pairLen + 1);
         pos += pairLen;
@@ -2040,13 +2041,39 @@ void setup() {
 
   LittleFS.mkdir("/stats");
 
-  loadCurrentAccum();
-  loadStatsHeader();
+  // ── RTC init (DS3231 on I2C: SDA=21, SCL=22) ──
+  Wire.begin(21, 22);
+  if (!rtc.begin()) {
+    Serial.println("WARNING: DS3231 RTC not found — stats hours will not survive power loss");
+  }
 
-  // Restore hour timing — continue the same seqHour across reboots.
-  // currentHour[] already has the loaded accumulators from current.bin;
-  // the main loop's 60s flush will persist them to the hourly ring.
-  hourStartMillis = millis() - statsHdr.hourElapsedMs;
+  // ── RTC epoch setup ──
+  if (rtc.lostPower()) {
+    Serial.println("RTC lost power — resetting oscillator");
+    rtc.adjust(DateTime(2024, 1, 1, 0, 0, 0));
+    if (loadRtcEpoch()) {
+      uint32_t maxSH = recoverMaxSeqHour();
+      uint32_t rtcNow = rtc.now().unixtime();
+      rtcEpoch = rtcNow - (maxSH * 3600);
+      saveRtcEpoch();
+      Serial.printf("RTC battery recovery: rebased rtcEpoch=%lu from maxSeqHour=%lu\n",
+                    (unsigned long)rtcEpoch, (unsigned long)maxSH);
+    } else {
+      rtcEpoch = rtc.now().unixtime();
+      saveRtcEpoch();
+      Serial.println("Fresh RTC epoch set");
+    }
+  } else if (!loadRtcEpoch()) {
+    rtcEpoch = rtc.now().unixtime();
+    saveRtcEpoch();
+    Serial.println("First boot with RTC — epoch set");
+  }
+
+  // Derive seqHour and restore current hour's accumulators from ring buffer
+  seqHour = (rtc.now().unixtime() - rtcEpoch) / 3600;
+  loadCurrentHourFromRing();
+  Serial.printf("RTC stats: rtcEpoch=%lu seqHour=%lu\n",
+                (unsigned long)rtcEpoch, (unsigned long)seqHour);
 
   // Always determine factory image count from compiled-in defaults
   {
@@ -2313,23 +2340,18 @@ void loop() {
     lastConfigSend = now;
   }
 
-  // ── 5. Stats hourly rollover and periodic flush ──────────────────────
-  // Hour rollover: unsigned subtraction handles millis() wrap correctly
-  if (millis() - hourStartMillis >= 3600000UL) {
-    flushCurrentHour();
-    statsHdr.seqHour++;
-    statsHdr.hourElapsedMs = 0;
-    hourStartMillis += 3600000UL;
-    memset(currentHour, 0, sizeof(currentHour));
-    saveStatsHeader();
-  }
-
-  // Periodic flush every 60s
+  // ── 5. Stats: RTC-based hourly rollover and periodic flush ──────────
   if (now - lastStatsFlush >= 60000) {
-    statsHdr.hourElapsedMs = millis() - hourStartMillis;
+    uint32_t rtcNow = rtc.now().unixtime();
+    uint32_t newSeqHour = (rtcNow - rtcEpoch) / 3600;
+
+    if (newSeqHour > seqHour) {
+      flushCurrentHour();
+      seqHour = newSeqHour;
+      memset(currentHour, 0, sizeof(currentHour));
+    }
+
     flushCurrentHour();
-    saveCurrentAccum();
-    saveStatsHeader();
     lastStatsFlush = now;
   }
 
