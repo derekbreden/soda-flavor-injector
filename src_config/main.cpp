@@ -91,11 +91,12 @@ SerialTransfer stLink;  // SerialTransfer on Serial0 (ESP32 link)
 
 // ── BLE (L2CAP CoC via NimBLE-Arduino) ──
 #define SODA_L2CAP_PSM  0x0080
-#define L2CAP_MTU       2048
+#define L2CAP_MTU       1024
 #define L2CAP_MAX_CHANS 3
 
 static NimBLEL2CAPChannel *l2capChans[L2CAP_MAX_CHANS] = {};
 static int l2capChanCount = 0;
+static uint16_t l2capNegotiatedMTU = 0;  // actual negotiated MTU (set on connect)
 
 static bool bleHasClients() {
   return l2capChanCount > 0;
@@ -760,8 +761,13 @@ class SodaL2CAPCallbacks : public NimBLEL2CAPChannelCallbacks {
         break;
       }
     }
+    l2capNegotiatedMTU = negotiatedMTU;
     Serial.printf("BLE: L2CAP connected (mtu=%u, chans=%d, heap=%lu)\n",
                   negotiatedMTU, l2capChanCount, (unsigned long)ESP.getFreeHeap());
+    // Tell the peer the negotiated MTU so it can size its SDUs correctly
+    char mtubuf[24];
+    snprintf(mtubuf, sizeof(mtubuf), "MTU:%u", negotiatedMTU);
+    bleSendTextTo(channel, mtubuf);
   }
 
   void onRead(NimBLEL2CAPChannel *channel, std::vector<uint8_t> &data) override {

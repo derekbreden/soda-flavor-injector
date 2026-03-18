@@ -135,6 +135,16 @@ class BLEManager {
     @ObservationIgnored fileprivate var l2capReady = false
     @ObservationIgnored fileprivate var rxBuffer = Data()
     @ObservationIgnored fileprivate var pendingWriteData = Data()
+    /// Negotiated L2CAP MTU reported by the S3 after channel open.
+    /// All SDUs (stream.write calls) must be ≤ this value.
+    /// Wire overhead is 5 bytes (4B length + 1B type), so max payload per
+    /// message is `peerMTU - 5`.  Default 0 means "not yet known".
+    @ObservationIgnored fileprivate var peerMTU: Int = 0
+    /// Safe max payload per L2CAP message (peerMTU - 5B wire header).
+    /// Falls back to 507 (conservative 512 - 5) until the S3 reports MTU.
+    fileprivate var maxPayloadPerMessage: Int {
+        peerMTU > 0 ? peerMTU - 5 : 507
+    }
 
     // L2CAP stream thread — NSStream requires a RunLoop for delegate callbacks
     @ObservationIgnored fileprivate var streamThread: Thread?
@@ -183,9 +193,9 @@ class BLEManager {
     }
 
     fileprivate func drainPendingWrites(_ stream: OutputStream) {
-        // Cap each write to 1024 bytes to stay within L2CAP SDU/MTU limits.
-        // Writing more than the peer's MTU in one call can produce an oversized SDU.
-        let maxWriteSize = 1024
+        // Cap each write to the negotiated MTU so no single SDU exceeds it.
+        // Before the S3 reports MTU, use 512 as a safe conservative default.
+        let maxWriteSize = peerMTU > 0 ? peerMTU : 512
         while !pendingWriteData.isEmpty && stream.hasSpaceAvailable {
             let writeLen = min(pendingWriteData.count, maxWriteSize)
             let written = pendingWriteData.withUnsafeBytes { ptr in
@@ -618,9 +628,9 @@ class BLEManager {
     private func sendUploadChunks() {
         guard currentUploadStep < uploadSteps.count else { return }
         let data = uploadSteps[currentUploadStep].data
-        // L2CAP handles flow control — chunk size + 5B wire header must fit in one SDU (≤ MTU).
-        // With MTU=1024 on the S3 side, keep wire messages under 1024 to avoid oversized SDUs.
-        let chunkSize = 512
+        // Chunk size derived from negotiated MTU: each wire message is chunk + 5B header,
+        // and the total must fit in one L2CAP SDU (≤ negotiated MTU).
+        let chunkSize = maxPayloadPerMessage
 
         func sendChunk() {
             self.bleQueue.async {
@@ -746,7 +756,12 @@ class BLEManager {
     // MARK: - Response parsing (main thread only)
 
     fileprivate func handleTextResponse(_ text: String) {
-        if text.hasPrefix("CONFIG:") {
+        if text.hasPrefix("MTU:") {
+            if let mtu = Int(text.dropFirst(4)) {
+                peerMTU = mtu
+                log.info("Negotiated L2CAP MTU: \(mtu) (max payload: \(maxPayloadPerMessage))")
+            }
+        } else if text.hasPrefix("CONFIG:") {
             parseConfig(text)
         } else if text.hasPrefix("IMG:") {
             parseImageLine(text)
@@ -1062,6 +1077,7 @@ class BLEManager {
         l2capReady = false
         rxBuffer = Data()
         pendingWriteData = Data()
+        peerMTU = 0
         streamThread?.cancel()
         streamThread = nil
     }
