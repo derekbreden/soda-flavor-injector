@@ -818,7 +818,7 @@ bool inAbout = false;
 
 // ── Clean cycle UI state ──
 bool inCleanCycle = false;      // inside clean cycle sub-page
-int cleanFlavorIndex = 0;       // 0 = Flavor 1, 1 = Flavor 2, 2 = Back
+int cleanFlavorIndex = 0;       // 0 = Back, 1 = Flavor 1, 2 = Flavor 2
 bool cleanConfirm = false;      // confirming clean start
 int cleanConfirmIndex = 1;      // 0 = Yes, 1 = No
 bool cleanPending = false;      // waiting for ESP32 to finish
@@ -1802,7 +1802,7 @@ void drawCleanCycle() {
     // Confirm: "Clean Flavor N?"
     lv_obj_t *prompt = lv_label_create(scr);
     char buf[24];
-    snprintf(buf, sizeof(buf), "Clean Flavor %d?", cleanFlavorIndex + 1);
+    snprintf(buf, sizeof(buf), "Clean Flavor %d?", cleanFlavorIndex);
     lv_label_set_text(prompt, buf);
     lv_obj_set_style_text_font(prompt, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(prompt, THEME_TEXT_PRIMARY, 0);
@@ -1820,8 +1820,8 @@ void drawCleanCycle() {
       lv_obj_align(item, LV_ALIGN_TOP_MID, 0, startY + i * lineHeight);
     }
   } else {
-    // Flavor selection: "Flavor 1" / "Flavor 2" / "Back"
-    const char *items[] = { "Flavor 1", "Flavor 2", "Back" };
+    // Flavor selection: "Back" / "Flavor 1" / "Flavor 2"
+    const char *items[] = { "Back", "Flavor 1", "Flavor 2" };
     int lineHeight = 28;
     int startY = (240 - 3 * lineHeight) / 2 + 15;
     for (int i = 0; i < 3; i++) {
@@ -1953,9 +1953,9 @@ void handleTap() {
         cleanPending = true;
         cleanPhase = 0;
         char buf[10];
-        snprintf(buf, sizeof(buf), "CLEAN:%d", cleanFlavorIndex + 1);
+        snprintf(buf, sizeof(buf), "CLEAN:%d", cleanFlavorIndex);
         stSendText(stLink, buf);
-        Serial.printf("Clean cycle requested: flavor %d\n", cleanFlavorIndex + 1);
+        Serial.printf("Clean cycle requested: flavor %d\n", cleanFlavorIndex);
       } else {
         // No — back to flavor selection
         cleanConfirm = false;
@@ -1963,7 +1963,7 @@ void handleTap() {
       drawScreen();
       return;
     }
-    if (cleanFlavorIndex == 2) {
+    if (cleanFlavorIndex == 0) {
       // Back
       inCleanCycle = false;
       drawScreen();
