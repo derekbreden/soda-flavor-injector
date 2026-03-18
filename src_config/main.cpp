@@ -841,6 +841,7 @@ int cleanPrimeIndex = 0;        // 0 = Back, 1 = Prime, 2 = Clean Cycle
 bool inPrime = false;           // inside prime flavor select or hold screen
 int primeSelectIndex = 0;       // 0 = Back, 1 = Flavor 1, 2 = Flavor 2
 bool inPrimeHold = false;       // on the "hold to prime" screen
+int primeHoldIndex = 0;         // 0 = Hold to Prime, 1 = Back
 uint8_t primeFlavor = 0;        // 1 or 2 (1-based for display/commands)
 bool primeHolding = false;      // finger currently down, priming
 bool primeActive = false;       // ESP32 confirmed prime is running
@@ -1847,7 +1848,7 @@ void drawPrime() {
   lv_obj_set_style_bg_color(scr, THEME_BG, 0);
 
   if (inPrimeHold) {
-    // Hold-to-prime screen
+    // Hold-to-prime screen: 2-item encoder menu
     lv_obj_t *title = lv_label_create(scr);
     char titleBuf[24];
     snprintf(titleBuf, sizeof(titleBuf), "Prime Flavor %d", primeFlavor);
@@ -1856,22 +1857,22 @@ void drawPrime() {
     lv_obj_set_style_text_color(title, THEME_TEXT_SECONDARY, 0);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
 
-    lv_obj_t *label = lv_label_create(scr);
-    if (primeHolding || primeActive) {
-      lv_label_set_text(label, "Priming...");
-      lv_obj_set_style_text_color(label, lv_color_hex(0x4488FF), 0);
-    } else {
-      lv_label_set_text(label, "Hold to Prime");
-      lv_obj_set_style_text_color(label, THEME_TEXT_PRIMARY, 0);
+    const char *holdLabel = (primeHolding || primeActive) ? "Priming..." : "Hold to Prime";
+    const char *items[] = { holdLabel, "Back" };
+    int lineHeight = 28;
+    int startY = (240 - 2 * lineHeight) / 2 + 15;
+    for (int i = 0; i < 2; i++) {
+      lv_obj_t *item = lv_label_create(scr);
+      lv_label_set_text(item, items[i]);
+      lv_obj_set_style_text_font(item, &lv_font_montserrat_16, 0);
+      if (i == 0 && (primeHolding || primeActive)) {
+        lv_obj_set_style_text_color(item, lv_color_hex(0x4488FF), 0);
+      } else {
+        lv_obj_set_style_text_color(item,
+          (i == primeHoldIndex) ? THEME_TEXT_PRIMARY : THEME_TEXT_INACTIVE, 0);
+      }
+      lv_obj_align(item, LV_ALIGN_TOP_MID, 0, startY + i * lineHeight);
     }
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-
-    lv_obj_t *hint = lv_label_create(scr);
-    lv_label_set_text(hint, "Tap to go back");
-    lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(hint, THEME_TEXT_INACTIVE, 0);
-    lv_obj_align(hint, LV_ALIGN_CENTER, 0, 40);
   } else {
     // Flavor selection
     lv_obj_t *title = lv_label_create(scr);
@@ -2034,7 +2035,12 @@ void handleNavigation(int dir) {
   if (inAbout) return;  // About is view-only, tap to go back
 
   if (inPrime) {
-    if (inPrimeHold) return;  // locked on hold screen
+    if (inPrimeHold) {
+      if (primeHolding) return;  // locked while finger is down
+      primeHoldIndex = (primeHoldIndex + dir + 2) % 2;
+      drawScreen();
+      return;
+    }
     primeSelectIndex = (primeSelectIndex + dir + 3) % 3;
     drawScreen();
     return;
@@ -2090,14 +2096,17 @@ void handleNavigation(int dir) {
 void handleTap() {
   if (inPrime) {
     if (inPrimeHold) {
-      // Tap on hold screen: stop prime if active, then go back
-      if (primeHolding || primeActive) {
-        stSendText(stLink, "PRIME_STOP");
-        primeHolding = false;
-        primeActive = false;
+      if (primeHoldIndex == 1) {
+        // Back — stop prime if active, exit hold screen
+        if (primeHolding || primeActive) {
+          stSendText(stLink, "PRIME_STOP");
+          primeHolding = false;
+          primeActive = false;
+        }
+        inPrimeHold = false;
+        drawScreen();
       }
-      inPrimeHold = false;
-      drawScreen();
+      // Tap on "Hold to Prime" does nothing — touch-hold handles it
       return;
     }
     if (primeSelectIndex == 0) {
@@ -2109,6 +2118,7 @@ void handleTap() {
     // Select flavor → enter hold screen
     primeFlavor = primeSelectIndex;  // 1 or 2
     inPrimeHold = true;
+    primeHoldIndex = 0;
     primeHolding = false;
     primeActive = false;
     drawScreen();
@@ -2398,7 +2408,7 @@ void loop() {
   }
 
   // ── Hold-to-prime: raw touch detection on hold screen ──
-  if (inPrimeHold) {
+  if (inPrimeHold && primeHoldIndex == 0) {
     if (currentTouching && !primeHolding) {
       // Finger down → start prime
       primeHolding = true;
