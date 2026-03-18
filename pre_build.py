@@ -4,6 +4,7 @@
 # Works for all three environments — outputs to the correct source dir.
 Import("env")
 import time
+import os
 
 timestamp = time.strftime("%b %d %Y %H:%M:%S")
 
@@ -27,3 +28,27 @@ except FileNotFoundError:
 if existing != header:
     with open(path, "w") as f:
         f.write(header)
+
+# Patch NimBLE-Arduino nimconfig.h to enable L2CAP CoC.
+# The platform sdkconfig.h unconditionally #defines CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 0,
+# which disables all L2CAP CoC code in NimBLE-Arduino. We inject an #undef + #define
+# in the user-config section (after sdkconfig.h is included) to override it.
+if env_name == "esp32s3_config":
+    nimconfig = os.path.join(
+        ".pio", "libdeps", "esp32s3_config",
+        "NimBLE-Arduino", "src", "nimconfig.h"
+    )
+    marker = "/* L2CAP CoC patched by pre_build.py */"
+    if os.path.isfile(nimconfig):
+        with open(nimconfig, "r") as f:
+            content = f.read()
+        if marker not in content:
+            patch = (
+                "\n" + marker + "\n"
+                "#undef CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM\n"
+                "#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 3\n"
+            )
+            anchor = " **********************************************/\n"
+            content = content.replace(anchor, anchor + patch, 1)
+            with open(nimconfig, "w") as f:
+                f.write(content)

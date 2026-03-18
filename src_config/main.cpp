@@ -2,11 +2,9 @@
 #include <Arduino_GFX_Library.h>
 #include <lvgl.h>
 #include <LittleFS.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLE2902.h>
-#include "host/ble_hs_mbuf.h"
-#include "host/ble_gatt.h"
+#include <NimBLEDevice.h>
+#include <NimBLEL2CAPServer.h>
+#include <NimBLEL2CAPChannel.h>
 #include <uart_st.h>
 #include "CST816D.h"
 #include "font_ratio_64.h"
@@ -91,32 +89,34 @@ static lv_color_t *lvgl_buf;
 // ── UART to ESP32 (Serial0 = UART0, J34 connector) ──
 SerialTransfer stLink;  // SerialTransfer on Serial0 (ESP32 link)
 
-// ── BLE (built-in NimBLE via Arduino BLE API) ──
-#define NUS_SERVICE_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-#define NUS_RX_UUID             "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define NUS_TX_UUID             "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+// ── BLE (L2CAP CoC via NimBLE-Arduino) ──
+#define SODA_L2CAP_PSM  0x0080
+#define L2CAP_MTU       1024
+#define L2CAP_MAX_CHANS 3
 
-static BLECharacteristic *pTxChar = nullptr;
-static BLEServer *pBLEServer = nullptr;
+static NimBLEL2CAPChannel *l2capChans[L2CAP_MAX_CHANS] = {};
+static int l2capChanCount = 0;
 
 static bool bleHasClients() {
-  return pBLEServer && pBLEServer->getConnectedCount() > 0;
+  return l2capChanCount > 0;
 }
 
 // Forward declarations
-static void bleSendFrame(uint8_t type, const uint8_t *payload, uint16_t len);
+static void bleSendTo(NimBLEL2CAPChannel *chan, uint8_t type,
+                      const uint8_t *data, uint16_t dataLen);
 static void bleSendText(const char *text);
-static void bleSendFrameTo(uint16_t conn_handle, uint8_t type, const uint8_t *payload, uint16_t len);
-static void bleSendTextTo(uint16_t conn_handle, const char *text);
+static void bleSendBin(NimBLEL2CAPChannel *chan, uint8_t type,
+                       const uint8_t *data, uint16_t len);
+static void bleSendTextTo(NimBLEL2CAPChannel *chan, const char *text);
 static bool loadImageFromFS(uint8_t slot);
 static void imagePath(char *buf, uint8_t slot);
 static void updateMeta();
 
-// BLE frame types (framed protocol over NUS)
-#define BLE_FRAME_TEXT      0x01
-#define BLE_FRAME_BIN_START 0x02
-#define BLE_FRAME_BIN_DATA  0x03
-#define BLE_FRAME_BIN_END   0x04
+// BLE message types (L2CAP CoC wire format: [len(4B LE)] [type(1B)] [payload...])
+#define BLE_MSG_TEXT      0x01
+#define BLE_MSG_BIN_START 0x02
+#define BLE_MSG_BIN_DATA  0x03
+#define BLE_MSG_BIN_END   0x04
 
 // ── BLE image download state ──
 // Streams directly from LittleFS file — no imageBuf aliasing.
@@ -135,11 +135,11 @@ enum BleRequest { BLE_REQ_NONE, BLE_REQ_LIST, BLE_REQ_GETPNG, BLE_REQ_GETIMG,
                   BLE_REQ_GET_CONFIG, BLE_REQ_GET_VERSION };
 static volatile BleRequest bleRequest = BLE_REQ_NONE;
 static volatile int bleRequestSlot = -1;
-static volatile uint16_t bleRequestConnHandle = 0;
+static volatile NimBLEL2CAPChannel *bleRequestChan = nullptr;
 
 // Per-client ownership tracking for image transfers
-static uint16_t bleImageSendConnHandle = 0;
-static uint16_t bleUploadConnHandle = 0;
+static NimBLEL2CAPChannel *bleImageSendChan = nullptr;
+static NimBLEL2CAPChannel *bleUploadChan = nullptr;
 
 // Ring buffer for BLE→ESP32 text command forwarding (replaces single bleForwardBuf)
 #define BLE_FWD_QUEUE_SIZE 8
@@ -165,66 +165,49 @@ static struct {
 
 static void cleanupAbortedUpload(uint8_t slot);  // forward decl (used in disconnect + RX handlers)
 
-class BLEServerCB : public BLEServerCallbacks {
-  void onConnect(BLEServer *pServer) override {
-    Serial.printf("BLE: client connected (count=%lu, heap=%lu)\n",
-                  (unsigned long)pServer->getConnectedCount(),
-                  (unsigned long)ESP.getFreeHeap());
-    pServer->startAdvertising();  // allow additional clients to connect
+// L2CAP channel disconnect cleanup
+static void l2capOnDisconnect(NimBLEL2CAPChannel *chan) {
+  Serial.printf("BLE: L2CAP channel disconnected (heap=%lu)\n",
+                (unsigned long)ESP.getFreeHeap());
+  for (int i = 0; i < L2CAP_MAX_CHANS; i++) {
+    if (l2capChans[i] == chan) { l2capChans[i] = nullptr; l2capChanCount--; break; }
   }
-  void onDisconnect(BLEServer *pServer, ble_gap_conn_desc *desc) override {
-    uint16_t handle = desc->conn_handle;
-    Serial.printf("BLE: client disconnected handle=%u (remaining=%lu)\n",
-                  handle, (unsigned long)pServer->getConnectedCount());
-    // Only abort image download if the disconnecting client owns it
-    if (bleImageSending && handle == bleImageSendConnHandle) {
-      bleImageSending = false;
-      if (bleFile) bleFile.close();
-      Serial.println("BLE: aborted image send (owner disconnected)");
-    }
-    // Only abort upload if the disconnecting client owns it
-    if (bleUpload.phase != BLE_UP_IDLE && handle == bleUploadConnHandle) {
-      if (bleUpload.phase == BLE_UP_FORWARDING) {
-        // Forwarding loop will exit between chunks, cleanup in processBleUploadForward
-        bleUpload.abortRequested = true;
-      } else {
-        // WAIT_DATA or RECEIVED: clean up immediately
-        cleanupAbortedUpload(bleUpload.slot);
-        bleUpload.phase = BLE_UP_IDLE;
-      }
-      Serial.println("BLE: aborted upload (owner disconnected)");
-    }
-    stSendText(stLink, "BLE_DISCONNECTED");
-    pServer->startAdvertising();
+  if (bleImageSending && chan == bleImageSendChan) {
+    bleImageSending = false;
+    if (bleFile) bleFile.close();
+    Serial.println("BLE: aborted image send (owner disconnected)");
   }
-};
+  if (bleUpload.phase != BLE_UP_IDLE && chan == bleUploadChan) {
+    if (bleUpload.phase == BLE_UP_FORWARDING) {
+      bleUpload.abortRequested = true;
+    } else {
+      cleanupAbortedUpload(bleUpload.slot);
+      bleUpload.phase = BLE_UP_IDLE;
+    }
+    Serial.println("BLE: aborted upload (owner disconnected)");
+  }
+  if (l2capChanCount == 0) stSendText(stLink, "BLE_DISCONNECTED");
+}
 
 static void bleImageSendChunks() {
-  if (!bleImageSending || !bleHasClients() || !pTxChar) return;
+  if (!bleImageSending || !bleHasClients() || !bleImageSendChan) return;
 
-  uint16_t ch = bleImageSendConnHandle;
+  NimBLEL2CAPChannel *chan = bleImageSendChan;
 
   if (!bleFile || !bleFile.available()) {
     if (bleFile) bleFile.close();
-    delay(50);
-    bleSendFrameTo(ch, BLE_FRAME_BIN_END, nullptr, 0);
+    bleSendBin(chan, BLE_MSG_BIN_END, nullptr, 0);
     bleImageSending = false;
     Serial.printf("BLE image %d send complete (%u bytes)\n", bleImageSlot, bleImageSize);
     return;
   }
 
-  // Read chunk into buffer (reuse bleSendChunkBuf as scratch)
-  size_t n = bleFile.read(bleSendChunkBuf, 180);
-  if (n == 0) {
-    bleFile.close();
-    delay(50);
-    bleSendFrameTo(ch, BLE_FRAME_BIN_END, nullptr, 0);
-    bleImageSending = false;
-    return;
+  // Send multiple chunks per loop iteration — write() blocks until credits available
+  for (int i = 0; i < 4 && bleFile.available(); i++) {
+    size_t n = bleFile.read(bleSendChunkBuf, 512);
+    if (n == 0) break;
+    bleSendBin(chan, BLE_MSG_BIN_DATA, bleSendChunkBuf, n);
   }
-
-  bleSendFrameTo(ch, BLE_FRAME_BIN_DATA, bleSendChunkBuf, n);
-  delay(20);
 }
 
 static uint32_t computeFileCrc(File &f) {
@@ -263,135 +246,128 @@ static bool openPngForBLE(uint8_t slot) {
   return true;
 }
 
-class BLERxCB : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic *pChar, ble_gap_conn_desc *desc) override {
-    uint16_t connHandle = desc->conn_handle;
-    String val = pChar->getValue();
-    size_t len = val.length();
-    if (len < 3) return;  // minimum frame: 1B type + 2B length
+// Process received L2CAP data (runs on NimBLE task — defer I/O to main loop)
+// Wire format: [length(4B LE)] [type(1B)] [payload...]
+static void l2capOnDataReceived(NimBLEL2CAPChannel *chan, std::vector<uint8_t> &data) {
+  if (data.size() < 5) return;  // minimum: 4B length + 1B type
 
-    const uint8_t *raw = (const uint8_t *)val.c_str();
-    uint8_t type = raw[0];
-    uint16_t payloadLen = raw[1] | ((uint16_t)raw[2] << 8);
-    if (len < (size_t)(3 + payloadLen)) return;  // incomplete frame
-    const uint8_t *payload = raw + 3;
+  uint32_t msgLen = data[0] | ((uint32_t)data[1] << 8) |
+                    ((uint32_t)data[2] << 16) | ((uint32_t)data[3] << 24);
+  uint8_t type = data[4];
+  uint16_t payloadLen = (msgLen > 1) ? msgLen - 1 : 0;
+  const uint8_t *payload = data.data() + 5;
 
-    switch (type) {
-      case BLE_FRAME_TEXT: {
-        // Extract text command from frame payload
-        char textBuf[256];
-        size_t tLen = payloadLen < sizeof(textBuf) - 1 ? payloadLen : sizeof(textBuf) - 1;
-        memcpy(textBuf, payload, tLen);
-        textBuf[tLen] = '\0';
+  switch (type) {
+    case BLE_MSG_TEXT: {
+      char textBuf[256];
+      size_t tLen = payloadLen < sizeof(textBuf) - 1 ? payloadLen : sizeof(textBuf) - 1;
+      memcpy(textBuf, payload, tLen);
+      textBuf[tLen] = '\0';
 
-        // ABORT_UPLOAD: handle immediately on NimBLE task (before bleRequest guard)
-        // so it executes even when main loop is blocked during forwarding
-        if (strcmp(textBuf, "ABORT_UPLOAD") == 0) {
-          bleUpload.abortRequested = true;
-          if (bleUpload.phase == BLE_UP_WAIT_DATA || bleUpload.phase == BLE_UP_RECEIVED) {
-            cleanupAbortedUpload(bleUpload.slot);
-            bleUpload.phase = BLE_UP_IDLE;
-            bleUpload.abortRequested = false;
-          }
-          // FORWARDING phase: flag is set, chunk loop will exit and cleanup in processBleUploadForward
-          bleSendTextTo(connHandle, "OK:UPLOAD_ABORTED");
-          break;
+      // ABORT_UPLOAD: handle immediately on NimBLE task
+      if (strcmp(textBuf, "ABORT_UPLOAD") == 0) {
+        bleUpload.abortRequested = true;
+        if (bleUpload.phase == BLE_UP_WAIT_DATA || bleUpload.phase == BLE_UP_RECEIVED) {
+          cleanupAbortedUpload(bleUpload.slot);
+          bleUpload.phase = BLE_UP_IDLE;
+          bleUpload.abortRequested = false;
         }
-
-        // Drop if a previous request hasn't been processed yet
-        if (bleRequest != BLE_REQ_NONE) return;
-
-        bleRequestConnHandle = connHandle;
-
-        if (strcmp(textBuf, "GET_CONFIG") == 0) {
-          bleRequest = BLE_REQ_GET_CONFIG;
-        } else if (strcmp(textBuf, "GET_VERSION") == 0) {
-          bleRequest = BLE_REQ_GET_VERSION;
-        } else if (strcmp(textBuf, "LIST") == 0) {
-          bleRequest = BLE_REQ_LIST;
-        } else if (strncmp(textBuf, "GETPNG:", 7) == 0) {
-          bleRequestSlot = atoi(textBuf + 7);
-          bleRequest = BLE_REQ_GETPNG;
-        } else if (strncmp(textBuf, "GETIMG:", 7) == 0) {
-          bleRequestSlot = atoi(textBuf + 7);
-          bleRequest = BLE_REQ_GETIMG;
-        } else {
-          // Queue the command for forwarding to ESP32 on main task
-          uint8_t nextHead = (bleFwdHead + 1) % BLE_FWD_QUEUE_SIZE;
-          if (nextHead != bleFwdTail) {
-            strncpy(bleFwdQueue[bleFwdHead], textBuf, BLE_FWD_BUF_LEN - 1);
-            bleFwdQueue[bleFwdHead][BLE_FWD_BUF_LEN - 1] = '\0';
-            __sync_synchronize();
-            bleFwdHead = nextHead;
-          }
-        }
+        bleSendTextTo(chan, "OK:UPLOAD_ABORTED");
         break;
       }
 
-      case BLE_FRAME_BIN_START: {
-        // payload: [slot(1B), file_type(1B), size(4B LE), crc32(4B LE), label...]
-        if (payloadLen < 10) return;
-        uint8_t slot = payload[0];
-        uint8_t fileType = payload[1];
-        uint32_t size = payload[2] | ((uint32_t)payload[3] << 8) |
-                        ((uint32_t)payload[4] << 16) | ((uint32_t)payload[5] << 24);
-        uint32_t crc = payload[6] | ((uint32_t)payload[7] << 8) |
-                       ((uint32_t)payload[8] << 16) | ((uint32_t)payload[9] << 24);
+      // Drop if a previous request hasn't been processed yet
+      if (bleRequest != BLE_REQ_NONE) return;
 
-        if (slot >= MAX_IMAGES || size == 0 || size > IMAGE_BYTES) {
-          bleSendTextTo(connHandle, "IMG_ERR:INVALID_PARAMS");
-          return;
+      bleRequestChan = chan;
+
+      if (strcmp(textBuf, "GET_CONFIG") == 0) {
+        bleRequest = BLE_REQ_GET_CONFIG;
+      } else if (strcmp(textBuf, "GET_VERSION") == 0) {
+        bleRequest = BLE_REQ_GET_VERSION;
+      } else if (strcmp(textBuf, "LIST") == 0) {
+        bleRequest = BLE_REQ_LIST;
+      } else if (strncmp(textBuf, "GETPNG:", 7) == 0) {
+        bleRequestSlot = atoi(textBuf + 7);
+        bleRequest = BLE_REQ_GETPNG;
+      } else if (strncmp(textBuf, "GETIMG:", 7) == 0) {
+        bleRequestSlot = atoi(textBuf + 7);
+        bleRequest = BLE_REQ_GETIMG;
+      } else {
+        uint8_t nextHead = (bleFwdHead + 1) % BLE_FWD_QUEUE_SIZE;
+        if (nextHead != bleFwdTail) {
+          strncpy(bleFwdQueue[bleFwdHead], textBuf, BLE_FWD_BUF_LEN - 1);
+          bleFwdQueue[bleFwdHead][BLE_FWD_BUF_LEN - 1] = '\0';
+          __sync_synchronize();
+          bleFwdHead = nextHead;
         }
-        if (bleImageSending || bleUpload.phase != BLE_UP_IDLE) {
-          bleSendTextTo(connHandle, "IMG_ERR:BUSY");
-          return;
-        }
+      }
+      break;
+    }
 
-        bleUploadConnHandle = connHandle;
-        bleUpload.slot = slot;
-        bleUpload.fileType = fileType;
-        bleUpload.expectedSize = size;
-        bleUpload.expectedCrc32 = crc;
-        bleUpload.receivedBytes = 0;
-        bleUpload.hasLabel = false;
-        bleUpload.abortRequested = false;
+    case BLE_MSG_BIN_START: {
+      if (payloadLen < 10) return;
+      uint8_t slot = payload[0];
+      uint8_t fileType = payload[1];
+      uint32_t size = payload[2] | ((uint32_t)payload[3] << 8) |
+                      ((uint32_t)payload[4] << 16) | ((uint32_t)payload[5] << 24);
+      uint32_t crc = payload[6] | ((uint32_t)payload[7] << 8) |
+                     ((uint32_t)payload[8] << 16) | ((uint32_t)payload[9] << 24);
 
-        // Parse label from remaining payload bytes
-        if (payloadLen > 10) {
-          size_t lblLen = payloadLen - 10;
-          if (lblLen > MAX_LABEL_LEN) lblLen = MAX_LABEL_LEN;
-          memcpy(bleUpload.label, payload + 10, lblLen);
-          bleUpload.label[lblLen] = '\0';
-          bleUpload.hasLabel = true;
-        }
-
-        bleUpload.lastDataTime = millis();
-        bleUpload.phase = BLE_UP_WAIT_DATA;
-        Serial.printf("BLE upload: slot %d type %d size %lu (framed)\n",
-                      slot, fileType, (unsigned long)size);
-        break;
+      if (slot >= MAX_IMAGES || size == 0 || size > IMAGE_BYTES) {
+        bleSendTextTo(chan, "IMG_ERR:INVALID_PARAMS");
+        return;
+      }
+      if (bleImageSending || bleUpload.phase != BLE_UP_IDLE) {
+        bleSendTextTo(chan, "IMG_ERR:BUSY");
+        return;
       }
 
-      case BLE_FRAME_BIN_DATA: {
-        if (bleUpload.phase != BLE_UP_WAIT_DATA) return;
-        if (connHandle != bleUploadConnHandle) return;  // reject data from wrong client
-        if (bleUpload.receivedBytes + payloadLen <= IMAGE_BYTES) {
-          memcpy(((uint8_t*)imageBuf) + bleUpload.receivedBytes, payload, payloadLen);
-          bleUpload.receivedBytes += payloadLen;
-        }
-        bleUpload.lastDataTime = millis();
-        break;
+      bleUploadChan = chan;
+      bleUpload.slot = slot;
+      bleUpload.fileType = fileType;
+      bleUpload.expectedSize = size;
+      bleUpload.expectedCrc32 = crc;
+      bleUpload.receivedBytes = 0;
+      bleUpload.hasLabel = false;
+      bleUpload.abortRequested = false;
+
+      if (payloadLen > 10) {
+        size_t lblLen = payloadLen - 10;
+        if (lblLen > MAX_LABEL_LEN) lblLen = MAX_LABEL_LEN;
+        memcpy(bleUpload.label, payload + 10, lblLen);
+        bleUpload.label[lblLen] = '\0';
+        bleUpload.hasLabel = true;
       }
 
-      case BLE_FRAME_BIN_END: {
-        if (bleUpload.phase != BLE_UP_WAIT_DATA) return;
-        if (connHandle != bleUploadConnHandle) return;  // reject from wrong client
-        bleUpload.phase = BLE_UP_RECEIVED;
-        break;
+      bleUpload.lastDataTime = millis();
+      bleUpload.phase = BLE_UP_WAIT_DATA;
+      Serial.printf("BLE upload: slot %d type %d size %lu (L2CAP)\n",
+                    slot, fileType, (unsigned long)size);
+      break;
+    }
+
+    case BLE_MSG_BIN_DATA: {
+      if (bleUpload.phase != BLE_UP_WAIT_DATA) return;
+      if (chan != bleUploadChan) return;
+      uint32_t remaining = IMAGE_BYTES - bleUpload.receivedBytes;
+      uint16_t dataLen = (payloadLen <= remaining) ? payloadLen : remaining;
+      if (dataLen > 0) {
+        memcpy(((uint8_t*)imageBuf) + bleUpload.receivedBytes, payload, dataLen);
+        bleUpload.receivedBytes += dataLen;
       }
+      bleUpload.lastDataTime = millis();
+      break;
+    }
+
+    case BLE_MSG_BIN_END: {
+      if (bleUpload.phase != BLE_UP_WAIT_DATA) return;
+      if (chan != bleUploadChan) return;
+      bleUpload.phase = BLE_UP_RECEIVED;
+      break;
     }
   }
-};
+}
 
 // Process BLE requests on main task (safe for LittleFS I/O and Serial0)
 static void processBleRequest() {
@@ -407,13 +383,12 @@ static void processBleRequest() {
         char buf[48];
         snprintf(buf, sizeof(buf), "IMG:%d:%s", i, labels[i]);
         bleSendText(buf);
-        delay(20);
       }
       bleSendText("END");
       break;
 
     case BLE_REQ_GETPNG: {
-      uint16_t ch = bleRequestConnHandle;
+      NimBLEL2CAPChannel *ch = (NimBLEL2CAPChannel *)bleRequestChan;
       if (bleImageSending || bleUpload.phase != BLE_UP_IDLE) {
         bleSendTextTo(ch, "ERR:BUSY");
       } else if (slot < 0 || slot >= numImages) {
@@ -421,7 +396,6 @@ static void processBleRequest() {
       } else if (!openPngForBLE(slot)) {
         bleSendTextTo(ch, "ERR:LOAD_FAILED");
       } else {
-        // Send BIN_START: [slot, file_type=0(png), size(4B LE), crc32(4B LE)]
         uint8_t sp[10];
         sp[0] = slot;
         sp[1] = 0;  // PNG
@@ -433,10 +407,9 @@ static void processBleRequest() {
         sp[7] = (bleImageCrc >> 8) & 0xFF;
         sp[8] = (bleImageCrc >> 16) & 0xFF;
         sp[9] = (bleImageCrc >> 24) & 0xFF;
-        bleSendFrameTo(ch, BLE_FRAME_BIN_START, sp, 10);
-        delay(20);
+        bleSendBin(ch, BLE_MSG_BIN_START, sp, 10);
         bleImageSlot = slot;
-        bleImageSendConnHandle = ch;
+        bleImageSendChan = ch;
         bleImageSending = true;
         Serial.printf("BLE PNG download: slot %d, %u bytes, CRC 0x%08lX\n",
                       slot, bleImageSize, (unsigned long)bleImageCrc);
@@ -445,7 +418,7 @@ static void processBleRequest() {
     }
 
     case BLE_REQ_GETIMG: {
-      uint16_t ch = bleRequestConnHandle;
+      NimBLEL2CAPChannel *ch = (NimBLEL2CAPChannel *)bleRequestChan;
       if (bleImageSending || bleUpload.phase != BLE_UP_IDLE) {
         bleSendTextTo(ch, "ERR:BUSY");
       } else if (slot < 0 || slot >= numImages) {
@@ -470,10 +443,9 @@ static void processBleRequest() {
           sp[7] = (bleImageCrc >> 8) & 0xFF;
           sp[8] = (bleImageCrc >> 16) & 0xFF;
           sp[9] = (bleImageCrc >> 24) & 0xFF;
-          bleSendFrameTo(ch, BLE_FRAME_BIN_START, sp, 10);
-          delay(20);
+          bleSendBin(ch, BLE_MSG_BIN_START, sp, 10);
           bleImageSlot = slot;
-          bleImageSendConnHandle = ch;
+          bleImageSendChan = ch;
           bleImageSending = true;
           Serial.printf("BLE image download: slot %d, %d bytes\n", slot, IMAGE_BYTES);
         }
@@ -547,7 +519,7 @@ static void processBleUpload() {
   uint32_t crc = uartCrc32Update(0, (const uint8_t*)imageBuf, bleUpload.expectedSize);
   if (crc != bleUpload.expectedCrc32) {
     Serial.printf("BLE upload CRC mismatch: got 0x%08lX expected 0x%08lX\n", crc, bleUpload.expectedCrc32);
-    bleSendTextTo(bleUploadConnHandle, "IMG_ERR:CRC_MISMATCH");
+    bleSendTextTo(bleUploadChan, "IMG_ERR:CRC_MISMATCH");
     bleUpload.phase = BLE_UP_IDLE;
     return;
   }
@@ -566,7 +538,7 @@ static void processBleUpload() {
     LittleFS.remove(path);
     File f = LittleFS.open(path, "w");
     if (!f) {
-      bleSendTextTo(bleUploadConnHandle, "IMG_ERR:WRITE_FAIL");
+      bleSendTextTo(bleUploadChan, "IMG_ERR:WRITE_FAIL");
       bleUpload.phase = BLE_UP_IDLE;
       return;
     }
@@ -764,42 +736,75 @@ static void processBleUploadForward() {
     const char *typeStr = bleUpload.fileType == 0 ? "png" :
                           (bleUpload.fileType == 1 ? "s3" : "rp");
     snprintf(resp, sizeof(resp), "IMG_OK:%d:%s", bleUpload.slot, typeStr);
-    bleSendTextTo(bleUploadConnHandle, resp);
+    bleSendTextTo(bleUploadChan, resp);
   } else {
-    bleSendTextTo(bleUploadConnHandle, "IMG_ERR:FORWARD_FAIL");
+    bleSendTextTo(bleUploadChan, "IMG_ERR:FORWARD_FAIL");
   }
 
   bleUpload.phase = BLE_UP_IDLE;
 }
 
+// L2CAP CoC callbacks
+class SodaL2CAPCallbacks : public NimBLEL2CAPChannelCallbacks {
+  void onConnect(NimBLEL2CAPChannel *channel, uint16_t negotiatedMTU) override {
+    for (int i = 0; i < L2CAP_MAX_CHANS; i++) {
+      if (!l2capChans[i]) {
+        l2capChans[i] = channel;
+        l2capChanCount++;
+        break;
+      }
+    }
+    Serial.printf("BLE: L2CAP connected (mtu=%u, chans=%d, heap=%lu)\n",
+                  negotiatedMTU, l2capChanCount, (unsigned long)ESP.getFreeHeap());
+  }
+
+  void onRead(NimBLEL2CAPChannel *channel, std::vector<uint8_t> &data) override {
+    l2capOnDataReceived(channel, data);
+  }
+
+  void onDisconnect(NimBLEL2CAPChannel *channel) override {
+    l2capOnDisconnect(channel);
+  }
+};
+
+// GAP server callbacks for connection management + re-advertising
+class GapServerCB : public NimBLEServerCallbacks {
+  void onConnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo) override {
+    Serial.printf("BLE: GAP connected (count=%lu, heap=%lu)\n",
+                  (unsigned long)pServer->getConnectedCount(),
+                  (unsigned long)ESP.getFreeHeap());
+    NimBLEDevice::startAdvertising();
+  }
+  void onDisconnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo, int reason) override {
+    Serial.printf("BLE: GAP disconnected (remaining=%lu)\n",
+                  (unsigned long)pServer->getConnectedCount());
+    NimBLEDevice::startAdvertising();
+  }
+};
+
+static SodaL2CAPCallbacks l2capCB;
+
 static void initBLE() {
-  BLEDevice::init("SodaMachine");
+  NimBLEDevice::init("SodaMachine");
 
-  pBLEServer = BLEDevice::createServer();
-  pBLEServer->setCallbacks(new BLEServerCB());
+  // Server for GAP connection management
+  NimBLEServer *pServer = NimBLEDevice::createServer();
+  pServer->setCallbacks(new GapServerCB());
 
-  BLEService *pService = pBLEServer->createService(NUS_SERVICE_UUID);
+  // Create L2CAP CoC server
+  NimBLEL2CAPServer *pL2CAPServer = NimBLEDevice::createL2CAPServer();
+  NimBLEL2CAPChannel *svc = pL2CAPServer->createService(SODA_L2CAP_PSM, L2CAP_MTU, &l2capCB);
+  if (!svc) {
+    Serial.println("BLE: L2CAP service creation failed");
+    return;
+  }
 
-  pTxChar = pService->createCharacteristic(
-    NUS_TX_UUID,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pTxChar->addDescriptor(new BLE2902());
-
-  BLECharacteristic *pRxChar = pService->createCharacteristic(
-    NUS_RX_UUID,
-    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
-  );
-  pRxChar->setCallbacks(new BLERxCB());
-
-  pService->start();
-
-  BLEAdvertising *pAdv = BLEDevice::getAdvertising();
-  pAdv->addServiceUUID(NUS_SERVICE_UUID);
-  pAdv->setScanResponse(true);
+  // Start advertising (local name only, no GATT services)
+  NimBLEAdvertising *pAdv = NimBLEDevice::getAdvertising();
+  pAdv->enableScanResponse(true);
   pAdv->start();
 
-  Serial.println("BLE: NUS service started, advertising as 'SodaMachine'");
+  Serial.println("BLE: L2CAP CoC server started, advertising as 'SodaMachine'");
 }
 
 // ── Menu ──
@@ -1325,37 +1330,39 @@ void parseConfigResponse(const char* line) {
   }
 }
 
-// Send a framed BLE notification: [type(1B), len(2B LE), payload...]
-static void bleSendFrame(uint8_t type, const uint8_t *payload, uint16_t len) {
-  if (!bleHasClients() || !pTxChar) return;
-  bleSendChunkBuf[0] = type;
-  bleSendChunkBuf[1] = len & 0xFF;
-  bleSendChunkBuf[2] = (len >> 8) & 0xFF;
-  if (len > 0 && payload) memcpy(bleSendChunkBuf + 3, payload, len);
-  pTxChar->setValue(bleSendChunkBuf, 3 + len);
-  pTxChar->notify();
+// ── L2CAP CoC send functions ──
+// Wire format: [length(4B LE)] [type(1B)] [payload...]
+static void bleSendTo(NimBLEL2CAPChannel *chan, uint8_t type,
+                      const uint8_t *data, uint16_t dataLen) {
+  uint32_t msgLen = 1 + dataLen;
+  std::vector<uint8_t> wire;
+  wire.reserve(4 + 1 + dataLen);
+  wire.push_back(msgLen & 0xFF);
+  wire.push_back((msgLen >> 8) & 0xFF);
+  wire.push_back((msgLen >> 16) & 0xFF);
+  wire.push_back((msgLen >> 24) & 0xFF);
+  wire.push_back(type);
+  if (dataLen > 0 && data) wire.insert(wire.end(), data, data + dataLen);
+  chan->write(wire);
 }
 
-// Send a TEXT frame to BLE client (broadcast to all)
+// Send a TEXT message to all connected L2CAP clients
 static void bleSendText(const char *text) {
-  bleSendFrame(BLE_FRAME_TEXT, (const uint8_t *)text, strlen(text));
+  if (!bleHasClients()) return;
+  for (int i = 0; i < L2CAP_MAX_CHANS; i++) {
+    if (l2capChans[i]) bleSendTo(l2capChans[i], BLE_MSG_TEXT, (const uint8_t *)text, strlen(text));
+  }
 }
 
-// Send a framed BLE notification to a specific client (by conn_handle)
-static void bleSendFrameTo(uint16_t conn_handle, uint8_t type, const uint8_t *payload, uint16_t len) {
-  if (!pTxChar) return;
-  uint8_t buf[256];
-  buf[0] = type;
-  buf[1] = len & 0xFF;
-  buf[2] = (len >> 8) & 0xFF;
-  if (len > 0 && payload) memcpy(buf + 3, payload, len);
-  struct os_mbuf *om = ble_hs_mbuf_from_flat(buf, 3 + len);
-  if (om) ble_gatts_notify_custom(conn_handle, pTxChar->getHandle(), om);
+// Send a binary message to a specific L2CAP client
+static void bleSendBin(NimBLEL2CAPChannel *chan, uint8_t type,
+                       const uint8_t *data, uint16_t len) {
+  bleSendTo(chan, type, data, len);
 }
 
-// Send a TEXT frame to a specific client
-static void bleSendTextTo(uint16_t conn_handle, const char *text) {
-  bleSendFrameTo(conn_handle, BLE_FRAME_TEXT, (const uint8_t *)text, strlen(text));
+// Send a TEXT message to a specific L2CAP client
+static void bleSendTextTo(NimBLEL2CAPChannel *chan, const char *text) {
+  bleSendTo(chan, BLE_MSG_TEXT, (const uint8_t *)text, strlen(text));
 }
 
 static void processTextLine(const char *line) {
@@ -2165,7 +2172,7 @@ void loop() {
   if (bleUpload.phase == BLE_UP_WAIT_DATA &&
       millis() - bleUpload.lastDataTime > 30000) {
     bleUpload.phase = BLE_UP_IDLE;
-    bleSendTextTo(bleUploadConnHandle, "IMG_ERR:TIMEOUT");
+    bleSendTextTo(bleUploadChan, "IMG_ERR:TIMEOUT");
     Serial.println("BLE upload timed out");
   }
 

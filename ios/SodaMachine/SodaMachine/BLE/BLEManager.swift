@@ -4,10 +4,8 @@ import UIKit
 import SwiftUI
 import os
 
-/// Nordic UART Service UUIDs
-private let nusServiceUUID = CBUUID(string: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
-private let nusRxUUID       = CBUUID(string: "6E400002-B5A3-F393-E0A9-E50E24DCCA9E") // phone writes here
-private let nusTxUUID       = CBUUID(string: "6E400003-B5A3-F393-E0A9-E50E24DCCA9E") // phone subscribes here
+/// L2CAP Connection-Oriented Channel PSM (must match S3 firmware)
+private let sodaPSM: CBL2CAPPSM = 0x0080
 
 private let log = Logger(subsystem: "com.derekbreden.SodaMachine", category: "BLE")
 
@@ -103,9 +101,6 @@ class BLEManager {
 
     // ── Internal state (not observed by SwiftUI) ──
 
-    // All @ObservationIgnored properties below are fileprivate so
-    // the CBDelegateAdapter (same file) can access them directly.
-
     @ObservationIgnored fileprivate var pendingImageList: [String] = []
 
     // Pending delete state (for optimistic UI rollback)
@@ -134,10 +129,15 @@ class BLEManager {
     @ObservationIgnored fileprivate var isDownloading = false
     @ObservationIgnored fileprivate var binStartReceived = false
     @ObservationIgnored fileprivate var pendingStatsRequest = false
-    @ObservationIgnored fileprivate var nusReady = false
 
-    // BLE frame buffer — accumulates partial frames from notifications
-    @ObservationIgnored fileprivate var frameBuffer = Data()
+    // L2CAP channel state
+    @ObservationIgnored fileprivate var l2capChannel: CBL2CAPChannel?
+    @ObservationIgnored fileprivate var l2capReady = false
+    @ObservationIgnored fileprivate var rxBuffer = Data()
+    @ObservationIgnored fileprivate var pendingWriteData = Data()
+
+    // L2CAP stream thread — NSStream requires a RunLoop for delegate callbacks
+    @ObservationIgnored fileprivate var streamThread: Thread?
 
     // BLE runs on a dedicated background queue so binary data accumulation
     // and BLE writes don't block the main thread during image downloads.
@@ -145,7 +145,6 @@ class BLEManager {
     @ObservationIgnored fileprivate var cbAdapter: CBDelegateAdapter!
     @ObservationIgnored fileprivate var centralManager: CBCentralManager!
     @ObservationIgnored fileprivate var connectedPeripheral: CBPeripheral?
-    @ObservationIgnored fileprivate var rxCharacteristic: CBCharacteristic?
     @ObservationIgnored fileprivate var scanTimer: Timer?
     @ObservationIgnored fileprivate var reconnectTimer: Timer?
 
@@ -156,28 +155,53 @@ class BLEManager {
 
     // MARK: - Public API
 
-    /// Send a text command to the S3 via BLE, wrapped in a TEXT frame.
-    /// Always dispatched to bleQueue to avoid cross-queue blocking.
+    /// Send a text command to the S3 via BLE L2CAP channel.
+    /// Wire format: [length(4B LE)][type(1B)][payload...]
     func send(_ text: String) {
-        bleQueue.async { [weak self] in
-            guard let self, let rx = self.rxCharacteristic, let p = self.connectedPeripheral else {
-                log.warning("Cannot send: not connected")
-                return
-            }
-            guard let payload = text.data(using: .utf8) else { return }
-            var frame = Data([0x01, UInt8(payload.count & 0xFF), UInt8((payload.count >> 8) & 0xFF)])
-            frame.append(payload)
-            p.writeValue(frame, for: rx, type: .withResponse)
-            log.debug("TX: \(text)")
+        guard let payload = text.data(using: .utf8) else { return }
+        l2capSend(type: 0x01, payload: payload)
+        log.debug("TX: \(text)")
+    }
+
+    /// Send a binary message on the L2CAP channel.
+    fileprivate func sendBinMessage(type: UInt8, payload: Data) {
+        l2capSend(type: type, payload: payload)
+    }
+
+    /// Core L2CAP send: [length(4B LE)][type(1B)][payload...]
+    private func l2capSend(type: UInt8, payload: Data) {
+        guard let channel = l2capChannel, let output = channel.outputStream else { return }
+        let msgLen = UInt32(1 + payload.count).littleEndian
+        var wire = Data(capacity: 4 + 1 + payload.count)
+        withUnsafeBytes(of: msgLen) { wire.append(contentsOf: $0) }
+        wire.append(type)
+        wire.append(payload)
+        performOnStreamThread {
+            self.pendingWriteData.append(wire)
+            self.drainPendingWrites(output)
         }
     }
 
-    /// Send a raw BLE frame on bleQueue. Caller must already be on bleQueue.
-    fileprivate func sendBLEFrame(type: UInt8, payload: Data) {
-        guard let rx = rxCharacteristic, let p = connectedPeripheral else { return }
-        var frame = Data([type, UInt8(payload.count & 0xFF), UInt8((payload.count >> 8) & 0xFF)])
-        frame.append(payload)
-        p.writeValue(frame, for: rx, type: .withResponse)
+    fileprivate func drainPendingWrites(_ stream: OutputStream) {
+        while !pendingWriteData.isEmpty && stream.hasSpaceAvailable {
+            let written = pendingWriteData.withUnsafeBytes { ptr in
+                stream.write(
+                    ptr.bindMemory(to: UInt8.self).baseAddress!,
+                    maxLength: pendingWriteData.count
+                )
+            }
+            if written > 0 {
+                pendingWriteData.removeFirst(written)
+            } else {
+                break
+            }
+        }
+    }
+
+    /// Execute a block on the stream thread's RunLoop.
+    fileprivate func performOnStreamThread(_ block: @escaping () -> Void) {
+        guard let thread = streamThread, !thread.isCancelled else { return }
+        cbAdapter.perform(#selector(CBDelegateAdapter.executeBlock(_:)), on: thread, with: BlockWrapper(block), waitUntilDone: false)
     }
 
     func requestConfig() {
@@ -209,8 +233,6 @@ class BLEManager {
         chartDataSynced = false
         rawHourlyData = [[], []]
         chartCurReceived = 0
-        // Defer until image downloads finish — responses would be
-        // swallowed by the binary image accumulator otherwise.
         if isDownloading {
             pendingStatsRequest = true
             return
@@ -252,7 +274,6 @@ class BLEManager {
         if demoMode {
             cleanCycleActive = true
             cleanCyclePhase = "Filling... (1/3)"
-            // Simulate fill+flush cycles
             let phases = [
                 (0.5, "Flushing... (1/3)"),
                 (1.0, "Filling... (2/3)"),
@@ -326,7 +347,7 @@ class BLEManager {
             return
         }
         let item = uploadQueue.removeFirst()
-        let slot = numImages  // lazy slot assignment: always next sequential slot
+        let slot = numImages
         uploadImageRef = item.image
         activeUploadImage = item.image
         activeUploadSlot = slot
@@ -372,15 +393,12 @@ class BLEManager {
             return
         }
 
-        // Save state for rollback on error
         pendingDeleteSlot = slot
         preDeleteNumImages = numImages
         preDeleteCachedImages = cachedImages
         preDeleteImageNames = imageNames
 
-        // Optimistic UI: remove immediately
         numImages -= 1
-        // Shift cached images above deleted slot down
         var newCache: [Int: UIImage] = [:]
         for (key, img) in cachedImages {
             if key < slot {
@@ -498,7 +516,6 @@ class BLEManager {
     }
 
     private func populateDemoChartData() {
-        // HOD: sine wave peaking at noon (hour 12)
         var hod0 = [Double](repeating: 0, count: 24)
         var hod1 = [Double](repeating: 0, count: 24)
         for h in 0..<24 {
@@ -510,7 +527,6 @@ class BLEManager {
         chartDataHOD = [hod0, hod1]
         chartDataHODDays = 14
 
-        // 24H: based on HOD pattern with some noise
         let calendar = Calendar.current
         let currentHour = calendar.component(.hour, from: Date())
         var h24_0 = [Double](repeating: 0, count: 24)
@@ -524,7 +540,6 @@ class BLEManager {
         }
         chartData24H = [h24_0, h24_1]
 
-        // 30D: gradual ramp-up with variation
         var d30_0 = [Double](repeating: 0, count: 30)
         var d30_1 = [Double](repeating: 0, count: 30)
         for i in 0..<30 {
@@ -589,7 +604,7 @@ class BLEManager {
 
         bleQueue.async { [weak self] in
             guard let self else { return }
-            self.sendBLEFrame(type: 0x02, payload: startPayload)
+            self.sendBinMessage(type: 0x02, payload: startPayload)
             self.bleQueue.asyncAfter(deadline: .now() + 0.05) {
                 self.sendUploadChunks()
             }
@@ -599,9 +614,8 @@ class BLEManager {
     private func sendUploadChunks() {
         guard currentUploadStep < uploadSteps.count else { return }
         let data = uploadSteps[currentUploadStep].data
-        guard let rx = rxCharacteristic, let p = connectedPeripheral else { return }
-        let mtu = p.maximumWriteValueLength(for: .withResponse)
-        let chunkSize = min(mtu - 3, 240)  // leave room for frame header
+        // L2CAP handles flow control — send 1024B chunks with no delay
+        let chunkSize = 1024
 
         func sendChunk() {
             self.bleQueue.async {
@@ -609,10 +623,7 @@ class BLEManager {
                 let end = min(self.uploadBytesSent + chunkSize, data.count)
                 let chunk = data[self.uploadBytesSent..<end]
 
-                // Build BIN_DATA frame
-                var frame = Data([0x03, UInt8(chunk.count & 0xFF), UInt8((chunk.count >> 8) & 0xFF)])
-                frame.append(chunk)
-                p.writeValue(frame, for: rx, type: .withResponse)
+                self.sendBinMessage(type: 0x03, payload: Data(chunk))
                 self.uploadBytesSent = end
 
                 DispatchQueue.main.async {
@@ -622,14 +633,9 @@ class BLEManager {
                 }
 
                 if self.uploadBytesSent < data.count {
-                    self.bleQueue.asyncAfter(deadline: .now() + 0.02) {
-                        sendChunk()
-                    }
+                    sendChunk()
                 } else {
-                    // All data sent, send BIN_END frame
-                    self.bleQueue.asyncAfter(deadline: .now() + 0.02) {
-                        self.sendBLEFrame(type: 0x04, payload: Data())
-                    }
+                    self.sendBinMessage(type: 0x04, payload: Data())
                 }
             }
         }
@@ -729,12 +735,7 @@ class BLEManager {
         imgDownloadData = Data()
         imgDownloadExpected = 0
         imgDownloadRetries = 0
-        guard let rx = rxCharacteristic, let p = connectedPeripheral,
-              let payload = "GETPNG:\(slot)".data(using: .utf8) else { return }
-        // Send as TEXT frame
-        var frame = Data([0x01, UInt8(payload.count & 0xFF), UInt8((payload.count >> 8) & 0xFF)])
-        frame.append(payload)
-        p.writeValue(frame, for: rx, type: .withResponse)
+        send("GETPNG:\(slot)")
     }
 
     // MARK: - Response parsing (main thread only)
@@ -794,7 +795,6 @@ class BLEManager {
         } else if text.hasPrefix("CHART_") {
             parseChartLine(text)
         } else if text.hasPrefix("CLEAN:FILLING:") {
-            // CLEAN:FILLING:n:c/t
             let parts = text.dropFirst(14)
             if let slashIdx = parts.firstIndex(of: "/"),
                let colonIdx = parts.firstIndex(of: ":") {
@@ -843,12 +843,11 @@ class BLEManager {
                 log.error("Skipping failed image download, continuing queue")
                 bleQueue.async { self.startNextDownload() }
             } else if pendingDeleteSlot >= 0 {
-                // Roll back optimistic delete
                 numImages = preDeleteNumImages
                 cachedImages = preDeleteCachedImages
                 imageNames = preDeleteImageNames
                 pendingDeleteSlot = -1
-                deleteError = String(text.dropFirst(4)) // strip "ERR:" prefix
+                deleteError = String(text.dropFirst(4))
             }
         }
     }
@@ -879,7 +878,6 @@ class BLEManager {
         let parts = body.split(separator: ",")
         guard parts.count >= 2 else { return }
 
-        // Parse key=value pairs at start
         var flavor = 0
         var kvValues: [String: String] = [:]
         var dataStart = 0
@@ -895,12 +893,10 @@ class BLEManager {
         }
         guard flavor >= 0, flavor <= 1 else { return }
 
-        // CHART_HOURLY: sparse seqHour:flowSum pairs from ESP32
         if prefix == "CHART_HOURLY" {
             if let seqStr = kvValues["SEQ"], let seq = UInt32(seqStr) {
                 currentSeqHour = seq
             }
-            // Parse seqHour:flowSum pairs after the key=value prefix
             for part in parts[dataStart...] {
                 let pair = part.split(separator: ":", maxSplits: 1)
                 if pair.count == 2, let seq = UInt32(pair[0]), let fs = UInt32(pair[1]) {
@@ -910,13 +906,9 @@ class BLEManager {
             return
         }
 
-        // CHART_CUR: compute charts from raw data, then store baseline
         if prefix == "CHART_CUR" {
             if let fsStr = kvValues["FS"], let fs = UInt32(fsStr) {
-                // Compute charts from raw hourly data for this flavor
                 computeChartsFromRaw(flavor: flavor)
-
-                // Store baseline for live delta computation
                 chartBaseFlowSum[flavor] = fs
                 chartBase24H_last[flavor] = chartData24H[flavor][23]
                 chartBase30D_last[flavor] = chartData30D[flavor][29]
@@ -934,7 +926,6 @@ class BLEManager {
             return
         }
 
-        // CHART_LIVE: push update — apply delta to live slots
         if prefix == "CHART_LIVE" {
             if let fsStr = kvValues["FS"], let newFS = UInt32(fsStr) {
                 let delta = Double(newFS - chartBaseFlowSum[flavor]) * 0.05
@@ -948,7 +939,6 @@ class BLEManager {
                 var newHOD = chartDataHOD
                 newHOD[flavor][chartBaseHOD_hour] = chartBaseHOD_slot[flavor] + delta
 
-                // Incremental flow delta for stats (pie chart)
                 let incr = newFS - lastLiveFS[flavor]
                 lastLiveFS[flavor] = newFS
 
@@ -984,12 +974,10 @@ class BLEManager {
             let bucketDate = now.addingTimeInterval(-Double(hoursAgo) * 3600)
             let flowValue = Double(entry.flowSum) * 0.05
 
-            // CHART_24H: last 24 hours
             if hoursAgo < 24 {
                 arr24H[23 - hoursAgo] += flowValue
             }
 
-            // CHART_30D: last 30 days by calendar day
             let bucketDay = calendar.startOfDay(for: bucketDate)
             let daysAgo = calendar.dateComponents([.day], from: bucketDay, to: startOfToday).day ?? 999
             if daysAgo >= 0, daysAgo < 30 {
@@ -998,7 +986,6 @@ class BLEManager {
                 monthFlowSum += entry.flowSum
             }
 
-            // CHART_HOD: hour-of-day distribution
             if daysAgo >= 0, daysAgo < 30 {
                 let hourOfDay = calendar.component(.hour, from: bucketDate)
                 arrHOD[hourOfDay] += flowValue
@@ -1019,7 +1006,6 @@ class BLEManager {
             }
         }
 
-        // Clear raw data for this flavor
         rawHourlyData[flavor] = []
     }
 
@@ -1044,7 +1030,8 @@ class BLEManager {
             self.configSynced = false
             self.cachedImages = [:]
         }
-        centralManager.scanForPeripherals(withServices: [nusServiceUUID], options: [
+        // Scan without service filter — match by local name after discovery
+        centralManager.scanForPeripherals(withServices: nil, options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: false
         ])
         log.info("Auto-scanning for Soda Machine...")
@@ -1059,6 +1046,21 @@ class BLEManager {
         }
     }
 
+    fileprivate func closeL2CAPChannel() {
+        if let channel = l2capChannel {
+            channel.inputStream?.close()
+            channel.outputStream?.close()
+            channel.inputStream?.remove(from: .current, forMode: .default)
+            channel.outputStream?.remove(from: .current, forMode: .default)
+        }
+        l2capChannel = nil
+        l2capReady = false
+        rxBuffer = Data()
+        pendingWriteData = Data()
+        streamThread?.cancel()
+        streamThread = nil
+    }
+
     fileprivate func scheduleReconnect() {
         DispatchQueue.main.async {
             self.reconnectTimer?.invalidate()
@@ -1067,20 +1069,136 @@ class BLEManager {
             }
         }
     }
+
+    /// Process complete messages from the L2CAP RX buffer.
+    /// Wire format: [length(4B LE)][type(1B)][payload...]
+    fileprivate func processRxBuffer() {
+        while rxBuffer.count >= 5 {  // minimum: 4-byte length + 1-byte type
+            let si = rxBuffer.startIndex
+            let msgLen = Int(rxBuffer[si]) |
+                         (Int(rxBuffer[si + 1]) << 8) |
+                         (Int(rxBuffer[si + 2]) << 16) |
+                         (Int(rxBuffer[si + 3]) << 24)
+            let totalLen = 4 + msgLen
+            guard rxBuffer.count >= totalLen, msgLen >= 1 else { break }
+
+            let type = rxBuffer[si + 4]
+            let payload = Data(rxBuffer[(si + 5)..<(si + totalLen)])
+            rxBuffer.removeFirst(totalLen)
+
+            switch type {
+            case 0x01:  // TEXT
+                guard let text = String(data: payload, encoding: .utf8) else { continue }
+                if text.hasPrefix("DBG:") { continue }
+                DispatchQueue.main.async {
+                    self.handleTextResponse(text)
+                }
+
+            case 0x02:  // BIN_START
+                guard isDownloading else {
+                    log.debug("Ignoring unsolicited BIN_START")
+                    continue
+                }
+                guard payload.count >= 10 else { continue }
+                let psi = payload.startIndex
+                let slot = Int(payload[psi])
+                let size = UInt32(payload[psi + 2]) | (UInt32(payload[psi + 3]) << 8) |
+                           (UInt32(payload[psi + 4]) << 16) | (UInt32(payload[psi + 5]) << 24)
+                let crc = UInt32(payload[psi + 6]) | (UInt32(payload[psi + 7]) << 8) |
+                          (UInt32(payload[psi + 8]) << 16) | (UInt32(payload[psi + 9]) << 24)
+                imgDownloadSlot = slot
+                imgDownloadExpected = Int(size)
+                imgDownloadCRC = crc
+                imgDownloadData = Data()
+                binStartReceived = true
+                log.info("BIN_START: slot \(slot), \(size) bytes, CRC=0x\(String(crc, radix: 16))")
+
+            case 0x03:  // BIN_DATA
+                guard binStartReceived else { continue }
+                imgDownloadData.append(payload)
+
+            case 0x04:  // BIN_END
+                guard binStartReceived else { continue }
+                binStartReceived = false
+                let imgData = imgDownloadData
+                let slot = imgDownloadSlot
+                let expectedSize = imgDownloadExpected
+                let expectedCRC = imgDownloadCRC
+                imgDownloadSlot = -1
+                imgDownloadData = Data()
+
+                if imgData.count != expectedSize {
+                    log.error("Image \(slot) size mismatch: got \(imgData.count) expected \(expectedSize)")
+                    retryDownload(slot: slot)
+                    continue
+                }
+
+                let actualCRC = ImageProcessor.crc32(imgData)
+                if actualCRC != expectedCRC {
+                    log.error("Image \(slot) CRC mismatch: got 0x\(String(actualCRC, radix: 16)) expected 0x\(String(expectedCRC, radix: 16))")
+                    retryDownload(slot: slot)
+                    continue
+                }
+
+                imgDownloadRetries = 0
+                let image = UIImage(data: imgData)
+                DispatchQueue.main.async {
+                    if let image {
+                        self.cachedImages[slot] = image
+                        log.info("Image \(slot) cached (\(imgData.count) bytes, CRC verified)")
+                    } else {
+                        log.error("Image \(slot) decode failed: \(imgData.count) bytes")
+                    }
+                }
+                startNextDownload()
+
+            default:
+                break
+            }
+        }
+    }
+
+    private func retryDownload(slot: Int) {
+        imgDownloadRetries += 1
+        if imgDownloadRetries <= 3 {
+            log.info("Retrying image \(slot) download (attempt \(self.imgDownloadRetries))")
+            send("GETPNG:\(slot)")
+        } else {
+            log.error("Image \(slot) download failed after 3 retries")
+            imgDownloadRetries = 0
+            startNextDownload()
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+// BlockWrapper — allows passing closures via perform(_:on:with:)
+// ────────────────────────────────────────────────────────────
+
+private class BlockWrapper: NSObject {
+    let block: () -> Void
+    init(_ block: @escaping () -> Void) {
+        self.block = block
+    }
 }
 
 // ────────────────────────────────────────────────────────────
 // CBDelegateAdapter — thin NSObject that implements CoreBluetooth
 // delegates and forwards to BLEManager. Required because @Observable
-// classes cannot inherit from NSObject.
+// classes cannot inherit from NSObject. Also implements StreamDelegate
+// for L2CAP channel I/O.
 // ────────────────────────────────────────────────────────────
 
-private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
+private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate, StreamDelegate {
     unowned let ble: BLEManager
 
     init(_ ble: BLEManager) {
         self.ble = ble
         super.init()
+    }
+
+    @objc func executeBlock(_ wrapper: BlockWrapper) {
+        wrapper.block()
     }
 
     // MARK: - CBCentralManagerDelegate
@@ -1098,7 +1216,9 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                          advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? "Unknown"
+        // Filter by local name since we no longer advertise a GATT service UUID
+        let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? ""
+        guard name == "SodaMachine" else { return }
         log.info("Found: \(name) (RSSI: \(RSSI.intValue))")
 
         DispatchQueue.main.async { self.ble.scanTimer?.invalidate() }
@@ -1111,7 +1231,8 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         log.info("Connected to \(peripheral.name ?? "device")")
         peripheral.delegate = self
-        peripheral.discoverServices([nusServiceUUID])
+        // Open L2CAP channel directly — no GATT service discovery needed
+        peripheral.openL2CAPChannel(sodaPSM)
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
@@ -1126,9 +1247,7 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         ble.imgDownloadSlot = -1
         ble.binStartReceived = false
         ble.connectedPeripheral = nil
-        ble.rxCharacteristic = nil
-        ble.nusReady = false
-        ble.frameBuffer = Data()
+        ble.closeL2CAPChannel()
         DispatchQueue.main.async {
             self.ble.connectionState = .searching
             self.ble.configSynced = false
@@ -1155,142 +1274,87 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         }
     }
 
-    // MARK: - CBPeripheralDelegate
+    // MARK: - CBPeripheralDelegate (L2CAP channel open)
 
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard let services = peripheral.services else { return }
-        for service in services where service.uuid == nusServiceUUID {
-            peripheral.discoverCharacteristics([nusRxUUID, nusTxUUID], for: service)
+    func peripheral(_ peripheral: CBPeripheral, didOpen channel: CBL2CAPChannel?, error: Error?) {
+        if let error {
+            log.error("L2CAP channel open failed: \(error.localizedDescription)")
+            ble.bleQueue.asyncAfter(deadline: .now() + 1.0) {
+                peripheral.openL2CAPChannel(sodaPSM)
+            }
+            return
         }
+        guard let channel else {
+            log.error("L2CAP channel is nil")
+            return
+        }
+
+        log.info("L2CAP channel opened (PSM \(sodaPSM))")
+        ble.l2capChannel = channel
+
+        // Create a dedicated thread with RunLoop for stream I/O
+        let thread = Thread { [weak self] in
+            guard let self else { return }
+            let runLoop = RunLoop.current
+
+            channel.inputStream?.delegate = self
+            channel.outputStream?.delegate = self
+            channel.inputStream?.schedule(in: runLoop, forMode: .default)
+            channel.outputStream?.schedule(in: runLoop, forMode: .default)
+            channel.inputStream?.open()
+            channel.outputStream?.open()
+
+            // Keep the RunLoop alive until the thread is cancelled
+            while !Thread.current.isCancelled {
+                runLoop.run(mode: .default, before: Date.distantFuture)
+            }
+        }
+        thread.name = "L2CAPStreamThread"
+        thread.qualityOfService = .userInitiated
+        ble.streamThread = thread
+        thread.start()
     }
 
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        guard let chars = service.characteristics else { return }
-        for char in chars {
-            if char.uuid == nusTxUUID {
-                peripheral.setNotifyValue(true, for: char)
-                log.debug("Subscribed to TX notifications")
-            } else if char.uuid == nusRxUUID {
-                ble.rxCharacteristic = char
-                log.debug("Found RX characteristic")
+    // MARK: - StreamDelegate
+
+    func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
+        switch eventCode {
+        case .hasBytesAvailable:
+            guard let input = aStream as? InputStream else { return }
+            var buf = [UInt8](repeating: 0, count: 4096)
+            while input.hasBytesAvailable {
+                let n = input.read(&buf, maxLength: buf.count)
+                if n > 0 {
+                    ble.rxBuffer.append(buf, count: n)
+                }
             }
-        }
-        if ble.rxCharacteristic != nil && !ble.nusReady {
-            ble.nusReady = true
-            DispatchQueue.main.async { self.ble.connectionState = .connected }
-            peripheral.maximumWriteValueLength(for: .withResponse)
-            log.info("NUS ready")
-            ble.bleQueue.asyncAfter(deadline: .now() + 0.05) { [weak ble] in
-                ble?.send("GET_CONFIG")
+            ble.processRxBuffer()
+
+        case .hasSpaceAvailable:
+            guard let output = aStream as? OutputStream else { return }
+            ble.drainPendingWrites(output)
+            // If this is the first hasSpaceAvailable, channel is ready
+            if !ble.l2capReady {
+                ble.l2capReady = true
+                DispatchQueue.main.async { self.ble.connectionState = .connected }
+                log.info("L2CAP ready")
+                ble.bleQueue.asyncAfter(deadline: .now() + 0.05) { [weak ble] in
+                    ble?.send("GET_CONFIG")
+                }
+                ble.bleQueue.asyncAfter(deadline: .now() + 0.1) { [weak ble] in
+                    ble?.send("LIST")
+                }
             }
-            ble.bleQueue.asyncAfter(deadline: .now() + 0.1) { [weak ble] in
-                ble?.send("LIST")
-            }
-        }
-    }
 
-    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard characteristic.uuid == nusTxUUID, let data = characteristic.value else { return }
-        // This runs on bleQueue. Parse framed protocol.
+        case .errorOccurred:
+            log.error("L2CAP stream error: \(aStream.streamError?.localizedDescription ?? "unknown")")
+            // Channel is broken — disconnect will trigger reconnect
 
-        ble.frameBuffer.append(data)
+        case .endEncountered:
+            log.info("L2CAP stream ended")
 
-        while ble.frameBuffer.count >= 3 {
-            let si = ble.frameBuffer.startIndex
-            let type = ble.frameBuffer[si]
-            let len = Int(ble.frameBuffer[si + 1]) | (Int(ble.frameBuffer[si + 2]) << 8)
-            let frameLen = 3 + len
-            guard ble.frameBuffer.count >= frameLen else { break }  // wait for more data
-            let payload = Data(ble.frameBuffer[(si + 3)..<(si + frameLen)])
-            ble.frameBuffer.removeFirst(frameLen)
-
-            switch type {
-            case 0x01:  // TEXT
-                guard let text = String(data: payload, encoding: .utf8) else { continue }
-                if text.hasPrefix("DBG:") { continue }
-                DispatchQueue.main.async {
-                    self.ble.handleTextResponse(text)
-                }
-
-            case 0x02:  // BIN_START
-                guard ble.isDownloading else {
-                    log.debug("Ignoring unsolicited BIN_START")
-                    continue
-                }
-                guard payload.count >= 10 else { continue }
-                let slot = Int(payload[0])
-                // payload[1] = file_type (0=png, 1=s3_rgb)
-                let size = UInt32(payload[2]) | (UInt32(payload[3]) << 8) |
-                           (UInt32(payload[4]) << 16) | (UInt32(payload[5]) << 24)
-                let crc = UInt32(payload[6]) | (UInt32(payload[7]) << 8) |
-                          (UInt32(payload[8]) << 16) | (UInt32(payload[9]) << 24)
-                ble.imgDownloadSlot = slot
-                ble.imgDownloadExpected = Int(size)
-                ble.imgDownloadCRC = crc
-                ble.imgDownloadData = Data()
-                ble.binStartReceived = true
-                log.info("BIN_START: slot \(slot), \(size) bytes, CRC=0x\(String(crc, radix: 16))")
-
-            case 0x03:  // BIN_DATA
-                guard ble.binStartReceived else { continue }
-                ble.imgDownloadData.append(payload)
-
-            case 0x04:  // BIN_END
-                guard ble.binStartReceived else { continue }
-                ble.binStartReceived = false
-                let imgData = ble.imgDownloadData
-                let slot = ble.imgDownloadSlot
-                let expectedSize = ble.imgDownloadExpected
-                let expectedCRC = ble.imgDownloadCRC
-                ble.imgDownloadSlot = -1
-                ble.imgDownloadData = Data()
-
-                // Verify size
-                if imgData.count != expectedSize {
-                    log.error("Image \(slot) size mismatch: got \(imgData.count) expected \(expectedSize)")
-                    retryDownload(slot: slot)
-                    continue
-                }
-
-                // Verify CRC-32
-                let actualCRC = ImageProcessor.crc32(imgData)
-                if actualCRC != expectedCRC {
-                    log.error("Image \(slot) CRC mismatch: got 0x\(String(actualCRC, radix: 16)) expected 0x\(String(expectedCRC, radix: 16))")
-                    retryDownload(slot: slot)
-                    continue
-                }
-
-                ble.imgDownloadRetries = 0
-                let image = UIImage(data: imgData)
-                DispatchQueue.main.async {
-                    if let image {
-                        self.ble.cachedImages[slot] = image
-                        log.info("Image \(slot) cached (\(imgData.count) bytes, CRC verified)")
-                    } else {
-                        log.error("Image \(slot) decode failed: \(imgData.count) bytes")
-                    }
-                }
-                ble.startNextDownload()
-
-            default:
-                break
-            }
-        }
-    }
-
-    private func retryDownload(slot: Int) {
-        self.ble.imgDownloadRetries += 1
-        if self.ble.imgDownloadRetries <= 3 {
-            log.info("Retrying image \(slot) download (attempt \(self.ble.imgDownloadRetries))")
-            guard let rx = self.ble.rxCharacteristic, let p = self.ble.connectedPeripheral,
-                  let payload = "GETPNG:\(slot)".data(using: .utf8) else { return }
-            var frame = Data([0x01, UInt8(payload.count & 0xFF), UInt8((payload.count >> 8) & 0xFF)])
-            frame.append(payload)
-            p.writeValue(frame, for: rx, type: .withResponse)
-        } else {
-            log.error("Image \(slot) download failed after 3 retries")
-            self.ble.imgDownloadRetries = 0
-            self.ble.startNextDownload()
+        default:
+            break
         }
     }
 }
