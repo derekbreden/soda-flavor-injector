@@ -2112,6 +2112,8 @@ void handleTap() {
     if (primeSelectIndex == 0) {
       // Back → return to Clean/Prime menu
       inPrime = false;
+      inCleanPrime = true;
+      cleanPrimeIndex = 0;  // default to Back
       drawScreen();
       return;
     }
@@ -2133,6 +2135,7 @@ void handleTap() {
       return;
     } else if (cleanPrimeIndex == 1) {
       // Prime → enter prime flavor select
+      inCleanPrime = false;
       inPrime = true;
       primeSelectIndex = 0;  // default to Back
       inPrimeHold = false;
@@ -2142,6 +2145,7 @@ void handleTap() {
       return;
     } else if (cleanPrimeIndex == 2) {
       // Clean Cycle → enter existing clean cycle flow
+      inCleanPrime = false;
       inCleanCycle = true;
       cleanFlavorIndex = 0;
       cleanConfirm = false;
@@ -2175,8 +2179,10 @@ void handleTap() {
       return;
     }
     if (cleanFlavorIndex == 0) {
-      // Back
+      // Back → return to Clean/Prime menu
       inCleanCycle = false;
+      inCleanPrime = true;
+      cleanPrimeIndex = 0;  // default to Back
       drawScreen();
       return;
     }
