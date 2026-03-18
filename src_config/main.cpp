@@ -841,7 +841,7 @@ int cleanPrimeIndex = 0;        // 0 = Back, 1 = Prime, 2 = Clean Cycle
 bool inPrime = false;           // inside prime flavor select or hold screen
 int primeSelectIndex = 0;       // 0 = Back, 1 = Flavor 1, 2 = Flavor 2
 bool inPrimeHold = false;       // on the "hold to prime" screen
-int primeHoldIndex = 0;         // 0 = Hold to Prime, 1 = Back
+int primeHoldIndex = 0;         // 0 = Back, 1 = Hold to Prime
 uint8_t primeFlavor = 0;        // 1 or 2 (1-based for display/commands)
 bool primeHolding = false;      // finger currently down, priming
 bool primeActive = false;       // ESP32 confirmed prime is running
@@ -1858,14 +1858,14 @@ void drawPrime() {
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
 
     const char *holdLabel = (primeHolding || primeActive) ? "Priming..." : "Hold to Prime";
-    const char *items[] = { holdLabel, "Back" };
+    const char *items[] = { "Back", holdLabel };
     int lineHeight = 28;
     int startY = (240 - 2 * lineHeight) / 2 + 15;
     for (int i = 0; i < 2; i++) {
       lv_obj_t *item = lv_label_create(scr);
       lv_label_set_text(item, items[i]);
       lv_obj_set_style_text_font(item, &lv_font_montserrat_16, 0);
-      if (i == 0 && (primeHolding || primeActive)) {
+      if (i == 1 && (primeHolding || primeActive)) {
         lv_obj_set_style_text_color(item, lv_color_hex(0x4488FF), 0);
       } else {
         lv_obj_set_style_text_color(item,
@@ -2096,7 +2096,7 @@ void handleNavigation(int dir) {
 void handleTap() {
   if (inPrime) {
     if (inPrimeHold) {
-      if (primeHoldIndex == 1) {
+      if (primeHoldIndex == 0) {
         // Back — stop prime if active, exit hold screen
         if (primeHolding || primeActive) {
           stSendText(stLink, "PRIME_STOP");
@@ -2408,7 +2408,7 @@ void loop() {
   }
 
   // ── Hold-to-prime: raw touch detection on hold screen ──
-  if (inPrimeHold && primeHoldIndex == 0) {
+  if (inPrimeHold && primeHoldIndex == 1) {
     if (currentTouching && !primeHolding) {
       // Finger down → start prime
       primeHolding = true;
