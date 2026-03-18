@@ -208,14 +208,17 @@ Most builders will already have these on hand.
 | Function | GPIO | Notes |
 |----------|------|-------|
 | Flavor toggle switch | 13 | Air switch, INPUT_PULLUP |
-| Prime button | 22 | Momentary, INPUT_PULLUP |
+| Prime button | 14 | Momentary, INPUT_PULLUP |
 | Flow meter | 23 | Hall effect, FALLING edge interrupt |
 | Display UART TX | 32 | 38400 baud, SerialTransfer to RP2040 (Serial2) |
 | Display UART RX | 35 | 38400 baud, SerialTransfer from RP2040 |
 | Config UART TX | 15 | 38400 baud, SerialTransfer to ESP32-S3 (Serial1) |
 | Config UART RX | 34 | 38400 baud, SerialTransfer from ESP32-S3 (input-only pin) |
 
-**Freed GPIOs** (LEDs removed, valve IN3/IN4 hardwired): 21, 2, 27, 14, 17, 16. GPIOs 21 and 2 are reserved for clean cycle solenoids (L298N Board #3).
+| RTC SDA (DS3231) | 21 | I2C, Wire library |
+| RTC SCL (DS3231) | 22 | I2C, Wire library |
+
+**Freed GPIOs** (LEDs removed, valve IN3/IN4 hardwired): 2, 27, 17, 16. GPIOs 27 and 17 are reserved for clean cycle solenoids (L298N Board #3).
 
 ### RP2040 Pin Assignments
 
