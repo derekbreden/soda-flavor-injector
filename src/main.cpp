@@ -28,7 +28,6 @@
 
 // ── Inputs ──
 #define FLAVOR_SW_PIN   13   // latching toggle: flavor select (air switch)
-#define PRIME_BTN_PIN   14   // momentary: manual prime / activate
 #define FLOW_PIN        23   // flow meter pulse input
 
 // ── Per-flavor config (runtime, persisted in LittleFS) ──
@@ -228,8 +227,6 @@ void computeCycleTiming(unsigned long pulses, uint8_t ratio, unsigned long &onMs
 uint8_t activeFlavor   = 0;       // 0 or 1
 bool    waterFlowing   = false;   // true if latest 50ms reading >= FLOW_MIN_PULSES
 unsigned long flowPulses = 0;     // pulse count from latest 50ms check
-bool    primePressed   = false;
-
 // ── Pump state machine ──
 // A "cycle" = one ON phase + one OFF phase, timing locked at cycle start.
 // PRIME = manual override, pump runs continuously.
@@ -253,6 +250,14 @@ unsigned long cleanPhaseStart = 0;
 #define CLEAN_CYCLES     3      // number of fill+flush rounds
 #define CLEAN_FILL_MS   10000   // 10 seconds fill
 #define CLEAN_FLUSH_MS  15000   // 15 seconds flush
+
+// ── Prime state (software-controlled via UART/BLE) ──
+bool primeActive = false;
+uint8_t primeFlavor = 0;           // 0-based index into flavors[]
+unsigned long primeStartMs = 0;
+unsigned long lastPrimeTickMs = 0;
+#define PRIME_TIMEOUT_MS  2000     // auto-stop if no tick within 2s
+#define PRIME_MAX_MS     60000     // hard ceiling: 60s total
 
 // ── Valve ──
 bool valveOpen                   = false;
@@ -1229,6 +1234,40 @@ void abortClean() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Prime functions (software-controlled, heartbeat safety)
+// ════════════════════════════════════════════════════════════
+
+void broadcastPrimeStatus(const char *msg) {
+  Serial.println(msg);
+  stSendText(stS3, msg);
+}
+
+void startPrime(uint8_t flavor) {
+  Flavor& f = flavors[flavor];
+  primeActive = true;
+  primeFlavor = flavor;
+  primeStartMs = millis();
+  lastPrimeTickMs = millis();
+  pumpOn(f.pump, PUMP_SPEED);
+  valveOn(f.valvePin);
+  pumpState = PUMP_PRIME;
+  valveOpen = true;
+  char buf[20];
+  snprintf(buf, sizeof(buf), "PRIME:ACTIVE:%d", flavor + 1);
+  broadcastPrimeStatus(buf);
+}
+
+void stopPrime(const char *reason) {
+  Flavor& f = flavors[primeFlavor];
+  pumpOff(f.pump);
+  valveOff(f.valvePin);
+  primeActive = false;
+  pumpState = PUMP_IDLE;
+  valveOpen = false;
+  broadcastPrimeStatus(reason);
+}
+
+// ════════════════════════════════════════════════════════════
 //  Config UART command parser
 // ════════════════════════════════════════════════════════════
 
@@ -1875,7 +1914,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     int flav = atoi(cmd + 6);
     if (flav < 1 || flav > 2) {
       out.printf("ERR:CLEAN_INVALID\n");
-    } else if (cleanState != CLEAN_IDLE) {
+    } else if (cleanState != CLEAN_IDLE || primeActive) {
       out.printf("ERR:CLEAN_BUSY\n");
     } else {
       cleanFlavor = flav - 1;
@@ -1888,6 +1927,28 @@ void processConfigCommand(const char *cmd, Stream &out) {
       abortClean();
     } else {
       out.printf("OK:CLEAN_ABORT\n");
+    }
+
+  } else if (strncmp(cmd, "PRIME_START:", 12) == 0) {
+    int flav = atoi(cmd + 12);
+    if (flav < 1 || flav > 2) {
+      out.printf("ERR:PRIME_INVALID\n");
+    } else if (cleanState != CLEAN_IDLE || primeActive) {
+      out.printf("ERR:PRIME_BUSY\n");
+    } else {
+      startPrime(flav - 1);
+    }
+
+  } else if (strcmp(cmd, "PRIME_TICK") == 0) {
+    if (primeActive) {
+      lastPrimeTickMs = millis();
+    }
+
+  } else if (strcmp(cmd, "PRIME_STOP") == 0) {
+    if (primeActive) {
+      stopPrime("OK:PRIME_STOP");
+    } else {
+      out.printf("OK:PRIME_STOP\n");
     }
   }
 }
@@ -2191,7 +2252,6 @@ void setup() {
 
   // Inputs
   pinMode(FLAVOR_SW_PIN, INPUT_PULLUP);
-  pinMode(PRIME_BTN_PIN, INPUT_PULLUP);
   pinMode(FLOW_PIN,      INPUT_PULLUP);
 
   // Flow meter interrupt
@@ -2317,8 +2377,14 @@ void loop() {
     }
   }
 
-  // Prime button
-  primePressed = (digitalRead(PRIME_BTN_PIN) == LOW);
+  // ── Prime timeout / ceiling check ────────────────────────────
+  if (primeActive) {
+    if (now - lastPrimeTickMs > PRIME_TIMEOUT_MS) {
+      stopPrime("OK:PRIME_TIMEOUT");
+    } else if (now - primeStartMs > PRIME_MAX_MS) {
+      stopPrime("OK:PRIME_TIMEOUT");
+    }
+  }
 
   // ── Clean cycle state machine ──────────────────────────────
   if (cleanState != CLEAN_IDLE) {
@@ -2342,15 +2408,10 @@ void loop() {
 
   if (cleaningActiveFlavor) {
     // Clean cycle controls pump and valve directly — skip normal dispensing
-  } else if (primePressed) {
-    // Prime overrides cycling: pump runs continuously
-    if (pumpState != PUMP_PRIME) {
-      pumpOn(active.pump, PUMP_SPEED);
-      pumpState = PUMP_PRIME;
-      phaseStart = now;
-    }
+  } else if (primeActive) {
+    // Software prime controls pump/valve via startPrime/stopPrime — no-op here
   } else if (pumpState == PUMP_PRIME) {
-    // Prime released → go idle
+    // Prime was stopped externally → go idle
     pumpOff(active.pump);
     pumpState = PUMP_IDLE;
   } else {
@@ -2432,7 +2493,7 @@ void loop() {
   // ── 3. Valve control ───────────────────────────────────────
   // Clean cycle controls valve directly — skip normal valve logic
   if (!cleaningActiveFlavor) {
-    bool shouldValveBeOpen = (pumpState != PUMP_IDLE) || waterFlowing || primePressed;
+    bool shouldValveBeOpen = (pumpState != PUMP_IDLE) || waterFlowing || primeActive;
 
     if (shouldValveBeOpen && !valveOpen) {
       valveOn(active.valvePin);

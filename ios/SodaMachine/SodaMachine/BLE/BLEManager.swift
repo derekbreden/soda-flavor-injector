@@ -69,6 +69,10 @@ class BLEManager {
     var cleanCyclePhase: String? = nil   // "Filling... (1/3)", "Flushing... (2/3)", nil
     var cleanCycleCompleted = false
 
+    // Prime state
+    var primeActive = false
+    var primeFlavor: Int = 0  // 1 or 2
+
     // Demo mode (no hardware needed)
     var demoMode = false
 
@@ -321,6 +325,31 @@ class BLEManager {
             return
         }
         send("CLEAN_ABORT")
+    }
+
+    func startPrime(flavor: Int) {
+        if demoMode {
+            primeActive = true
+            primeFlavor = flavor
+            return
+        }
+        primeActive = true
+        primeFlavor = flavor
+        send("PRIME_START:\(flavor)")
+    }
+
+    func sendPrimeTick() {
+        if demoMode { return }
+        send("PRIME_TICK")
+    }
+
+    func stopPrime() {
+        if demoMode {
+            primeActive = false
+            return
+        }
+        primeActive = false
+        send("PRIME_STOP")
     }
 
     func sendSet(_ key: String, value: Int) {
@@ -759,7 +788,7 @@ class BLEManager {
         if text.hasPrefix("MTU:") {
             if let mtu = Int(text.dropFirst(4)) {
                 peerMTU = mtu
-                log.info("Negotiated L2CAP MTU: \(mtu) (max payload: \(maxPayloadPerMessage))")
+                log.info("Negotiated L2CAP MTU: \(mtu) (max payload: \(self.maxPayloadPerMessage))")
             }
         } else if text.hasPrefix("CONFIG:") {
             parseConfig(text)
@@ -844,6 +873,12 @@ class BLEManager {
         } else if text.hasPrefix("ERR:CLEAN") {
             cleanCycleActive = false
             cleanCyclePhase = nil
+        } else if text.hasPrefix("PRIME:ACTIVE:") {
+            primeActive = true
+        } else if text == "OK:PRIME_STOP" || text == "OK:PRIME_TIMEOUT" {
+            primeActive = false
+        } else if text.hasPrefix("ERR:PRIME") {
+            primeActive = false
         } else if text == "OK:FACTORY_RESET" {
             log.info("Factory reset confirmed, re-syncing")
             cachedImages = [:]
@@ -1285,6 +1320,9 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
             self.ble.uploadImageRef = nil
             self.ble.activeUploadImage = nil
             self.ble.activeUploadSlot = -1
+            self.ble.primeActive = false
+            self.ble.cleanCycleActive = false
+            self.ble.cleanCyclePhase = nil
             if self.ble.pendingDeleteSlot >= 0 {
                 self.ble.numImages = self.ble.preDeleteNumImages
                 self.ble.cachedImages = self.ble.preDeleteCachedImages

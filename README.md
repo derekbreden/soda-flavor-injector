@@ -63,7 +63,7 @@ The system runs on three microcontrollers:
   │ 240x240 touch │◄───►│  Pump State Machine   │
   │ + encoder     │UART │  IDLE → ON → OFF ──→ │──(cycle repeats)
   │               │9600 │    └── COOLDOWN       │
-  └───────────────┘     │    └── PRIME (manual)  │
+  └───────────────┘     │    └── PRIME (via UI)  │
                         └──┬────────┬────────┬─┘
                            │        │        │
                     UART TX│   L298N A  L298N B
@@ -117,7 +117,6 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 |------|---------|
 | [DIGITEN G3/8" Hall Effect Flow Sensor](https://www.amazon.com/dp/B07QQW4C7R) | Measure water flow rate |
 | [KRAUS Garbage Disposal Air Switch (Matte Black)](https://www.amazon.com/dp/B096319GMV) | Flavor toggle (countertop safe, no electricity) |
-| [7mm Momentary Push Button (12-pack)](https://www.amazon.com/dp/B0F43GYWJ6) | Prime button (behind panel) |
 
 ### Plumbing
 
@@ -208,7 +207,6 @@ Most builders will already have these on hand.
 | Function | GPIO | Notes |
 |----------|------|-------|
 | Flavor toggle switch | 13 | Air switch, INPUT_PULLUP |
-| Prime button | 14 | Momentary, INPUT_PULLUP |
 | Flow meter | 23 | Hall effect, FALLING edge interrupt |
 | Display UART TX | 32 | 38400 baud, SerialTransfer to RP2040 (Serial2) |
 | Display UART RX | 35 | 38400 baud, SerialTransfer from RP2040 |

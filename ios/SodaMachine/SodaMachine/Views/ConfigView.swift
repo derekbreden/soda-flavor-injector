@@ -59,7 +59,7 @@ private struct SettingsPageView: View {
     @Binding var showImageManager: Bool
     @Binding var inAbout: Bool
     @Binding var inStats: Bool
-    @Binding var inCleanCycle: Bool
+    @Binding var inCleanPrime: Bool
     @State private var showResetAlert = false
     @State private var resetting = false
 
@@ -85,8 +85,8 @@ private struct SettingsPageView: View {
                         ble.requestStatsAndCharts()
                         inStats = true
                     }
-                    settingsButton("Clean Cycle") {
-                        inCleanCycle = true
+                    settingsButton("Clean / Prime") {
+                        inCleanPrime = true
                     }
                     settingsButton("Factory Reset") {
                         showResetAlert = true
@@ -169,14 +169,17 @@ private struct AboutView: View {
 }
 
 // ────────────────────────────────────────────────────────────
-// Clean Cycle sheet — flavor selection + progress + abort
+// Clean / Prime sheet — prime (hold-to-run) + clean (confirm)
 // ────────────────────────────────────────────────────────────
 
-private struct CleanCycleSheet: View {
+private let primeBlue = Color(red: 0.27, green: 0.53, blue: 1.0)
+
+private struct CleanPrimeSheet: View {
     @Environment(BLEManager.self) var ble
     @Environment(\.dismiss) var dismiss
-    @State private var showConfirm = false
-    @State private var selectedFlavor = 1
+    @State private var showCleanConfirm = false
+    @State private var selectedCleanFlavor = 1
+    @State private var tickTimer: Timer?
 
     var body: some View {
         ZStack {
@@ -185,17 +188,17 @@ private struct CleanCycleSheet: View {
             VStack(spacing: 12) {
                 Spacer()
 
-                Text("Clean Cycle")
+                Text("Clean / Prime")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(Theme.textSecondary)
 
                 Spacer().frame(height: 12)
 
                 if ble.cleanCycleActive {
-                    // Progress — matches S3 blue text + abort hint
+                    // Clean cycle progress
                     Text(ble.cleanCyclePhase ?? "Starting...")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Color(red: 0.27, green: 0.53, blue: 1.0))
+                        .foregroundStyle(primeBlue)
 
                     Spacer().frame(height: 24)
 
@@ -204,15 +207,38 @@ private struct CleanCycleSheet: View {
                     }
                     .buttonStyle(SettingsItemButtonStyle())
                 } else {
-                    // Flavor selection — same style as settings menu items
+                    // ── Prime section ──
+                    Text("Prime")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.top, 4)
+
+                    if ble.primeActive {
+                        Text("Priming Flavor \(ble.primeFlavor)...")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(primeBlue)
+                    }
+
+                    VStack(spacing: 0) {
+                        primeButton("Flavor 1", flavor: 1)
+                        primeButton("Flavor 2", flavor: 2)
+                    }
+
+                    Spacer().frame(height: 16)
+
+                    // ── Clean section ──
+                    Text("Clean Cycle")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+
                     VStack(spacing: 0) {
                         cleanButton("Flavor 1") {
-                            selectedFlavor = 1
-                            showConfirm = true
+                            selectedCleanFlavor = 1
+                            showCleanConfirm = true
                         }
                         cleanButton("Flavor 2") {
-                            selectedFlavor = 2
-                            showConfirm = true
+                            selectedCleanFlavor = 2
+                            showCleanConfirm = true
                         }
                     }
                 }
@@ -220,9 +246,9 @@ private struct CleanCycleSheet: View {
                 Spacer()
             }
         }
-        .alert("Clean Flavor \(selectedFlavor)?", isPresented: $showConfirm) {
+        .alert("Clean Flavor \(selectedCleanFlavor)?", isPresented: $showCleanConfirm) {
             Button("Start") {
-                ble.startCleanCycle(flavor: selectedFlavor)
+                ble.startCleanCycle(flavor: selectedCleanFlavor)
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -234,7 +260,32 @@ private struct CleanCycleSheet: View {
                 dismiss()
             }
         }
-        .interactiveDismissDisabled(ble.cleanCycleActive)
+        .interactiveDismissDisabled(ble.cleanCycleActive || ble.primeActive)
+    }
+
+    private func primeButton(_ title: String, flavor: Int) -> some View {
+        Text(title)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(
+                ble.primeActive && ble.primeFlavor == flavor
+                    ? primeBlue : Theme.textPrimary
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !ble.primeActive && !ble.cleanCycleActive else { return }
+                        ble.startPrime(flavor: flavor)
+                        startTickTimer()
+                    }
+                    .onEnded { _ in
+                        guard ble.primeActive else { return }
+                        ble.stopPrime()
+                        stopTickTimer()
+                    }
+            )
     }
 
     private func cleanButton(_ title: String, action: @escaping () -> Void) -> some View {
@@ -245,6 +296,19 @@ private struct CleanCycleSheet: View {
                 .padding(.vertical, 12)
         }
         .buttonStyle(SettingsItemButtonStyle())
+        .disabled(ble.primeActive)
+    }
+
+    private func startTickTimer() {
+        tickTimer?.invalidate()
+        tickTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            ble.sendPrimeTick()
+        }
+    }
+
+    private func stopTickTimer() {
+        tickTimer?.invalidate()
+        tickTimer = nil
     }
 }
 
@@ -667,7 +731,7 @@ struct ConfigView: View {
     @State private var showImageManager = false
     @State private var inAbout = false
     @State private var inStats = false
-    @State private var inCleanCycle = false
+    @State private var inCleanPrime = false
 
     private let pageCount = 5
     private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings"]
@@ -701,8 +765,8 @@ struct ConfigView: View {
             ImageManagerView()
                 .environment(ble)
         }
-        .sheet(isPresented: $inCleanCycle) {
-            CleanCycleSheet()
+        .sheet(isPresented: $inCleanPrime) {
+            CleanPrimeSheet()
                 .environment(ble)
         }
         .onChange(of: ble.connectionState) { old, state in
@@ -809,7 +873,7 @@ struct ConfigView: View {
         case 3:
             ratioDisplay(ratio: ble.flavor2Ratio)
         case 4:
-            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout, inStats: $inStats, inCleanCycle: $inCleanCycle)
+            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout, inStats: $inStats, inCleanPrime: $inCleanPrime)
         default:
             EmptyView()
         }

@@ -824,14 +824,27 @@ enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU
 const char* menuLabels[] = { "Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings" };
 
 // ── Settings sub-menu ──
-enum SettingsItem { SET_BACK, SET_FACTORY_RESET, SET_CLEAN_CYCLE, SET_ABOUT, SETTINGS_COUNT };
-const char* settingsLabels[] = { "Back", "Factory Reset", "Clean Cycle", "About" };
+enum SettingsItem { SET_BACK, SET_FACTORY_RESET, SET_CLEAN_PRIME, SET_ABOUT, SETTINGS_COUNT };
+const char* settingsLabels[] = { "Back", "Factory Reset", "Clean / Prime", "About" };
 int settingsIndex = 0;
 bool inSettings = false;       // true when inside the settings sub-menu
 bool settingsConfirm = false;  // true when confirming factory reset
 int confirmIndex = 1;          // 0 = Yes, 1 = No (default to No)
 static bool factoryResetPending = false;
 bool inAbout = false;
+
+// ── Clean / Prime intermediate menu ──
+bool inCleanPrime = false;      // inside the Clean/Prime sub-menu
+int cleanPrimeIndex = 0;        // 0 = Back, 1 = Prime, 2 = Clean Cycle
+
+// ── Prime UI state ──
+bool inPrime = false;           // inside prime flavor select or hold screen
+int primeSelectIndex = 0;       // 0 = Back, 1 = Flavor 1, 2 = Flavor 2
+bool inPrimeHold = false;       // on the "hold to prime" screen
+uint8_t primeFlavor = 0;        // 1 or 2 (1-based for display/commands)
+bool primeHolding = false;      // finger currently down, priming
+bool primeActive = false;       // ESP32 confirmed prime is running
+unsigned long lastPrimeTick = 0;// for 500ms tick interval
 
 // ── Clean cycle UI state ──
 bool inCleanCycle = false;      // inside clean cycle sub-page
@@ -854,6 +867,7 @@ int lastClk = HIGH;
 // ── Touch state ──
 unsigned long lastTapTime = 0;
 bool lastTouchState = false;
+bool currentTouching = false;  // raw touch state, updated every readTap() call
 
 // ── Screensaver ──
 #define SCREENSAVER_TIMEOUT 120000  // 120 seconds
@@ -1441,6 +1455,25 @@ static void processTextLine(const char *line) {
     cleanPhase = 0;
     drawScreen();
     bleSendText(line);
+  } else if (strncmp(line, "PRIME:ACTIVE:", 13) == 0) {
+    primeActive = true;
+    drawScreen();
+    bleSendText(line);
+  } else if (strcmp(line, "OK:PRIME_STOP") == 0) {
+    primeActive = false;
+    primeHolding = false;
+    drawScreen();
+    bleSendText(line);
+  } else if (strcmp(line, "OK:PRIME_TIMEOUT") == 0) {
+    primeActive = false;
+    primeHolding = false;
+    drawScreen();
+    bleSendText(line);
+  } else if (strncmp(line, "ERR:PRIME", 9) == 0) {
+    primeActive = false;
+    primeHolding = false;
+    drawScreen();
+    bleSendText(line);
   } else if (strncmp(line, "VERSION:ESP32=", 14) == 0) {
     strncpy(espVersion, line + 14, sizeof(espVersion) - 1);
     espVersion[sizeof(espVersion) - 1] = '\0';
@@ -1784,6 +1817,83 @@ void drawSettings() {
   }
 }
 
+void drawCleanPrime() {
+  lv_obj_t *scr = lv_scr_act();
+  lv_obj_clean(scr);
+  lv_obj_set_style_bg_color(scr, THEME_BG, 0);
+
+  lv_obj_t *title = lv_label_create(scr);
+  lv_label_set_text(title, "Clean / Prime");
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
+  lv_obj_set_style_text_color(title, THEME_TEXT_SECONDARY, 0);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+
+  const char *items[] = { "Back", "Prime", "Clean Cycle" };
+  int lineHeight = 28;
+  int startY = (240 - 3 * lineHeight) / 2 + 15;
+  for (int i = 0; i < 3; i++) {
+    lv_obj_t *item = lv_label_create(scr);
+    lv_label_set_text(item, items[i]);
+    lv_obj_set_style_text_font(item, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(item,
+      (i == cleanPrimeIndex) ? THEME_TEXT_PRIMARY : THEME_TEXT_INACTIVE, 0);
+    lv_obj_align(item, LV_ALIGN_TOP_MID, 0, startY + i * lineHeight);
+  }
+}
+
+void drawPrime() {
+  lv_obj_t *scr = lv_scr_act();
+  lv_obj_clean(scr);
+  lv_obj_set_style_bg_color(scr, THEME_BG, 0);
+
+  if (inPrimeHold) {
+    // Hold-to-prime screen
+    lv_obj_t *title = lv_label_create(scr);
+    char titleBuf[24];
+    snprintf(titleBuf, sizeof(titleBuf), "Prime Flavor %d", primeFlavor);
+    lv_label_set_text(title, titleBuf);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(title, THEME_TEXT_SECONDARY, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+
+    lv_obj_t *label = lv_label_create(scr);
+    if (primeHolding || primeActive) {
+      lv_label_set_text(label, "Priming...");
+      lv_obj_set_style_text_color(label, lv_color_hex(0x4488FF), 0);
+    } else {
+      lv_label_set_text(label, "Hold to Prime");
+      lv_obj_set_style_text_color(label, THEME_TEXT_PRIMARY, 0);
+    }
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+
+    lv_obj_t *hint = lv_label_create(scr);
+    lv_label_set_text(hint, "Tap to go back");
+    lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(hint, THEME_TEXT_INACTIVE, 0);
+    lv_obj_align(hint, LV_ALIGN_CENTER, 0, 40);
+  } else {
+    // Flavor selection
+    lv_obj_t *title = lv_label_create(scr);
+    lv_label_set_text(title, "Prime");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(title, THEME_TEXT_SECONDARY, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+
+    const char *items[] = { "Back", "Flavor 1", "Flavor 2" };
+    int lineHeight = 28;
+    int startY = (240 - 3 * lineHeight) / 2 + 15;
+    for (int i = 0; i < 3; i++) {
+      lv_obj_t *item = lv_label_create(scr);
+      lv_label_set_text(item, items[i]);
+      lv_obj_set_style_text_font(item, &lv_font_montserrat_16, 0);
+      lv_obj_set_style_text_color(item,
+        (i == primeSelectIndex) ? THEME_TEXT_PRIMARY : THEME_TEXT_INACTIVE, 0);
+      lv_obj_align(item, LV_ALIGN_TOP_MID, 0, startY + i * lineHeight);
+    }
+  }
+}
+
 void drawCleanCycle() {
   lv_obj_t *scr = lv_scr_act();
   lv_obj_clean(scr);
@@ -1870,7 +1980,11 @@ void drawScreen() {
     drawScreensaver();
     return;
   }
-  if (inCleanCycle) {
+  if (inPrime) {
+    drawPrime();
+  } else if (inCleanPrime) {
+    drawCleanPrime();
+  } else if (inCleanCycle) {
     drawCleanCycle();
   } else if (inAbout) {
     drawAbout();
@@ -1903,6 +2017,7 @@ bool readTap() {
   uint16_t x, y;
   uint8_t gesture;
   bool touching = touch.getTouch(&x, &y, &gesture);
+  currentTouching = touching;  // expose raw state for hold detection
   bool tapped = (touching && !lastTouchState && millis() - lastTapTime > 300);
   if (tapped) lastTapTime = millis();
   lastTouchState = touching;
@@ -1917,6 +2032,19 @@ void handleNavigation(int dir) {
   if (dir == 0) return;
   if (factoryResetPending) return;  // locked during reset
   if (inAbout) return;  // About is view-only, tap to go back
+
+  if (inPrime) {
+    if (inPrimeHold) return;  // locked on hold screen
+    primeSelectIndex = (primeSelectIndex + dir + 3) % 3;
+    drawScreen();
+    return;
+  }
+
+  if (inCleanPrime) {
+    cleanPrimeIndex = (cleanPrimeIndex + dir + 3) % 3;
+    drawScreen();
+    return;
+  }
 
   if (inCleanCycle) {
     if (cleanPending) return;  // locked during active clean
@@ -1960,6 +2088,60 @@ void handleNavigation(int dir) {
 }
 
 void handleTap() {
+  if (inPrime) {
+    if (inPrimeHold) {
+      // Tap on hold screen: stop prime if active, then go back
+      if (primeHolding || primeActive) {
+        stSendText(stLink, "PRIME_STOP");
+        primeHolding = false;
+        primeActive = false;
+      }
+      inPrimeHold = false;
+      drawScreen();
+      return;
+    }
+    if (primeSelectIndex == 0) {
+      // Back → return to Clean/Prime menu
+      inPrime = false;
+      drawScreen();
+      return;
+    }
+    // Select flavor → enter hold screen
+    primeFlavor = primeSelectIndex;  // 1 or 2
+    inPrimeHold = true;
+    primeHolding = false;
+    primeActive = false;
+    drawScreen();
+    return;
+  }
+
+  if (inCleanPrime) {
+    if (cleanPrimeIndex == 0) {
+      // Back → return to settings
+      inCleanPrime = false;
+      drawScreen();
+      return;
+    } else if (cleanPrimeIndex == 1) {
+      // Prime → enter prime flavor select
+      inPrime = true;
+      primeSelectIndex = 0;  // default to Back
+      inPrimeHold = false;
+      primeHolding = false;
+      primeActive = false;
+      drawScreen();
+      return;
+    } else if (cleanPrimeIndex == 2) {
+      // Clean Cycle → enter existing clean cycle flow
+      inCleanCycle = true;
+      cleanFlavorIndex = 0;
+      cleanConfirm = false;
+      cleanPending = false;
+      cleanPhase = 0;
+      drawScreen();
+      return;
+    }
+  }
+
   if (inCleanCycle) {
     if (cleanPending) {
       // Tap during active clean = abort
@@ -2021,13 +2203,10 @@ void handleTap() {
       confirmIndex = 1;  // default to No
       Serial.println("Factory Reset — select Yes or No");
       drawScreen();
-    } else if (settingsIndex == SET_CLEAN_CYCLE) {
-      inCleanCycle = true;
-      cleanFlavorIndex = 0;
-      cleanConfirm = false;
-      cleanPending = false;
-      cleanPhase = 0;
-      Serial.println("Entering Clean Cycle");
+    } else if (settingsIndex == SET_CLEAN_PRIME) {
+      inCleanPrime = true;
+      cleanPrimeIndex = 0;  // default to Back
+      Serial.println("Entering Clean / Prime");
       drawScreen();
     } else if (settingsIndex == SET_ABOUT) {
       inAbout = true;
@@ -2205,6 +2384,9 @@ void loop() {
       inSettings = false;
       inAbout = false;
       settingsConfirm = false;
+      inCleanPrime = false;
+      inPrime = false;
+      inPrimeHold = false;
       drawScreen();
       // Consume this input — don't pass through
       dir = 0;
@@ -2213,6 +2395,32 @@ void loop() {
   } else if (!screensaverActive && millis() - lastInputTime > SCREENSAVER_TIMEOUT) {
     screensaverActive = true;
     drawScreen();
+  }
+
+  // ── Hold-to-prime: raw touch detection on hold screen ──
+  if (inPrimeHold) {
+    if (currentTouching && !primeHolding) {
+      // Finger down → start prime
+      primeHolding = true;
+      char buf[16];
+      snprintf(buf, sizeof(buf), "PRIME_START:%d", primeFlavor);
+      stSendText(stLink, buf);
+      lastPrimeTick = millis();
+      drawScreen();
+      tapped = false;  // consume tap so handleTap doesn't also fire
+    } else if (!currentTouching && primeHolding) {
+      // Finger up → stop prime
+      primeHolding = false;
+      primeActive = false;
+      stSendText(stLink, "PRIME_STOP");
+      drawScreen();
+      tapped = false;
+    } else if (primeHolding && millis() - lastPrimeTick >= 500) {
+      // Send keepalive tick
+      stSendText(stLink, "PRIME_TICK");
+      lastPrimeTick = millis();
+    }
+    if (currentTouching) tapped = false;  // suppress taps while touching on hold screen
   }
 
   if (dir != 0) handleNavigation(dir);
