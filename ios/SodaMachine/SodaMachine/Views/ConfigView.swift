@@ -185,10 +185,6 @@ private struct SettingsPageView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "gearshape")
-                .font(.system(size: 36))
-                .foregroundStyle(Theme.textSecondary)
-
             if resetting {
                 ProgressView()
                     .tint(Theme.textPrimary)
@@ -1022,15 +1018,12 @@ struct ConfigView: View {
             TabView(selection: $currentPage) {
                 ForEach(0..<pageCount, id: \.self) { i in
                     VStack {
+                        Text(pageLabels[i])
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+                            .padding(.top, 60)
+
                         Spacer()
-
-                        if i < pageCount - 1 {
-                            Text(pageLabels[i])
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(Theme.textSecondary)
-
-                            Spacer().frame(height: 12)
-                        }
 
                         pageView(for: i)
                             .frame(height: 180)
