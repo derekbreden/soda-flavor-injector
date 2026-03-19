@@ -88,11 +88,16 @@ private struct ImagePickerSheet: View {
                 .frame(maxWidth: .infinity)
             }
             .background(Theme.background)
-            .navigationTitle(flavorLabel)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(flavorLabel)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -243,19 +248,14 @@ private struct CleanPrimeSheet: View {
     @State private var tickTimer: Timer?
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
+        NavigationView {
+            ZStack {
+                Theme.background.ignoresSafeArea()
 
-            VStack(spacing: 12) {
-                Spacer()
+                VStack(spacing: 12) {
+                    Spacer()
 
-                Text("Clean / Prime")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Theme.textSecondary)
-
-                Spacer().frame(height: 12)
-
-                if ble.cleanCycleActive {
+                    if ble.cleanCycleActive {
                     // Clean cycle progress
                     Text(ble.cleanCyclePhase ?? "Starting...")
                         .font(.system(size: 16, weight: .medium))
@@ -346,21 +346,37 @@ private struct CleanPrimeSheet: View {
                     }
                 }
 
-                Spacer()
+                    Spacer()
+                }
             }
-        }
-        .alert("Clean Flavor \(selectedCleanFlavor)?", isPresented: $showCleanConfirm) {
-            Button("Start") {
-                ble.startCleanCycle(flavor: selectedCleanFlavor)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Clean / Prime")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Theme.textSecondary)
+                }
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will flush the line with water. Make sure the water supply is connected.")
-        }
-        .onChange(of: ble.cleanCycleCompleted) { _, completed in
-            if completed {
-                ble.cleanCycleCompleted = false
-                dismiss()
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Theme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .alert("Clean Flavor \(selectedCleanFlavor)?", isPresented: $showCleanConfirm) {
+                Button("Start") {
+                    ble.startCleanCycle(flavor: selectedCleanFlavor)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will flush the line with water. Make sure the water supply is connected.")
+            }
+            .onChange(of: ble.cleanCycleCompleted) { _, completed in
+                if completed {
+                    ble.cleanCycleCompleted = false
+                    dismiss()
+                }
             }
         }
         .interactiveDismissDisabled(ble.cleanCycleActive || ble.primeActive)
