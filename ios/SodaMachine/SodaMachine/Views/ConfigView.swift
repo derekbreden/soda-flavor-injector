@@ -200,35 +200,51 @@ private struct SettingsPageView: View {
 // About screen (version display)
 // ────────────────────────────────────────────────────────────
 
-private struct AboutView: View {
+private struct AboutSheet: View {
     @Environment(BLEManager.self) var ble
+    @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        NavigationView {
+            ZStack {
+                Theme.background.ignoresSafeArea()
 
-            Text("About")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Theme.textPrimary)
+                VStack(spacing: 0) {
+                    Spacer()
 
-            Spacer().frame(height: 32)
+                    let labels = ["S3", "ESP32", "RP2040"]
+                    let versions = [ble.s3Version, ble.espVersion, ble.rpVersion]
 
-            let labels = ["S3", "ESP32", "RP2040"]
-            let versions = [ble.s3Version, ble.espVersion, ble.rpVersion]
+                    ForEach(0..<3, id: \.self) { i in
+                        VStack(spacing: 4) {
+                            Text(labels[i])
+                                .font(.system(size: 16))
+                                .foregroundStyle(Theme.textSecondary)
+                            Text(versions[i].isEmpty ? "..." : versions[i])
+                                .font(.system(size: 16))
+                                .foregroundStyle(Theme.textPrimary)
+                        }
+                        if i < 2 { Spacer().frame(height: 16) }
+                    }
 
-            ForEach(0..<3, id: \.self) { i in
-                VStack(spacing: 4) {
-                    Text(labels[i])
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.textSecondary)
-                    Text(versions[i].isEmpty ? "..." : versions[i])
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.textPrimary)
+                    Spacer()
                 }
-                if i < 2 { Spacer().frame(height: 16) }
             }
-
-            Spacer()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("About")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Theme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
         }
     }
 }
@@ -419,10 +435,10 @@ private struct CleanPrimeSheet: View {
 private let chartPink = Color(red: 0.9, green: 0.3, blue: 0.5)
 private let chartPurple = Color(red: 0.6, green: 0.3, blue: 0.9)
 
-private struct StatsView: View {
+private struct StatsSheet: View {
     @Environment(BLEManager.self) var ble
     @Environment(\.horizontalSizeClass) var sizeClass
-    @Binding var inStats: Bool
+    @Environment(\.dismiss) var dismiss
 
     private var isDisconnected: Bool {
         ble.connectionState != .connected && !ble.demoMode
@@ -431,73 +447,67 @@ private struct StatsView: View {
     private var isWide: Bool { sizeClass == .regular }
 
     var body: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                // Back button header
-                HStack {
-                    Button(action: { inStats = false }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                            Text("Back")
-                        }
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.textSecondary)
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+        NavigationView {
+            ZStack {
+                Theme.background.ignoresSafeArea()
 
-                if !ble.chartDataSynced {
-                    Spacer()
-                    ProgressView()
-                        .tint(Theme.textPrimary)
-                    Text("Loading stats...")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.textSecondary)
-                        .padding(.top, 8)
-                    Spacer()
-                } else if isWide {
-                    // iPad: 3-way equal spacing — title→row1, row1→row2, row2→bottom.
-                    VStack(spacing: 0) {
-                        Text("Usage Stats")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(Theme.textPrimary)
+                VStack(spacing: 0) {
+                    if !ble.chartDataSynced {
+                        Spacer()
+                        ProgressView()
+                            .tint(Theme.textPrimary)
+                        Text("Loading stats...")
+                            .font(.system(size: 16))
+                            .foregroundStyle(Theme.textSecondary)
                             .padding(.top, 8)
-
                         Spacer()
-                        wideRow1
-                        Spacer()
-                        wideRow2
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                } else {
-                    ScrollView {
-                        VStack(spacing: 24) {
-                            Text("Usage Stats")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(Theme.textPrimary)
-                                .padding(.top, 8)
-
-                            compactLayout
+                    } else if isWide {
+                        VStack(spacing: 0) {
+                            Spacer()
+                            wideRow1
+                            Spacer()
+                            wideRow2
+                            Spacer()
                         }
                         .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 24) {
+                                compactLayout
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
+                            .padding(.top, 8)
+                        }
+                    }
+                }
+                .opacity(isDisconnected ? 0.3 : 1.0)
+
+                if isDisconnected {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .tint(Theme.textPrimary)
+                        Text("Reconnecting...")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Theme.textPrimary)
                     }
                 }
             }
-            .opacity(isDisconnected ? 0.3 : 1.0)
-
-            if isDisconnected {
-                VStack(spacing: 12) {
-                    ProgressView()
-                        .tint(Theme.textPrimary)
-                    Text("Reconnecting...")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Usage Stats")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Theme.textPrimary)
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Theme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
         }
     }
 
@@ -851,14 +861,6 @@ struct ConfigView: View {
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(Theme.textPrimary)
                 }
-            } else if inStats {
-                StatsView(inStats: $inStats)
-                    .onAppear { ble.subscribeStats() }
-                    .onDisappear { ble.unsubscribeStats() }
-            } else if inAbout {
-                AboutView()
-                    .contentShape(Rectangle())
-                    .onTapGesture { inAbout = false }
             } else {
                 carouselContent
             }
@@ -885,10 +887,17 @@ struct ConfigView: View {
             CleanPrimeSheet()
                 .environment(ble)
         }
+        .sheet(isPresented: $inStats) {
+            StatsSheet()
+                .environment(ble)
+                .onAppear { ble.subscribeStats() }
+                .onDisappear { ble.unsubscribeStats() }
+        }
+        .sheet(isPresented: $inAbout) {
+            AboutSheet()
+                .environment(ble)
+        }
         .onChange(of: ble.connectionState) { old, state in
-            if state != .connected {
-                inAbout = false
-            }
             if state == .connected && old != .connected && inStats {
                 ble.requestStatsAndCharts()
                 ble.subscribeStats()
