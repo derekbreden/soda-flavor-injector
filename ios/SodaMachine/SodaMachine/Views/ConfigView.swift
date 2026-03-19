@@ -18,13 +18,13 @@ private struct ImageSlotView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 240, height: 240)
+                    .frame(width: 120, height: 120)
                     .clipShape(Circle())
             } else {
                 ZStack {
                     Circle()
                         .fill(Theme.placeholder)
-                        .frame(width: 240, height: 240)
+                        .frame(width: 120, height: 120)
                     if ble.imageDownloadProgress != nil {
                         ProgressView()
                             .tint(Theme.textPrimary)
@@ -40,7 +40,7 @@ private struct ImageSlotView: View {
 }
 
 // ────────────────────────────────────────────────────────────
-// Image picker sheet — full-size scrollable column of images
+// Image picker sheet — grid of images with selection border
 // ────────────────────────────────────────────────────────────
 
 private struct ImagePickerSheet: View {
@@ -50,33 +50,36 @@ private struct ImagePickerSheet: View {
     let selectedSlot: Int
     let onSelect: (Int) -> Void
 
+    private let columns = [GridItem(.adaptive(minimum: 120), spacing: 20)]
+
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 20) {
+                LazyVGrid(columns: columns, spacing: 20) {
                     ForEach(0..<ble.numImages, id: \.self) { slot in
                         Group {
                             if let uiImage = ble.imageFor(slot: slot) {
                                 Image(uiImage: uiImage)
                                     .resizable()
                                     .scaledToFill()
-                                    .frame(width: 240, height: 240)
+                                    .frame(width: 120, height: 120)
                                     .clipShape(Circle())
                             } else {
                                 ZStack {
                                     Circle()
                                         .fill(Theme.placeholder)
-                                        .frame(width: 240, height: 240)
+                                        .frame(width: 120, height: 120)
                                     Image(systemName: "photo")
                                         .font(.system(size: 24))
                                         .foregroundStyle(Theme.textSecondary)
                                 }
                             }
                         }
+                        .padding(5)
                         .overlay(
                             Circle()
-                                .stroke(Theme.textPrimary, lineWidth: slot == selectedSlot ? 3 : 0)
-                                .frame(width: 240, height: 240)
+                                .stroke(slot == selectedSlot ? Theme.textPrimary : .clear, lineWidth: 3)
+                                .frame(width: 134, height: 134)
                         )
                         .onTapGesture {
                             onSelect(slot)
@@ -84,8 +87,8 @@ private struct ImagePickerSheet: View {
                         }
                     }
                 }
+                .padding(.horizontal, 20)
                 .padding(.vertical, 20)
-                .frame(maxWidth: .infinity)
             }
             .background(Theme.background)
             .navigationBarTitleDisplayMode(.inline)
@@ -991,7 +994,7 @@ struct ConfigView: View {
                         }
 
                         pageView(for: i)
-                            .frame(height: 260)
+                            .frame(height: 180)
 
                         Spacer()
                     }
