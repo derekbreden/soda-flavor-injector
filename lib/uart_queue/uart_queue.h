@@ -899,4 +899,13 @@ private:
     retries = 0;
     maxRetries = 0;
   }
+
+public:
+  // Cancel current operation and clear queue. Fires failure callback for current op.
+  void cancelAll() {
+    if (op != LINK_IDLE) {
+      failCurrentOp();
+    }
+    queueCount = 0;
+  }
 };

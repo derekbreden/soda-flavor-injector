@@ -89,6 +89,7 @@ static lv_color_t *lvgl_buf;
 
 // ── UART to ESP32 (Serial0 = UART0, J34 connector) ──
 SerialTransfer stLink;  // SerialTransfer on Serial0 (ESP32 link)
+UartLink linkEsp;       // Non-blocking state machine for ESP32 link
 
 // ── BLE (L2CAP CoC via NimBLE-Arduino) ──
 #define SODA_L2CAP_PSM  0x0080
@@ -151,7 +152,7 @@ static volatile uint8_t bleFwdHead = 0;  // next write position (NimBLE task)
 static volatile uint8_t bleFwdTail = 0;  // next read position (main task)
 
 // ── BLE upload state (phone → S3, accumulated in imageBuf) ──
-enum BleUploadPhase { BLE_UP_IDLE, BLE_UP_WAIT_DATA, BLE_UP_RECEIVED, BLE_UP_FORWARDING };
+enum BleUploadPhase { BLE_UP_IDLE, BLE_UP_WAIT_DATA, BLE_UP_RECEIVED, BLE_UP_FORWARDING, BLE_UP_ESP_FORWARDING };
 static struct {
   volatile BleUploadPhase phase = BLE_UP_IDLE;
   uint8_t  slot;
@@ -180,7 +181,7 @@ static void l2capOnDisconnect(NimBLEL2CAPChannel *chan) {
     Serial.println("BLE: aborted image send (owner disconnected)");
   }
   if (bleUpload.phase != BLE_UP_IDLE && chan == bleUploadChan) {
-    if (bleUpload.phase == BLE_UP_FORWARDING) {
+    if (bleUpload.phase == BLE_UP_FORWARDING || bleUpload.phase == BLE_UP_ESP_FORWARDING) {
       bleUpload.abortRequested = true;
     } else {
       cleanupAbortedUpload(bleUpload.slot);
@@ -188,7 +189,7 @@ static void l2capOnDisconnect(NimBLEL2CAPChannel *chan) {
     }
     Serial.println("BLE: aborted upload (owner disconnected)");
   }
-  if (l2capChanCount == 0) stSendText(stLink, "BLE_DISCONNECTED");
+  if (l2capChanCount == 0) linkEsp.queueText("BLE_DISCONNECTED", false, UARTLINK_PRI_NORMAL);
 }
 
 static void bleImageSendChunks() {
@@ -469,7 +470,7 @@ static void processBleRequest() {
                flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numImages);
       bleSendText(cfg);
       // Also forward to ESP32 so it knows to push a fresh CONFIG update
-      stSendText(stLink, "GET_CONFIG");
+      linkEsp.queueText("GET_CONFIG", false, UARTLINK_PRI_HIGH);
       break;
     }
 
@@ -478,7 +479,7 @@ static void processBleRequest() {
       char s3ver[64];
       snprintf(s3ver, sizeof(s3ver), "VERSION:S3=%s", FW_BUILD_TIME);
       bleSendText(s3ver);
-      stSendText(stLink, "GET_VERSION");
+      linkEsp.queueText("GET_VERSION", false, UARTLINK_PRI_HIGH);
       break;
     }
 
@@ -495,7 +496,7 @@ static void processBleForwardQueue() {
     __sync_synchronize();
     const char *cmd = bleFwdQueue[bleFwdTail];
     Serial.printf("BLE FWD: %s\n", cmd);
-    stSendText(stLink, cmd);
+    linkEsp.queueText(cmd, false, UARTLINK_PRI_NORMAL);
     bleFwdTail = (bleFwdTail + 1) % BLE_FWD_QUEUE_SIZE;
     delay(10);  // brief gap so ESP32 can process between commands
   }
@@ -566,180 +567,18 @@ static void processBleUpload() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  SerialTransfer sender: forward BLE uploads to ESP32
+//  BLE upload forwarding to ESP32 (async via linkEsp)
 // ════════════════════════════════════════════════════════════
 
 static void processTextLine(const char *line);
 
-static bool waitForEspResponse(uint8_t expectedPktId, unsigned long timeoutMs) {
-  unsigned long start = millis();
-  while (millis() - start < timeoutMs) {
-    if (stLink.available()) {
-      uint8_t id = stLink.currentPacketID();
-      if (id == expectedPktId) return true;
-      if (id >= 0xE0) return false;  // error packet
-      if (id == PKT_TEXT) {
-        // Handle inline text (e.g. CONFIG: push during forwarding)
-        char line[256];
-        uint16_t len = stLink.bytesRead;
-        uint16_t copyLen = (len < 255) ? len : 255;
-        memcpy(line, stLink.packet.rxBuff, copyLen);
-        line[copyLen] = '\0';
-        processTextLine(line);
-      }
-    }
-  }
-  return false;
-}
-
-// Forward from imageBuf (RP2040 RGB565 — S3 didn't write to file)
-static bool stForwardToEsp(uint8_t slot, uint8_t startPktId,
-                           const uint8_t *data, uint32_t dataSize) {
-  UploadStartPayload startPl;
-  startPl.slot = slot;
-  startPl.size = dataSize;
-  stLink.txObj(startPl);
-  stLink.sendData(sizeof(startPl), startPktId);
-
-  if (!waitForEspResponse(PKT_RESP_READY, 3000)) {
-    Serial.println("Forward: ESP32 not ready");
-    return false;
-  }
-
-  uint8_t seq = 0;
-  uint32_t offset = 0;
-  uint32_t runCrc = 0;
-
-  while (offset < dataSize) {
-    if (bleUpload.abortRequested) {
-      Serial.println("Forward: aborted by user");
-      return false;
-    }
-    uint16_t chunkLen = min((uint32_t)MAX_CHUNK_SIZE, dataSize - offset);
-
-    stLink.packet.txBuff[0] = seq;
-    memcpy(stLink.packet.txBuff + 1, data + offset, chunkLen);
-
-    bool ok = false;
-    for (int attempt = 0; attempt < 5; attempt++) {
-      stLink.sendData(1 + chunkLen, PKT_CHUNK_DATA);
-      if (waitForEspResponse(PKT_RESP_CHUNK_OK, 2000)) { ok = true; break; }
-      Serial.printf("Forward: chunk %d retry %d\n", seq, attempt + 1);
-    }
-    if (!ok) {
-      Serial.printf("Forward: chunk %d failed\n", seq);
-      return false;
-    }
-
-    runCrc = uartCrc32Update(runCrc, data + offset, chunkLen);
-    offset += chunkLen;
-    seq++;
-  }
-
-  UploadDonePayload donePl;
-  donePl.slot = slot;
-  donePl.crc32 = runCrc;
-  stLink.txObj(donePl);
-  stLink.sendData(sizeof(donePl), PKT_UPLOAD_DONE);
-
-  if (!waitForEspResponse(PKT_RESP_UPLOAD_OK, 5000)) {
-    Serial.println("Forward: verification failed");
-    return false;
-  }
-
-  Serial.printf("Forward: slot %d pktId 0x%02X OK (%lu bytes)\n", slot, startPktId, dataSize);
-  return true;
-}
-
-// Forward from LittleFS file (PNG or S3 RGB565 — already written)
-static bool stForwardFileToEsp(const char *path, uint8_t slot, uint8_t startPktId) {
-  File f = LittleFS.open(path, "r");
-  if (!f) {
-    Serial.printf("Forward: %s not found\n", path);
-    return false;
-  }
-  uint32_t fileSize = f.size();
-
-  UploadStartPayload startPl;
-  startPl.slot = slot;
-  startPl.size = fileSize;
-  stLink.txObj(startPl);
-  stLink.sendData(sizeof(startPl), startPktId);
-
-  if (!waitForEspResponse(PKT_RESP_READY, 3000)) {
-    Serial.println("Forward: ESP32 not ready");
-    f.close();
-    return false;
-  }
-
-  uint8_t seq = 0;
-  uint32_t runCrc = 0;
-  uint8_t chunkBuf[MAX_CHUNK_SIZE];
-
-  while (f.available()) {
-    if (bleUpload.abortRequested) {
-      Serial.println("Forward file: aborted by user");
-      f.close();
-      return false;
-    }
-    int n = f.read(chunkBuf, MAX_CHUNK_SIZE);
-    if (n <= 0) break;
-
-    stLink.packet.txBuff[0] = seq;
-    memcpy(stLink.packet.txBuff + 1, chunkBuf, n);
-
-    bool ok = false;
-    for (int attempt = 0; attempt < 5; attempt++) {
-      stLink.sendData(1 + n, PKT_CHUNK_DATA);
-      if (waitForEspResponse(PKT_RESP_CHUNK_OK, 2000)) { ok = true; break; }
-      Serial.printf("Forward: chunk %d retry %d\n", seq, attempt + 1);
-    }
-    if (!ok) { f.close(); return false; }
-
-    runCrc = uartCrc32Update(runCrc, chunkBuf, n);
-    seq++;
-  }
-  f.close();
-
-  UploadDonePayload donePl;
-  donePl.slot = slot;
-  donePl.crc32 = runCrc;
-  stLink.txObj(donePl);
-  stLink.sendData(sizeof(donePl), PKT_UPLOAD_DONE);
-
-  if (!waitForEspResponse(PKT_RESP_UPLOAD_OK, 5000)) {
-    Serial.println("Forward: verification failed");
-    return false;
-  }
-
-  Serial.printf("Forward file: %s slot %d OK (%lu bytes)\n", path, slot, fileSize);
-  return true;
-}
-
-// Forward completed BLE upload to ESP32 via SerialTransfer
-static void processBleUploadForward() {
-  if (bleUpload.phase != BLE_UP_FORWARDING) return;
-
-  bool ok = false;
-  char path[24];
-
-  if (bleUpload.fileType == 0) {         // PNG — forward from file
-    snprintf(path, sizeof(path), "/s3_png%02d.png", bleUpload.slot);
-    ok = stForwardFileToEsp(path, bleUpload.slot, PKT_UPLOAD_PNG_START);
-  } else if (bleUpload.fileType == 1) {  // S3 RGB565 — forward from file
-    imagePath(path, bleUpload.slot);
-    ok = stForwardFileToEsp(path, bleUpload.slot, PKT_UPLOAD_START);
-  } else {                                // RP2040 RGB565 — forward from imageBuf
-    ok = stForwardToEsp(bleUpload.slot, PKT_UPLOAD_RP_START,
-                        (const uint8_t*)imageBuf, bleUpload.expectedSize);
-  }
-
+// Callback when a BLE→ESP32 forward upload completes (success or failure)
+static void onBleForwardDone(UartLink *link, uint8_t slot, bool success) {
   if (bleUpload.abortRequested) {
     cleanupAbortedUpload(bleUpload.slot);
-    stSendText(stLink, "ABORT_S3_UPLOAD");
-    // OK:UPLOAD_ABORTED already sent by BLE RX callback (or disconnect handler)
+    linkEsp.queueText("ABORT_S3_UPLOAD", false, UARTLINK_PRI_HIGH);
     bleUpload.abortRequested = false;
-  } else if (ok) {
+  } else if (success) {
     char resp[32];
     const char *typeStr = bleUpload.fileType == 0 ? "png" :
                           (bleUpload.fileType == 1 ? "s3" : "rp");
@@ -750,6 +589,30 @@ static void processBleUploadForward() {
   }
 
   bleUpload.phase = BLE_UP_IDLE;
+}
+
+// Queue BLE upload forwarding to ESP32 (non-blocking)
+static void processBleUploadForward() {
+  if (bleUpload.phase != BLE_UP_FORWARDING) return;
+
+  char path[24];
+
+  if (bleUpload.fileType == 0) {         // PNG — forward from file
+    snprintf(path, sizeof(path), "/s3_png%02d.png", bleUpload.slot);
+    linkEsp.queueUpload(bleUpload.slot, path, PKT_UPLOAD_PNG_START,
+                        UARTLINK_PRI_NORMAL, onBleForwardDone);
+  } else if (bleUpload.fileType == 1) {  // S3 RGB565 — forward from file
+    imagePath(path, bleUpload.slot);
+    linkEsp.queueUpload(bleUpload.slot, path, PKT_UPLOAD_START,
+                        UARTLINK_PRI_NORMAL, onBleForwardDone);
+  } else {                                // RP2040 RGB565 — forward from imageBuf
+    linkEsp.queueBufferUpload(bleUpload.slot, (const uint8_t*)imageBuf,
+                              bleUpload.expectedSize, PKT_UPLOAD_RP_START,
+                              UARTLINK_PRI_NORMAL, onBleForwardDone);
+  }
+
+  // Transition to waiting state — completion handled by onBleForwardDone
+  bleUpload.phase = BLE_UP_ESP_FORWARDING;
 }
 
 // L2CAP CoC callbacks
@@ -1433,7 +1296,7 @@ static void processTextLine(const char *line) {
     settingsConfirm = false;
     inSettings = false;
     // Re-sync config from ESP32
-    stSendText(stLink, "GET_CONFIG");
+    linkEsp.queueText("GET_CONFIG", false, UARTLINK_PRI_HIGH);
     drawScreen();
     bleSendText(line);
   } else if (strncmp(line, "CLEAN:FILLING:", 14) == 0) {
@@ -1505,7 +1368,7 @@ static void processTextLine(const char *line) {
     bleSendText(line);
   } else if (strncmp(line, "CHART_LIVE:", 11) == 0) {
     bleSendText(line);
-    stSendText(stLink, "CHART_ACK");
+    linkEsp.queueText("CHART_ACK", false, UARTLINK_PRI_HIGH);
   } else if (strncmp(line, "CHART_", 6) == 0) {
     bleSendText(line);
   } else if (strncmp(line, "OK:", 3) == 0) {
@@ -1560,71 +1423,74 @@ static void processTextLine(const char *line) {
   }
 }
 
-static void checkSerialTransfer() {
-  if (stLink.available()) {
-    uint8_t pktId = stLink.currentPacketID();
+// Unsolicited packet handler for ESP32 link (called by linkEsp.service())
+static void onEspPacket(UartLink *link, uint8_t pktId) {
+  SerialTransfer &st = *link->st;
 
-    switch (pktId) {
-      case PKT_UPLOAD_START: {
-        UploadStartPayload pl;
-        stLink.rxObj(pl);
-        handleUploadStart(pl.slot, pl.size, false);
-        break;
-      }
-      case PKT_UPLOAD_PNG_START: {
-        UploadStartPayload pl;
-        stLink.rxObj(pl);
-        handleUploadStart(pl.slot, pl.size, true);
-        break;
-      }
-      case PKT_CHUNK_DATA: {
-        ChunkDataPayload hdr;
-        stLink.rxObj(hdr);
-        uint16_t dataLen = stLink.bytesRead - sizeof(hdr);
-        handleChunkData(hdr.seq, stLink.packet.rxBuff + sizeof(hdr), dataLen);
-        break;
-      }
-      case PKT_UPLOAD_DONE: {
-        UploadDonePayload pl;
-        stLink.rxObj(pl);
-        handleUploadDone(pl.slot, pl.crc32);
-        break;
-      }
-      case PKT_QUERY_COUNT:
-        handleQueryCount();
-        break;
-      case PKT_DELETE_IMAGE: {
-        SlotPayload pl;
-        stLink.rxObj(pl);
-        handleDeleteImage(pl.slot);
-        break;
-      }
-      case PKT_SWAP_IMAGES: {
-        SwapPayload pl;
-        stLink.rxObj(pl);
-        handleSwapImages(pl.slotA, pl.slotB);
-        break;
-      }
-      case PKT_TEXT: {
-        char line[256];
-        uint16_t len = stLink.bytesRead;
-        uint16_t copyLen = (len < 255) ? len : 255;
-        memcpy(line, stLink.packet.rxBuff, copyLen);
-        line[copyLen] = '\0';
+  switch (pktId) {
+    case PKT_UPLOAD_START: {
+      UploadStartPayload pl;
+      st.rxObj(pl);
+      handleUploadStart(pl.slot, pl.size, false);
+      break;
+    }
+    case PKT_UPLOAD_PNG_START: {
+      UploadStartPayload pl;
+      st.rxObj(pl);
+      handleUploadStart(pl.slot, pl.size, true);
+      break;
+    }
+    case PKT_CHUNK_DATA: {
+      ChunkDataPayload hdr;
+      st.rxObj(hdr);
+      uint16_t dataLen = st.bytesRead - sizeof(hdr);
+      handleChunkData(hdr.seq, st.packet.rxBuff + sizeof(hdr), dataLen);
+      break;
+    }
+    case PKT_UPLOAD_DONE: {
+      UploadDonePayload pl;
+      st.rxObj(pl);
+      handleUploadDone(pl.slot, pl.crc32);
+      break;
+    }
+    case PKT_QUERY_COUNT:
+      handleQueryCount();
+      break;
+    case PKT_DELETE_IMAGE: {
+      SlotPayload pl;
+      st.rxObj(pl);
+      handleDeleteImage(pl.slot);
+      break;
+    }
+    case PKT_SWAP_IMAGES: {
+      SwapPayload pl;
+      st.rxObj(pl);
+      handleSwapImages(pl.slotA, pl.slotB);
+      break;
+    }
+    case PKT_TEXT: {
+      char line[256];
+      uint16_t len = st.bytesRead;
+      uint16_t copyLen = (len < 255) ? len : 255;
+      memcpy(line, st.packet.rxBuff, copyLen);
+      line[copyLen] = '\0';
 
-        // Strip #seq: prefix if present, stash seq for response
-        const char *cmdStart;
-        ackSeq = stParseTextSeq(line, &cmdStart);
-        if (ackSeq >= 0) {
-          processTextLine(cmdStart);
-        } else {
-          processTextLine(line);
-        }
-        ackSeq = -1;
-        break;
+      // Strip #seq: prefix if present, stash seq for response
+      const char *cmdStart;
+      ackSeq = stParseTextSeq(line, &cmdStart);
+      if (ackSeq >= 0) {
+        processTextLine(cmdStart);
+      } else {
+        processTextLine(line);
       }
+      ackSeq = -1;
+      break;
     }
   }
+}
+
+static void checkSerialTransfer() {
+  linkEsp.service();
 
   // Check upload timeout
   if (upload.state == UPLOAD_RECEIVING) {
@@ -1639,12 +1505,12 @@ static void checkSerialTransfer() {
 void sendSetCommand(const char* key, int value) {
   char buf[32];
   snprintf(buf, sizeof(buf), "SET:%s=%d", key, value);
-  stSendText(stLink, buf);
+  linkEsp.queueText(buf, false, UARTLINK_PRI_HIGH);
   Serial.printf("UART TX: %s\n", buf);
 }
 
 void sendSave() {
-  stSendText(stLink, "SAVE");
+  linkEsp.queueText("SAVE", false, UARTLINK_PRI_HIGH);
   Serial.println("UART TX: SAVE");
 }
 
@@ -2122,7 +1988,7 @@ void handleTap() {
       if (primeHoldIndex == 0) {
         // Back — stop prime if active, exit hold screen
         if (primeHolding || primeActive) {
-          stSendText(stLink, "PRIME_STOP");
+          linkEsp.queueText("PRIME_STOP", false, UARTLINK_PRI_HIGH);
           primeHolding = false;
           primeActive = false;
         }
@@ -2182,7 +2048,7 @@ void handleTap() {
   if (inCleanCycle) {
     if (cleanPending) {
       // Tap during active clean = abort
-      stSendText(stLink, "CLEAN_ABORT");
+      linkEsp.queueText("CLEAN_ABORT", false, UARTLINK_PRI_HIGH);
       return;
     }
     if (cleanConfirm) {
@@ -2192,7 +2058,7 @@ void handleTap() {
         cleanPhase = 0;
         char buf[10];
         snprintf(buf, sizeof(buf), "CLEAN:%d", cleanFlavorIndex);
-        stSendText(stLink, buf);
+        linkEsp.queueText(buf, false, UARTLINK_PRI_HIGH);
         Serial.printf("Clean cycle requested: flavor %d\n", cleanFlavorIndex);
       } else {
         // No — back to flavor selection
@@ -2227,7 +2093,7 @@ void handleTap() {
         // Yes — execute factory reset
         factoryResetPending = true;
         Serial.println("Factory Reset confirmed — sending to ESP32");
-        stSendText(stLink, "FACTORY_RESET");
+        linkEsp.queueText("FACTORY_RESET", false, UARTLINK_PRI_NORMAL);
       } else {
         // No — back to settings list
         settingsConfirm = false;
@@ -2251,7 +2117,7 @@ void handleTap() {
       inAbout = true;
       espVersion[0] = '\0';
       rpVersion[0] = '\0';
-      stSendText(stLink, "GET_VERSION");
+      linkEsp.queueText("GET_VERSION", false, UARTLINK_PRI_HIGH);
       Serial.println("Entering About — requesting versions");
     }
     return;
@@ -2284,6 +2150,8 @@ void setup() {
   Serial.begin(115200);
   Serial0.begin(38400, SERIAL_8N1, 44, 43);  // UART0 on J34 connector (RX=44, TX=43)
   stLink.begin(Serial0);
+  linkEsp.init(&stLink, "ESP32");
+  linkEsp.onPacket = onEspPacket;
   delay(500);
   Serial.println("ESP32-S3 Config Display starting...");
 
@@ -2382,7 +2250,7 @@ void setup() {
 void loop() {
   // Boot sync: request config from ESP32 every 500ms until synced
   if (!configSynced && millis() - lastGetConfig > 500) {
-    stSendText(stLink, "GET_CONFIG");
+    linkEsp.queueText("GET_CONFIG", false, UARTLINK_PRI_HIGH);
     Serial.println("UART TX: GET_CONFIG (boot sync)");
     lastGetConfig = millis();
   }
@@ -2397,6 +2265,11 @@ void loop() {
   // Process completed BLE uploads (verify CRC, write to LittleFS, forward)
   processBleUpload();
   processBleUploadForward();
+
+  // Check for abort during async ESP32 forwarding
+  if (bleUpload.phase == BLE_UP_ESP_FORWARDING && bleUpload.abortRequested) {
+    linkEsp.cancelAll();  // fires onBleForwardDone with success=false, which handles abort
+  }
 
   // BLE upload timeout (30s with no data)
   if (bleUpload.phase == BLE_UP_WAIT_DATA &&
@@ -2443,7 +2316,7 @@ void loop() {
       primeHolding = true;
       char buf[16];
       snprintf(buf, sizeof(buf), "PRIME_START:%d", primeFlavor);
-      stSendText(stLink, buf);
+      linkEsp.queueText(buf, false, UARTLINK_PRI_HIGH);
       lastPrimeTick = millis();
       drawScreen();
       tapped = false;  // consume tap so handleTap doesn't also fire
@@ -2451,12 +2324,12 @@ void loop() {
       // Finger up → stop prime
       primeHolding = false;
       primeActive = false;
-      stSendText(stLink, "PRIME_STOP");
+      linkEsp.queueText("PRIME_STOP", false, UARTLINK_PRI_HIGH);
       drawScreen();
       tapped = false;
     } else if (primeHolding && millis() - lastPrimeTick >= 500) {
       // Send keepalive tick
-      stSendText(stLink, "PRIME_TICK");
+      linkEsp.queueText("PRIME_TICK", false, UARTLINK_PRI_HIGH);
       lastPrimeTick = millis();
     }
     if (currentTouching) tapped = false;  // suppress taps while touching on hold screen
