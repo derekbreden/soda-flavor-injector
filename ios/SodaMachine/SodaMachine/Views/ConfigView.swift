@@ -108,6 +108,53 @@ private struct ImagePickerSheet: View {
 }
 
 // ────────────────────────────────────────────────────────────
+// Ratio picker sheet — wheel picker for 1:6 through 1:24
+// ────────────────────────────────────────────────────────────
+
+private struct RatioPickerSheet: View {
+    @Environment(\.dismiss) var dismiss
+    let flavorLabel: String
+    @State var ratio: Int
+    let onDismiss: (Int) -> Void
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Theme.background.ignoresSafeArea()
+
+                Picker("Ratio", selection: $ratio) {
+                    ForEach(6...24, id: \.self) { value in
+                        Text("1:\(value)")
+                            .foregroundStyle(Theme.textPrimary)
+                            .tag(value)
+                    }
+                }
+                .pickerStyle(.wheel)
+                .labelsHidden()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(flavorLabel)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Theme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+        }
+        .onDisappear {
+            onDismiss(ratio)
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
 // Settings page — shown inline on page 4 of the carousel.
 // Tappable items with press-to-highlight feedback.
 // ────────────────────────────────────────────────────────────
@@ -837,10 +884,11 @@ struct ConfigView: View {
     @Environment(BLEManager.self) var ble
     @Environment(\.scenePhase) private var scenePhase
     @State private var currentPage = 0
-    @State private var editing = false
     @State private var showImageManager = false
     @State private var showFlavor1Picker = false
     @State private var showFlavor2Picker = false
+    @State private var showFlavor1Ratio = false
+    @State private var showFlavor2Ratio = false
     @State private var inAbout = false
     @State private var inStats = false
     @State private var inCleanPrime = false
@@ -882,6 +930,18 @@ struct ConfigView: View {
                 ble.sendSet("F2_IMAGE", value: slot)
             }
             .environment(ble)
+        }
+        .sheet(isPresented: $showFlavor1Ratio) {
+            RatioPickerSheet(flavorLabel: "Flavor 1 Ratio", ratio: ble.flavor1Ratio) { value in
+                ble.flavor1Ratio = value
+                ble.sendSet("F1_RATIO", value: value)
+            }
+        }
+        .sheet(isPresented: $showFlavor2Ratio) {
+            RatioPickerSheet(flavorLabel: "Flavor 2 Ratio", ratio: ble.flavor2Ratio) { value in
+                ble.flavor2Ratio = value
+                ble.sendSet("F2_RATIO", value: value)
+            }
         }
         .sheet(isPresented: $inCleanPrime) {
             CleanPrimeSheet()
@@ -925,7 +985,7 @@ struct ConfigView: View {
                         if i < pageCount - 1 {
                             Text(pageLabels[i])
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(editing && i == currentPage ? Theme.textPrimary : Theme.textSecondary)
+                                .foregroundStyle(Theme.textSecondary)
 
                             Spacer().frame(height: 12)
                         }
@@ -939,8 +999,9 @@ struct ConfigView: View {
                     .onTapGesture {
                         switch i {
                         case 0: showFlavor1Picker = true
-                        case 1, 3: editing = true
+                        case 1: showFlavor1Ratio = true
                         case 2: showFlavor2Picker = true
+                        case 3: showFlavor2Ratio = true
                         default: break
                         }
                     }
@@ -948,28 +1009,6 @@ struct ConfigView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .allowsHitTesting(!editing)
-            .overlay {
-                if editing {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            editing = false
-                            sendCurrentValue()
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 30)
-                                .onEnded { value in
-                                    let dx = value.translation.width
-                                    if dx > 30 {
-                                        adjustValue(by: -1)
-                                    } else if dx < -30 {
-                                        adjustValue(by: 1)
-                                    }
-                                }
-                        )
-                }
-            }
 
             // Fixed nav dots
             HStack(spacing: 12) {
@@ -1006,32 +1045,7 @@ struct ConfigView: View {
 
     private func ratioDisplay(ratio: Int) -> some View {
         Text("1:\(ratio)")
-            .font(.system(size: editing ? 72 : 36, weight: .regular, design: .rounded))
-            .foregroundStyle(editing ? Theme.textPrimary : Theme.textSecondary)
-            .animation(.easeInOut(duration: 0.2), value: editing)
-    }
-
-    // MARK: - Value Adjustment
-
-    private func adjustValue(by delta: Int) {
-        switch currentPage {
-        case 1:
-            ble.flavor1Ratio = max(6, min(24, ble.flavor1Ratio + delta))
-        case 3:
-            ble.flavor2Ratio = max(6, min(24, ble.flavor2Ratio + delta))
-        default:
-            break
-        }
-    }
-
-    private func sendCurrentValue() {
-        switch currentPage {
-        case 1:
-            ble.sendSet("F1_RATIO", value: ble.flavor1Ratio)
-        case 3:
-            ble.sendSet("F2_RATIO", value: ble.flavor2Ratio)
-        default:
-            break
-        }
+            .font(.system(size: 36, weight: .regular, design: .rounded))
+            .foregroundStyle(Theme.textSecondary)
     }
 }
