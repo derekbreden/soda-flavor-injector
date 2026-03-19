@@ -162,6 +162,7 @@ static struct {
   bool     hasLabel;
   unsigned long lastDataTime;
   volatile bool abortRequested = false;
+  uint32_t chunkCount;
 } bleUpload;
 
 static void cleanupAbortedUpload(uint8_t slot);  // forward decl (used in disconnect + RX handlers)
@@ -331,6 +332,7 @@ class BLERxCB : public NimBLECharacteristicCallbacks {
         bleUpload.receivedBytes = 0;
         bleUpload.hasLabel = false;
         bleUpload.abortRequested = false;
+        bleUpload.chunkCount = 0;
 
         if (payloadLen > 10) {
           size_t lblLen = payloadLen - 10;
@@ -355,6 +357,13 @@ class BLERxCB : public NimBLECharacteristicCallbacks {
         if (dataLen > 0) {
           memcpy(((uint8_t*)imageBuf) + bleUpload.receivedBytes, payload, dataLen);
           bleUpload.receivedBytes += dataLen;
+          bleUpload.chunkCount++;
+          // Log every 50th chunk for progress tracking
+          if (bleUpload.chunkCount % 50 == 0) {
+            Serial.printf("BLE chunk #%u: %lu/%lu bytes\n",
+                          bleUpload.chunkCount, bleUpload.receivedBytes,
+                          bleUpload.expectedSize);
+          }
         }
         bleUpload.lastDataTime = millis();
         break;
@@ -517,13 +526,21 @@ static void processBleUpload() {
   }
 
   // Verify CRC-32
+  Serial.printf("BLE upload verify: %lu bytes received in %u chunks (expected %lu)\n",
+                bleUpload.receivedBytes, bleUpload.chunkCount, bleUpload.expectedSize);
   uint32_t crc = uartCrc32Update(0, (const uint8_t*)imageBuf, bleUpload.expectedSize);
   if (crc != bleUpload.expectedCrc32) {
-    Serial.printf("BLE upload CRC mismatch: got 0x%08lX expected 0x%08lX\n", crc, bleUpload.expectedCrc32);
+    Serial.printf("BLE upload CRC MISMATCH: got 0x%08lX expected 0x%08lX\n", crc, bleUpload.expectedCrc32);
+    // Sample first 16 bytes for debugging
+    Serial.printf("BLE buf[0..15]: ");
+    for (int i = 0; i < 16 && i < (int)bleUpload.expectedSize; i++)
+      Serial.printf("%02X ", ((uint8_t*)imageBuf)[i]);
+    Serial.println();
     bleSendTextTo(bleUploadConnHandle, "IMG_ERR:CRC_MISMATCH");
     bleUpload.phase = BLE_UP_IDLE;
     return;
   }
+  Serial.printf("BLE upload CRC OK: 0x%08lX\n", crc);
 
   // Write to LittleFS (S3 stores PNG + S3 RGB565; skips RP2040 RGB565)
   char path[24];
@@ -567,16 +584,20 @@ static void processTextLine(const char *line);
 // Callback when a BLE→ESP32 forward upload completes (success or failure)
 static void onBleForwardDone(UartLink *link, uint8_t slot, bool success) {
   if (bleUpload.abortRequested) {
+    Serial.printf("FORWARD: slot %d aborted by user\n", slot);
     cleanupAbortedUpload(bleUpload.slot);
     linkEsp.queueText("ABORT_S3_UPLOAD", false, UARTLINK_PRI_HIGH);
     bleUpload.abortRequested = false;
   } else if (success) {
+    Serial.printf("FORWARD: slot %d type %d OK\n", slot, bleUpload.fileType);
     char resp[32];
     const char *typeStr = bleUpload.fileType == 0 ? "png" :
                           (bleUpload.fileType == 1 ? "s3" : "rp");
     snprintf(resp, sizeof(resp), "IMG_OK:%d:%s", bleUpload.slot, typeStr);
     bleSendTextTo(bleUploadConnHandle, resp);
   } else {
+    Serial.printf("FORWARD: slot %d type %d FAILED (retries=%lu, failed=%lu)\n",
+                  slot, bleUpload.fileType, link->totalRetries, link->totalFailed);
     bleSendTextTo(bleUploadConnHandle, "IMG_ERR:FORWARD_FAIL");
   }
 
@@ -591,13 +612,18 @@ static void processBleUploadForward() {
 
   if (bleUpload.fileType == 0) {         // PNG — forward from file
     snprintf(path, sizeof(path), "/s3_png%02d.png", bleUpload.slot);
+    Serial.printf("FORWARD: queuing PNG slot %d file %s\n", bleUpload.slot, path);
     linkEsp.queueUpload(bleUpload.slot, path, PKT_UPLOAD_PNG_START,
                         UARTLINK_PRI_NORMAL, onBleForwardDone);
   } else if (bleUpload.fileType == 1) {  // S3 RGB565 — forward from file
     imagePath(path, bleUpload.slot);
+    Serial.printf("FORWARD: queuing S3 RGB slot %d file %s (%lu bytes)\n",
+                  bleUpload.slot, path, bleUpload.expectedSize);
     linkEsp.queueUpload(bleUpload.slot, path, PKT_UPLOAD_START,
                         UARTLINK_PRI_NORMAL, onBleForwardDone);
   } else {                                // RP2040 RGB565 — forward from imageBuf
+    Serial.printf("FORWARD: queuing RP2040 RGB slot %d from buf (%lu bytes)\n",
+                  bleUpload.slot, bleUpload.expectedSize);
     linkEsp.queueBufferUpload(bleUpload.slot, (const uint8_t*)imageBuf,
                               bleUpload.expectedSize, PKT_UPLOAD_RP_START,
                               UARTLINK_PRI_NORMAL, onBleForwardDone);
@@ -774,6 +800,11 @@ static void saveLabels() {
 }
 
 static bool loadImageFromFS(uint8_t slot) {
+  // Guard: imageBuf is in use by BLE upload — don't overwrite it
+  if (bleUpload.phase != BLE_UP_IDLE) {
+    Serial.println("DIAG: loadImageFromFS skipped — imageBuf in use by BLE upload");
+    return false;
+  }
   char path[16];
   imagePath(path, slot);
   if (!LittleFS.exists(path)) return false;

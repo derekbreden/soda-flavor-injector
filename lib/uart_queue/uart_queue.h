@@ -411,8 +411,8 @@ private:
 
       case LINK_UPLOAD_WAIT_CHUNK_ACK: {
         // Chunk accepted — advance offset past this chunk, send next
-        uint16_t ackLen = uploadSize - uploadOffset;
-        if (ackLen > UARTLINK_CHUNK_SIZE) ackLen = UARTLINK_CHUNK_SIZE;
+        uint32_t ackRemaining = uploadSize - uploadOffset;
+        uint16_t ackLen = (ackRemaining > UARTLINK_CHUNK_SIZE) ? UARTLINK_CHUNK_SIZE : (uint16_t)ackRemaining;
         uploadOffset += ackLen;
         uploadSeq++;
         op = LINK_UPLOAD_SENDING_CHUNK;
@@ -544,6 +544,8 @@ private:
   void failCurrentOp() {
     totalFailed++;
     LinkOp failedOp = op;
+    Serial.printf("[%s] FAIL op=%d slot=%d offset=%lu/%lu retries=%d\n",
+                  name, failedOp, uploadSlot, uploadOffset, uploadSize, retries);
     op = LINK_IDLE;
 
     switch (failedOp) {
@@ -718,8 +720,8 @@ private:
   // Read a chunk from file or buffer at the given offset.
   // Returns bytes read, or 0 on failure.
   uint16_t readChunk(uint32_t offset, uint8_t *buf, uint16_t maxLen) {
-    uint16_t chunkLen = uploadSize - offset;
-    if (chunkLen > maxLen) chunkLen = maxLen;
+    uint32_t remaining = uploadSize - offset;
+    uint16_t chunkLen = (remaining > maxLen) ? maxLen : (uint16_t)remaining;
 
     if (uploadFromFile) {
       #if defined(ESP32) || defined(ESP_PLATFORM)
@@ -730,8 +732,21 @@ private:
       }
       f.seek(offset);
       int n = f.read(buf, chunkLen);
+      size_t fsize = f.size();
       f.close();
-      if (n <= 0) return 0;
+      if (n <= 0) {
+        Serial.printf("[%s] readChunk FAIL: %s offset=%lu chunkLen=%u read=%d fileSize=%lu\n",
+                      name, uploadPath, offset, chunkLen, n, (unsigned long)fsize);
+        // Re-check file
+        File chk = LittleFS.open(uploadPath, "r");
+        if (chk) {
+          Serial.printf("[%s] readChunk verify: file exists, size=%lu\n", name, (unsigned long)chk.size());
+          chk.close();
+        } else {
+          Serial.printf("[%s] readChunk verify: file GONE\n", name);
+        }
+        return 0;
+      }
       return (uint16_t)n;
       #else
       return 0;
@@ -774,6 +789,11 @@ private:
     // CRC accumulated here on first send; retries use resendCurrentChunk()
     // which doesn't touch uploadCrc
     uploadCrc = uartCrc32Update(uploadCrc, chunkBuf, chunkLen);
+
+    // Log progress every 100 chunks
+    if (uploadSeq % 100 == 0) {
+      Serial.printf("[%s] Chunk %d: %lu/%lu bytes\n", name, uploadSeq, uploadOffset, uploadSize);
+    }
 
     op = LINK_UPLOAD_WAIT_CHUNK_ACK;
     expectedPktId = PKT_RESP_CHUNK_OK;

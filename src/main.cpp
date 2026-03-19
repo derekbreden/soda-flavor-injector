@@ -1942,6 +1942,12 @@ void handleS3ChunkData() {
   s3Upload.nextSeq = (s3Upload.nextSeq + 1) & 0xFF;
   s3Upload.lastChunkTime = millis();
 
+  // Log every ~12.8KB (every 100 chunks at 128 bytes)
+  if (s3Upload.receivedBytes % 12800 < dataLen) {
+    Serial.printf("S3 chunk progress: %lu/%lu bytes\n",
+                  s3Upload.receivedBytes, s3Upload.expectedSize);
+  }
+
   stSendResponse(stS3, PKT_RESP_CHUNK_OK, s3Upload.nextSeq);
 }
 
@@ -2172,6 +2178,9 @@ void checkConfigUART() {
 
   // Timeout stale S3 uploads
   if (s3Upload.active && millis() - s3Upload.lastChunkTime > 5000) {
+    Serial.printf("S3 upload timeout: %lu/%lu bytes, %d chunks received, gap=%lums\n",
+                  s3Upload.receivedBytes, s3Upload.expectedSize,
+                  s3Upload.nextSeq, millis() - s3Upload.lastChunkTime);
     abortS3Upload();
   }
 }

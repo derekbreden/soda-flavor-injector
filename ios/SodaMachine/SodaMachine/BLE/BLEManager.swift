@@ -582,6 +582,8 @@ class BLEManager {
         let step = uploadSteps[currentUploadStep]
         let crc = ImageProcessor.crc32(step.data)
 
+        log.info("Upload step \(self.currentUploadStep)/\(self.uploadSteps.count): type=\(step.type) size=\(step.data.count) crc=0x\(String(crc, radix: 16, uppercase: true))")
+
         let fileType: UInt8 = step.type == "png" ? 0 : (step.type == "s3" ? 1 : 2)
 
         // Build BIN_START payload: [slot(1B), fileType(1B), size(4B LE), crc32(4B LE), label...]
@@ -631,6 +633,7 @@ class BLEManager {
                 if self.uploadBytesSent < data.count {
                     sendChunk()
                 } else {
+                    log.info("Upload step \(self.currentUploadStep): all \(self.uploadBytesSent) bytes sent, sending BIN_END")
                     self.sendBLEFrame(type: 0x04, payload: Data())
                 }
             }
