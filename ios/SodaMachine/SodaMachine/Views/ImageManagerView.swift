@@ -23,15 +23,15 @@ struct ImageManagerView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 0) {
-                    if ble.uploadProgress != nil || !ble.uploadQueue.isEmpty {
-                        uploadProgressSection
-                    }
-
                     if ble.imageDownloadProgress != nil {
                         downloadProgressSection
                     }
 
                     imagesSection
+
+                    if ble.uploadProgress != nil || !ble.uploadQueue.isEmpty {
+                        uploadProgressSection
+                    }
 
                     if totalPendingSlots < maxImages && ble.imageDownloadProgress == nil {
                         addImageSection
