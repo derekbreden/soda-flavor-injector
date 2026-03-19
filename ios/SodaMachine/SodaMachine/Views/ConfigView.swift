@@ -47,7 +47,7 @@ private struct ImagePickerSheet: View {
     @Environment(BLEManager.self) var ble
     @Environment(\.dismiss) var dismiss
     let flavorLabel: String
-    let selectedSlot: Int
+    @State var selectedSlot: Int
     let onSelect: (Int) -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 120), spacing: 20)]
@@ -82,8 +82,8 @@ private struct ImagePickerSheet: View {
                                 .frame(width: 134, height: 134)
                         )
                         .onTapGesture {
+                            selectedSlot = slot
                             onSelect(slot)
-                            dismiss()
                         }
                     }
                 }
