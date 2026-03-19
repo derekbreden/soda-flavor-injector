@@ -142,7 +142,7 @@ static volatile uint16_t bleRequestConnHandle = 0;
 static uint16_t bleImageSendConnHandle = 0;
 static uint16_t bleUploadConnHandle = 0;
 
-// Ring buffer for BLE→ESP32 text command forwarding (replaces single bleForwardBuf)
+// Ring buffer for BLE→ESP32 text command forwarding
 #define BLE_FWD_QUEUE_SIZE 8
 #define BLE_FWD_BUF_LEN    64
 static char bleFwdQueue[BLE_FWD_QUEUE_SIZE][BLE_FWD_BUF_LEN];

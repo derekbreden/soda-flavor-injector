@@ -694,7 +694,7 @@ void enterStoreMode(bool isS3, uint8_t slot, bool isPng = false) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  RP2040 async sync state machine (replaces blocking syncDevice)
+//  RP2040 async sync state machine
 // ════════════════════════════════════════════════════════════
 
 // Forward declarations
@@ -926,7 +926,7 @@ uint32_t recoverMaxSeqHour() {
   return maxSH;
 }
 
-// Load current hour's accumulator from ring buffer (replaces current.bin)
+// Load current hour's accumulator from ring buffer
 void loadCurrentHourFromRing() {
   for (int flavor = 0; flavor < 2; flavor++) {
     File f = LittleFS.open(statsHourlyPath(flavor), "r");
@@ -1137,7 +1137,7 @@ void abortS3Upload();  // forward decl
 // Forward declarations for S3 async sync (defaults on first declaration above)
 void startS3Sync(bool pushAll, uint8_t respTarget, bool rpResult);
 
-// S3 sync state machine (async replacement for syncDevice(DEVICE_S3))
+// S3 async sync state machine
 static struct {
   bool active = false;
   uint8_t phase;        // 0=images, 1=deletes, 2=pngs, 3=labels+config
