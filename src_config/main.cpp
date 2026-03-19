@@ -1372,6 +1372,22 @@ static void processTextLine(const char *line) {
       delay(10);
     }
     stSendTextAck(stLink, "END");
+  } else if (strncmp(line, "TEST_FORWARD:", 13) == 0) {
+    // Debug: forward an existing S3 PNG to ESP32 via linkEsp (same path as BLE upload)
+    int slot = atoi(line + 13);
+    char path[24];
+    snprintf(path, sizeof(path), "/s3_png%02d.png", slot);
+    if (!LittleFS.exists(path)) {
+      Serial.printf("TEST_FORWARD: %s not found\n", path);
+      stSendTextAck(stLink, "ERR:FILE_NOT_FOUND");
+    } else {
+      Serial.printf("TEST_FORWARD: forwarding %s to ESP32\n", path);
+      linkEsp.queueUpload(slot, path, PKT_UPLOAD_PNG_START, UARTLINK_PRI_NORMAL,
+        [](UartLink *link, uint8_t slot, bool success) {
+          Serial.printf("TEST_FORWARD: slot %d %s\n", slot, success ? "OK" : "FAILED");
+        });
+      stSendTextAck(stLink, "OK:FORWARD_QUEUED");
+    }
   } else if (strcmp(line, "LISTPNGS") == 0) {
     char buf[64];
     snprintf(buf, sizeof(buf), "PNGS:%d images", numImages);
@@ -2227,6 +2243,22 @@ void loop() {
     linkEsp.queueText("GET_CONFIG", false, UARTLINK_PRI_HIGH);
     Serial.println("UART TX: GET_CONFIG (boot sync)");
     lastGetConfig = millis();
+  }
+
+  // Check for USB serial commands (debug/test)
+  static char usbBuf[64];
+  static uint8_t usbPos = 0;
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (usbPos > 0) {
+        usbBuf[usbPos] = '\0';
+        processTextLine(usbBuf);
+        usbPos = 0;
+      }
+    } else if (usbPos < sizeof(usbBuf) - 1) {
+      usbBuf[usbPos++] = c;
+    }
   }
 
   // Check for incoming SerialTransfer packets
