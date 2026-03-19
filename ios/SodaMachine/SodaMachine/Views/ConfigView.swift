@@ -11,22 +11,20 @@ import Charts
 private struct ImageSlotView: View {
     @Environment(BLEManager.self) var ble
     let slot: Int
-    let editing: Bool
 
     var body: some View {
-        let size: CGFloat = editing ? 160 : 120
         Group {
             if let uiImage = ble.imageFor(slot: slot) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: size, height: size)
+                    .frame(width: 240, height: 240)
                     .clipShape(Circle())
             } else {
                 ZStack {
                     Circle()
                         .fill(Theme.placeholder)
-                        .frame(width: size, height: size)
+                        .frame(width: 240, height: 240)
                     if ble.imageDownloadProgress != nil {
                         ProgressView()
                             .tint(Theme.textPrimary)
@@ -38,7 +36,69 @@ private struct ImageSlotView: View {
                 }
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: editing)
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+// Image picker sheet — full-size scrollable column of images
+// ────────────────────────────────────────────────────────────
+
+private struct ImagePickerSheet: View {
+    @Environment(BLEManager.self) var ble
+    @Environment(\.dismiss) var dismiss
+    let flavorLabel: String
+    let selectedSlot: Int
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    ForEach(0..<ble.numImages, id: \.self) { slot in
+                        Group {
+                            if let uiImage = ble.imageFor(slot: slot) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 240, height: 240)
+                                    .clipShape(Circle())
+                            } else {
+                                ZStack {
+                                    Circle()
+                                        .fill(Theme.placeholder)
+                                        .frame(width: 240, height: 240)
+                                    Image(systemName: "photo")
+                                        .font(.system(size: 24))
+                                        .foregroundStyle(Theme.textSecondary)
+                                }
+                            }
+                        }
+                        .overlay(
+                            Circle()
+                                .stroke(Theme.textPrimary, lineWidth: slot == selectedSlot ? 3 : 0)
+                                .frame(width: 240, height: 240)
+                        )
+                        .onTapGesture {
+                            onSelect(slot)
+                            dismiss()
+                        }
+                    }
+                }
+                .padding(.vertical, 20)
+                .frame(maxWidth: .infinity)
+            }
+            .background(Theme.background)
+            .navigationTitle(flavorLabel)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Theme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+        }
     }
 }
 
@@ -753,6 +813,8 @@ struct ConfigView: View {
     @State private var currentPage = 0
     @State private var editing = false
     @State private var showImageManager = false
+    @State private var showFlavor1Picker = false
+    @State private var showFlavor2Picker = false
     @State private var inAbout = false
     @State private var inStats = false
     @State private var inCleanPrime = false
@@ -788,6 +850,20 @@ struct ConfigView: View {
         .sheet(isPresented: $showImageManager) {
             ImageManagerView()
                 .environment(ble)
+        }
+        .sheet(isPresented: $showFlavor1Picker) {
+            ImagePickerSheet(flavorLabel: "Flavor 1 Image", selectedSlot: ble.flavor1Image) { slot in
+                ble.flavor1Image = slot
+                ble.sendSet("F1_IMAGE", value: slot)
+            }
+            .environment(ble)
+        }
+        .sheet(isPresented: $showFlavor2Picker) {
+            ImagePickerSheet(flavorLabel: "Flavor 2 Image", selectedSlot: ble.flavor2Image) { slot in
+                ble.flavor2Image = slot
+                ble.sendSet("F2_IMAGE", value: slot)
+            }
+            .environment(ble)
         }
         .sheet(isPresented: $inCleanPrime) {
             CleanPrimeSheet()
@@ -830,17 +906,17 @@ struct ConfigView: View {
                         }
 
                         pageView(for: i)
-                            .frame(height: 180)
+                            .frame(height: 260)
 
                         Spacer()
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        // Pages 0-3 enter editing mode on tap.
-                        // Page 4 (settings) handles its own taps
-                        // via buttons, so no action needed here.
-                        if i < 4 {
-                            editing = true
+                        switch i {
+                        case 0: showFlavor1Picker = true
+                        case 1, 3: editing = true
+                        case 2: showFlavor2Picker = true
+                        default: break
                         }
                     }
                     .tag(i)
@@ -889,11 +965,11 @@ struct ConfigView: View {
     private func pageView(for index: Int) -> some View {
         switch index {
         case 0:
-            ImageSlotView(slot: ble.flavor1Image, editing: editing)
+            ImageSlotView(slot: ble.flavor1Image)
         case 1:
             ratioDisplay(ratio: ble.flavor1Ratio)
         case 2:
-            ImageSlotView(slot: ble.flavor2Image, editing: editing)
+            ImageSlotView(slot: ble.flavor2Image)
         case 3:
             ratioDisplay(ratio: ble.flavor2Ratio)
         case 4:
@@ -914,14 +990,8 @@ struct ConfigView: View {
 
     private func adjustValue(by delta: Int) {
         switch currentPage {
-        case 0:
-            let newVal = ((ble.flavor1Image + delta) % ble.numImages + ble.numImages) % ble.numImages
-            ble.flavor1Image = newVal
         case 1:
             ble.flavor1Ratio = max(6, min(24, ble.flavor1Ratio + delta))
-        case 2:
-            let newVal = ((ble.flavor2Image + delta) % ble.numImages + ble.numImages) % ble.numImages
-            ble.flavor2Image = newVal
         case 3:
             ble.flavor2Ratio = max(6, min(24, ble.flavor2Ratio + delta))
         default:
@@ -931,12 +1001,8 @@ struct ConfigView: View {
 
     private func sendCurrentValue() {
         switch currentPage {
-        case 0:
-            ble.sendSet("F1_IMAGE", value: ble.flavor1Image)
         case 1:
             ble.sendSet("F1_RATIO", value: ble.flavor1Ratio)
-        case 2:
-            ble.sendSet("F2_IMAGE", value: ble.flavor2Image)
         case 3:
             ble.sendSet("F2_RATIO", value: ble.flavor2Ratio)
         default:
