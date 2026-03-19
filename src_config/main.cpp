@@ -5,6 +5,7 @@
 #include <NimBLEDevice.h>
 #include "host/ble_hs_mbuf.h"
 #include "host/ble_gatt.h"
+#include <PersistentLog.h>
 #include <uart_st.h>
 #include <uart_queue.h>
 #include "CST816D.h"
@@ -65,6 +66,9 @@
 #define MAX_IMAGES    99
 #define MAX_LABEL_LEN 32
 #define MAX_CHUNK_SIZE 128
+
+// ── Persistent log (survives reboots, ring buffer on LittleFS) ──
+PersistentLog plog(LittleFS, "/logs/system.log", 16384);  // 16KB budget (smaller flash)
 
 static uint8_t numImages = 0;
 static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];
@@ -640,10 +644,15 @@ class BLEServerCB : public NimBLEServerCallbacks {
                   connInfo.getConnHandle(),
                   (unsigned long)pServer->getConnectedCount(),
                   (unsigned long)ESP.getFreeHeap());
+    plog.println("BLE connect: handle=%d count=%lu heap=%lu",
+                 connInfo.getConnHandle(),
+                 (unsigned long)pServer->getConnectedCount(),
+                 (unsigned long)ESP.getFreeHeap());
     NimBLEDevice::startAdvertising();
   }
   void onDisconnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo, int reason) override {
     bleOnDisconnect(connInfo.getConnHandle());
+    plog.println("BLE disconnect: remaining=%lu", (unsigned long)pServer->getConnectedCount());
     Serial.printf("BLE: disconnected (remaining=%lu)\n",
                   (unsigned long)pServer->getConnectedCount());
     NimBLEDevice::startAdvertising();
@@ -1437,6 +1446,21 @@ static void processTextLine(const char *line) {
       delay(10);
     }
     stSendTextAck(stLink, "END");
+  } else if (strcmp(line, "DUMP_LOG") == 0) {
+    Serial.println("--- S3 LOG DUMP ---");
+    plog.dump(Serial);
+    Serial.printf("--- END (%lu/%lu bytes, ~%lu lines) ---\n",
+                  (unsigned long)plog.size(), (unsigned long)plog.capacity(),
+                  (unsigned long)plog.lineCount());
+  } else if (strncmp(line, "DUMP_LOG_LAST:", 14) == 0) {
+    int n = atoi(line + 14);
+    if (n <= 0) n = 20;
+    Serial.printf("--- S3 LAST %d LINES ---\n", n);
+    plog.dumpLast(Serial, n);
+    Serial.println("--- END ---");
+  } else if (strcmp(line, "CLEAR_LOG") == 0) {
+    plog.clear();
+    Serial.println("OK:S3_LOG_CLEARED");
   }
 }
 
@@ -2132,6 +2156,8 @@ void setup() {
   if (!LittleFS.begin(true)) {  // true = format on fail
     Serial.println("LittleFS mount failed!");
   }
+  plog.begin();
+  plog.println("Boot — firmware %s, heap=%lu", FW_BUILD_TIME, (unsigned long)ESP.getFreeHeap());
   seedDefaultImages();
   numImages = countImages();
   loadLabels();

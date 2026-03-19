@@ -3,6 +3,7 @@
 #include <RTClib.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <PersistentLog.h>
 #include <uart_st.h>
 #include <uart_queue.h>
 #include "fw_version.h"
@@ -51,6 +52,9 @@ uint8_t numS3Images = 0;  // updated at boot via QUERY_COUNT to S3
 #define FW_VERSION_PATH    "/fw_version.txt"
 #define USER_CONFIG_PATH   "/user_config.txt"
 #define FW_VERSION         FW_BUILD_TIME
+
+// ── Persistent log (survives reboots, ring buffer on LittleFS) ──
+PersistentLog plog(LittleFS, "/logs/system.log", 32768);  // 32KB budget
 
 // Factory defaults JSON (embedded in firmware flash at build time)
 extern const char factory_manifest_start[] asm("_binary_images_factory_manifest_json_start");
@@ -365,6 +369,7 @@ bool checkFirstBoot() {
 
   // New firmware (or first ever boot) — apply factory defaults
   Serial.println("First boot detected — applying factory defaults");
+  plog.println("First boot — applying factory defaults (fw=%s)", FW_VERSION);
 
   // Write new version
   f = LittleFS.open(FW_VERSION_PATH, "w");
@@ -423,6 +428,8 @@ void saveUserConfig() {
   f.printf("f2image=%d\n", flavor2Image);
   f.close();
   Serial.println("Config saved to LittleFS");
+  plog.println("Config saved: f1r=%d f2r=%d f1i=%d f2i=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1052,6 +1059,7 @@ void startCleanFill(uint8_t flavor) {
   pumpOff(f.pump);                           // pump OFF
   cleanState = CLEAN_FILLING;
   cleanPhaseStart = millis();
+  plog.println("Clean fill: flavor=%d cycle=%d/%d", flavor + 1, cleanCycle + 1, CLEAN_CYCLES);
   char buf[40];
   snprintf(buf, sizeof(buf), "CLEAN:FILLING:%d:%d/%d", flavor + 1, cleanCycle + 1, CLEAN_CYCLES);
   broadcastCleanStatus(buf);
@@ -1086,6 +1094,7 @@ void abortClean() {
   valveOff(f.valvePin);
   analogWrite(cleanSolPin(cleanFlavor), 0);
   cleanState = CLEAN_IDLE;
+  plog.println("Clean aborted: flavor=%d at cycle=%d/%d", cleanFlavor + 1, cleanCycle + 1, CLEAN_CYCLES);
   broadcastCleanStatus("OK:CLEAN_ABORT");
 }
 
@@ -1694,6 +1703,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     startS3Sync(false);
 
     clearStatsFiles();
+    plog.println("FACTORY_RESET executed");
     out.printf("OK:FACTORY_RESET\n");
 
   } else if (strncmp(cmd, "PUSH_IMG:", 9) == 0) {
@@ -1825,6 +1835,24 @@ void processConfigCommand(const char *cmd, Stream &out) {
     } else {
       out.printf("OK:PRIME_STOP\n");
     }
+
+  } else if (strcmp(cmd, "DUMP_LOG") == 0) {
+    out.println("--- LOG DUMP ---");
+    plog.dump(out);
+    out.printf("--- END (%lu/%lu bytes, ~%lu lines) ---\n",
+               (unsigned long)plog.size(), (unsigned long)plog.capacity(),
+               (unsigned long)plog.lineCount());
+
+  } else if (strncmp(cmd, "DUMP_LOG_LAST:", 14) == 0) {
+    int n = atoi(cmd + 14);
+    if (n <= 0) n = 20;
+    out.printf("--- LAST %d LINES ---\n", n);
+    plog.dumpLast(out, n);
+    out.println("--- END ---");
+
+  } else if (strcmp(cmd, "CLEAR_LOG") == 0) {
+    plog.clear();
+    out.println("OK:LOG_CLEARED");
   }
 }
 
@@ -2198,6 +2226,8 @@ void setup() {
   }
 
   LittleFS.mkdir("/stats");
+  plog.begin();
+  plog.println("Boot — firmware %s", FW_VERSION);
 
   // ── RTC init (DS3231 on I2C: SDA=21, SCL=22) ──
   Wire.begin(21, 22);
