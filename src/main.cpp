@@ -4,6 +4,7 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <uart_st.h>
+#include <uart_queue.h>
 #include "fw_version.h"
 
 // ════════════════════════════════════════════════════════════
@@ -91,6 +92,7 @@ uint8_t flavor2Image = 1;
 
 SerialTransfer stRP;  // SerialTransfer on Serial2 (RP2040 link)
 SerialTransfer stS3;  // SerialTransfer on Serial1 (S3 link)
+UartLink linkS3;      // Non-blocking state machine for S3 link
 
 void sendMapToRP() {
   char buf[20];
@@ -2133,45 +2135,45 @@ void checkDisplayUART() {
   }
 }
 
-void checkConfigUART() {
-  checkConfigStream(Serial, configBuf0, configPos0);
-
-  // Poll stS3 for packets from S3 (text commands + upload packets)
-  if (stS3.available()) {
-    uint8_t pktId = stS3.currentPacketID();
-    switch (pktId) {
-      case PKT_UPLOAD_START:
-      case PKT_UPLOAD_PNG_START:
-      case PKT_UPLOAD_RP_START:
-        handleS3UploadStart(pktId);
-        break;
-      case PKT_CHUNK_DATA:
-        handleS3ChunkData();
-        break;
-      case PKT_UPLOAD_DONE:
-        handleS3UploadDone();
-        break;
-      case PKT_DEVICE_READY: {
-        ResponsePayload resp;
-        stS3.rxObj(resp);
-        Serial.printf("S3 DEVICE_READY: reports %d images\n", resp.value);
-        numS3Images = resp.value;
-        syncDevice(DEVICE_S3);
-        break;
-      }
-      case PKT_TEXT: {
-        uint16_t len = stS3.bytesRead;
-        char cmd[CONFIG_BUF_SIZE];
-        uint16_t copyLen = (len < CONFIG_BUF_SIZE - 1) ? len : CONFIG_BUF_SIZE - 1;
-        memcpy(cmd, stS3.packet.rxBuff, copyLen);
-        cmd[copyLen] = '\0';
-        StStream s3out(stS3);
-        processConfigCommand(cmd, s3out);
-        s3out.flush();
-        break;
-      }
+// Unsolicited packet handler for S3 link (called by linkS3.service())
+void onS3Packet(UartLink *link, uint8_t pktId) {
+  switch (pktId) {
+    case PKT_UPLOAD_START:
+    case PKT_UPLOAD_PNG_START:
+    case PKT_UPLOAD_RP_START:
+      handleS3UploadStart(pktId);
+      break;
+    case PKT_CHUNK_DATA:
+      handleS3ChunkData();
+      break;
+    case PKT_UPLOAD_DONE:
+      handleS3UploadDone();
+      break;
+    case PKT_DEVICE_READY: {
+      ResponsePayload resp;
+      stS3.rxObj(resp);
+      Serial.printf("S3 DEVICE_READY: reports %d images\n", resp.value);
+      numS3Images = resp.value;
+      syncDevice(DEVICE_S3);
+      break;
+    }
+    case PKT_TEXT: {
+      uint16_t len = stS3.bytesRead;
+      char cmd[CONFIG_BUF_SIZE];
+      uint16_t copyLen = (len < CONFIG_BUF_SIZE - 1) ? len : CONFIG_BUF_SIZE - 1;
+      memcpy(cmd, stS3.packet.rxBuff, copyLen);
+      cmd[copyLen] = '\0';
+      StStream s3out(stS3);
+      processConfigCommand(cmd, s3out);
+      s3out.flush();
+      break;
     }
   }
+}
+
+void checkConfigUART() {
+  checkConfigStream(Serial, configBuf0, configPos0);
+  linkS3.service();
 
   // Timeout stale S3 uploads
   if (s3Upload.active && millis() - s3Upload.lastChunkTime > 5000) {
@@ -2282,6 +2284,8 @@ void setup() {
   // UART to config display (ESP32-S3, bidirectional, 38400 baud)
   Serial1.begin(38400, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
   stS3.begin(Serial1);
+  linkS3.init(&stS3, "S3");
+  linkS3.onPacket = onS3Packet;
 
   // Wait for S3 to boot, init LittleFS, and start UART.
   // First boot seeds 3 images (~345KB writes) which can take several seconds.
