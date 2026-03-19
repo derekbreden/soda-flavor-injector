@@ -39,8 +39,7 @@ private struct ImageSlotView: View {
         .padding(6)
         .overlay(
             Circle()
-                .stroke(Theme.textPrimary, lineWidth: 3)
-                .padding(0)
+                .stroke(Theme.textPrimary, lineWidth: 1)
         )
     }
 }
@@ -84,8 +83,7 @@ private struct ImagePickerSheet: View {
                         .padding(5)
                         .overlay(
                             Circle()
-                                .stroke(slot == selectedSlot ? Theme.textPrimary : .clear, lineWidth: 3)
-                                .frame(width: 134, height: 134)
+                                .stroke(slot == selectedSlot ? Theme.textPrimary : .clear, lineWidth: 1)
                         )
                         .onTapGesture {
                             selectedSlot = slot
@@ -180,7 +178,8 @@ private struct SettingsPageView: View {
     @Binding var showImageManager: Bool
     @Binding var inAbout: Bool
     @Binding var inStats: Bool
-    @Binding var inCleanPrime: Bool
+    @Binding var inPrime: Bool
+    @Binding var inClean: Bool
     @State private var showResetAlert = false
     @State private var resetting = false
 
@@ -206,8 +205,11 @@ private struct SettingsPageView: View {
                         ble.requestStatsAndCharts()
                         inStats = true
                     }
-                    settingsButton("Clean / Prime") {
-                        inCleanPrime = true
+                    settingsButton("Prime") {
+                        inPrime = true
+                    }
+                    settingsButton("Clean") {
+                        inClean = true
                     }
                     settingsButton("Factory Reset") {
                         showResetAlert = true
@@ -306,17 +308,15 @@ private struct AboutSheet: View {
 }
 
 // ────────────────────────────────────────────────────────────
-// Clean / Prime sheet — prime (hold-to-run) + clean (confirm)
+// Prime sheet — hold-to-run priming for selected flavor
 // ────────────────────────────────────────────────────────────
 
 private let primeBlue = Color(red: 0.27, green: 0.53, blue: 1.0)
 
-private struct CleanPrimeSheet: View {
+private struct PrimeSheet: View {
     @Environment(BLEManager.self) var ble
     @Environment(\.dismiss) var dismiss
-    @State private var showCleanConfirm = false
-    @State private var selectedCleanFlavor = 1
-    @State private var selectedPrimeFlavor: Int? = nil
+    @State private var selectedFlavor: Int? = nil
     @State private var tickTimer: Timer?
 
     var body: some View {
@@ -327,96 +327,60 @@ private struct CleanPrimeSheet: View {
                 VStack(spacing: 12) {
                     Spacer()
 
-                    if ble.cleanCycleActive {
-                    // Clean cycle progress
-                    Text(ble.cleanCyclePhase ?? "Starting...")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(primeBlue)
+                    if let flavor = selectedFlavor {
+                        Text("Prime Flavor \(flavor)")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
 
-                    Spacer().frame(height: 24)
+                        Spacer().frame(height: 12)
 
-                    Button("Abort") {
-                        ble.abortCleanCycle()
-                    }
-                    .buttonStyle(SettingsItemButtonStyle())
-                } else if let flavor = selectedPrimeFlavor {
-                    // ── Hold-to-prime screen for selected flavor ──
-                    Text("Prime Flavor \(flavor)")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
-
-                    Spacer().frame(height: 12)
-
-                    Button("Back") {
-                        selectedPrimeFlavor = nil
-                    }
-                    .buttonStyle(SettingsItemButtonStyle())
-                    .disabled(ble.primeActive)
-
-                    Text(ble.primeActive ? "Priming..." : "Hold to Prime")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(ble.primeActive ? primeBlue : Theme.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.white.opacity(ble.primeActive ? 0.08 : 0.04))
-                        )
-                        .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { _ in
-                                    guard !ble.primeActive else { return }
-                                    ble.startPrime(flavor: flavor)
-                                    startTickTimer()
-                                }
-                                .onEnded { _ in
-                                    guard ble.primeActive else { return }
-                                    ble.stopPrime()
-                                    stopTickTimer()
-                                }
-                        )
-                } else {
-                    // ── Prime section ──
-                    Text("Prime")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
-
-                    VStack(spacing: 0) {
-                        Button(action: { selectedPrimeFlavor = 1 }) {
-                            Text("Flavor 1")
-                                .font(.system(size: 16, weight: .medium))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
+                        Button("Back") {
+                            selectedFlavor = nil
                         }
                         .buttonStyle(SettingsItemButtonStyle())
-                        Button(action: { selectedPrimeFlavor = 2 }) {
-                            Text("Flavor 2")
-                                .font(.system(size: 16, weight: .medium))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
+                        .disabled(ble.primeActive)
+
+                        Text(ble.primeActive ? "Priming..." : "Hold to Prime")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(ble.primeActive ? primeBlue : Theme.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.white.opacity(ble.primeActive ? 0.08 : 0.04))
+                            )
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { _ in
+                                        guard !ble.primeActive else { return }
+                                        ble.startPrime(flavor: flavor)
+                                        startTickTimer()
+                                    }
+                                    .onEnded { _ in
+                                        guard ble.primeActive else { return }
+                                        ble.stopPrime()
+                                        stopTickTimer()
+                                    }
+                            )
+                    } else {
+                        VStack(spacing: 0) {
+                            Button(action: { selectedFlavor = 1 }) {
+                                Text("Flavor 1")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                            }
+                            .buttonStyle(SettingsItemButtonStyle())
+                            Button(action: { selectedFlavor = 2 }) {
+                                Text("Flavor 2")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                            }
+                            .buttonStyle(SettingsItemButtonStyle())
                         }
-                        .buttonStyle(SettingsItemButtonStyle())
                     }
-
-                    Spacer().frame(height: 16)
-
-                    // ── Clean section ──
-                    Text("Clean Cycle")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
-
-                    VStack(spacing: 0) {
-                        cleanButton("Flavor 1") {
-                            selectedCleanFlavor = 1
-                            showCleanConfirm = true
-                        }
-                        cleanButton("Flavor 2") {
-                            selectedCleanFlavor = 2
-                            showCleanConfirm = true
-                        }
-                    }
-                }
 
                     Spacer()
                 }
@@ -424,7 +388,7 @@ private struct CleanPrimeSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("Clean / Prime")
+                    Text("Prime")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -436,39 +400,14 @@ private struct CleanPrimeSheet: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbarBackground(Theme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .alert("Clean Flavor \(selectedCleanFlavor)?", isPresented: $showCleanConfirm) {
-                Button("Start") {
-                    ble.startCleanCycle(flavor: selectedCleanFlavor)
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This will flush the line with water. Make sure the water supply is connected.")
-            }
-            .onChange(of: ble.cleanCycleCompleted) { _, completed in
-                if completed {
-                    ble.cleanCycleCompleted = false
-                    dismiss()
-                }
-            }
         }
-        .interactiveDismissDisabled(ble.cleanCycleActive || ble.primeActive)
+        .interactiveDismissDisabled(ble.primeActive)
         .onDisappear {
             if ble.primeActive {
                 ble.stopPrime()
             }
             stopTickTimer()
         }
-    }
-
-    private func cleanButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 16, weight: .medium))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-        }
-        .buttonStyle(SettingsItemButtonStyle())
-        .disabled(ble.primeActive)
     }
 
     private func startTickTimer() {
@@ -481,6 +420,95 @@ private struct CleanPrimeSheet: View {
     private func stopTickTimer() {
         tickTimer?.invalidate()
         tickTimer = nil
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+// Clean sheet — clean cycle with confirmation
+// ────────────────────────────────────────────────────────────
+
+private struct CleanSheet: View {
+    @Environment(BLEManager.self) var ble
+    @Environment(\.dismiss) var dismiss
+    @State private var showConfirm = false
+    @State private var selectedFlavor = 1
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Theme.background.ignoresSafeArea()
+
+                VStack(spacing: 12) {
+                    Spacer()
+
+                    if ble.cleanCycleActive {
+                        Text(ble.cleanCyclePhase ?? "Starting...")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(primeBlue)
+
+                        Spacer().frame(height: 24)
+
+                        Button("Abort") {
+                            ble.abortCleanCycle()
+                        }
+                        .buttonStyle(SettingsItemButtonStyle())
+                    } else {
+                        VStack(spacing: 0) {
+                            cleanButton("Flavor 1") {
+                                selectedFlavor = 1
+                                showConfirm = true
+                            }
+                            cleanButton("Flavor 2") {
+                                selectedFlavor = 2
+                                showConfirm = true
+                            }
+                        }
+                    }
+
+                    Spacer()
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Clean")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Theme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .alert("Clean Flavor \(selectedFlavor)?", isPresented: $showConfirm) {
+                Button("Start") {
+                    ble.startCleanCycle(flavor: selectedFlavor)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will flush the line with water. Make sure the water supply is connected.")
+            }
+            .onChange(of: ble.cleanCycleCompleted) { _, completed in
+                if completed {
+                    ble.cleanCycleCompleted = false
+                    dismiss()
+                }
+            }
+        }
+        .interactiveDismissDisabled(ble.cleanCycleActive)
+    }
+
+    private func cleanButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 16, weight: .medium))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+        }
+        .buttonStyle(SettingsItemButtonStyle())
     }
 }
 
@@ -900,7 +928,8 @@ struct ConfigView: View {
     @State private var showFlavor2Ratio = false
     @State private var inAbout = false
     @State private var inStats = false
-    @State private var inCleanPrime = false
+    @State private var inPrime = false
+    @State private var inClean = false
 
     private let pageCount = 5
     private let pageLabels = ["Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings"]
@@ -952,8 +981,12 @@ struct ConfigView: View {
                 ble.sendSet("F2_RATIO", value: value)
             }
         }
-        .sheet(isPresented: $inCleanPrime) {
-            CleanPrimeSheet()
+        .sheet(isPresented: $inPrime) {
+            PrimeSheet()
+                .environment(ble)
+        }
+        .sheet(isPresented: $inClean) {
+            CleanSheet()
                 .environment(ble)
         }
         .sheet(isPresented: $inStats) {
@@ -1046,7 +1079,7 @@ struct ConfigView: View {
         case 3:
             ratioDisplay(ratio: ble.flavor2Ratio)
         case 4:
-            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout, inStats: $inStats, inCleanPrime: $inCleanPrime)
+            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout, inStats: $inStats, inPrime: $inPrime, inClean: $inClean)
         default:
             EmptyView()
         }
