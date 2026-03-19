@@ -252,10 +252,20 @@ private struct CleanPrimeSheet: View {
                         .padding(.top, 4)
 
                     VStack(spacing: 0) {
-                        Button("Flavor 1") { selectedPrimeFlavor = 1 }
-                            .buttonStyle(SettingsItemButtonStyle())
-                        Button("Flavor 2") { selectedPrimeFlavor = 2 }
-                            .buttonStyle(SettingsItemButtonStyle())
+                        Button(action: { selectedPrimeFlavor = 1 }) {
+                            Text("Flavor 1")
+                                .font(.system(size: 16, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        }
+                        .buttonStyle(SettingsItemButtonStyle())
+                        Button(action: { selectedPrimeFlavor = 2 }) {
+                            Text("Flavor 2")
+                                .font(.system(size: 16, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        }
+                        .buttonStyle(SettingsItemButtonStyle())
                     }
 
                     Spacer().frame(height: 16)
