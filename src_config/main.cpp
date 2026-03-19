@@ -1825,13 +1825,13 @@ void drawCleanPrime() {
 
   lv_obj_t *title = lv_label_create(scr);
   lv_label_set_text(title, "Clean / Prime");
-  lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
-  lv_obj_set_style_text_color(title, THEME_TEXT_SECONDARY, 0);
-  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(title, THEME_TEXT_PRIMARY, 0);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
 
   const char *items[] = { "Back", "Prime", "Clean Cycle" };
   int lineHeight = 28;
-  int startY = (240 - 3 * lineHeight) / 2 + 15;
+  int startY = (240 - 3 * lineHeight) / 2;
   for (int i = 0; i < 3; i++) {
     lv_obj_t *item = lv_label_create(scr);
     lv_label_set_text(item, items[i]);
@@ -1853,14 +1853,14 @@ void drawPrime() {
     char titleBuf[24];
     snprintf(titleBuf, sizeof(titleBuf), "Prime Flavor %d", primeFlavor);
     lv_label_set_text(title, titleBuf);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(title, THEME_TEXT_SECONDARY, 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(title, THEME_TEXT_PRIMARY, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
 
     const char *holdLabel = (primeHolding || primeActive) ? "Priming..." : "Hold to Prime";
     const char *items[] = { "Back", holdLabel };
     int lineHeight = 28;
-    int startY = (240 - 2 * lineHeight) / 2 + 15;
+    int startY = (240 - 2 * lineHeight) / 2;
     for (int i = 0; i < 2; i++) {
       lv_obj_t *item = lv_label_create(scr);
       lv_label_set_text(item, items[i]);
@@ -1877,13 +1877,13 @@ void drawPrime() {
     // Flavor selection
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "Prime");
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(title, THEME_TEXT_SECONDARY, 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(title, THEME_TEXT_PRIMARY, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
 
     const char *items[] = { "Back", "Flavor 1", "Flavor 2" };
     int lineHeight = 28;
-    int startY = (240 - 3 * lineHeight) / 2 + 15;
+    int startY = (240 - 3 * lineHeight) / 2;
     for (int i = 0; i < 3; i++) {
       lv_obj_t *item = lv_label_create(scr);
       lv_label_set_text(item, items[i]);
@@ -1903,9 +1903,9 @@ void drawCleanCycle() {
   // Title
   lv_obj_t *title = lv_label_create(scr);
   lv_label_set_text(title, "Clean Cycle");
-  lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
-  lv_obj_set_style_text_color(title, THEME_TEXT_SECONDARY, 0);
-  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(title, THEME_TEXT_PRIMARY, 0);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
 
   if (cleanPending) {
     // Show progress
@@ -1953,7 +1953,7 @@ void drawCleanCycle() {
     // Flavor selection: "Back" / "Flavor 1" / "Flavor 2"
     const char *items[] = { "Back", "Flavor 1", "Flavor 2" };
     int lineHeight = 28;
-    int startY = (240 - 3 * lineHeight) / 2 + 15;
+    int startY = (240 - 3 * lineHeight) / 2;
     for (int i = 0; i < 3; i++) {
       lv_obj_t *item = lv_label_create(scr);
       lv_label_set_text(item, items[i]);

@@ -215,11 +215,21 @@ private struct CleanPrimeSheet: View {
 
                     Spacer().frame(height: 12)
 
+                    Button("Back") {
+                        selectedPrimeFlavor = nil
+                    }
+                    .buttonStyle(SettingsItemButtonStyle())
+                    .disabled(ble.primeActive)
+
                     Text(ble.primeActive ? "Priming..." : "Hold to Prime")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(ble.primeActive ? primeBlue : Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.white.opacity(ble.primeActive ? 0.08 : 0.04))
+                        )
                         .contentShape(Rectangle())
                         .gesture(
                             DragGesture(minimumDistance: 0)
@@ -234,12 +244,6 @@ private struct CleanPrimeSheet: View {
                                     stopTickTimer()
                                 }
                         )
-
-                    Button("Back") {
-                        selectedPrimeFlavor = nil
-                    }
-                    .buttonStyle(SettingsItemButtonStyle())
-                    .disabled(ble.primeActive)
                 } else {
                     // ── Prime section ──
                     Text("Prime")
@@ -291,6 +295,12 @@ private struct CleanPrimeSheet: View {
             }
         }
         .interactiveDismissDisabled(ble.cleanCycleActive || ble.primeActive)
+        .onDisappear {
+            if ble.primeActive {
+                ble.stopPrime()
+            }
+            stopTickTimer()
+        }
     }
 
     private func cleanButton(_ title: String, action: @escaping () -> Void) -> some View {
