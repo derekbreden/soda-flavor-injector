@@ -686,8 +686,8 @@ enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU
 const char* menuLabels[] = { "Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings" };
 
 // ── Settings sub-menu ──
-enum SettingsItem { SET_BACK, SET_FACTORY_RESET, SET_PRIME, SET_CLEAN_CYCLE, SET_ABOUT, SETTINGS_COUNT };
-const char* settingsLabels[] = { "Back", "Factory Reset", "Prime", "Clean Cycle", "About" };
+enum SettingsItem { SET_BACK, SET_PRIME, SET_CLEAN_CYCLE, SET_FACTORY_RESET, SET_ABOUT, SETTINGS_COUNT };
+const char* settingsLabels[] = { "Back", "Prime", "Clean Cycle", "Factory Reset", "About" };
 int settingsIndex = 0;
 bool inSettings = false;       // true when inside the settings sub-menu
 bool settingsConfirm = false;  // true when confirming factory reset
@@ -1698,7 +1698,7 @@ void drawSettings() {
     // Yes / No confirmation list
     const char *options[] = { "Yes", "No" };
     int lineHeight = 28;
-    int startY = (240 - 2 * lineHeight) / 2;
+    int startY = 60 + (240 - 60 - 2 * lineHeight) / 2;
     for (int i = 0; i < 2; i++) {
       lv_obj_t *item = lv_label_create(scr);
       lv_label_set_text(item, options[i]);
@@ -1708,10 +1708,11 @@ void drawSettings() {
       lv_obj_align(item, LV_ALIGN_TOP_MID, 0, startY + i * lineHeight);
     }
   } else {
-    // Vertical list of all settings items
+    // Vertical list of all settings items (centered below title)
     int lineHeight = 28;
     int totalHeight = SETTINGS_COUNT * lineHeight;
-    int startY = (240 - totalHeight) / 2;
+    int titleBottom = 60;
+    int startY = titleBottom + (240 - titleBottom - totalHeight) / 2;
 
     for (int i = 0; i < SETTINGS_COUNT; i++) {
       lv_obj_t *item = lv_label_create(scr);
@@ -1742,7 +1743,7 @@ void drawPrime() {
     const char *holdLabel = (primeHolding || primeActive) ? "Priming..." : "Hold to Prime";
     const char *items[] = { "Back", holdLabel };
     int lineHeight = 28;
-    int startY = (240 - 2 * lineHeight) / 2;
+    int startY = 60 + (240 - 60 - 2 * lineHeight) / 2;
     for (int i = 0; i < 2; i++) {
       lv_obj_t *item = lv_label_create(scr);
       lv_label_set_text(item, items[i]);
@@ -1765,7 +1766,7 @@ void drawPrime() {
 
     const char *items[] = { "Back", "Flavor 1", "Flavor 2" };
     int lineHeight = 28;
-    int startY = (240 - 3 * lineHeight) / 2;
+    int startY = 60 + (240 - 60 - 3 * lineHeight) / 2;
     for (int i = 0; i < 3; i++) {
       lv_obj_t *item = lv_label_create(scr);
       lv_label_set_text(item, items[i]);
@@ -1835,7 +1836,7 @@ void drawCleanCycle() {
     // Flavor selection: "Back" / "Flavor 1" / "Flavor 2"
     const char *items[] = { "Back", "Flavor 1", "Flavor 2" };
     int lineHeight = 28;
-    int startY = (240 - 3 * lineHeight) / 2;
+    int startY = 60 + (240 - 60 - 3 * lineHeight) / 2;
     for (int i = 0; i < 3; i++) {
       lv_obj_t *item = lv_label_create(scr);
       lv_label_set_text(item, items[i]);
