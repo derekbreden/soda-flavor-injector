@@ -36,6 +36,12 @@ private struct ImageSlotView: View {
                 }
             }
         }
+        .padding(6)
+        .overlay(
+            Circle()
+                .stroke(Theme.textPrimary, lineWidth: 3)
+                .padding(0)
+        )
     }
 }
 
