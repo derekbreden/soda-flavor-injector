@@ -1007,6 +1007,16 @@ void syncDevice(DeviceTarget dev) {
   Serial.printf("syncDevice(%s): complete\n", devName);
 }
 
+// S3 async response targets (used by startS3Sync and s3CmdResp)
+#ifndef S3_RESP_NONE
+#define S3_RESP_NONE 0
+#define S3_RESP_USB  1
+#define S3_RESP_S3   2
+#endif
+
+// Forward declaration (defined after processConfigCommand)
+void startS3Sync(bool pushAll, uint8_t respTarget = S3_RESP_NONE, bool rpResult = true);
+
 // ════════════════════════════════════════════════════════════
 //  Boot sync: compare store with devices, push if needed
 // ════════════════════════════════════════════════════════════
@@ -1025,8 +1035,10 @@ void bootSync() {
   }
 
   Serial.printf("Boot sync: store has %d images\n", numEspImages);
-  syncDevice(DEVICE_RP2040);
-  syncDevice(DEVICE_S3);
+  syncDevice(DEVICE_RP2040);  // RP2040 still blocking (Phase 3)
+  // S3 sync is async — queues operations for linkS3.service() to process
+  bool s3NeedsPush = (numS3Images != numEspImages);
+  startS3Sync(s3NeedsPush);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1188,7 +1200,7 @@ uint8_t cleanSolPin(uint8_t flavor) {
 
 void broadcastCleanStatus(const char *msg) {
   Serial.println(msg);
-  stSendText(stS3, msg);
+  linkS3.queueText(msg, false, UARTLINK_PRI_HIGH);
 }
 
 void startCleanFill(uint8_t flavor) {
@@ -1241,7 +1253,7 @@ void abortClean() {
 
 void broadcastPrimeStatus(const char *msg) {
   Serial.println(msg);
-  stSendText(stS3, msg);
+  linkS3.queueText(msg, false, UARTLINK_PRI_HIGH);
 }
 
 void startPrime(uint8_t flavor) {
@@ -1279,6 +1291,58 @@ void sendConfigResponse(Stream &out) {
 }
 
 void abortS3Upload();  // forward decl
+
+// Forward declarations for S3 async sync (defaults on first declaration above)
+void startS3Sync(bool pushAll, uint8_t respTarget, bool rpResult);
+
+// S3 sync state machine (async replacement for syncDevice(DEVICE_S3))
+static struct {
+  bool active = false;
+  uint8_t phase;        // 0=images, 1=deletes, 2=pngs, 3=labels+config
+  uint8_t slot;
+  uint8_t targetCount;
+  bool pushAll;
+  uint8_t respTarget;
+  bool rpResult;        // stash RP2040 result for combined response
+  char respBuf[64];     // deferred response message
+} s3Sync;
+
+// Deferred S3 command response (for DELETE_S3_IMG, SWAP_S3_IMG, etc.)
+// Completion callbacks send the response via USB or S3.
+static struct {
+  bool pending = false;
+  uint8_t target;       // S3_RESP_USB or S3_RESP_S3
+  char okMsg[64];
+  char errMsg[64];
+} s3CmdResp;
+
+void s3CmdSendResponse(bool success) {
+  const char *msg = success ? s3CmdResp.okMsg : s3CmdResp.errMsg;
+  if (s3CmdResp.target == S3_RESP_USB) {
+    Serial.println(msg);
+  } else if (s3CmdResp.target == S3_RESP_S3) {
+    stSendText(stS3, msg);
+  }
+  s3CmdResp.pending = false;
+}
+
+void onS3DeleteDone(UartLink *link, uint8_t slot, bool success) {
+  if (success) numS3Images = link->lastResponseValue;
+  snprintf(s3CmdResp.okMsg, sizeof(s3CmdResp.okMsg),
+           "OK:S3_DELETED=%d,NUM_S3_IMAGES=%d", slot, numS3Images);
+  s3CmdSendResponse(success);
+}
+
+void onS3SwapDone(UartLink *link, uint8_t slotA, uint8_t slotB, bool success) {
+  s3CmdSendResponse(success);
+}
+
+void onS3QueryDone(UartLink *link, uint8_t count, bool success) {
+  if (success) numS3Images = count;
+  snprintf(s3CmdResp.okMsg, sizeof(s3CmdResp.okMsg),
+           "OK:NUM_S3_IMAGES=%d", numS3Images);
+  s3CmdSendResponse(success);
+}
 
 void processConfigCommand(const char *cmd, Stream &out) {
   if (strcmp(cmd, "GET_VERSION") == 0) {
@@ -1420,13 +1484,12 @@ void processConfigCommand(const char *cmd, Stream &out) {
     out.printf("OK:SAVED\n");
 
     // Push updated config to S3 so it can forward to BLE (iOS app)
-    // This eliminates the need for iOS to poll GET_CONFIG every 2 seconds
     {
       char cfgBuf[128];
       snprintf(cfgBuf, sizeof(cfgBuf),
                "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
                flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
-      stSendText(stS3, cfgBuf);
+      linkS3.queueText(cfgBuf, false, UARTLINK_PRI_HIGH);
     }
 
   } else if (strcmp(cmd, "QUERY_IMAGES") == 0) {
@@ -1528,8 +1591,10 @@ void processConfigCommand(const char *cmd, Stream &out) {
   // ── S3 image management commands ──────────────────────────
 
   } else if (strcmp(cmd, "QUERY_S3_IMAGES") == 0) {
-    queryS3ImageCount();
-    out.printf("OK:NUM_S3_IMAGES=%d\n", numS3Images);
+    s3CmdResp.pending = true;
+    s3CmdResp.target = (&out == &Serial) ? S3_RESP_USB : S3_RESP_S3;
+    strncpy(s3CmdResp.errMsg, "ERR:s3 query failed", sizeof(s3CmdResp.errMsg));
+    linkS3.queueQuery(UARTLINK_PRI_NORMAL, onS3QueryDone);
 
   } else if (strcmp(cmd, "LIST_S3_IMAGES") == 0) {
     stSendText(stS3, "LIST");
@@ -1576,7 +1641,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     char name[33] = {0};
     if (sscanf(cmd + 13, "%d=%32[^\n]", &slot, name) >= 1) {
       if (slot >= 0 && slot < numS3Images) {
-        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); stSendText(stS3, lbuf); }
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); linkS3.queueText(lbuf, false, UARTLINK_PRI_NORMAL); }
         out.printf("OK:S3_LABEL=%d:%s\n", slot, name);
       } else {
         out.printf("ERR:invalid slot\n");
@@ -1594,17 +1659,10 @@ void processConfigCommand(const char *cmd, Stream &out) {
       return;
     }
 
-    SlotPayload sp{(uint8_t)slot};
-    stS3.txObj(sp);
-    stS3.sendData(sizeof(sp), PKT_DELETE_IMAGE);
-
-    ResponsePayload rp;
-    if (waitStResponse(stS3, PKT_RESP_DELETE_OK, 3000, &rp)) {
-      numS3Images = rp.value;
-      out.printf("OK:S3_DELETED=%d,NUM_S3_IMAGES=%d\n", slot, numS3Images);
-    } else {
-      out.printf("ERR:s3 delete failed\n");
-    }
+    s3CmdResp.pending = true;
+    s3CmdResp.target = (&out == &Serial) ? S3_RESP_USB : S3_RESP_S3;
+    strncpy(s3CmdResp.errMsg, "ERR:s3 delete failed", sizeof(s3CmdResp.errMsg));
+    linkS3.queueDelete((uint8_t)slot, UARTLINK_PRI_NORMAL, onS3DeleteDone);
 
   } else if (strncmp(cmd, "SWAP_S3_IMG:", 12) == 0) {
     int a, b;
@@ -1617,15 +1675,11 @@ void processConfigCommand(const char *cmd, Stream &out) {
       return;
     }
 
-    SwapPayload sp{(uint8_t)a, (uint8_t)b};
-    stS3.txObj(sp);
-    stS3.sendData(sizeof(sp), PKT_SWAP_IMAGES);
-
-    if (waitStResponse(stS3, PKT_RESP_SWAP_OK, 3000)) {
-      out.printf("OK:S3_SWAPPED=%d,%d\n", a, b);
-    } else {
-      out.printf("ERR:s3 swap failed\n");
-    }
+    s3CmdResp.pending = true;
+    s3CmdResp.target = (&out == &Serial) ? S3_RESP_USB : S3_RESP_S3;
+    snprintf(s3CmdResp.okMsg, sizeof(s3CmdResp.okMsg), "OK:S3_SWAPPED=%d,%d", a, b);
+    strncpy(s3CmdResp.errMsg, "ERR:s3 swap failed", sizeof(s3CmdResp.errMsg));
+    linkS3.queueSwap((uint8_t)a, (uint8_t)b, UARTLINK_PRI_NORMAL, onS3SwapDone);
 
   // ── ESP32 image store commands ────────────────────────────
 
@@ -1669,7 +1723,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
         saveEspLabels();
         // Forward to both devices
         { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); stSendText(stRP, lbuf); }
-        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); stSendText(stS3, lbuf); }
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); linkS3.queueText(lbuf, false, UARTLINK_PRI_NORMAL); }
         out.printf("OK:STORE_LABEL=%d:%s\n", slot, name);
       } else {
         out.printf("ERR:invalid slot\n");
@@ -1720,15 +1774,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
       if (waitStResponse(stRP, PKT_RESP_DELETE_OK, 3000, &rp))
         numRpImages = rp.value;
     }
-    // Forward delete to S3 (SerialTransfer)
-    {
-      SlotPayload sp{(uint8_t)slot};
-      stS3.txObj(sp);
-      stS3.sendData(sizeof(sp), PKT_DELETE_IMAGE);
-      ResponsePayload rp;
-      if (waitStResponse(stS3, PKT_RESP_DELETE_OK, 3000, &rp))
-        numS3Images = rp.value;
-    }
+    // Forward delete to S3 (async)
+    linkS3.queueDelete((uint8_t)slot, UARTLINK_PRI_NORMAL);
 
     // Adjust flavor image references
     if (flavor1Image == slot) flavor1Image = 0;
@@ -1740,13 +1787,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
     saveUserConfig();
     sendMapToRP();
 
-    // Push updated config to S3 (and onward to BLE/iOS)
+    // Push updated config to S3 (async, fire-and-forget)
     {
       char cfgBuf[128];
       snprintf(cfgBuf, sizeof(cfgBuf),
                "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
                flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
-      stSendText(stS3, cfgBuf);
+      linkS3.queueText(cfgBuf, false, UARTLINK_PRI_NORMAL);
     }
     out.printf("OK:STORE_DELETED=%d,NUM_IMAGES=%d\n", slot, numEspImages);
 
@@ -1770,13 +1817,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
     }
     out.printf("OK:PUSHING %d images\n", numEspImages);
     out.flush();
-    bool rpOk = pushAllToDevice(DEVICE_RP2040);
-    bool s3Ok = pushAllToDevice(DEVICE_S3);
+    bool rpOk = pushAllToDevice(DEVICE_RP2040);  // RP2040 still blocking
     if (rpOk) numRpImages = numEspImages;
-    if (s3Ok) numS3Images = numEspImages;
     sendMapToRP();
-    out.printf("OK:PUSH_DONE rp=%s s3=%s\n",
-               rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
+    // S3 push is async — deferred response when complete
+    startS3Sync(true, S3_RESP_USB, rpOk);
+    snprintf(s3Sync.respBuf, sizeof(s3Sync.respBuf),
+             "OK:PUSH_DONE rp=%s s3=ok", rpOk ? "ok" : "fail");
 
   } else if (strcmp(cmd, "SYNC_DEVICES") == 0) {
     if (numEspImages == 0) {
@@ -1785,19 +1832,23 @@ void processConfigCommand(const char *cmd, Stream &out) {
     }
     out.printf("OK:SYNCING\n");
     out.flush();
-    bool rpPushed = false, s3Pushed = false;
+    bool rpPushed = false;
     if (numRpImages != numEspImages) {
-      rpPushed = pushAllToDevice(DEVICE_RP2040);
+      rpPushed = pushAllToDevice(DEVICE_RP2040);  // RP2040 still blocking
       if (rpPushed) numRpImages = numEspImages;
     }
-    if (numS3Images != numEspImages) {
-      s3Pushed = pushAllToDevice(DEVICE_S3);
-      if (s3Pushed) numS3Images = numEspImages;
-    }
     sendMapToRP();
-    out.printf("OK:SYNC_DONE rp=%s s3=%s\n",
-               rpPushed ? "pushed" : "in_sync",
-               s3Pushed ? "pushed" : "in_sync");
+    bool s3NeedsPush = (numS3Images != numEspImages);
+    if (s3NeedsPush) {
+      startS3Sync(true, S3_RESP_USB);
+      snprintf(s3Sync.respBuf, sizeof(s3Sync.respBuf),
+               "OK:SYNC_DONE rp=%s s3=pushed", rpPushed ? "pushed" : "in_sync");
+    } else {
+      // S3 already in sync — just push labels+config
+      startS3Sync(false);
+      out.printf("OK:SYNC_DONE rp=%s s3=in_sync\n",
+                 rpPushed ? "pushed" : "in_sync");
+    }
 
   } else if (strcmp(cmd, "FACTORY_RESET") == 0) {
     uint8_t oldCount = numEspImages;
@@ -1817,27 +1868,26 @@ void processConfigCommand(const char *cmd, Stream &out) {
       LittleFS.remove(espS3PngPath(i));
     }
 
-    // Trim excess images from devices (user images that no longer exist)
+    // Trim excess images from RP2040 (still blocking)
     if (oldCount > numEspImages) {
       for (uint8_t i = oldCount; i > numEspImages; i--) {
         deleteLastDeviceImage(DEVICE_RP2040, i - 1);
-        deleteLastDeviceImage(DEVICE_S3, i - 1);
       }
     }
 
-    // Tell devices about new state
+    // Tell RP2040 about new state (still blocking)
     sendMapToRP();
     pushLabelsToDevice(DEVICE_RP2040);
-    pushLabelsToDevice(DEVICE_S3);
-    {
-      char cfgBuf[128];
-      snprintf(cfgBuf, sizeof(cfgBuf),
-               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
-               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
-      stSendText(stS3, cfgBuf);
-    }
     numRpImages = numEspImages;
-    numS3Images = numEspImages;
+
+    // S3: queue deletes + labels + config via async sync
+    if (oldCount > numEspImages) {
+      for (uint8_t i = oldCount; i > numEspImages; i--) {
+        linkS3.queueDelete(i - 1, UARTLINK_PRI_NORMAL);
+      }
+    }
+    // Labels and config via sync (pushAll=false since images are factory and already match)
+    startS3Sync(false);
 
     clearStatsFiles();
     out.printf("OK:FACTORY_RESET\n");
@@ -1855,21 +1905,28 @@ void processConfigCommand(const char *cmd, Stream &out) {
       return;
     }
 
-    bool rpOk = true, s3Ok = true;
+    bool rpOk = true;
     if (strcmp(target, "rp2040") == 0 || strcmp(target, "both") == 0) {
-      rpOk = pushImageToDevice(DEVICE_RP2040, slot);
+      rpOk = pushImageToDevice(DEVICE_RP2040, slot);  // RP2040 still blocking
       if (rpOk) { numRpImages = max(numRpImages, (uint8_t)(slot + 1)); pushLabelsToDevice(DEVICE_RP2040); sendMapToRP(); }
     }
     if (strcmp(target, "s3") == 0 || strcmp(target, "both") == 0) {
-      s3Ok = pushImageToDevice(DEVICE_S3, slot);
-      if (s3Ok) {
-        numS3Images = max(numS3Images, (uint8_t)(slot + 1));
-        pushPngToS3(slot);
-        pushLabelsToDevice(DEVICE_S3);
+      // S3 push is async
+      String s3Path = espS3Path(slot);
+      linkS3.queueUpload(slot, s3Path.c_str(), PKT_UPLOAD_START, UARTLINK_PRI_NORMAL);
+      String pngPath = espS3PngPath(slot);
+      if (LittleFS.exists(pngPath)) {
+        linkS3.queueUpload(slot, pngPath.c_str(), PKT_UPLOAD_PNG_START, UARTLINK_PRI_NORMAL);
       }
+      for (uint8_t i = 0; i < numEspImages; i++) {
+        char lbuf[48];
+        snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
+        linkS3.queueText(lbuf, false, UARTLINK_PRI_LOW);
+      }
+      numS3Images = max(numS3Images, (uint8_t)(slot + 1));
     }
-    out.printf("OK:PUSH_IMG=%d rp=%s s3=%s\n", slot,
-               rpOk ? "ok" : "fail", s3Ok ? "ok" : "fail");
+    out.printf("OK:PUSH_IMG=%d rp=%s s3=queued\n", slot,
+               rpOk ? "ok" : "fail");
 
   } else if (strncmp(cmd, "FINALIZE_UPLOAD:", 16) == 0) {
     // FINALIZE_UPLOAD:slot:label — commit a phone-uploaded image
@@ -1887,26 +1944,31 @@ void processConfigCommand(const char *cmd, Stream &out) {
     saveEspMeta();
     saveEspLabels();
 
-    // Push RP2040 RGB565 to RP2040
+    // Push RP2040 RGB565 to RP2040 (still blocking)
     bool rpOk = pushImageToDevice(DEVICE_RP2040, slot);
     if (rpOk) {
       numRpImages = max(numRpImages, (uint8_t)(slot + 1));
     }
     numS3Images = max(numS3Images, (uint8_t)(slot + 1));
 
-    // Push labels to both devices
+    // Push labels to RP2040 (still blocking)
     pushLabelsToDevice(DEVICE_RP2040);
-    pushLabelsToDevice(DEVICE_S3);
     sendMapToRP();
 
-    // Push CONFIG with authoritative store count — RP2040 push may have
-    // failed/timed out, and sending a lower count causes S3 to delete
-    // just-uploaded files as "orphans"
-    char cfgBuf[128];
-    snprintf(cfgBuf, sizeof(cfgBuf),
-             "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
-             flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
-    stSendText(stS3, cfgBuf);
+    // Push labels + config to S3 (async)
+    for (uint8_t i = 0; i < numEspImages; i++) {
+      char lbuf[48];
+      snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
+      linkS3.queueText(lbuf, false, UARTLINK_PRI_LOW);
+    }
+    // Push CONFIG with authoritative store count
+    {
+      char cfgBuf[128];
+      snprintf(cfgBuf, sizeof(cfgBuf),
+               "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
+               flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
+      linkS3.queueText(cfgBuf, false, UARTLINK_PRI_NORMAL);
+    }
 
     out.printf("OK:UPLOAD_DONE:%d\n", slot);
     Serial.printf("FINALIZE_UPLOAD: slot %d label=%s rpPush=%s\n",
@@ -2135,6 +2197,128 @@ void checkDisplayUART() {
   }
 }
 
+// ════════════════════════════════════════════════════════════
+//  S3 async sync state machine
+// ════════════════════════════════════════════════════════════
+
+void s3SyncSendLabelsAndConfig() {
+  for (uint8_t i = 0; i < s3Sync.targetCount; i++) {
+    char lbuf[48];
+    snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
+    linkS3.queueText(lbuf, false, UARTLINK_PRI_LOW);
+  }
+  char cfgBuf[128];
+  snprintf(cfgBuf, sizeof(cfgBuf),
+           "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
+           flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
+  linkS3.queueText(cfgBuf, false, UARTLINK_PRI_LOW);
+
+  numS3Images = s3Sync.targetCount;
+  s3Sync.active = false;
+  Serial.printf("[S3 sync] Complete (%d images)\n", s3Sync.targetCount);
+
+  if (s3Sync.respTarget == S3_RESP_USB && s3Sync.respBuf[0]) {
+    Serial.println(s3Sync.respBuf);
+  } else if (s3Sync.respTarget == S3_RESP_S3 && s3Sync.respBuf[0]) {
+    stSendText(stS3, s3Sync.respBuf);
+  }
+}
+
+void onS3SyncPngDone(UartLink *link, uint8_t slot, bool success);
+
+void advanceS3SyncPngs() {
+  while (s3Sync.slot < s3Sync.targetCount) {
+    String path = espS3PngPath(s3Sync.slot);
+    if (LittleFS.exists(path)) {
+      linkS3.queueUpload(s3Sync.slot, path.c_str(), PKT_UPLOAD_PNG_START,
+                          UARTLINK_PRI_LOW, onS3SyncPngDone);
+      return;  // callback will advance
+    }
+    s3Sync.slot++;  // no PNG for this slot, skip
+  }
+  // All PNGs done
+  s3SyncSendLabelsAndConfig();
+}
+
+void onS3SyncPngDone(UartLink *link, uint8_t slot, bool success) {
+  if (!success) {
+    Serial.printf("[S3 sync] PNG slot %d failed (non-fatal)\n", slot);
+  }
+  s3Sync.slot++;
+  advanceS3SyncPngs();
+}
+
+void onS3SyncDeleteDone(UartLink *link, uint8_t slot, bool success) {
+  if (success) {
+    // More to trim — queue another delete at the same slot
+    linkS3.queueDelete(s3Sync.targetCount, UARTLINK_PRI_LOW, onS3SyncDeleteDone);
+  } else {
+    // Device's count now matches — move to PNGs
+    s3Sync.phase = 2;
+    s3Sync.slot = 0;
+    advanceS3SyncPngs();
+  }
+}
+
+void onS3SyncUploadDone(UartLink *link, uint8_t slot, bool success);
+
+void advanceS3SyncImages() {
+  if (s3Sync.slot < s3Sync.targetCount) {
+    String path = espS3Path(s3Sync.slot);
+    linkS3.queueUpload(s3Sync.slot, path.c_str(), PKT_UPLOAD_START,
+                        UARTLINK_PRI_LOW, onS3SyncUploadDone);
+  } else {
+    // All images pushed, start deleting extras
+    s3Sync.phase = 1;
+    linkS3.queueDelete(s3Sync.targetCount, UARTLINK_PRI_LOW, onS3SyncDeleteDone);
+  }
+}
+
+void onS3SyncUploadDone(UartLink *link, uint8_t slot, bool success) {
+  if (!success) {
+    Serial.printf("[S3 sync] Upload slot %d failed — aborting sync\n", slot);
+    s3Sync.active = false;
+    if (s3Sync.respTarget == S3_RESP_USB) {
+      Serial.printf("OK:PUSH_DONE rp=%s s3=fail\n", s3Sync.rpResult ? "ok" : "fail");
+    } else if (s3Sync.respTarget == S3_RESP_S3) {
+      stSendText(stS3, "ERR:sync failed");
+    }
+    return;
+  }
+  s3Sync.slot++;
+  advanceS3SyncImages();
+}
+
+void startS3Sync(bool pushAll, uint8_t respTarget, bool rpResult) {
+  if (s3Sync.active) {
+    Serial.println("[S3 sync] Already in progress, skipping");
+    return;
+  }
+  if (numEspImages == 0) {
+    Serial.println("[S3 sync] Store empty, nothing to push");
+    return;
+  }
+
+  s3Sync.active = true;
+  s3Sync.targetCount = numEspImages;
+  s3Sync.pushAll = pushAll;
+  s3Sync.respTarget = respTarget;
+  s3Sync.rpResult = rpResult;
+  s3Sync.respBuf[0] = '\0';
+
+  if (pushAll) {
+    Serial.printf("[S3 sync] Starting full push (%d images)\n", numEspImages);
+    s3Sync.phase = 0;  // images
+    s3Sync.slot = 0;
+    advanceS3SyncImages();
+  } else {
+    Serial.printf("[S3 sync] Starting PNGs+labels+config (%d images)\n", numEspImages);
+    s3Sync.phase = 2;  // skip to PNGs
+    s3Sync.slot = 0;
+    advanceS3SyncPngs();
+  }
+}
+
 // Unsolicited packet handler for S3 link (called by linkS3.service())
 void onS3Packet(UartLink *link, uint8_t pktId) {
   switch (pktId) {
@@ -2154,7 +2338,8 @@ void onS3Packet(UartLink *link, uint8_t pktId) {
       stS3.rxObj(resp);
       Serial.printf("S3 DEVICE_READY: reports %d images\n", resp.value);
       numS3Images = resp.value;
-      syncDevice(DEVICE_S3);
+      bool needsPush = (numS3Images != numEspImages);
+      startS3Sync(needsPush);
       break;
     }
     case PKT_TEXT: {
@@ -2305,8 +2490,8 @@ void setup() {
   // Boot sync: force push on first boot, count-based sync otherwise
   if (firstBoot && numEspImages > 0) {
     Serial.printf("First boot — force pushing %d images to both devices\n", numEspImages);
-    syncDevice(DEVICE_RP2040);
-    syncDevice(DEVICE_S3);
+    syncDevice(DEVICE_RP2040);  // RP2040 still blocking (Phase 3)
+    startS3Sync(true);          // S3 async
   } else {
     bootSync();
   }
@@ -2365,7 +2550,7 @@ void loop() {
           if (fs != lastPushedFlowSum[activeFlavor]) {
             char buf[40];
             snprintf(buf, sizeof(buf), "CHART_LIVE:F=%d,FS=%lu", activeFlavor, (unsigned long)fs);
-            stSendText(stS3, buf);
+            linkS3.queueText(buf, false, UARTLINK_PRI_HIGH);
             lastPushedFlowSum[activeFlavor] = fs;
             lastChartPush = now;
           }
@@ -2547,11 +2732,17 @@ void loop() {
           if (numRpImages != numEspImages) syncDevice(DEVICE_RP2040);
         }
       }
-      if (numS3Images != numEspImages) {
+      if (numS3Images != numEspImages && !s3Sync.active) {
         Serial.printf("Re-sync check: S3 mismatch %d vs %d — re-querying\n", numS3Images, numEspImages);
-        if (queryS3ImageCount()) {
-          if (numS3Images != numEspImages) syncDevice(DEVICE_S3);
-        }
+        linkS3.queueQuery(UARTLINK_PRI_NORMAL, [](UartLink *link, uint8_t count, bool success) {
+          if (success) {
+            numS3Images = count;
+            Serial.printf("S3 re-query: %d images\n", numS3Images);
+            if (numS3Images != numEspImages) {
+              startS3Sync(true);
+            }
+          }
+        });
       }
     }
   }

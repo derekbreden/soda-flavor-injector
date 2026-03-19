@@ -170,6 +170,9 @@ struct UartLink {
   QueueEntry queue[UARTLINK_QUEUE_SIZE];
   uint8_t queueCount = 0;
 
+  // ── Last response value (readable from callbacks) ──
+  uint8_t lastResponseValue = 0;
+
   // ── Stats ──
   uint32_t totalSent = 0;
   uint32_t totalRetries = 0;
@@ -467,6 +470,9 @@ private:
       }
 
       case LINK_DELETE_WAIT_ACK: {
+        ResponsePayload resp;
+        st->rxObj(resp);
+        lastResponseValue = resp.value;
         auto cb = currentDeleteCb ? currentDeleteCb : defaultDeleteCb;
         uint8_t slot = uploadSlot;  // reusing for delete slot
         op = LINK_IDLE;
