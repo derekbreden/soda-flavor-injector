@@ -18,7 +18,6 @@ struct UploadQueueSheet: View {
                                 .scaledToFill()
                                 .frame(width: 70, height: 70)
                                 .clipShape(Circle())
-                                .overlay(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
                         }
                     }
                     .padding()
@@ -39,8 +38,12 @@ struct UploadQueueSheet: View {
                 .padding(.horizontal, 40)
                 .padding(.bottom, 20)
             }
+            .background(Theme.background)
             .navigationTitle("Upload Images")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Theme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }

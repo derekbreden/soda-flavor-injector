@@ -17,25 +17,41 @@ struct ImageManagerView: View {
         ble.numImages + ble.uploadQueue.count + (ble.uploadProgress != nil ? 1 : 0)
     }
 
+    private var canDelete: Bool {
+        ble.numImages > 1 && ble.imageDownloadProgress == nil && ble.uploadQueue.isEmpty && ble.uploadProgress == nil
+    }
+
     var body: some View {
         NavigationView {
-            List {
-                if ble.uploadProgress != nil || !ble.uploadQueue.isEmpty {
-                    uploadProgressSection
-                }
+            ScrollView {
+                VStack(spacing: 0) {
+                    if ble.uploadProgress != nil || !ble.uploadQueue.isEmpty {
+                        uploadProgressSection
+                    }
 
-                if ble.imageDownloadProgress != nil {
-                    downloadProgressSection
-                }
+                    if ble.imageDownloadProgress != nil {
+                        downloadProgressSection
+                    }
 
-                imagesSection
+                    imagesSection
 
-                if totalPendingSlots < maxImages && ble.imageDownloadProgress == nil {
-                    addImageSection
+                    if totalPendingSlots < maxImages && ble.imageDownloadProgress == nil {
+                        addImageSection
+                    }
+
+                    Text("\(totalPendingSlots) of \(maxImages) image slots used")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.top, 16)
                 }
+                .padding(.vertical, 20)
             }
+            .background(Theme.background)
             .navigationTitle("Images")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Theme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Done") { dismiss() }
@@ -86,7 +102,14 @@ struct ImageManagerView: View {
     // MARK: - Sections
 
     private var uploadProgressSection: some View {
-        Section("Uploads") {
+        VStack(spacing: 0) {
+            Text("Uploads")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+
             // Active upload row
             if let activeImage = ble.activeUploadImage, ble.uploadProgress != nil {
                 HStack(spacing: 12) {
@@ -98,7 +121,8 @@ struct ImageManagerView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(ble.uploadStatus)
-                            .font(.callout)
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.textPrimary)
                         ProgressView(value: ble.uploadProgress ?? 0)
                             .tint(.blue)
                     }
@@ -107,11 +131,12 @@ struct ImageManagerView: View {
                         ble.cancelActiveUpload()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.vertical, 2)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 6)
             }
 
             // Queued upload rows
@@ -125,8 +150,8 @@ struct ImageManagerView: View {
                         .opacity(0.6)
 
                     Text("Queued")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.textSecondary)
 
                     Spacer()
 
@@ -134,29 +159,31 @@ struct ImageManagerView: View {
                         ble.cancelQueuedUpload(id: item.id)
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.vertical, 2)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 6)
             }
+
+            Spacer().frame(height: 20)
         }
     }
 
     private var downloadProgressSection: some View {
-        Section {
-            HStack(spacing: 12) {
-                ProgressView()
-                Text("Loading images…")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 4)
+        HStack(spacing: 12) {
+            ProgressView()
+                .tint(Theme.textPrimary)
+            Text("Loading images…")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.textSecondary)
         }
+        .padding(.vertical, 12)
     }
 
     private var imagesSection: some View {
-        Section {
+        VStack(spacing: 0) {
             ForEach(0..<ble.numImages, id: \.self) { index in
                 HStack(spacing: 12) {
                     imageThumb(slot: index)
@@ -170,21 +197,27 @@ struct ImageManagerView: View {
                     if index == ble.flavor2Image {
                         badge("F2", color: .green)
                     }
+
+                    if canDelete {
+                        Button {
+                            deleteSlot = index
+                            showDeleteConfirm = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
             }
-            .onDelete { offsets in
-                if ble.numImages > 1, ble.imageDownloadProgress == nil, ble.uploadQueue.isEmpty, ble.uploadProgress == nil, let index = offsets.first {
-                    deleteSlot = index
-                    showDeleteConfirm = true
-                }
-            }
-        } footer: {
-            Text("\(totalPendingSlots) of \(maxImages) image slots used")
         }
     }
 
     private var addImageSection: some View {
-        Section {
+        VStack {
             let remaining = maxImages - totalPendingSlots
             PhotosPicker(
                 selection: $selectedPhotos,
@@ -193,7 +226,10 @@ struct ImageManagerView: View {
                 matching: .images
             ) {
                 Label("Add Image", systemImage: "plus.circle.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
             }
+            .padding(.top, 16)
         }
     }
 
@@ -211,6 +247,7 @@ struct ImageManagerView: View {
                     .fill(Theme.placeholder)
                     .overlay {
                         ProgressView()
+                            .tint(Theme.textPrimary)
                             .scaleEffect(0.7)
                     }
             }
@@ -220,6 +257,7 @@ struct ImageManagerView: View {
     private func badge(_ text: String, color: Color) -> some View {
         Text(text)
             .font(.caption.weight(.bold))
+            .foregroundStyle(Theme.textPrimary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(color.opacity(0.2))
