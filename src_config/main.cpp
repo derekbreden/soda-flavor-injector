@@ -686,18 +686,14 @@ enum MenuItem { MENU_F1_IMAGE, MENU_F1_RATIO, MENU_F2_IMAGE, MENU_F2_RATIO, MENU
 const char* menuLabels[] = { "Flavor 1 Image", "Flavor 1 Ratio", "Flavor 2 Image", "Flavor 2 Ratio", "Settings" };
 
 // ── Settings sub-menu ──
-enum SettingsItem { SET_BACK, SET_FACTORY_RESET, SET_CLEAN_PRIME, SET_ABOUT, SETTINGS_COUNT };
-const char* settingsLabels[] = { "Back", "Factory Reset", "Clean / Prime", "About" };
+enum SettingsItem { SET_BACK, SET_FACTORY_RESET, SET_PRIME, SET_CLEAN_CYCLE, SET_ABOUT, SETTINGS_COUNT };
+const char* settingsLabels[] = { "Back", "Factory Reset", "Prime", "Clean Cycle", "About" };
 int settingsIndex = 0;
 bool inSettings = false;       // true when inside the settings sub-menu
 bool settingsConfirm = false;  // true when confirming factory reset
 int confirmIndex = 1;          // 0 = Yes, 1 = No (default to No)
 static bool factoryResetPending = false;
 bool inAbout = false;
-
-// ── Clean / Prime intermediate menu ──
-bool inCleanPrime = false;      // inside the Clean/Prime sub-menu
-int cleanPrimeIndex = 0;        // 0 = Back, 1 = Prime, 2 = Clean Cycle
 
 // ── Prime UI state ──
 bool inPrime = false;           // inside prime flavor select or hold screen
@@ -1728,30 +1724,6 @@ void drawSettings() {
   }
 }
 
-void drawCleanPrime() {
-  lv_obj_t *scr = lv_scr_act();
-  lv_obj_clean(scr);
-  lv_obj_set_style_bg_color(scr, THEME_BG, 0);
-
-  lv_obj_t *title = lv_label_create(scr);
-  lv_label_set_text(title, "Clean / Prime");
-  lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
-  lv_obj_set_style_text_color(title, THEME_TEXT_PRIMARY, 0);
-  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 38);
-
-  const char *items[] = { "Back", "Prime", "Clean Cycle" };
-  int lineHeight = 28;
-  int startY = (240 - 3 * lineHeight) / 2;
-  for (int i = 0; i < 3; i++) {
-    lv_obj_t *item = lv_label_create(scr);
-    lv_label_set_text(item, items[i]);
-    lv_obj_set_style_text_font(item, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(item,
-      (i == cleanPrimeIndex) ? THEME_TEXT_PRIMARY : THEME_TEXT_INACTIVE, 0);
-    lv_obj_align(item, LV_ALIGN_TOP_MID, 0, startY + i * lineHeight);
-  }
-}
-
 void drawPrime() {
   lv_obj_t *scr = lv_scr_act();
   lv_obj_clean(scr);
@@ -1893,8 +1865,6 @@ void drawScreen() {
   }
   if (inPrime) {
     drawPrime();
-  } else if (inCleanPrime) {
-    drawCleanPrime();
   } else if (inCleanCycle) {
     drawCleanCycle();
   } else if (inAbout) {
@@ -1952,12 +1922,6 @@ void handleNavigation(int dir) {
       return;
     }
     primeSelectIndex = (primeSelectIndex + dir + 3) % 3;
-    drawScreen();
-    return;
-  }
-
-  if (inCleanPrime) {
-    cleanPrimeIndex = (cleanPrimeIndex + dir + 3) % 3;
     drawScreen();
     return;
   }
@@ -2020,10 +1984,8 @@ void handleTap() {
       return;
     }
     if (primeSelectIndex == 0) {
-      // Back → return to Clean/Prime menu
+      // Back → return to Settings
       inPrime = false;
-      inCleanPrime = true;
-      cleanPrimeIndex = 0;  // default to Back
       drawScreen();
       return;
     }
@@ -2035,35 +1997,6 @@ void handleTap() {
     primeActive = false;
     drawScreen();
     return;
-  }
-
-  if (inCleanPrime) {
-    if (cleanPrimeIndex == 0) {
-      // Back → return to settings
-      inCleanPrime = false;
-      drawScreen();
-      return;
-    } else if (cleanPrimeIndex == 1) {
-      // Prime → enter prime flavor select
-      inCleanPrime = false;
-      inPrime = true;
-      primeSelectIndex = 0;  // default to Back
-      inPrimeHold = false;
-      primeHolding = false;
-      primeActive = false;
-      drawScreen();
-      return;
-    } else if (cleanPrimeIndex == 2) {
-      // Clean Cycle → enter existing clean cycle flow
-      inCleanPrime = false;
-      inCleanCycle = true;
-      cleanFlavorIndex = 0;
-      cleanConfirm = false;
-      cleanPending = false;
-      cleanPhase = 0;
-      drawScreen();
-      return;
-    }
   }
 
   if (inCleanCycle) {
@@ -2089,10 +2022,8 @@ void handleTap() {
       return;
     }
     if (cleanFlavorIndex == 0) {
-      // Back → return to Clean/Prime menu
+      // Back → return to Settings
       inCleanCycle = false;
-      inCleanPrime = true;
-      cleanPrimeIndex = 0;  // default to Back
       drawScreen();
       return;
     }
@@ -2129,10 +2060,21 @@ void handleTap() {
       confirmIndex = 1;  // default to No
       Serial.println("Factory Reset — select Yes or No");
       drawScreen();
-    } else if (settingsIndex == SET_CLEAN_PRIME) {
-      inCleanPrime = true;
-      cleanPrimeIndex = 0;  // default to Back
-      Serial.println("Entering Clean / Prime");
+    } else if (settingsIndex == SET_PRIME) {
+      inPrime = true;
+      primeSelectIndex = 0;  // default to Back
+      inPrimeHold = false;
+      primeHolding = false;
+      primeActive = false;
+      Serial.println("Entering Prime");
+      drawScreen();
+    } else if (settingsIndex == SET_CLEAN_CYCLE) {
+      inCleanCycle = true;
+      cleanFlavorIndex = 0;  // default to Back
+      cleanConfirm = false;
+      cleanPending = false;
+      cleanPhase = 0;
+      Serial.println("Entering Clean Cycle");
       drawScreen();
     } else if (settingsIndex == SET_ABOUT) {
       inAbout = true;
@@ -2333,7 +2275,6 @@ void loop() {
       inSettings = false;
       inAbout = false;
       settingsConfirm = false;
-      inCleanPrime = false;
       inPrime = false;
       inPrimeHold = false;
       drawScreen();
