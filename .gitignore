@@ -9,3 +9,4 @@ src/fw_version.h
 src_config/fw_version.h
 src_display/fw_version.h
 **/xcuserdata/
+logs/*.log
