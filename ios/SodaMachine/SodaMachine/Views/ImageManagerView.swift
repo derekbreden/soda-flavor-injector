@@ -47,16 +47,21 @@ struct ImageManagerView: View {
                 .padding(.vertical, 20)
             }
             .background(Theme.background)
-            .navigationTitle("Images")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Manage Images")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbarBackground(Theme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") { dismiss() }
-                }
-            }
             .sheet(isPresented: $showUploadSheet) {
                 UploadQueueSheet(images: pickedImages)
                     .environment(ble)
