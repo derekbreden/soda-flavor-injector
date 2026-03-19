@@ -6,6 +6,7 @@
 #include <NimBLEL2CAPServer.h>
 #include <NimBLEL2CAPChannel.h>
 #include <uart_st.h>
+#include <uart_queue.h>
 #include "CST816D.h"
 #include "font_ratio_64.h"
 #include "fw_version.h"
@@ -1392,6 +1393,19 @@ static void bleSendTextTo(NimBLEL2CAPChannel *chan, const char *text) {
   bleSendTo(chan, BLE_MSG_TEXT, (const uint8_t *)text, strlen(text));
 }
 
+// Ack seq tracking for #seq: prefixed commands from ESP32
+static int ackSeq = -1;
+
+static void stSendTextAck(SerialTransfer &st, const char *text) {
+  if (ackSeq >= 0) {
+    char buf[264];
+    snprintf(buf, sizeof(buf), "#%d:%s", ackSeq, text);
+    stSendText(st, buf);
+  } else {
+    stSendText(st, text);
+  }
+}
+
 static void processTextLine(const char *line) {
   Serial.printf("UART RX: %s\n", line);
 
@@ -1520,7 +1534,7 @@ static void processTextLine(const char *line) {
       stSendText(stLink, buf);
       delay(10);
     }
-    stSendText(stLink, "END");
+    stSendTextAck(stLink, "END");
   } else if (strcmp(line, "LISTPNGS") == 0) {
     char buf[64];
     snprintf(buf, sizeof(buf), "PNGS:%d images", numImages);
@@ -1542,7 +1556,7 @@ static void processTextLine(const char *line) {
       stSendText(stLink, buf);
       delay(10);
     }
-    stSendText(stLink, "END");
+    stSendTextAck(stLink, "END");
   }
 }
 
@@ -1597,7 +1611,16 @@ static void checkSerialTransfer() {
         uint16_t copyLen = (len < 255) ? len : 255;
         memcpy(line, stLink.packet.rxBuff, copyLen);
         line[copyLen] = '\0';
-        processTextLine(line);
+
+        // Strip #seq: prefix if present, stash seq for response
+        const char *cmdStart;
+        ackSeq = stParseTextSeq(line, &cmdStart);
+        if (ackSeq >= 0) {
+          processTextLine(cmdStart);
+        } else {
+          processTextLine(line);
+        }
+        ackSeq = -1;
         break;
       }
     }

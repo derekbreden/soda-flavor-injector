@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 #include <SerialPIO.h>
 #include <uart_st.h>
+#include <uart_queue.h>
 #include "fw_version.h"
 
 // Seed images (compiled in for first-boot only, then served from LittleFS)
@@ -415,6 +416,21 @@ static void handleSwapImages(uint8_t slotA, uint8_t slotB) {
 //  Process text command received via PKT_TEXT
 // ════════════════════════════════════════════════════════════
 
+// Ack seq tracking: when a #seq: prefixed command arrives, we stash
+// the seq number so response functions can prepend it.
+static int ackSeq = -1;  // -1 = no ack needed
+
+// Send a text response, prepending #seq: if an ack is pending
+static void stSendTextAck(SerialTransfer &st, const char *text) {
+  if (ackSeq >= 0) {
+    char buf[264];
+    snprintf(buf, sizeof(buf), "#%d:%s", ackSeq, text);
+    stSendText(st, buf);
+  } else {
+    stSendText(st, text);
+  }
+}
+
 static void processTextCommand(const char *cmd) {
   if (strncmp(cmd, "MAP:", 4) == 0) {
     const char *payload = cmd + 4;
@@ -450,15 +466,15 @@ static void processTextCommand(const char *cmd) {
   } else if (strcmp(cmd, "GET_VERSION") == 0) {
     char buf[48];
     snprintf(buf, sizeof(buf), "VERSION:RP2040=%s", FW_BUILD_TIME);
-    stSendText(stLink, buf);
+    stSendTextAck(stLink, buf);
 
   } else if (strcmp(cmd, "LIST") == 0) {
     for (uint8_t i = 0; i < numImages; i++) {
       char buf[48];
       snprintf(buf, sizeof(buf), "IMG:%d:%s", i, labels[i]);
-      stSendText(stLink, buf);
+      stSendText(stLink, buf);  // list items are not acked individually
     }
-    stSendText(stLink, "END");
+    stSendTextAck(stLink, "END");  // ack goes on the final response
   }
 }
 
@@ -511,7 +527,16 @@ static void checkSerialTransfer() {
         if (len > sizeof(textBuf) - 1) len = sizeof(textBuf) - 1;
         memcpy(textBuf, stLink.packet.rxBuff, len);
         textBuf[len] = '\0';
-        processTextCommand(textBuf);
+
+        // Strip #seq: prefix if present, stash seq for response
+        const char *cmdStart;
+        ackSeq = stParseTextSeq(textBuf, &cmdStart);
+        if (ackSeq >= 0) {
+          processTextCommand(cmdStart);
+        } else {
+          processTextCommand(textBuf);
+        }
+        ackSeq = -1;  // clear after processing
         break;
       }
     }
