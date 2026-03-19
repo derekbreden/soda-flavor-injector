@@ -247,9 +247,8 @@ private struct CleanPrimeSheet: View {
                 } else {
                     // ── Prime section ──
                     Text("Prime")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(Theme.textSecondary)
-                        .padding(.top, 4)
 
                     VStack(spacing: 0) {
                         Button(action: { selectedPrimeFlavor = 1 }) {
@@ -272,7 +271,7 @@ private struct CleanPrimeSheet: View {
 
                     // ── Clean section ──
                     Text("Clean Cycle")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(Theme.textSecondary)
 
                     VStack(spacing: 0) {
