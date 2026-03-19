@@ -1026,10 +1026,10 @@ struct ConfigView: View {
                         Spacer()
 
                         pageView(for: i)
-                            .frame(height: 180)
 
                         Spacer()
                     }
+                    .padding(.bottom, 80)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         switch i {
