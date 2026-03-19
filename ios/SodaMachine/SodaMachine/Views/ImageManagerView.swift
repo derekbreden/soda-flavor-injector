@@ -5,8 +5,6 @@ struct ImageManagerView: View {
     @Environment(BLEManager.self) var ble
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPhotos: [PhotosPickerItem] = []
-    @State private var pickedImages: [UIImage] = []
-    @State private var showUploadSheet = false
     @State private var deleteSlot: Int?
     @State private var showDeleteConfirm = false
 
@@ -62,10 +60,6 @@ struct ImageManagerView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbarBackground(Theme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .sheet(isPresented: $showUploadSheet) {
-                UploadQueueSheet(images: pickedImages)
-                    .environment(ble)
-            }
             .alert("Delete Image?", isPresented: $showDeleteConfirm) {
                 Button("Delete", role: .destructive) {
                     if let slot = deleteSlot {
@@ -96,8 +90,8 @@ struct ImageManagerView: View {
                     }
                     selectedPhotos = []
                     if !images.isEmpty {
-                        pickedImages = images
-                        showUploadSheet = true
+                        let items = images.map { BLEManager.UploadQueueItem(image: $0) }
+                        ble.queueUploads(items)
                     }
                 }
             }

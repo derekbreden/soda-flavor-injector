@@ -11,7 +11,6 @@
 		275517646EB3A11CF0EB0917 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EC8801DFD62475C35E32F1F2 /* LaunchScreen.storyboard */; };
 		44CDAD052031D99FC84FBF20 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 39C5CC1EBAB73C1BFCDDA171 /* Assets.xcassets */; };
 		6C93DAD5E946A3A9C3363922 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23D0AF4ACE05C15DEFA2BB4 /* Theme.swift */; };
-		AA093573A433ACA4D0EFB306 /* UploadQueueSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86C45B642110705BA538E912 /* UploadQueueSheet.swift */; };
 		BB2804A1FB6705FB6DC03085 /* BLEManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46ABEC9C6AF332D8A0057E0A /* BLEManager.swift */; };
 		D2CAF8A8E999091D114AE837 /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C75AA5E41E74397887458B /* ScanView.swift */; };
 		DAFEBC827E77F835CF75F250 /* ImageProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC09AC31F29B7C4403271380 /* ImageProcessor.swift */; };
@@ -26,10 +25,9 @@
 		46ABEC9C6AF332D8A0057E0A /* BLEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEManager.swift; sourceTree = "<group>"; };
 		80C75AA5E41E74397887458B /* ScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanView.swift; sourceTree = "<group>"; };
 		823F86F06E4DF6A375CF19B8 /* ImageManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageManagerView.swift; sourceTree = "<group>"; };
-		86C45B642110705BA538E912 /* UploadQueueSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadQueueSheet.swift; sourceTree = "<group>"; };
 		AC09AC31F29B7C4403271380 /* ImageProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageProcessor.swift; sourceTree = "<group>"; };
 		B23D0AF4ACE05C15DEFA2BB4 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		D850BAB13F260C2F94CF2FC7 /* SodaMachine.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SodaMachine.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D850BAB13F260C2F94CF2FC7 /* SodaMachine.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SodaMachine.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC8801DFD62475C35E32F1F2 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -86,7 +84,6 @@
 				17B6167123A77140A8416478 /* ConfigView.swift */,
 				823F86F06E4DF6A375CF19B8 /* ImageManagerView.swift */,
 				80C75AA5E41E74397887458B /* ScanView.swift */,
-				86C45B642110705BA538E912 /* UploadQueueSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -120,8 +117,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 89245DF27228688A9038A1C7 /* Build configuration list for PBXProject "SodaMachine" */;
 			developmentRegion = en;
@@ -166,7 +161,6 @@
 				D2CAF8A8E999091D114AE837 /* ScanView.swift in Sources */,
 				DF2FC75183CCB8BB4EBB2475 /* SodaMachineApp.swift in Sources */,
 				6C93DAD5E946A3A9C3363922 /* Theme.swift in Sources */,
-				AA093573A433ACA4D0EFB306 /* UploadQueueSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -242,21 +236,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T5WDQ2QJCS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Soda Machine";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "SodaMachine uses Bluetooth to connect to your soda machine for configuration and image uploads.";
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = (
-					UIInterfaceOrientationPortrait,
-					UIInterfaceOrientationLandscapeLeft,
-					UIInterfaceOrientationLandscapeRight,
-				);
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = (
-					UIInterfaceOrientationPortrait,
-					UIInterfaceOrientationPortraitUpsideDown,
-					UIInterfaceOrientationLandscapeLeft,
-					UIInterfaceOrientationLandscapeRight,
-				);
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -331,21 +317,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T5WDQ2QJCS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Soda Machine";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "SodaMachine uses Bluetooth to connect to your soda machine for configuration and image uploads.";
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = (
-					UIInterfaceOrientationPortrait,
-					UIInterfaceOrientationLandscapeLeft,
-					UIInterfaceOrientationLandscapeRight,
-				);
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = (
-					UIInterfaceOrientationPortrait,
-					UIInterfaceOrientationPortraitUpsideDown,
-					UIInterfaceOrientationLandscapeLeft,
-					UIInterfaceOrientationLandscapeRight,
-				);
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
