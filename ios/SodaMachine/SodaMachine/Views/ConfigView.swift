@@ -735,7 +735,7 @@ private struct Chart24HView: View {
 
             .chartForegroundStyleScale(["Flavor 1": chartPink, "Flavor 2": chartPurple])
             .chartLegend(.hidden)
-            .chartXScale(domain: -1...25)
+            .chartXScale(domain: -0.5...23.5)
             .chartXAxis {
                 AxisMarks(values: [0, 6, 12, 18, 23]) { value in
                     AxisValueLabel {
@@ -805,7 +805,7 @@ private struct Chart30DView: View {
 
             .chartForegroundStyleScale(["Flavor 1": chartPink, "Flavor 2": chartPurple])
             .chartLegend(.hidden)
-            .chartXScale(domain: -1...31)
+            .chartXScale(domain: -0.5...29.5)
             .chartXAxis {
                 AxisMarks(values: [0, 7, 14, 21, 29]) { value in
                     AxisValueLabel {
@@ -868,7 +868,7 @@ private struct ChartHODView: View {
 
             .chartForegroundStyleScale(["Flavor 1": chartPink, "Flavor 2": chartPurple])
             .chartLegend(.hidden)
-            .chartXScale(domain: -1...25)
+            .chartXScale(domain: -0.5...23.5)
             .chartXAxis {
                 AxisMarks(values: [0, 6, 12, 18, 23]) { value in
                     AxisValueLabel {
