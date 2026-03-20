@@ -789,9 +789,9 @@ private struct ServingSizeSelector: View {
     @Binding var selectedOz: Int
 
     private let options: [(oz: Int, label: String, iconHeight: CGFloat)] = [
-        (12, "12oz", 42),   // 56 * 12/16
+        (12, "12oz", 48),
         (16, "16oz", 56),
-        (20, "20oz", 70),   // 56 * 20/16
+        (20, "20oz", 64),
     ]
 
     var body: some View {
