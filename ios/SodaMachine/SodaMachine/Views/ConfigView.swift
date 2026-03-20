@@ -721,49 +721,57 @@ private struct GlassIcon: View {
     let height: CGFloat
     let color: Color
 
-    var body: some View {
-        let w = height * 0.55
-        Canvas { ctx, canvasSize in
-            let sx = canvasSize.width
-            let sy = canvasSize.height
-            // Tapered tumbler: wider at top, narrower at bottom, rounded base
-            let topL = CGPoint(x: sx * 0.1, y: sy * 0.05)
-            let topR = CGPoint(x: sx * 0.9, y: sy * 0.05)
-            let botR = CGPoint(x: sx * 0.78, y: sy * 0.85)
-            let botL = CGPoint(x: sx * 0.22, y: sy * 0.85)
+    // SVG glass: x 310-714 (w=404), y 247-777 (h=530), aspect 404/530 = 0.7623
+    private let aspect: CGFloat = 404.0 / 530.0
 
+    var body: some View {
+        let w = height * aspect
+        Canvas { ctx, sz in
+            // Scale factors from SVG glass bounding box (310,247)-(714,777)
+            let sx = sz.width / 404.0
+            let sy = sz.height / 530.0
+
+            // Glass body path: M310,247 L340,747 Q345,777,380,777 L644,777 Q679,777,684,747 L714,247 Z
+            // Normalized to glass origin (310, 247)
             var glass = Path()
-            glass.move(to: topL)
-            glass.addLine(to: topR)
-            glass.addLine(to: botR)
-            glass.addQuadCurve(to: CGPoint(x: sx * 0.5, y: sy * 0.95),
-                               control: CGPoint(x: sx * 0.75, y: sy * 0.95))
-            glass.addQuadCurve(to: botL,
-                               control: CGPoint(x: sx * 0.25, y: sy * 0.95))
+            glass.move(to: CGPoint(x: 0 * sx, y: 0 * sy))           // M310,247
+            glass.addLine(to: CGPoint(x: 30 * sx, y: 500 * sy))     // L340,747
+            glass.addQuadCurve(                                       // Q345,777 380,777
+                to: CGPoint(x: 70 * sx, y: 530 * sy),
+                control: CGPoint(x: 35 * sx, y: 530 * sy))
+            glass.addLine(to: CGPoint(x: 334 * sx, y: 530 * sy))    // L644,777
+            glass.addQuadCurve(                                       // Q679,777 684,747
+                to: CGPoint(x: 374 * sx, y: 500 * sy),
+                control: CGPoint(x: 369 * sx, y: 530 * sy))
+            glass.addLine(to: CGPoint(x: 404 * sx, y: 0 * sy))      // L714,247
             glass.closeSubpath()
 
-            ctx.stroke(glass, with: .color(color), lineWidth: 1.5)
+            ctx.stroke(glass, with: .color(color), lineWidth: max(1.5, height / 40))
 
-            // Rim highlight
+            // Rim highlight (thicker top edge)
             var rim = Path()
-            rim.move(to: topL)
-            rim.addLine(to: topR)
-            ctx.stroke(rim, with: .color(color), lineWidth: 2)
+            rim.move(to: CGPoint(x: 0, y: 0))
+            rim.addLine(to: CGPoint(x: 404 * sx, y: 0))
+            ctx.stroke(rim, with: .color(color), lineWidth: max(2, height / 28))
 
-            // Bubbles (stroke-only circles)
-            let bubbles: [(cx: CGFloat, cy: CGFloat, r: CGFloat)] = [
-                (0.42, 0.55, 0.09),
-                (0.62, 0.40, 0.07),
-                (0.50, 0.72, 0.06),
+            // Bubbles from SVG (stroke-only, positions relative to glass origin)
+            // SVG: cx=440,cy=567,r=42 → (130, 320, r=42)
+            // SVG: cx=580,cy=487,r=35 → (270, 240, r=35)
+            // SVG: cx=470,cy=297,r=18 → (160, 50, r=18) — rising bubble above liquid
+            let bubbles: [(x: CGFloat, y: CGFloat, r: CGFloat)] = [
+                (130, 320, 42),  // large bubble center-left
+                (270, 240, 35),  // medium bubble center-right
+                (160, 50, 18),   // small rising bubble near top
             ]
+            let bw = max(1, height / 50)
             for b in bubbles {
                 let circle = Path(ellipseIn: CGRect(
-                    x: sx * b.cx - sx * b.r,
-                    y: sy * b.cy - sy * b.r,
-                    width: sx * b.r * 2,
-                    height: sy * b.r * 2
+                    x: (b.x - b.r) * sx,
+                    y: (b.y - b.r) * sy,
+                    width: b.r * 2 * sx,
+                    height: b.r * 2 * sy
                 ))
-                ctx.stroke(circle, with: .color(color.opacity(0.6)), lineWidth: 1)
+                ctx.stroke(circle, with: .color(color.opacity(0.5)), lineWidth: bw)
             }
         }
         .frame(width: w, height: height)
@@ -793,7 +801,7 @@ private struct ServingSizeSelector: View {
                     }
                 } label: {
                     VStack(spacing: 4) {
-                        GlassIcon(height: 28, color: color)
+                        GlassIcon(height: 56, color: color)
                         Text(opt.label)
                             .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(color)
