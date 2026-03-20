@@ -8,7 +8,7 @@ struct ImageManagerView: View {
     @State private var deleteSlot: Int?
     @State private var showDeleteConfirm = false
 
-    private let maxImages = 23
+    private let maxImages = 10  // 5 factory + 5 user custom
 
     /// Total slots committed: on-device + active upload + queued
     private var totalPendingSlots: Int {
