@@ -703,8 +703,8 @@ private struct Chart24HView: View {
     var body: some View {
         let calendar = Calendar.current
         let currentHour = calendar.component(.hour, from: Date())
-        let data0 = ble.chartData24H[0]
-        let data1 = ble.chartData24H[1]
+        let data0 = ble.chartData24H[0].map { (($0 / 20.0).rounded()) }
+        let data1 = ble.chartData24H[1].map { (($0 / 20.0).rounded()) }
 
         VStack(spacing: 8) {
             Text("Last 24 Hours")
@@ -713,21 +713,17 @@ private struct Chart24HView: View {
 
             Chart {
                 ForEach(0..<24, id: \.self) { i in
-                    LineMark(
+                    BarMark(
                         x: .value("Hour", i),
-                        y: .value("Seconds", data0[i]),
-                        series: .value("Flavor", "Flavor 1")
+                        y: .value("Servings", data0[i])
                     )
                     .foregroundStyle(by: .value("Flavor", "Flavor 1"))
-                    .interpolationMethod(.linear)
 
-                    LineMark(
+                    BarMark(
                         x: .value("Hour", i),
-                        y: .value("Seconds", data1[i]),
-                        series: .value("Flavor", "Flavor 2")
+                        y: .value("Servings", data1[i])
                     )
                     .foregroundStyle(by: .value("Flavor", "Flavor 2"))
-                    .interpolationMethod(.linear)
                 }
             }
 
@@ -776,8 +772,8 @@ private struct Chart30DView: View {
     var body: some View {
         let calendar = Calendar.current
         let today = Date()
-        let data0 = ble.chartData30D[0]
-        let data1 = ble.chartData30D[1]
+        let data0 = ble.chartData30D[0].map { (($0 / 20.0).rounded()) }
+        let data1 = ble.chartData30D[1].map { (($0 / 20.0).rounded()) }
 
         VStack(spacing: 8) {
             Text("Last 30 Days")
@@ -786,21 +782,17 @@ private struct Chart30DView: View {
 
             Chart {
                 ForEach(0..<30, id: \.self) { i in
-                    LineMark(
+                    BarMark(
                         x: .value("Day", i),
-                        y: .value("Seconds", data0[i]),
-                        series: .value("Flavor", "Flavor 1")
+                        y: .value("Servings", data0[i])
                     )
                     .foregroundStyle(by: .value("Flavor", "Flavor 1"))
-                    .interpolationMethod(.linear)
 
-                    LineMark(
+                    BarMark(
                         x: .value("Day", i),
-                        y: .value("Seconds", data1[i]),
-                        series: .value("Flavor", "Flavor 2")
+                        y: .value("Servings", data1[i])
                     )
                     .foregroundStyle(by: .value("Flavor", "Flavor 2"))
-                    .interpolationMethod(.linear)
                 }
             }
 
@@ -842,8 +834,8 @@ private struct ChartHODView: View {
 
     var body: some View {
         let days = max(ble.chartDataHODDays, 1)
-        let data0 = ble.chartDataHOD[0].map { $0 / Double(days) }
-        let data1 = ble.chartDataHOD[1].map { $0 / Double(days) }
+        let data0 = ble.chartDataHOD[0].map { (($0 / Double(days) / 20.0).rounded()) }
+        let data1 = ble.chartDataHOD[1].map { (($0 / Double(days) / 20.0).rounded()) }
 
         VStack(spacing: 8) {
             Text("Average by Hour of Day")
@@ -852,21 +844,17 @@ private struct ChartHODView: View {
 
             Chart {
                 ForEach(0..<24, id: \.self) { h in
-                    LineMark(
+                    BarMark(
                         x: .value("Hour", h),
-                        y: .value("Avg Seconds", data0[h]),
-                        series: .value("Flavor", "Flavor 1")
+                        y: .value("Avg Servings", data0[h])
                     )
                     .foregroundStyle(by: .value("Flavor", "Flavor 1"))
-                    .interpolationMethod(.linear)
 
-                    LineMark(
+                    BarMark(
                         x: .value("Hour", h),
-                        y: .value("Avg Seconds", data1[h]),
-                        series: .value("Flavor", "Flavor 2")
+                        y: .value("Avg Servings", data1[h])
                     )
                     .foregroundStyle(by: .value("Flavor", "Flavor 2"))
-                    .interpolationMethod(.linear)
                 }
             }
 
