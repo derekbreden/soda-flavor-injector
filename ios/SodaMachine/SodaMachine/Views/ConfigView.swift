@@ -519,6 +519,7 @@ private struct StatsSheet: View {
     @Environment(BLEManager.self) var ble
     @Environment(\.horizontalSizeClass) var sizeClass
     @Environment(\.dismiss) var dismiss
+    @AppStorage("servingSizeOz") private var servingSizeOz = 20
 
     private var isDisconnected: Bool {
         ble.connectionState != .connected && !ble.demoMode
@@ -597,9 +598,11 @@ private struct StatsSheet: View {
     private var compactLayout: some View {
         if ble.statsSynced { pieChartSection }
         if ble.chartDataSynced {
-            Chart24HView()
-            Chart30DView()
-            ChartHODView()
+            let size = servingSizeForOz(servingSizeOz)
+            Chart24HView(servingSize: size)
+            Chart30DView(servingSize: size)
+            ChartHODView(servingSize: size)
+            ServingSizeSelector(selectedOz: $servingSizeOz)
         } else {
             ProgressView().tint(Theme.textPrimary).padding(.vertical, 20)
         }
@@ -620,7 +623,7 @@ private struct StatsSheet: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                Chart24HView()
+                Chart24HView(servingSize: servingSizeForOz(servingSizeOz))
                     .frame(maxWidth: .infinity)
             }
         } else {
@@ -631,12 +634,14 @@ private struct StatsSheet: View {
     @ViewBuilder
     private var wideRow2: some View {
         if ble.chartDataSynced {
+            let size = servingSizeForOz(servingSizeOz)
             HStack(spacing: 24) {
-                Chart30DView()
+                Chart30DView(servingSize: size)
                     .frame(maxWidth: .infinity)
-                ChartHODView()
+                ChartHODView(servingSize: size)
                     .frame(maxWidth: .infinity)
             }
+            ServingSizeSelector(selectedOz: $servingSizeOz)
         }
     }
 
@@ -698,19 +703,117 @@ private struct StatsSheet: View {
 // Separate View structs create distinct @Observable tracking boundaries,
 // ensuring Chart recreation when BLEManager properties change.
 
-private let servingSize = 30.0
+private func servingSizeForOz(_ oz: Int) -> Double {
+    switch oz {
+    case 12: return 20.0
+    case 16: return 25.0
+    default: return 30.0
+    }
+}
 
-private func toServings(_ raw: Double) -> Double {
-    (raw / servingSize * 4).rounded() / 4
+private func toServings(_ raw: Double, size: Double) -> Double {
+    (raw / size * 4).rounded() / 4
+}
+
+// MARK: - Glass Icon
+
+private struct GlassIcon: View {
+    let height: CGFloat
+    let color: Color
+
+    var body: some View {
+        let w = height * 0.55
+        Canvas { ctx, canvasSize in
+            let sx = canvasSize.width
+            let sy = canvasSize.height
+            // Tapered tumbler: wider at top, narrower at bottom, rounded base
+            let topL = CGPoint(x: sx * 0.1, y: sy * 0.05)
+            let topR = CGPoint(x: sx * 0.9, y: sy * 0.05)
+            let botR = CGPoint(x: sx * 0.78, y: sy * 0.85)
+            let botL = CGPoint(x: sx * 0.22, y: sy * 0.85)
+
+            var glass = Path()
+            glass.move(to: topL)
+            glass.addLine(to: topR)
+            glass.addLine(to: botR)
+            glass.addQuadCurve(to: CGPoint(x: sx * 0.5, y: sy * 0.95),
+                               control: CGPoint(x: sx * 0.75, y: sy * 0.95))
+            glass.addQuadCurve(to: botL,
+                               control: CGPoint(x: sx * 0.25, y: sy * 0.95))
+            glass.closeSubpath()
+
+            ctx.stroke(glass, with: .color(color), lineWidth: 1.5)
+
+            // Rim highlight
+            var rim = Path()
+            rim.move(to: topL)
+            rim.addLine(to: topR)
+            ctx.stroke(rim, with: .color(color), lineWidth: 2)
+
+            // Bubbles (stroke-only circles)
+            let bubbles: [(cx: CGFloat, cy: CGFloat, r: CGFloat)] = [
+                (0.42, 0.55, 0.09),
+                (0.62, 0.40, 0.07),
+                (0.50, 0.72, 0.06),
+            ]
+            for b in bubbles {
+                let circle = Path(ellipseIn: CGRect(
+                    x: sx * b.cx - sx * b.r,
+                    y: sy * b.cy - sy * b.r,
+                    width: sx * b.r * 2,
+                    height: sy * b.r * 2
+                ))
+                ctx.stroke(circle, with: .color(color.opacity(0.6)), lineWidth: 1)
+            }
+        }
+        .frame(width: w, height: height)
+    }
+}
+
+// MARK: - Serving Size Selector
+
+private struct ServingSizeSelector: View {
+    @Binding var selectedOz: Int
+
+    private let options: [(oz: Int, label: String)] = [
+        (12, "12oz"),
+        (16, "16oz"),
+        (20, "20oz"),
+    ]
+
+    var body: some View {
+        HStack(spacing: 32) {
+            ForEach(options, id: \.oz) { opt in
+                let isSelected = selectedOz == opt.oz
+                let color = isSelected ? Theme.textPrimary : Theme.textSecondary.opacity(0.4)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedOz = opt.oz
+                    }
+                } label: {
+                    VStack(spacing: 4) {
+                        GlassIcon(height: 28, color: color)
+                        Text(opt.label)
+                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(color)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.top, 8)
+    }
 }
 
 private struct Chart24HView: View {
     @Environment(BLEManager.self) var ble
+    let servingSize: Double
     var body: some View {
         let calendar = Calendar.current
         let currentHour = calendar.component(.hour, from: Date())
-        let data0 = ble.chartData24H[0].map { toServings($0) }
-        let data1 = ble.chartData24H[1].map { toServings($0) }
+        let data0 = ble.chartData24H[0].map { toServings($0, size: servingSize) }
+        let data1 = ble.chartData24H[1].map { toServings($0, size: servingSize) }
 
         VStack(spacing: 8) {
             Text("Last 24 Hours")
@@ -774,13 +877,13 @@ private struct Chart24HView: View {
 
 private struct Chart30DView: View {
     @Environment(BLEManager.self) var ble
-
+    let servingSize: Double
 
     var body: some View {
         let calendar = Calendar.current
         let today = Date()
-        let data0 = ble.chartData30D[0].map { toServings($0) }
-        let data1 = ble.chartData30D[1].map { toServings($0) }
+        let data0 = ble.chartData30D[0].map { toServings($0, size: servingSize) }
+        let data1 = ble.chartData30D[1].map { toServings($0, size: servingSize) }
 
         VStack(spacing: 8) {
             Text("Last 30 Days")
@@ -838,12 +941,12 @@ private struct Chart30DView: View {
 
 private struct ChartHODView: View {
     @Environment(BLEManager.self) var ble
-
+    let servingSize: Double
 
     var body: some View {
         let days = max(ble.chartDataHODDays, 1)
-        let data0 = ble.chartDataHOD[0].map { toServings($0 / Double(days)) }
-        let data1 = ble.chartDataHOD[1].map { toServings($0 / Double(days)) }
+        let data0 = ble.chartDataHOD[0].map { toServings($0 / Double(days), size: servingSize) }
+        let data1 = ble.chartDataHOD[1].map { toServings($0 / Double(days), size: servingSize) }
 
         VStack(spacing: 8) {
             Text("Average by Hour of Day")
