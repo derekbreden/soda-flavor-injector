@@ -737,7 +737,7 @@ private struct Chart24HView: View {
             .chartLegend(.hidden)
             .chartXScale(domain: -0.5...23.5)
             .chartXAxis {
-                AxisMarks(values: [0, 6, 12, 18, 23]) { value in
+                AxisMarks(values: [0, 6, 12, 18]) { value in
                     AxisValueLabel {
                         if let idx = value.as(Int.self) {
                             let hour = (currentHour - 23 + idx + 24) % 24
@@ -807,7 +807,7 @@ private struct Chart30DView: View {
             .chartLegend(.hidden)
             .chartXScale(domain: -0.5...29.5)
             .chartXAxis {
-                AxisMarks(values: [0, 7, 14, 21, 29]) { value in
+                AxisMarks(values: [0, 7, 14, 21]) { value in
                     AxisValueLabel {
                         if let idx = value.as(Int.self) {
                             let date = calendar.date(byAdding: .day, value: idx - 29, to: today) ?? today
@@ -870,7 +870,7 @@ private struct ChartHODView: View {
             .chartLegend(.hidden)
             .chartXScale(domain: -0.5...23.5)
             .chartXAxis {
-                AxisMarks(values: [0, 6, 12, 18, 23]) { value in
+                AxisMarks(values: [0, 6, 12, 18]) { value in
                     AxisValueLabel {
                         if let idx = value.as(Int.self) {
                             Text(hourLabel(idx))
