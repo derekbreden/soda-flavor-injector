@@ -752,7 +752,7 @@ private struct Chart24HView: View {
                 AxisMarks { value in
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
-                            Text(String(format: "%.0f", v))
+                            Text(String(format: "%g", v))
                                 .font(.system(size: 10))
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -821,7 +821,7 @@ private struct Chart30DView: View {
                 AxisMarks { value in
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
-                            Text(String(format: "%.0f", v))
+                            Text(String(format: "%g", v))
                                 .font(.system(size: 10))
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -882,7 +882,7 @@ private struct ChartHODView: View {
                 AxisMarks { value in
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
-                            Text(String(format: "%.0f", v))
+                            Text(String(format: "%g", v))
                                 .font(.system(size: 10))
                                 .foregroundStyle(Theme.textSecondary)
                         }
