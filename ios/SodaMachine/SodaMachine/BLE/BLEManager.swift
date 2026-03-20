@@ -108,6 +108,8 @@ class BLEManager {
     // ── Internal state (not observed by SwiftUI) ──
 
     @ObservationIgnored fileprivate var pendingImageList: [String] = []
+    @ObservationIgnored fileprivate var pendingCRCs: [Int: UInt32] = [:]  // from LIST response
+    @ObservationIgnored fileprivate var connectedPeripheralUUID: String = ""
 
     // Pending delete state (for optimistic UI rollback)
     @ObservationIgnored fileprivate var pendingDeleteSlot: Int = -1
@@ -411,9 +413,23 @@ class BLEManager {
         send("DELETE_STORE_IMG:\(slot)")
     }
 
-    func downloadAllImages() {
+    func downloadAllImages(advertisedCRCs: [Int: UInt32] = [:]) {
         guard !isDownloading else { return }
-        let queue = Array(0..<numImages).filter { cachedImages[$0] == nil }
+        let persistedCRCs = loadPersistedCRCs()
+        var queue: [Int] = []
+        for slot in 0..<numImages {
+            if cachedImages[slot] != nil { continue }
+            // Check if we have a CRC match and disk cache hit
+            if let advertised = advertisedCRCs[slot],
+               let persisted = persistedCRCs[slot],
+               advertised == persisted,
+               let diskImage = loadImageFromDisk(slot: slot) {
+                cachedImages[slot] = diskImage
+                log.info("Image \(slot) loaded from disk cache (CRC match)")
+                continue
+            }
+            queue.append(slot)
+        }
         if queue.isEmpty { return }
         isDownloading = true
         imageDownloadProgress = 0
@@ -747,7 +763,8 @@ class BLEManager {
         } else if text == "END" {
             imageNames = pendingImageList
             pendingImageList = []
-            downloadAllImages()
+            downloadAllImages(advertisedCRCs: pendingCRCs)
+            pendingCRCs = [:]
         } else if text.hasPrefix("IMG_OK:") {
             guard isUploading else {
                 log.debug("Ignoring IMG_OK (not uploading): \(text)")
@@ -782,6 +799,7 @@ class BLEManager {
                     numImages = max(val, 1)
                 }
             }
+            clearDiskCache()
             cachedImages = [:]
             requestImageList()
             log.info("Image deleted, refreshing list")
@@ -831,6 +849,7 @@ class BLEManager {
             primeActive = false
         } else if text == "OK:FACTORY_RESET" {
             log.info("Factory reset confirmed, re-syncing")
+            clearDiskCache()
             cachedImages = [:]
             imageNames = []
             statsSynced = false
@@ -1015,7 +1034,8 @@ class BLEManager {
     }
 
     private func parseImageLine(_ text: String) {
-        let parts = text.split(separator: ":", maxSplits: 2)
+        // Format: IMG:slot:label or IMG:slot:label:hexcrc
+        let parts = text.split(separator: ":", maxSplits: 3)
         if parts.count >= 3 {
             let name = String(parts[2])
             let slot = Int(parts[1]) ?? pendingImageList.count
@@ -1023,7 +1043,70 @@ class BLEManager {
                 pendingImageList.append("")
             }
             pendingImageList[slot] = name
+            // Parse optional CRC field (Phase 3)
+            if parts.count >= 4, let crc = UInt32(parts[3], radix: 16) {
+                pendingCRCs[slot] = crc
+            }
         }
+    }
+
+    // MARK: - Image disk cache
+
+    private func imageCacheDir() -> URL? {
+        guard !connectedPeripheralUUID.isEmpty else { return nil }
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        return caches.appendingPathComponent("images/\(connectedPeripheralUUID)")
+    }
+
+    private func saveImageToDisk(slot: Int, data: Data) {
+        guard let dir = imageCacheDir() else { return }
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try data.write(to: dir.appendingPathComponent("slot_\(slot).png"))
+        } catch {
+            log.error("Failed to cache image \(slot) to disk: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadImageFromDisk(slot: Int) -> UIImage? {
+        guard let dir = imageCacheDir() else { return nil }
+        let url = dir.appendingPathComponent("slot_\(slot).png")
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return UIImage(data: data)
+    }
+
+    fileprivate func clearDiskCache() {
+        guard let dir = imageCacheDir() else { return }
+        try? FileManager.default.removeItem(at: dir)
+        clearPersistedCRCs()
+    }
+
+    private func crcDefaultsKey() -> String {
+        return "imageCRCs_\(connectedPeripheralUUID)"
+    }
+
+    private func loadPersistedCRCs() -> [Int: UInt32] {
+        guard !connectedPeripheralUUID.isEmpty else { return [:] }
+        guard let dict = UserDefaults.standard.dictionary(forKey: crcDefaultsKey()) else { return [:] }
+        var result: [Int: UInt32] = [:]
+        for (key, val) in dict {
+            if let slot = Int(key), let num = val as? NSNumber {
+                result[slot] = num.uint32Value
+            }
+        }
+        return result
+    }
+
+    private func savePersistedCRC(slot: Int, crc: UInt32) {
+        guard !connectedPeripheralUUID.isEmpty else { return }
+        var dict = UserDefaults.standard.dictionary(forKey: crcDefaultsKey()) ?? [:]
+        dict["\(slot)"] = NSNumber(value: crc)
+        UserDefaults.standard.set(dict, forKey: crcDefaultsKey())
+    }
+
+    private func clearPersistedCRCs() {
+        guard !connectedPeripheralUUID.isEmpty else { return }
+        UserDefaults.standard.removeObject(forKey: crcDefaultsKey())
     }
 
     // MARK: - Internal
@@ -1033,7 +1116,8 @@ class BLEManager {
         DispatchQueue.main.async {
             self.connectionState = .searching
             self.configSynced = false
-            self.cachedImages = [:]
+            // Don't clear cachedImages here — disk cache + CRC comparison
+            // in downloadAllImages() handles stale data on reconnect
         }
         centralManager.scanForPeripherals(withServices: [nusServiceUUID], options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: false
@@ -1109,6 +1193,9 @@ class BLEManager {
 
         imgDownloadRetries = 0
         let image = UIImage(data: imgData)
+        // Persist to disk cache
+        saveImageToDisk(slot: slot, data: imgData)
+        savePersistedCRC(slot: slot, crc: expectedCRC)
         DispatchQueue.main.async {
             if let image {
                 self.cachedImages[slot] = image
@@ -1169,6 +1256,12 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
         DispatchQueue.main.async { self.ble.scanTimer?.invalidate() }
         central.stopScan()
         DispatchQueue.main.async { self.ble.connectionState = .connecting }
+        let uuid = peripheral.identifier.uuidString
+        // If connecting to a different device, clear disk cache from previous
+        if !ble.connectedPeripheralUUID.isEmpty && ble.connectedPeripheralUUID != uuid {
+            ble.clearDiskCache()
+        }
+        ble.connectedPeripheralUUID = uuid
         ble.connectedPeripheral = peripheral
         central.connect(peripheral, options: nil)
     }

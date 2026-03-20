@@ -50,11 +50,13 @@ static uint16_t displayBuffer[SCREEN_W * SCREEN_H];  // RAM buffer for current i
 #define CONFIG_PATH  "/config.txt"
 #define META_PATH    "/meta.txt"
 #define LABELS_PATH  "/labels.txt"
+#define CRCS_PATH    "/img_crcs.txt"
 #define MAX_IMAGES   99
 #define MAX_LABEL_LEN 32
 #define MAX_CHUNK_SIZE 128
 
 static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];  // null-terminated labels per slot
+static uint32_t localCrcs[MAX_IMAGES];  // per-image CRC-32
 
 // ════════════════════════════════════════════════════════════
 //  LittleFS image management
@@ -103,6 +105,29 @@ static void saveLabels() {
   if (!f) return;
   for (uint8_t i = 0; i < numImages; i++) {
     f.println(labels[i]);
+  }
+  f.close();
+}
+
+static void loadCrcs() {
+  memset(localCrcs, 0, sizeof(localCrcs));
+  File f = LittleFS.open(CRCS_PATH, "r");
+  if (!f) return;
+  uint8_t i = 0;
+  while (f.available() && i < MAX_IMAGES) {
+    String line = f.readStringUntil('\n');
+    line.trim();
+    if (line.length() > 0) localCrcs[i] = strtoul(line.c_str(), nullptr, 16);
+    i++;
+  }
+  f.close();
+}
+
+static void saveCrcs() {
+  File f = LittleFS.open(CRCS_PATH, "w");
+  if (!f) return;
+  for (uint8_t i = 0; i < numImages; i++) {
+    f.printf("%08lx\n", localCrcs[i]);
   }
   f.close();
 }
@@ -328,7 +353,9 @@ static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
   LittleFS.rename("/tmp.bin", path);
 
   upload.state = UPLOAD_IDLE;
+  localCrcs[slot] = upload.runningCrc32;
   updateMeta();
+  saveCrcs();
 
   Serial.printf("Upload complete: slot %d, %d images total\n", slot, numImages);
   stSendResponse(stLink, PKT_RESP_UPLOAD_OK, numImages);
@@ -353,11 +380,16 @@ static void handleDeleteImage(uint8_t slot) {
 
   for (uint8_t i = slot; i + 1 < numImages; i++) {
     strncpy(labels[i], labels[i + 1], MAX_LABEL_LEN);
+    localCrcs[i] = localCrcs[i + 1];
   }
-  if (numImages > 0) labels[numImages - 1][0] = '\0';
+  if (numImages > 0) {
+    labels[numImages - 1][0] = '\0';
+    localCrcs[numImages - 1] = 0;
+  }
 
   updateMeta();
   saveLabels();
+  saveCrcs();
 
   for (uint8_t i = 0; i < 2; i++) {
     if (imageMap[i] == slot) {
@@ -398,7 +430,13 @@ static void handleSwapImages(uint8_t slotA, uint8_t slotB) {
   strncpy(tmpLabel, labels[slotA], MAX_LABEL_LEN + 1);
   strncpy(labels[slotA], labels[slotB], MAX_LABEL_LEN + 1);
   strncpy(labels[slotB], tmpLabel, MAX_LABEL_LEN + 1);
+
+  uint32_t tmpCrc = localCrcs[slotA];
+  localCrcs[slotA] = localCrcs[slotB];
+  localCrcs[slotB] = tmpCrc;
+
   saveLabels();
+  saveCrcs();
 
   for (uint8_t i = 0; i < 2; i++) {
     if (imageMap[i] == slotA) imageMap[i] = slotB;
@@ -475,6 +513,15 @@ static void processTextCommand(const char *cmd) {
       stSendText(stLink, buf);  // list items are not acked individually
     }
     stSendTextAck(stLink, "END");  // ack goes on the final response
+
+  } else if (strcmp(cmd, "GET_CRCS") == 0) {
+    // Respond with per-slot CRCs: "CRCS:count:hex0:hex1:..."
+    char buf[200];
+    int pos = snprintf(buf, sizeof(buf), "CRCS:%d", numImages);
+    for (uint8_t i = 0; i < numImages && pos < (int)sizeof(buf) - 10; i++) {
+      pos += snprintf(buf + pos, sizeof(buf) - pos, ":%08lx", localCrcs[i]);
+    }
+    stSendTextAck(stLink, buf);
   }
 }
 
@@ -567,9 +614,10 @@ void setup() {
   // Seed default images on first boot
   seedDefaultImages();
 
-  // Count available images, load labels and mapping
+  // Count available images, load labels, CRCs, and mapping
   numImages = countImages();
   loadLabels();
+  loadCrcs();
   Serial.printf("Found %d images in LittleFS\n", numImages);
   for (uint8_t i = 0; i < numImages; i++) {
     Serial.printf("  Slot %d: %s\n", i, labels[i][0] ? labels[i] : "(unlabeled)");

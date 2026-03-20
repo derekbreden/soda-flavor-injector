@@ -63,6 +63,7 @@
 
 #define META_PATH     "/meta.txt"
 #define LABELS_PATH   "/labels.txt"
+#define CRCS_PATH     "/img_crcs.txt"
 #define MAX_IMAGES    99
 #define MAX_LABEL_LEN 32
 #define MAX_CHUNK_SIZE 128
@@ -72,7 +73,9 @@ PersistentLog plog(LittleFS, "/logs/system.log", 16384);  // 16KB budget (smalle
 
 static uint8_t numImages = 0;
 static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];
-static uint16_t *imageBuf = nullptr;  // allocated in PSRAM at setup()
+static uint32_t localS3Crcs[MAX_IMAGES];   // per-image CRC-32 for S3 RGB565
+static uint32_t localPngCrcs[MAX_IMAGES];  // per-image CRC-32 for PNG
+static uint16_t *imageBuf = nullptr;       // allocated in PSRAM at setup()
 
 // ── Config state (synced from ESP32 via UART) ──
 uint8_t flavor1Image = 0;
@@ -116,6 +119,7 @@ static void bleSendTextTo(uint16_t connHandle, const char *text);
 static bool loadImageFromFS(uint8_t slot);
 static void imagePath(char *buf, uint8_t slot);
 static void updateMeta();
+static void saveCrcs();
 
 // BLE frame types (GATT/NUS wire format: [type(1B)] [len(2B LE)] [payload...])
 #define BLE_FRAME_TEXT      0x01
@@ -394,8 +398,8 @@ static void processBleRequest() {
   switch (req) {
     case BLE_REQ_LIST:
       for (uint8_t i = 0; i < numImages; i++) {
-        char buf[48];
-        snprintf(buf, sizeof(buf), "IMG:%d:%s", i, labels[i]);
+        char buf[64];
+        snprintf(buf, sizeof(buf), "IMG:%d:%s:%08lx", i, labels[i], localPngCrcs[i]);
         bleSendText(buf);
       }
       bleSendText("END");
@@ -567,6 +571,14 @@ static void processBleUpload() {
     f.write((const uint8_t*)imageBuf, bleUpload.expectedSize);
     f.close();
     Serial.printf("BLE upload: wrote %s (%lu bytes)\n", path, bleUpload.expectedSize);
+
+    // Update CRC for the stored file type
+    if (bleUpload.fileType == 0) {
+      localPngCrcs[bleUpload.slot] = crc;
+    } else if (bleUpload.fileType == 1) {
+      localS3Crcs[bleUpload.slot] = crc;
+    }
+    saveCrcs();
 
     // Update S3 metadata if new S3 RGB565 slot
     if (bleUpload.fileType == 1 && bleUpload.slot >= numImages) {
@@ -800,6 +812,33 @@ static void saveLabels() {
   if (!f) return;
   for (uint8_t i = 0; i < numImages; i++) {
     f.println(labels[i]);
+  }
+  f.close();
+}
+
+static void loadCrcs() {
+  memset(localS3Crcs, 0, sizeof(localS3Crcs));
+  memset(localPngCrcs, 0, sizeof(localPngCrcs));
+  File f = LittleFS.open(CRCS_PATH, "r");
+  if (!f) return;
+  uint8_t i = 0;
+  while (f.available() && i < MAX_IMAGES) {
+    String line = f.readStringUntil('\n');
+    line.trim();
+    if (line.length() > 0) {
+      // Format: s3_crc:png_crc
+      sscanf(line.c_str(), "%lx:%lx", &localS3Crcs[i], &localPngCrcs[i]);
+    }
+    i++;
+  }
+  f.close();
+}
+
+static void saveCrcs() {
+  File f = LittleFS.open(CRCS_PATH, "w");
+  if (!f) return;
+  for (uint8_t i = 0; i < numImages; i++) {
+    f.printf("%08lx:%08lx\n", localS3Crcs[i], localPngCrcs[i]);
   }
   f.close();
 }
@@ -1062,6 +1101,8 @@ static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
     LittleFS.remove(path);
     bool renameOk = LittleFS.rename("/tmp.bin", path);
     upload.state = UPLOAD_IDLE;
+    localPngCrcs[slot] = upload.runningCrc32;
+    saveCrcs();
     Serial.printf("PNG upload complete: slot %d (%lu bytes) rename=%s\n",
                   slot, upload.receivedBytes, renameOk ? "ok" : "FAIL");
     if (LittleFS.exists(path)) {
@@ -1080,7 +1121,9 @@ static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
     LittleFS.remove(path);
     LittleFS.rename("/tmp.bin", path);
     upload.state = UPLOAD_IDLE;
+    localS3Crcs[slot] = upload.runningCrc32;
     updateMeta();
+    saveCrcs();
     Serial.printf("Upload complete: slot %d, %d images total\n", slot, numImages);
     sendStResp(PKT_RESP_UPLOAD_OK, numImages);
   }
@@ -1119,14 +1162,21 @@ static void handleDeleteImage(uint8_t slot) {
     }
   }
 
-  // Shift labels down
+  // Shift labels and CRCs down
   for (uint8_t i = slot; i + 1 < numImages; i++) {
     strncpy(labels[i], labels[i + 1], MAX_LABEL_LEN);
+    localS3Crcs[i] = localS3Crcs[i + 1];
+    localPngCrcs[i] = localPngCrcs[i + 1];
   }
-  if (numImages > 0) labels[numImages - 1][0] = '\0';
+  if (numImages > 0) {
+    labels[numImages - 1][0] = '\0';
+    localS3Crcs[numImages - 1] = 0;
+    localPngCrcs[numImages - 1] = 0;
+  }
 
   updateMeta();
   saveLabels();
+  saveCrcs();
 
   // Adjust local image references
   if (flavor1Image == slot) flavor1Image = 0;
@@ -1175,12 +1225,21 @@ static void handleSwapImages(uint8_t slotA, uint8_t slotB) {
     LittleFS.rename(pPathB, pPathA);
   }
 
-  // Swap labels
+  // Swap labels and CRCs
   char tmpLabel[MAX_LABEL_LEN + 1];
   strncpy(tmpLabel, labels[slotA], MAX_LABEL_LEN + 1);
   strncpy(labels[slotA], labels[slotB], MAX_LABEL_LEN + 1);
   strncpy(labels[slotB], tmpLabel, MAX_LABEL_LEN + 1);
+
+  uint32_t tmpCrc = localS3Crcs[slotA];
+  localS3Crcs[slotA] = localS3Crcs[slotB];
+  localS3Crcs[slotB] = tmpCrc;
+  tmpCrc = localPngCrcs[slotA];
+  localPngCrcs[slotA] = localPngCrcs[slotB];
+  localPngCrcs[slotB] = tmpCrc;
+
   saveLabels();
+  saveCrcs();
 
   // Adjust local image references
   if (flavor1Image == slotA) flavor1Image = slotB;
@@ -1408,6 +1467,17 @@ static void processTextLine(const char *line) {
       delay(10);
     }
     stSendTextAck(stLink, "END");
+
+  } else if (strcmp(line, "GET_CRCS") == 0) {
+    // Respond with per-slot CRCs: "CRCS:count:s3hex:pnghex:s3hex:pnghex:..."
+    char buf[200];
+    int pos = snprintf(buf, sizeof(buf), "CRCS:%d", numImages);
+    for (uint8_t i = 0; i < numImages && pos < (int)sizeof(buf) - 20; i++) {
+      pos += snprintf(buf + pos, sizeof(buf) - pos, ":%08lx:%08lx",
+                      localS3Crcs[i], localPngCrcs[i]);
+    }
+    stSendTextAck(stLink, buf);
+
   } else if (strncmp(line, "TEST_FORWARD:", 13) == 0) {
     // Debug: forward an existing S3 PNG to ESP32 via linkEsp (same path as BLE upload)
     int slot = atoi(line + 13);
@@ -2161,6 +2231,7 @@ void setup() {
   seedDefaultImages();
   numImages = countImages();
   loadLabels();
+  loadCrcs();
   Serial.printf("Found %d images in LittleFS\n", numImages);
   for (uint8_t i = 0; i < numImages; i++) {
     Serial.printf("  Slot %d: %s\n", i, labels[i][0] ? labels[i] : "(unlabeled)");

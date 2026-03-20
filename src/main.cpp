@@ -49,6 +49,7 @@ uint8_t numS3Images = 0;  // updated at boot via QUERY_COUNT to S3
 #define STORE_CHUNK_SIZE   128
 #define ESP_META_PATH      "/meta.txt"
 #define ESP_LABELS_PATH    "/labels.txt"
+#define ESP_CRCS_PATH      "/img_crcs.txt"
 #define FW_VERSION_PATH    "/fw_version.txt"
 #define USER_CONFIG_PATH   "/user_config.txt"
 #define FW_VERSION         FW_BUILD_TIME
@@ -70,6 +71,12 @@ extern const char factory_manifest_start[] asm("_binary_images_factory_manifest_
 uint8_t numEspImages = 0;
 uint8_t factoryImageCount = 0;  // slots 0..factoryImageCount-1 are protected
 char espLabels[MAX_STORE_IMAGES][MAX_LABEL_LEN + 1];
+
+// Per-slot CRC-32 values: [slot][0=RP, 1=S3, 2=PNG]
+uint32_t espCrcs[MAX_STORE_IMAGES][3];
+#define CRC_IDX_RP  0
+#define CRC_IDX_S3  1
+#define CRC_IDX_PNG 2
 
 // ── S3-initiated upload state (BLE phone → S3 → ESP32 via SerialTransfer) ──
 static struct {
@@ -317,6 +324,7 @@ uint32_t lastPushedFlowSum[2] = {};
 // Forward declarations (defined after image store section)
 void saveEspMeta();
 void saveEspLabels();
+void computeAllEspCrcs();
 
 // Parse compiled-in factory_manifest.json → set runtime config + labels + store count
 void applyFactoryDefaults() {
@@ -350,6 +358,10 @@ void applyFactoryDefaults() {
   factoryImageCount = count;
   saveEspMeta();
   saveEspLabels();
+
+  // Recompute CRCs for factory images (they were just written to LittleFS)
+  memset(espCrcs, 0, sizeof(espCrcs));
+  computeAllEspCrcs();
 
   Serial.printf("Factory defaults applied: F1 ratio=%d image=%d, F2 ratio=%d image=%d, %d images (%d factory)\n",
                 flavor1Ratio, flavor1Image, flavor2Ratio, flavor2Image, count, count);
@@ -557,6 +569,65 @@ void saveEspLabels() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Image CRC persistence (per-slot, per-format)
+// ════════════════════════════════════════════════════════════
+
+void loadEspCrcs() {
+  memset(espCrcs, 0, sizeof(espCrcs));
+  File f = LittleFS.open(ESP_CRCS_PATH, "r");
+  if (!f) return;
+  uint8_t i = 0;
+  while (f.available() && i < MAX_STORE_IMAGES) {
+    String line = f.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0) { i++; continue; }
+    // Format: rp_crc:s3_crc:png_crc (8-char hex each)
+    sscanf(line.c_str(), "%lx:%lx:%lx", &espCrcs[i][0], &espCrcs[i][1], &espCrcs[i][2]);
+    i++;
+  }
+  f.close();
+}
+
+void saveEspCrcs() {
+  File tmp = LittleFS.open("/img_crcs.tmp", "w");
+  if (!tmp) return;
+  for (uint8_t i = 0; i < numEspImages; i++) {
+    tmp.printf("%08lx:%08lx:%08lx\n", espCrcs[i][0], espCrcs[i][1], espCrcs[i][2]);
+  }
+  tmp.close();
+  LittleFS.remove(ESP_CRCS_PATH);
+  LittleFS.rename("/img_crcs.tmp", ESP_CRCS_PATH);
+}
+
+// Compute CRC-32 for a single file by reading it in chunks
+uint32_t computeFileCrc32(const char *path) {
+  File f = LittleFS.open(path, "r");
+  if (!f) return 0;
+  uint32_t crc = 0;
+  uint8_t buf[256];
+  while (f.available()) {
+    size_t n = f.read(buf, sizeof(buf));
+    crc = uartCrc32Update(crc, buf, n);
+  }
+  f.close();
+  return crc;
+}
+
+// Migration: compute CRCs for all existing images (runs once on upgrade)
+void computeAllEspCrcs() {
+  Serial.println("Computing CRCs for all stored images (one-time migration)...");
+  for (uint8_t i = 0; i < numEspImages; i++) {
+    espCrcs[i][CRC_IDX_RP]  = computeFileCrc32(espRpPath(i).c_str());
+    espCrcs[i][CRC_IDX_S3]  = computeFileCrc32(espS3Path(i).c_str());
+    espCrcs[i][CRC_IDX_PNG] = computeFileCrc32(espS3PngPath(i).c_str());
+    Serial.printf("  Slot %d: RP=%08lx S3=%08lx PNG=%08lx\n",
+                  i, espCrcs[i][0], espCrcs[i][1], espCrcs[i][2]);
+  }
+  saveEspCrcs();
+  Serial.println("CRC migration complete");
+}
+
+// ════════════════════════════════════════════════════════════
 //  Store mode: receive binary upload to ESP32 LittleFS
 // ════════════════════════════════════════════════════════════
 
@@ -678,6 +749,13 @@ void enterStoreMode(bool isS3, uint8_t slot, bool isPng = false) {
         saveEspMeta();
       }
 
+      // Persist CRC for this file
+      if (crcOk) {
+        int crcIdx = isPng ? CRC_IDX_PNG : (isS3 ? CRC_IDX_S3 : CRC_IDX_RP);
+        espCrcs[slot][crcIdx] = runCrc;
+        saveEspCrcs();
+      }
+
       // Send RESP_UPLOAD_OK
       uint8_t resp[6];
       resp[0] = 0x02; resp[1] = 0x02;
@@ -716,7 +794,10 @@ static struct {
   uint8_t slot;
   uint8_t targetCount;
   bool pushAll;
+  bool skipSlot[MAX_STORE_IMAGES];  // CRC-matched slots (skip upload)
 } rpSync;
+
+void onRpCrcResponse(UartLink *link, const char *response);
 
 void startRpSync(bool pushAll) {
   if (rpSync.active) {
@@ -730,12 +811,12 @@ void startRpSync(bool pushAll) {
   rpSync.active = true;
   rpSync.targetCount = numEspImages;
   rpSync.pushAll = pushAll;
+  memset(rpSync.skipSlot, 0, sizeof(rpSync.skipSlot));
 
   if (pushAll) {
-    Serial.printf("[RP sync] Start: pushing %d images\n", numEspImages);
-    rpSync.phase = 0;
-    rpSync.slot = 0;
-    advanceRpSyncImages();
+    // Query device CRCs first to skip matching slots
+    Serial.printf("[RP sync] Start: querying CRCs for %d images\n", numEspImages);
+    linkRP.queueText("GET_CRCS", true, UARTLINK_PRI_LOW, onRpCrcResponse);
   } else {
     Serial.printf("[RP sync] Start: labels+config only (%d images in sync)\n", numEspImages);
     rpSync.phase = 2;
@@ -743,7 +824,46 @@ void startRpSync(bool pushAll) {
   }
 }
 
+void onRpCrcResponse(UartLink *link, const char *response) {
+  if (!rpSync.active) return;
+
+  int matched = 0;
+  if (response && strncmp(response, "CRCS:", 5) == 0) {
+    // Parse "CRCS:count:hex0:hex1:..."
+    const char *p = response + 5;
+    int deviceCount = atoi(p);
+    p = strchr(p, ':');
+    for (int i = 0; i < deviceCount && i < rpSync.targetCount && p; i++) {
+      p++;  // skip ':'
+      uint32_t deviceCrc = strtoul(p, nullptr, 16);
+      if (deviceCrc != 0 && deviceCrc == espCrcs[i][CRC_IDX_RP]) {
+        rpSync.skipSlot[i] = true;
+        matched++;
+      }
+      p = strchr(p, ':');
+    }
+    Serial.printf("[RP sync] CRC check: %d/%d slots match\n", matched, rpSync.targetCount);
+  } else {
+    Serial.println("[RP sync] CRC query failed — pushing all");
+  }
+
+  if (matched == rpSync.targetCount) {
+    Serial.println("[RP sync] All CRCs match — labels+config only");
+    rpSync.phase = 2;
+    rpSyncSendLabelsAndConfig();
+  } else {
+    rpSync.phase = 0;
+    rpSync.slot = 0;
+    advanceRpSyncImages();
+  }
+}
+
 void advanceRpSyncImages() {
+  // Skip slots where CRC matches
+  while (rpSync.slot < rpSync.targetCount && rpSync.skipSlot[rpSync.slot]) {
+    rpSync.slot++;
+  }
+
   if (rpSync.slot >= rpSync.targetCount) {
     // All images done — move to delete phase
     rpSync.phase = 1;
@@ -877,6 +997,13 @@ void bootSync() {
   }
   readEspMeta();
   loadEspLabels();
+
+  // Load or compute image CRCs
+  if (LittleFS.exists(ESP_CRCS_PATH)) {
+    loadEspCrcs();
+  } else if (numEspImages > 0) {
+    computeAllEspCrcs();
+  }
 
   if (numEspImages == 0) {
     Serial.println("Store empty — skipping boot sync");
@@ -1156,6 +1283,8 @@ static struct {
   uint8_t respTarget;
   bool rpResult;        // stash RP2040 result for combined response
   char respBuf[64];     // deferred response message
+  bool skipSlotS3[MAX_STORE_IMAGES];   // CRC-matched S3 RGB565 slots
+  bool skipSlotPng[MAX_STORE_IMAGES];  // CRC-matched PNG slots
 } s3Sync;
 
 // Deferred S3 command response (for DELETE_S3_IMG, SWAP_S3_IMG, etc.)
@@ -1590,11 +1719,14 @@ void processConfigCommand(const char *cmd, Stream &out) {
         LittleFS.rename(pngFrom, espS3PngPath(i - 1));
       }
       strncpy(espLabels[i - 1], espLabels[i], MAX_LABEL_LEN);
+      memcpy(espCrcs[i - 1], espCrcs[i], sizeof(espCrcs[0]));
     }
     numEspImages--;
     espLabels[numEspImages][0] = '\0';
+    memset(espCrcs[numEspImages], 0, sizeof(espCrcs[0]));
     saveEspMeta();
     saveEspLabels();
+    saveEspCrcs();
 
     // Forward delete to RP2040 (async)
     linkRP.queueDelete((uint8_t)slot, UARTLINK_PRI_NORMAL, [](UartLink *link, uint8_t s, bool ok) {
@@ -2014,6 +2146,12 @@ void handleS3UploadDone() {
   LittleFS.rename("/tmp_s3.bin", destPath);
   s3Upload.active = false;
 
+  // Persist CRC for this file type
+  int crcIdx = (s3Upload.fileType == 0) ? CRC_IDX_S3 :
+               (s3Upload.fileType == 1) ? CRC_IDX_PNG : CRC_IDX_RP;
+  espCrcs[s3Upload.slot][crcIdx] = s3Upload.runningCrc32;
+  saveEspCrcs();
+
   Serial.printf("S3 upload OK: %s slot %d (%lu bytes)\n",
                 destPath.c_str(), s3Upload.slot, s3Upload.receivedBytes);
   stSendResponse(stS3, PKT_RESP_UPLOAD_OK, numEspImages);
@@ -2072,6 +2210,11 @@ void onS3SyncPngDone(UartLink *link, uint8_t slot, bool success);
 
 void advanceS3SyncPngs() {
   while (s3Sync.slot < s3Sync.targetCount) {
+    // Skip slots where PNG CRC matches
+    if (s3Sync.skipSlotPng[s3Sync.slot]) {
+      s3Sync.slot++;
+      continue;
+    }
     String path = espS3PngPath(s3Sync.slot);
     if (LittleFS.exists(path)) {
       linkS3.queueUpload(s3Sync.slot, path.c_str(), PKT_UPLOAD_PNG_START,
@@ -2107,6 +2250,11 @@ void onS3SyncDeleteDone(UartLink *link, uint8_t slot, bool success) {
 void onS3SyncUploadDone(UartLink *link, uint8_t slot, bool success);
 
 void advanceS3SyncImages() {
+  // Skip slots where S3 CRC matches
+  while (s3Sync.slot < s3Sync.targetCount && s3Sync.skipSlotS3[s3Sync.slot]) {
+    s3Sync.slot++;
+  }
+
   if (s3Sync.slot < s3Sync.targetCount) {
     String path = espS3Path(s3Sync.slot);
     linkS3.queueUpload(s3Sync.slot, path.c_str(), PKT_UPLOAD_START,
@@ -2133,6 +2281,8 @@ void onS3SyncUploadDone(UartLink *link, uint8_t slot, bool success) {
   advanceS3SyncImages();
 }
 
+void onS3CrcResponse(UartLink *link, const char *response);
+
 void startS3Sync(bool pushAll, uint8_t respTarget, bool rpResult) {
   if (s3Sync.active) {
     Serial.println("[S3 sync] Already in progress, skipping");
@@ -2149,17 +2299,68 @@ void startS3Sync(bool pushAll, uint8_t respTarget, bool rpResult) {
   s3Sync.respTarget = respTarget;
   s3Sync.rpResult = rpResult;
   s3Sync.respBuf[0] = '\0';
+  memset(s3Sync.skipSlotS3, 0, sizeof(s3Sync.skipSlotS3));
+  memset(s3Sync.skipSlotPng, 0, sizeof(s3Sync.skipSlotPng));
 
   if (pushAll) {
-    Serial.printf("[S3 sync] Starting full push (%d images)\n", numEspImages);
-    s3Sync.phase = 0;  // images
-    s3Sync.slot = 0;
-    advanceS3SyncImages();
+    // Query device CRCs first to skip matching slots
+    Serial.printf("[S3 sync] Start: querying CRCs for %d images\n", numEspImages);
+    linkS3.queueText("GET_CRCS", true, UARTLINK_PRI_LOW, onS3CrcResponse);
   } else {
     Serial.printf("[S3 sync] Starting PNGs+labels+config (%d images)\n", numEspImages);
     s3Sync.phase = 2;  // skip to PNGs
     s3Sync.slot = 0;
     advanceS3SyncPngs();
+  }
+}
+
+void onS3CrcResponse(UartLink *link, const char *response) {
+  if (!s3Sync.active) return;
+
+  int s3Matched = 0, pngMatched = 0;
+  if (response && strncmp(response, "CRCS:", 5) == 0) {
+    // Parse "CRCS:count:s3hex0:pnghex0:s3hex1:pnghex1:..."
+    const char *p = response + 5;
+    int deviceCount = atoi(p);
+    p = strchr(p, ':');
+    for (int i = 0; i < deviceCount && i < s3Sync.targetCount && p; i++) {
+      p++;  // skip ':'
+      uint32_t s3Crc = strtoul(p, nullptr, 16);
+      p = strchr(p, ':');
+      uint32_t pngCrc = 0;
+      if (p) {
+        p++;
+        pngCrc = strtoul(p, nullptr, 16);
+        p = strchr(p, ':');
+      }
+      if (s3Crc != 0 && s3Crc == espCrcs[i][CRC_IDX_S3]) {
+        s3Sync.skipSlotS3[i] = true;
+        s3Matched++;
+      }
+      if (pngCrc != 0 && pngCrc == espCrcs[i][CRC_IDX_PNG]) {
+        s3Sync.skipSlotPng[i] = true;
+        pngMatched++;
+      }
+    }
+    Serial.printf("[S3 sync] CRC check: S3=%d/%d PNG=%d/%d match\n",
+                  s3Matched, s3Sync.targetCount, pngMatched, s3Sync.targetCount);
+  } else {
+    Serial.println("[S3 sync] CRC query failed — pushing all");
+  }
+
+  if (s3Matched == s3Sync.targetCount && pngMatched == s3Sync.targetCount) {
+    Serial.println("[S3 sync] All CRCs match — labels+config only");
+    s3Sync.phase = 3;  // skip to labels+config
+    s3SyncSendLabelsAndConfig();
+  } else if (s3Matched == s3Sync.targetCount) {
+    // S3 images match but PNGs need update
+    s3Sync.phase = 2;
+    s3Sync.slot = 0;
+    advanceS3SyncPngs();
+  } else {
+    s3Sync.phase = 0;
+    s3Sync.slot = 0;
+    advanceS3SyncImages();
   }
 }
 
