@@ -754,14 +754,19 @@ private struct GlassIcon: View {
             rim.addLine(to: CGPoint(x: 404 * sx, y: 0))
             ctx.stroke(rim, with: .color(color), lineWidth: max(2, height / 28))
 
+            // Liquid fill line — SVG liquid surface at y=347, glass-relative y=100
+            // Interpolate glass x at y=100: left edge ~= 7.4, right edge ~= 396.6
+            var liquid = Path()
+            liquid.move(to: CGPoint(x: 7.4 * sx, y: 100 * sy))
+            liquid.addLine(to: CGPoint(x: 396.6 * sx, y: 100 * sy))
+            ctx.stroke(liquid, with: .color(color.opacity(0.4)), lineWidth: max(1, height / 50))
+
             // Bubbles from SVG (stroke-only, positions relative to glass origin)
             // SVG: cx=440,cy=567,r=42 → (130, 320, r=42)
             // SVG: cx=580,cy=487,r=35 → (270, 240, r=35)
-            // SVG: cx=470,cy=297,r=18 → (160, 50, r=18) — rising bubble above liquid
             let bubbles: [(x: CGFloat, y: CGFloat, r: CGFloat)] = [
                 (130, 320, 42),  // large bubble center-left
                 (270, 240, 35),  // medium bubble center-right
-                (160, 50, 18),   // small rising bubble near top
             ]
             let bw = max(1, height / 50)
             for b in bubbles {
@@ -783,10 +788,10 @@ private struct GlassIcon: View {
 private struct ServingSizeSelector: View {
     @Binding var selectedOz: Int
 
-    private let options: [(oz: Int, label: String)] = [
-        (12, "12oz"),
-        (16, "16oz"),
-        (20, "20oz"),
+    private let options: [(oz: Int, label: String, iconHeight: CGFloat)] = [
+        (12, "12oz", 42),   // 56 * 12/16
+        (16, "16oz", 56),
+        (20, "20oz", 70),   // 56 * 20/16
     ]
 
     var body: some View {
@@ -795,7 +800,7 @@ private struct ServingSizeSelector: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
 
-            HStack(spacing: 32) {
+            HStack(alignment: .bottom, spacing: 32) {
                 ForEach(options, id: \.oz) { opt in
                     let isSelected = selectedOz == opt.oz
                     let color = isSelected ? Theme.textPrimary : Theme.textSecondary.opacity(0.4)
@@ -806,7 +811,7 @@ private struct ServingSizeSelector: View {
                         }
                     } label: {
                         VStack(spacing: 4) {
-                            GlassIcon(height: 56, color: color)
+                            GlassIcon(height: opt.iconHeight, color: color)
                             Text(opt.label)
                                 .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
                                 .foregroundStyle(color)
