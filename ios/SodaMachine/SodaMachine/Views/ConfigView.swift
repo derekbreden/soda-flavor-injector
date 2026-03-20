@@ -790,27 +790,32 @@ private struct ServingSizeSelector: View {
     ]
 
     var body: some View {
-        HStack(spacing: 32) {
-            ForEach(options, id: \.oz) { opt in
-                let isSelected = selectedOz == opt.oz
-                let color = isSelected ? Theme.textPrimary : Theme.textSecondary.opacity(0.4)
+        VStack(spacing: 8) {
+            Text("Serving Size")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
 
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        selectedOz = opt.oz
+            HStack(spacing: 32) {
+                ForEach(options, id: \.oz) { opt in
+                    let isSelected = selectedOz == opt.oz
+                    let color = isSelected ? Theme.textPrimary : Theme.textSecondary.opacity(0.4)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedOz = opt.oz
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            GlassIcon(height: 56, color: color)
+                            Text(opt.label)
+                                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                .foregroundStyle(color)
+                        }
                     }
-                } label: {
-                    VStack(spacing: 4) {
-                        GlassIcon(height: 56, color: color)
-                        Text(opt.label)
-                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(color)
-                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
-        .padding(.top, 8)
     }
 }
 
