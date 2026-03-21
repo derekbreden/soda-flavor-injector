@@ -15,7 +15,31 @@
 #include "images/flavor0_240.h"
 #include "images/flavor1_240.h"
 #include "images/flavor2_240.h"
-#include "images/logo_240.h"
+// Animation frames (compiled in for screensaver idle animation)
+#include "images/anim_00.h"
+#include "images/anim_01.h"
+#include "images/anim_02.h"
+#include "images/anim_03.h"
+#include "images/anim_04.h"
+#include "images/anim_05.h"
+#include "images/anim_06.h"
+#include "images/anim_07.h"
+#include "images/anim_08.h"
+#include "images/anim_09.h"
+#include "images/anim_10.h"
+#include "images/anim_11.h"
+#include "images/anim_12.h"
+#include "images/anim_13.h"
+#include "images/anim_14.h"
+#include "images/anim_15.h"
+
+static const uint16_t *animFrames[] = {
+    anim_00, anim_01, anim_02, anim_03,
+    anim_04, anim_05, anim_06, anim_07,
+    anim_08, anim_09, anim_10, anim_11,
+    anim_12, anim_13, anim_14, anim_15,
+};
+static const uint8_t NUM_ANIM_FRAMES = 16;
 
 // ════════════════════════════════════════════════════════════
 //  ESP32-S3 Config Display — Soda Flavor Injector
@@ -63,7 +87,7 @@
 #define META_PATH     "/meta.txt"
 #define LABELS_PATH   "/labels.txt"
 #define CRCS_PATH     "/img_crcs.txt"
-#define MAX_IMAGES    99
+#define MAX_IMAGES    10
 #define MAX_LABEL_LEN 32
 #define MAX_CHUNK_SIZE 128
 
@@ -826,8 +850,12 @@ bool currentTouching = false;  // raw touch state, updated every readTap() call
 
 // ── Screensaver ──
 #define SCREENSAVER_TIMEOUT 120000  // 120 seconds
+#define ANIM_FRAME_MS       100     // ms per animation frame (~10 fps)
 unsigned long lastInputTime = 0;
 bool screensaverActive = false;
+static lv_timer_t *animTimer = nullptr;
+static uint8_t animFrameIdx = 0;
+static lv_obj_t *animCanvas = nullptr;
 
 // ── Circular image rendering ──
 // Browse: 90px diameter, Edit: 128px diameter (matches external RP2040 display)
@@ -1965,15 +1993,38 @@ void drawCleanCycle() {
   }
 }
 
+static void animTimerCb(lv_timer_t *timer) {
+  (void)timer;
+  if (!screensaverActive || !animCanvas) return;
+  animFrameIdx = (animFrameIdx + 1) % NUM_ANIM_FRAMES;
+  lv_canvas_set_buffer(animCanvas, (lv_color_t *)animFrames[animFrameIdx],
+                       240, 240, LV_IMG_CF_TRUE_COLOR);
+  lv_refr_now(NULL);
+}
+
+void stopScreensaver() {
+  if (animTimer) {
+    lv_timer_del(animTimer);
+    animTimer = nullptr;
+  }
+  animCanvas = nullptr;
+}
+
 void drawScreensaver() {
   lv_obj_t *scr = lv_scr_act();
   lv_obj_clean(scr);
   lv_obj_set_style_bg_color(scr, THEME_BG, 0);
 
-  lv_obj_t *canvas = lv_canvas_create(scr);
-  lv_canvas_set_buffer(canvas, (lv_color_t *)logo_240, 240, 240, LV_IMG_CF_TRUE_COLOR);
-  lv_obj_align(canvas, LV_ALIGN_CENTER, 0, 0);
+  animFrameIdx = 0;
+  animCanvas = lv_canvas_create(scr);
+  lv_canvas_set_buffer(animCanvas, (lv_color_t *)animFrames[0],
+                       240, 240, LV_IMG_CF_TRUE_COLOR);
+  lv_obj_align(animCanvas, LV_ALIGN_CENTER, 0, 0);
   lv_refr_now(NULL);
+
+  // Start frame cycling timer
+  if (animTimer) lv_timer_del(animTimer);
+  animTimer = lv_timer_create(animTimerCb, ANIM_FRAME_MS, NULL);
 }
 
 void drawScreen() {
@@ -2393,7 +2444,8 @@ void loop() {
   if (dir != 0 || tapped) {
     lastInputTime = millis();
     if (screensaverActive) {
-      // Wake: return to first page in browse mode
+      // Wake: stop animation timer, return to first page in browse mode
+      stopScreensaver();
       screensaverActive = false;
       menuIndex = 0;
       editing = false;

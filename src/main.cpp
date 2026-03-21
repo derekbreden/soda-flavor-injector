@@ -44,7 +44,7 @@ uint8_t numS3Images = 0;  // updated at boot via QUERY_COUNT to S3
 // ── Image store (ESP32 LittleFS — authoritative source) ──
 #define RP2040_IMAGE_BYTES (128 * 115 * 2)   // 29440
 #define S3_IMAGE_BYTES     (240 * 240 * 2)    // 115200
-#define MAX_STORE_IMAGES   23
+#define MAX_STORE_IMAGES   10
 #define MAX_LABEL_LEN      32
 #define ESP_META_PATH      "/meta.txt"
 #define ESP_LABELS_PATH    "/labels.txt"

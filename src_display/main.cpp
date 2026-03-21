@@ -50,7 +50,7 @@ static uint16_t displayBuffer[SCREEN_W * SCREEN_H];  // RAM buffer for current i
 #define META_PATH    "/meta.txt"
 #define LABELS_PATH  "/labels.txt"
 #define CRCS_PATH    "/img_crcs.txt"
-#define MAX_IMAGES   99
+#define MAX_IMAGES   10
 #define MAX_LABEL_LEN 32
 
 static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];  // null-terminated labels per slot
