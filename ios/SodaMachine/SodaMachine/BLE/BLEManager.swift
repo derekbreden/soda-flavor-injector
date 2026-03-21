@@ -159,6 +159,12 @@ class BLEManager {
 
     init() {
         cbAdapter = CBDelegateAdapter(self)
+    }
+
+    /// Create the CBCentralManager (triggers Bluetooth permission prompt).
+    /// Idempotent — safe to call multiple times.
+    func activateBluetooth() {
+        guard centralManager == nil else { return }
         centralManager = CBCentralManager(delegate: cbAdapter, queue: bleQueue)
     }
 
@@ -447,7 +453,7 @@ class BLEManager {
     // MARK: - Demo mode
 
     func enterDemoMode() {
-        centralManager.stopScan()
+        centralManager?.stopScan()
         scanTimer?.invalidate()
         reconnectTimer?.invalidate()
         demoMode = true
@@ -478,10 +484,11 @@ class BLEManager {
         s3Version = ""
         espVersion = ""
         rpVersion = ""
-        if centralManager.state == .poweredOn {
+        activateBluetooth()
+        if centralManager?.state == .poweredOn {
             startScan()
         } else {
-            connectionState = .bluetoothOff
+            connectionState = .searching
         }
     }
 
@@ -1117,7 +1124,7 @@ class BLEManager {
     // MARK: - Internal
 
     fileprivate func startScan() {
-        guard centralManager.state == .poweredOn else { return }
+        guard let centralManager, centralManager.state == .poweredOn else { return }
         DispatchQueue.main.async {
             self.connectionState = .searching
             self.configSynced = false

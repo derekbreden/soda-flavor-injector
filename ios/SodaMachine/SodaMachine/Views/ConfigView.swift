@@ -215,7 +215,7 @@ private struct SettingsPageView: View {
                         inAbout = true
                     }
                     if ble.demoMode {
-                        settingsButton("Exit Demo") {
+                        settingsButton("Connect to Machine") {
                             ble.exitDemoMode()
                         }
                     }
