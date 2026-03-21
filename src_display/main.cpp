@@ -635,7 +635,7 @@ void setup() {
 
   // Bidirectional UART with ESP32 at 38400 baud
   pioSerial.begin(38400);
-  stLink.begin(pioSerial);
+  stLink.begin(pioSerial, true, Serial, 200);  // 200ms timeout (must exceed loop delay)
 
   // Flavor switch
   pinMode(FLAVOR_SW_PIN, INPUT_PULLUP);
@@ -688,5 +688,5 @@ void loop() {
                   activeFlavor + 1, imageMap[activeFlavor]);
   }
 
-  delay(50);
+  delay(10);  // Keep short so SerialTransfer parser runs frequently
 }
