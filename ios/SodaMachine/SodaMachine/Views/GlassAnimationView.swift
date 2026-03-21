@@ -49,9 +49,9 @@ struct GlassAnimationView: View {
     // S3 has 8 but the extra 4 small ones create an ugly row at frame 0.
     private static let bubbles: [BubbleDef] = [
         BubbleDef(cx: 440, r: 42, phase: 0.0,  speed: 1, strokeOpacity: 0.2,  strokeWidth: 2.5),
-        BubbleDef(cx: 580, r: 35, phase: 0.25, speed: 1, strokeOpacity: 0.2,  strokeWidth: 2.5),
-        BubbleDef(cx: 500, r: 30, phase: 0.50, speed: 1, strokeOpacity: 0.18, strokeWidth: 2),
-        BubbleDef(cx: 620, r: 26, phase: 0.75, speed: 1, strokeOpacity: 0.18, strokeWidth: 2),
+        BubbleDef(cx: 580, r: 35, phase: 0.20, speed: 1, strokeOpacity: 0.2,  strokeWidth: 2.5),
+        BubbleDef(cx: 500, r: 30, phase: 0.42, speed: 1, strokeOpacity: 0.18, strokeWidth: 2),
+        BubbleDef(cx: 620, r: 26, phase: 0.62, speed: 1, strokeOpacity: 0.18, strokeWidth: 2),
     ]
 
     // MARK: - Main draw

@@ -42,18 +42,18 @@
 
   <!-- Liquid fill -->
   <g clip-path="url(#glassClip)">
-    <!-- Main liquid body -->
-    <rect x="300" y="347" width="424" height="440" fill="url(#liquid)"/>
+    <!-- Main liquid body — wavy top matching GlassAnimationView t=0 -->
+    <path d="M300 347 Q400 327 512 352 Q624 377 724 342 L724 800 L300 800 Z" fill="url(#liquid)"/>
 
     <!-- Liquid surface wave -->
     <path d="M300 347 Q400 327 512 352 Q624 377 724 342 L724 367 Q624 397 512 372 Q400 347 300 367 Z"
           fill="rgba(255,255,255,0.12)"/>
 
-    <!-- Bubbles inside liquid -->
-    <circle cx="440" cy="567" r="42" fill="url(#bubbleGlow)" stroke="rgba(255,255,255,0.2)" stroke-width="2.5"/>
-    <circle cx="580" cy="487" r="35" fill="url(#bubbleGlow)" stroke="rgba(255,255,255,0.2)" stroke-width="2.5"/>
-    <circle cx="500" cy="707" r="30" fill="url(#bubbleGlow)" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
-    <circle cx="620" cy="667" r="26" fill="url(#bubbleGlow)" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+    <!-- Bubbles inside liquid — positions match GlassAnimationView t=0 -->
+    <circle cx="440" cy="740" r="42" fill="url(#bubbleGlow)" stroke="rgba(255,255,255,0.2)" stroke-width="2.5"/>
+    <circle cx="572" cy="610" r="36" fill="url(#bubbleGlow)" stroke="rgba(255,255,255,0.2)" stroke-width="2.5"/>
+    <circle cx="500" cy="489" r="33" fill="url(#bubbleGlow)" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+    <circle cx="628" cy="408" r="29" fill="url(#bubbleGlow)" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
   </g>
 
   <!-- Glass rim highlight -->
