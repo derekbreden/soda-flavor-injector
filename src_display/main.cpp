@@ -624,21 +624,15 @@ void setup() {
 //  TX pump (core 1) — drains pending TinyProto frames to UART
 // ════════════════════════════════════════════════════════════
 
-void setup1() {
-  // Nothing to init — serial is initialized on core 0
-}
-
-void loop1() {
-  proto.serviceTx();
-  delay(1);  // yield to avoid starving core 1
-}
+// NOTE: No setup1()/loop1() — SerialPIO may not be thread-safe across cores.
+// Single-core service via proto.service() in loop() handles both RX and TX.
 
 // ════════════════════════════════════════════════════════════
-//  Main loop (core 0) — RX processing + application logic
+//  Main loop (core 0) — RX + TX processing + application logic
 // ════════════════════════════════════════════════════════════
 
 void loop() {
-  proto.serviceRx();
+  proto.service();  // serviceRx() + serviceTx() on same core
 
   // Check upload timeout (10s without data)
   if (upload.state == UPLOAD_RECEIVING || upload.state == UPLOAD_WAITING_DONE) {
@@ -656,5 +650,5 @@ void loop() {
                   activeFlavor + 1, imageMap[activeFlavor]);
   }
 
-  delay(10);
+  delay(1);
 }

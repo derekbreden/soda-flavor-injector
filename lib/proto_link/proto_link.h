@@ -8,17 +8,15 @@
 #endif
 
 // ════════════════════════════════════════════════════════════
-//  ProtoLink: TinyProto Fd wrapper for dual-core serial I/O
+//  ProtoLink: TinyProto Fd wrapper for serial I/O
 // ════════════════════════════════════════════════════════════
 //
-// Core 0 (main loop): call serviceRx() to process incoming data.
-//   Received messages trigger the onMessage callback.
-// Core 1 (TX pump): call serviceTx() in a tight loop to drain
-//   pending frames to the serial port.
+// Single-core usage: call service() each loop iteration (RX + TX).
+// Dual-core (ESP32): call serviceRx() on core 0, serviceTx() on core 1.
+//   NOTE: RP2040 SerialPIO is NOT thread-safe across cores — use
+//   single-core service() only on RP2040.
 //
-// send() and sendText() queue data into TinyProto's internal
-// buffer (non-blocking). The TX pump transmits it in the
-// background.
+// send() and sendText() queue data into TinyProto's internal buffer.
 //
 // For large transfers (image uploads), use the raw handle via
 // getHandle() with the C API tiny_fd_send() which blocks until
