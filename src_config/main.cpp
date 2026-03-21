@@ -1338,8 +1338,7 @@ static void bleSendFrame(uint8_t type, const uint8_t *payload, uint16_t len) {
   bleSendChunkBuf[1] = len & 0xFF;
   bleSendChunkBuf[2] = (len >> 8) & 0xFF;
   if (len > 0 && payload) memcpy(bleSendChunkBuf + 3, payload, len);
-  pTxChar->setValue(bleSendChunkBuf, 3 + len);
-  pTxChar->notify();
+  pTxChar->notify(bleSendChunkBuf, 3 + len);
 }
 
 // Broadcast a TEXT message to all connected clients
