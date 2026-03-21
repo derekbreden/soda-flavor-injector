@@ -18,6 +18,7 @@ Logs written to:
 import argparse
 import glob
 import os
+import select
 import sys
 import threading
 import time
@@ -187,9 +188,27 @@ def main():
         logger.start()
         loggers.append(logger)
 
+    # Find ESP32 logger for stdin forwarding
+    esp32_logger = next((l for l in loggers if l.device["name"] == "ESP32"), None)
+
+    status("Type commands to send to ESP32 (e.g. GET_CONFIG, GET_VERSION)")
+    print()
+
     try:
         while True:
-            time.sleep(1)
+            # Check stdin for commands (non-blocking)
+            if select.select([sys.stdin], [], [], 0.1)[0]:
+                cmd = sys.stdin.readline().strip()
+                if cmd and esp32_logger and esp32_logger.connected and esp32_logger.ser:
+                    try:
+                        esp32_logger.ser.write((cmd + "\n").encode())
+                        status(f">>> Sent to ESP32: {cmd}")
+                    except (serial.SerialException, OSError) as e:
+                        status(f">>> Send failed: {e}")
+                elif cmd:
+                    status(f">>> ESP32 not connected, command not sent: {cmd}")
+            else:
+                time.sleep(0.1)
     except KeyboardInterrupt:
         status("Shutting down...")
         for logger in loggers:
