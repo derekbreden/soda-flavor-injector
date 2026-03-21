@@ -4,8 +4,6 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <PersistentLog.h>
-#include <uart_st.h>
-#include <uart_queue.h>
 #include <proto_link.h>
 #include <proto_msg.h>
 #include "fw_version.h"
@@ -48,7 +46,6 @@ uint8_t numS3Images = 0;  // updated at boot via QUERY_COUNT to S3
 #define S3_IMAGE_BYTES     (240 * 240 * 2)    // 115200
 #define MAX_STORE_IMAGES   23
 #define MAX_LABEL_LEN      32
-#define STORE_CHUNK_SIZE   128
 #define ESP_META_PATH      "/meta.txt"
 #define ESP_LABELS_PATH    "/labels.txt"
 #define ESP_CRCS_PATH      "/img_crcs.txt"
@@ -80,16 +77,16 @@ uint32_t espCrcs[MAX_STORE_IMAGES][3];
 #define CRC_IDX_S3  1
 #define CRC_IDX_PNG 2
 
-// ── S3-initiated upload state (BLE phone → S3 → ESP32 via SerialTransfer) ──
+// ── S3-initiated upload state (BLE phone → S3 → ESP32 via TinyProto) ──
+enum S3UploadState { S3UP_IDLE, S3UP_RECEIVING, S3UP_WAITING_DONE };
 static struct {
-  bool active = false;
+  S3UploadState state = S3UP_IDLE;
   uint8_t slot;
   uint8_t fileType;  // 0=s3_rgb, 1=png, 2=rp_rgb
   uint32_t expectedSize;
   uint32_t receivedBytes;
-  uint8_t nextSeq;
   uint32_t runningCrc32;
-  unsigned long lastChunkTime;
+  unsigned long lastDataTime;
   File file;
 } s3Upload;
 
@@ -106,9 +103,8 @@ uint8_t flavor2Image = 1;
 // ── RP2040 link (TinyProto) ──
 ProtoLink protoRP;
 
-// ── S3 link (SerialTransfer — migrated in Phase 2) ──
-SerialTransfer stS3;
-UartLink linkS3;
+// ── S3 link (TinyProto) ──
+ProtoLink protoS3;
 
 // ── RP2040 command queue (simple FIFO for non-upload operations) ──
 // Upload uses a dedicated FreeRTOS task; everything else goes through this queue.
@@ -230,6 +226,115 @@ void rpQueueQuery(RpQueryCb cb = nullptr) {
   e.type = RQ_QUERY;
   e.queryCb = cb;
   rpQueue.enqueue(e);
+}
+
+// ── S3 command queue (mirrors RP2040 queue) ──
+#define S3_QUEUE_SIZE 16
+#define S3_TEXT_MAX   200
+
+enum S3QueueType : uint8_t { SQ_NONE, SQ_TEXT, SQ_DELETE, SQ_SWAP, SQ_QUERY };
+
+typedef void (*S3UploadCb)(uint8_t slot, bool success);
+typedef void (*S3DeleteCb)(uint8_t slot, bool success);
+typedef void (*S3SwapCb)(uint8_t slotA, uint8_t slotB, bool success);
+typedef void (*S3QueryCb)(uint8_t count, bool success);
+typedef void (*S3TextCb)(const char *response);
+
+// Forward declarations
+void s3StartUpload(uint8_t slot, const char *path, uint8_t startMsgType, S3UploadCb cb);
+
+struct S3QueueEntry {
+  S3QueueType type = SQ_NONE;
+  char text[S3_TEXT_MAX];
+  uint8_t slot;
+  uint8_t slotB;
+  S3DeleteCb deleteCb;
+  S3SwapCb swapCb;
+  S3QueryCb queryCb;
+  S3TextCb textCb;
+};
+
+static struct {
+  S3QueueEntry entries[S3_QUEUE_SIZE];
+  int head = 0;
+  int tail = 0;
+  int count = 0;
+
+  bool enqueue(const S3QueueEntry &e) {
+    if (count >= S3_QUEUE_SIZE) return false;
+    entries[tail] = e;
+    tail = (tail + 1) % S3_QUEUE_SIZE;
+    count++;
+    return true;
+  }
+  S3QueueEntry* peek() {
+    if (count == 0) return nullptr;
+    return &entries[head];
+  }
+  void dequeue() {
+    if (count == 0) return;
+    entries[head].type = SQ_NONE;
+    head = (head + 1) % S3_QUEUE_SIZE;
+    count--;
+  }
+} s3Queue;
+
+static struct {
+  bool waiting = false;
+  uint8_t expectedType;
+  uint8_t responseValue;
+  bool gotResponse = false;
+  bool gotError = false;
+  unsigned long startTime;
+} s3Pending;
+
+static struct {
+  bool active = false;
+  uint8_t slot;
+  char filePath[32];
+  uint8_t startMsgType;
+  S3UploadCb callback;
+  SemaphoreHandle_t readySem;
+  SemaphoreHandle_t doneSem;
+  bool readyReceived;
+  bool doneReceived;
+  bool errorReceived;
+} s3UploadTask;
+
+void onS3Message(ProtoLink *link, const uint8_t *data, uint16_t len);
+void s3ProcessQueue();
+
+void s3QueueText(const char *text, S3TextCb cb = nullptr) {
+  S3QueueEntry e;
+  e.type = SQ_TEXT;
+  strncpy(e.text, text, S3_TEXT_MAX - 1);
+  e.text[S3_TEXT_MAX - 1] = '\0';
+  e.textCb = cb;
+  s3Queue.enqueue(e);
+}
+
+void s3QueueDelete(uint8_t slot, S3DeleteCb cb = nullptr) {
+  S3QueueEntry e;
+  e.type = SQ_DELETE;
+  e.slot = slot;
+  e.deleteCb = cb;
+  s3Queue.enqueue(e);
+}
+
+void s3QueueSwap(uint8_t slotA, uint8_t slotB, S3SwapCb cb = nullptr) {
+  S3QueueEntry e;
+  e.type = SQ_SWAP;
+  e.slot = slotA;
+  e.slotB = slotB;
+  e.swapCb = cb;
+  s3Queue.enqueue(e);
+}
+
+void s3QueueQuery(S3QueryCb cb = nullptr) {
+  S3QueueEntry e;
+  e.type = SQ_QUERY;
+  e.queryCb = cb;
+  s3Queue.enqueue(e);
 }
 
 // ── Config UART (ESP32 ↔ ESP32-S3, bidirectional) ──
@@ -610,24 +715,26 @@ bool queryImageCount() {
 
 
 // ════════════════════════════════════════════════════════════
-//  Query S3 image count via SerialTransfer
+//  Query S3 image count via TinyProto
 // ════════════════════════════════════════════════════════════
 
+// Blocking S3 image count query — used at boot only
+static volatile bool s3CountReady = false;
+static volatile uint8_t s3CountValue = 0;
+
 bool queryS3ImageCount() {
-  stS3.packet.txBuff[0] = 0;
-  stS3.sendData(1, PKT_QUERY_COUNT);
+  s3CountReady = false;
+  protoS3.sendEmpty(MSG_QUERY_COUNT);
 
   unsigned long start = millis();
   while (millis() - start < 500) {
-    if (stS3.available()) {
-      if (stS3.currentPacketID() == PKT_RESP_COUNT) {
-        ResponsePayload resp;
-        stS3.rxObj(resp);
-        numS3Images = resp.value;
-        Serial.printf("S3 reports %d images\n", numS3Images);
-        return true;
-      }
+    protoS3.serviceRx();
+    if (s3CountReady) {
+      numS3Images = s3CountValue;
+      Serial.printf("S3 reports %d images\n", numS3Images);
+      return true;
     }
+    delay(1);
   }
   return false;
 }
@@ -1055,7 +1162,7 @@ void rpCmdSendResponse(bool success) {
   if (rpCmdResp.target == RP_RESP_USB) {
     Serial.println(msg);
   } else if (rpCmdResp.target == RP_RESP_S3) {
-    stSendText(stS3, msg);
+    protoS3.sendText(msg);
   }
   rpCmdResp.pending = false;
 }
@@ -1297,7 +1404,7 @@ uint8_t cleanSolPin(uint8_t flavor) {
 
 void broadcastCleanStatus(const char *msg) {
   Serial.println(msg);
-  linkS3.queueText(msg, false, UARTLINK_PRI_HIGH);
+  protoS3.sendText(msg);
 }
 
 void startCleanFill(uint8_t flavor) {
@@ -1352,7 +1459,7 @@ void abortClean() {
 
 void broadcastPrimeStatus(const char *msg) {
   Serial.println(msg);
-  linkS3.queueText(msg, false, UARTLINK_PRI_HIGH);
+  protoS3.sendText(msg);
 }
 
 void startPrime(uint8_t flavor) {
@@ -1422,23 +1529,23 @@ void s3CmdSendResponse(bool success) {
   if (s3CmdResp.target == S3_RESP_USB) {
     Serial.println(msg);
   } else if (s3CmdResp.target == S3_RESP_S3) {
-    stSendText(stS3, msg);
+    protoS3.sendText(msg);
   }
   s3CmdResp.pending = false;
 }
 
-void onS3DeleteDone(UartLink *link, uint8_t slot, bool success) {
-  if (success) numS3Images = link->lastResponseValue;
+void onS3DeleteDone(uint8_t slot, bool success) {
+  if (success) numS3Images = s3Pending.responseValue;
   snprintf(s3CmdResp.okMsg, sizeof(s3CmdResp.okMsg),
            "OK:S3_DELETED=%d,NUM_S3_IMAGES=%d", slot, numS3Images);
   s3CmdSendResponse(success);
 }
 
-void onS3SwapDone(UartLink *link, uint8_t slotA, uint8_t slotB, bool success) {
+void onS3SwapDone(uint8_t slotA, uint8_t slotB, bool success) {
   s3CmdSendResponse(success);
 }
 
-void onS3QueryDone(UartLink *link, uint8_t count, bool success) {
+void onS3QueryDone(uint8_t count, bool success) {
   if (success) numS3Images = count;
   snprintf(s3CmdResp.okMsg, sizeof(s3CmdResp.okMsg),
            "OK:NUM_S3_IMAGES=%d", numS3Images);
@@ -1540,7 +1647,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     out.printf("OK:STATS_UNSUBSCRIBED\n");
 
   } else if (strcmp(cmd, "ABORT_S3_UPLOAD") == 0) {
-    if (s3Upload.active) abortS3Upload();
+    if (s3Upload.state != S3UP_IDLE) abortS3Upload();
 
   } else if (strcmp(cmd, "BLE_DISCONNECTED") == 0) {
     if (statsSubscribeCount > 0) {
@@ -1595,7 +1702,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
       snprintf(cfgBuf, sizeof(cfgBuf),
                "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
                flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
-      linkS3.queueText(cfgBuf, false, UARTLINK_PRI_HIGH);
+      protoS3.sendText(cfgBuf);
     }
 
   } else if (strcmp(cmd, "QUERY_IMAGES") == 0) {
@@ -1674,54 +1781,24 @@ void processConfigCommand(const char *cmd, Stream &out) {
     s3CmdResp.pending = true;
     s3CmdResp.target = (&out == &Serial) ? S3_RESP_USB : S3_RESP_S3;
     strncpy(s3CmdResp.errMsg, "ERR:s3 query failed", sizeof(s3CmdResp.errMsg));
-    linkS3.queueQuery(UARTLINK_PRI_NORMAL, onS3QueryDone);
+    s3QueueQuery(onS3QueryDone);
 
   } else if (strcmp(cmd, "LIST_S3_IMAGES") == 0) {
-    stSendText(stS3, "LIST");
-
-    unsigned long t = millis();
-    while (millis() - t < 2000) {
-      if (stS3.available()) {
-        if (stS3.currentPacketID() == PKT_TEXT) {
-          uint16_t len = stS3.bytesRead;
-          char line[256];
-          uint16_t copyLen = (len < 255) ? len : 255;
-          memcpy(line, stS3.packet.rxBuff, copyLen);
-          line[copyLen] = '\0';
-          if (strcmp(line, "END") == 0) break;
-          out.println(line);
-          t = millis();
-        }
-      }
-    }
-    out.println("END");
+    protoS3.sendText("LIST");
+    // S3 sends LIST responses as text lines ending with "END"
+    // These will be processed by onS3Message and routed through processConfigCommand
+    out.println("OK:LIST_QUEUED (responses via S3 text handler)");
 
   } else if (strcmp(cmd, "LIST_S3_PNGS") == 0) {
-    stSendText(stS3, "LISTPNGS");
-
-    unsigned long t = millis();
-    while (millis() - t < 2000) {
-      if (stS3.available()) {
-        if (stS3.currentPacketID() == PKT_TEXT) {
-          uint16_t len = stS3.bytesRead;
-          char line[256];
-          uint16_t copyLen = (len < 255) ? len : 255;
-          memcpy(line, stS3.packet.rxBuff, copyLen);
-          line[copyLen] = '\0';
-          if (strcmp(line, "END") == 0) break;
-          out.println(line);
-          t = millis();
-        }
-      }
-    }
-    out.println("END");
+    protoS3.sendText("LISTPNGS");
+    out.println("OK:LISTPNGS_QUEUED (responses via S3 text handler)");
 
   } else if (strncmp(cmd, "SET_S3_LABEL:", 13) == 0) {
     int slot;
     char name[33] = {0};
     if (sscanf(cmd + 13, "%d=%32[^\n]", &slot, name) >= 1) {
       if (slot >= 0 && slot < numS3Images) {
-        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); linkS3.queueText(lbuf, false, UARTLINK_PRI_NORMAL); }
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); protoS3.sendText(lbuf); }
         out.printf("OK:S3_LABEL=%d:%s\n", slot, name);
       } else {
         out.printf("ERR:invalid slot\n");
@@ -1742,7 +1819,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     s3CmdResp.pending = true;
     s3CmdResp.target = (&out == &Serial) ? S3_RESP_USB : S3_RESP_S3;
     strncpy(s3CmdResp.errMsg, "ERR:s3 delete failed", sizeof(s3CmdResp.errMsg));
-    linkS3.queueDelete((uint8_t)slot, UARTLINK_PRI_NORMAL, onS3DeleteDone);
+    s3QueueDelete((uint8_t)slot, onS3DeleteDone);
 
   } else if (strncmp(cmd, "SWAP_S3_IMG:", 12) == 0) {
     int a, b;
@@ -1759,7 +1836,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     s3CmdResp.target = (&out == &Serial) ? S3_RESP_USB : S3_RESP_S3;
     snprintf(s3CmdResp.okMsg, sizeof(s3CmdResp.okMsg), "OK:S3_SWAPPED=%d,%d", a, b);
     strncpy(s3CmdResp.errMsg, "ERR:s3 swap failed", sizeof(s3CmdResp.errMsg));
-    linkS3.queueSwap((uint8_t)a, (uint8_t)b, UARTLINK_PRI_NORMAL, onS3SwapDone);
+    s3QueueSwap((uint8_t)a, (uint8_t)b, onS3SwapDone);
 
   // ── ESP32 image store commands ────────────────────────────
 
@@ -1803,7 +1880,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
         saveEspLabels();
         // Forward to both devices
         { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); rpQueueText(lbuf); }
-        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); linkS3.queueText(lbuf, false, UARTLINK_PRI_NORMAL); }
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); protoS3.sendText(lbuf); }
         out.printf("OK:STORE_LABEL=%d:%s\n", slot, name);
       } else {
         out.printf("ERR:invalid slot\n");
@@ -1853,7 +1930,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
       if (ok) numRpImages = rpPending.responseValue;
     });
     // Forward delete to S3 (async)
-    linkS3.queueDelete((uint8_t)slot, UARTLINK_PRI_NORMAL);
+    s3QueueDelete((uint8_t)slot);
 
     // Adjust flavor image references
     if (flavor1Image == slot) flavor1Image = 0;
@@ -1871,7 +1948,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
       snprintf(cfgBuf, sizeof(cfgBuf),
                "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
                flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
-      linkS3.queueText(cfgBuf, false, UARTLINK_PRI_NORMAL);
+      protoS3.sendText(cfgBuf);
     }
     out.printf("OK:STORE_DELETED=%d,NUM_IMAGES=%d\n", slot, numEspImages);
 
@@ -1948,7 +2025,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     // S3: queue deletes + labels + config via async sync
     if (oldCount > numEspImages) {
       for (uint8_t i = oldCount; i > numEspImages; i--) {
-        linkS3.queueDelete(i - 1, UARTLINK_PRI_NORMAL);
+        s3QueueDelete(i - 1);
       }
     }
     // Labels and config via sync (pushAll=false since images are factory and already match)
@@ -1985,15 +2062,16 @@ void processConfigCommand(const char *cmd, Stream &out) {
     if (strcmp(target, "s3") == 0 || strcmp(target, "both") == 0) {
       // S3 push is async
       String s3Path = espS3Path(slot);
-      linkS3.queueUpload(slot, s3Path.c_str(), PKT_UPLOAD_START, UARTLINK_PRI_NORMAL);
+      s3StartUpload(slot, s3Path.c_str(), MSG_UPLOAD_START, nullptr);
       String pngPath = espS3PngPath(slot);
       if (LittleFS.exists(pngPath)) {
-        linkS3.queueUpload(slot, pngPath.c_str(), PKT_UPLOAD_PNG_START, UARTLINK_PRI_NORMAL);
+        // PNG upload must wait for S3 upload to complete — queue it as a follow-up
+        // For now, skip PNG on single-slot push (sync handles PNGs properly)
       }
       for (uint8_t i = 0; i < numEspImages; i++) {
         char lbuf[48];
         snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
-        linkS3.queueText(lbuf, false, UARTLINK_PRI_LOW);
+        protoS3.sendText(lbuf);
       }
       numS3Images = max(numS3Images, (uint8_t)(slot + 1));
     }
@@ -2033,7 +2111,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     for (uint8_t i = 0; i < numEspImages; i++) {
       char lbuf[48];
       snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
-      linkS3.queueText(lbuf, false, UARTLINK_PRI_LOW);
+      protoS3.sendText(lbuf);
     }
     // Push CONFIG with authoritative store count
     {
@@ -2041,7 +2119,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
       snprintf(cfgBuf, sizeof(cfgBuf),
                "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
                flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
-      linkS3.queueText(cfgBuf, false, UARTLINK_PRI_NORMAL);
+      protoS3.sendText(cfgBuf);
     }
 
     out.printf("OK:UPLOAD_DONE:%d\n", slot);
@@ -2126,18 +2204,19 @@ void checkConfigStream(Stream &stream, char *buf, uint8_t &pos) {
   }
 }
 
-// Stream wrapper that routes printf/println output to SerialTransfer PKT_TEXT packets.
-// Each line (terminated by \n) is sent as a separate packet. This lets processConfigCommand
-// work unchanged — all out.printf() calls automatically become stSendText() calls.
-class StStream : public Stream {
-  SerialTransfer &_st;
+// Stream wrapper that routes printf/println output to TinyProto text messages.
+// Each line (terminated by \n) is sent as a separate MSG_TEXT. This lets processConfigCommand
+// work unchanged — all out.printf() calls automatically become sendText() calls.
+// ProtoStream: adapts ProtoLink to Stream interface for processConfigCommand()
+class ProtoStream : public Stream {
+  ProtoLink &_link;
   char _buf[256];
   uint8_t _pos;
 public:
-  StStream(SerialTransfer &st) : _st(st), _pos(0) {}
+  ProtoStream(ProtoLink &link) : _link(link), _pos(0) {}
   size_t write(uint8_t c) override {
     if (c == '\n' || _pos >= 254) {
-      if (_pos > 0) { _buf[_pos] = '\0'; stSendText(_st, _buf); _pos = 0; }
+      if (_pos > 0) { _buf[_pos] = '\0'; _link.sendText(_buf); _pos = 0; }
     } else if (c != '\r') {
       _buf[_pos++] = c;
     }
@@ -2150,110 +2229,101 @@ public:
   int available() override { return 0; }
   int read() override { return -1; }
   int peek() override { return -1; }
-  void flush() override { if (_pos > 0) { _buf[_pos] = '\0'; stSendText(_st, _buf); _pos = 0; } }
+  void flush() override { if (_pos > 0) { _buf[_pos] = '\0'; _link.sendText(_buf); _pos = 0; } }
 };
 
 char configBuf0[CONFIG_BUF_SIZE];  // USB Serial
 uint8_t configPos0 = 0;
 
 // ════════════════════════════════════════════════════════════
-//  S3-initiated upload handlers (phone → S3 → ESP32 via SerialTransfer)
+//  S3-initiated upload handlers (phone → S3 → ESP32 via TinyProto)
 // ════════════════════════════════════════════════════════════
 
 void abortS3Upload() {
   if (s3Upload.file) s3Upload.file.close();
   LittleFS.remove("/tmp_s3.bin");
-  s3Upload.active = false;
+  s3Upload.state = S3UP_IDLE;
   Serial.println("S3 upload aborted");
 }
 
-void handleS3UploadStart(uint8_t pktId) {
-  UploadStartPayload pl;
-  stS3.rxObj(pl);
+void handleS3UploadStart(uint8_t msgTypeId, const uint8_t *payload, uint16_t payloadLen) {
+  if (payloadLen < sizeof(UploadStartPayload)) return;
+  const UploadStartPayload *pl = (const UploadStartPayload *)payload;
 
-  if (s3Upload.active) abortS3Upload();
+  if (s3Upload.state != S3UP_IDLE) abortS3Upload();
 
   uint8_t fileType;
-  if (pktId == PKT_UPLOAD_START) {
+  if (msgTypeId == MSG_UPLOAD_START) {
     fileType = 0;  // S3 RGB565
-    if (pl.size != S3_IMAGE_BYTES) { stSendResponse(stS3, PKT_ERR_SIZE_MISMATCH, 0); return; }
-  } else if (pktId == PKT_UPLOAD_PNG_START) {
+    if (pl->size != S3_IMAGE_BYTES) { protoS3.sendResponse(MSG_ERR_SIZE_MISMATCH, 0); return; }
+  } else if (msgTypeId == MSG_UPLOAD_PNG_START) {
     fileType = 1;  // PNG
-    if (pl.size == 0 || pl.size > S3_IMAGE_BYTES) { stSendResponse(stS3, PKT_ERR_SIZE_MISMATCH, 0); return; }
+    if (pl->size == 0 || pl->size > S3_IMAGE_BYTES) { protoS3.sendResponse(MSG_ERR_SIZE_MISMATCH, 0); return; }
   } else {
     fileType = 2;  // RP2040 RGB565
-    if (pl.size != RP2040_IMAGE_BYTES) { stSendResponse(stS3, PKT_ERR_SIZE_MISMATCH, 0); return; }
+    if (pl->size != RP2040_IMAGE_BYTES) { protoS3.sendResponse(MSG_ERR_SIZE_MISMATCH, 0); return; }
   }
 
-  if (pl.slot >= MAX_STORE_IMAGES) { stSendResponse(stS3, PKT_ERR_SLOT_INVALID, 0); return; }
+  if (pl->slot >= MAX_STORE_IMAGES) { protoS3.sendResponse(MSG_ERR_SLOT_INVALID, 0); return; }
 
   LittleFS.remove("/tmp_s3.bin");
   s3Upload.file = LittleFS.open("/tmp_s3.bin", "w");
-  if (!s3Upload.file) { stSendResponse(stS3, PKT_ERR_NO_SPACE, 0); return; }
+  if (!s3Upload.file) { protoS3.sendResponse(MSG_ERR_NO_SPACE, 0); return; }
 
-  s3Upload.active = true;
-  s3Upload.slot = pl.slot;
+  s3Upload.state = S3UP_RECEIVING;
+  s3Upload.slot = pl->slot;
   s3Upload.fileType = fileType;
-  s3Upload.expectedSize = pl.size;
+  s3Upload.expectedSize = pl->size;
   s3Upload.receivedBytes = 0;
-  s3Upload.nextSeq = 0;
   s3Upload.runningCrc32 = 0;
-  s3Upload.lastChunkTime = millis();
+  s3Upload.lastDataTime = millis();
 
-  Serial.printf("S3 upload start: slot %d type %d size %lu\n", pl.slot, fileType, pl.size);
-  stSendEmptyResponse(stS3, PKT_RESP_READY);
+  Serial.printf("S3 upload start: slot %d type %d size %lu\n", pl->slot, fileType, pl->size);
+  protoS3.sendEmpty(MSG_RESP_READY);
 }
 
-void handleS3ChunkData() {
-  ChunkDataPayload hdr;
-  stS3.rxObj(hdr);
-  uint16_t dataLen = stS3.bytesRead - sizeof(hdr);
-  const uint8_t *data = stS3.packet.rxBuff + sizeof(hdr);
+// Raw data handler — called during S3UP_RECEIVING state
+void handleS3UploadData(const uint8_t *data, uint16_t len) {
+  if (s3Upload.state != S3UP_RECEIVING) return;
 
-  if (!s3Upload.active) { stSendResponse(stS3, PKT_ERR_BUSY, 0); return; }
-  if (hdr.seq != s3Upload.nextSeq) { stSendResponse(stS3, PKT_ERR_SEQ, s3Upload.nextSeq); return; }
-  if (dataLen == 0 || dataLen > STORE_CHUNK_SIZE) { stSendResponse(stS3, PKT_ERR_CRC, 0); return; }
-
-  size_t written = s3Upload.file.write(data, dataLen);
-  if (written != dataLen) { stSendResponse(stS3, PKT_ERR_WRITE, 0); abortS3Upload(); return; }
-
-  s3Upload.receivedBytes += dataLen;
-  s3Upload.runningCrc32 = uartCrc32Update(s3Upload.runningCrc32, data, dataLen);
-  s3Upload.nextSeq = (s3Upload.nextSeq + 1) & 0xFF;
-  s3Upload.lastChunkTime = millis();
-
-  // Log every ~12.8KB (every 100 chunks at 128 bytes)
-  if (s3Upload.receivedBytes % 12800 < dataLen) {
-    Serial.printf("S3 chunk progress: %lu/%lu bytes\n",
-                  s3Upload.receivedBytes, s3Upload.expectedSize);
+  size_t written = s3Upload.file.write(data, len);
+  if (written != len) {
+    protoS3.sendResponse(MSG_ERR_WRITE, 0);
+    abortS3Upload();
+    return;
   }
 
-  stSendResponse(stS3, PKT_RESP_CHUNK_OK, s3Upload.nextSeq);
+  s3Upload.receivedBytes += len;
+  s3Upload.runningCrc32 = uartCrc32Update(s3Upload.runningCrc32, data, len);
+  s3Upload.lastDataTime = millis();
+
+  if (s3Upload.receivedBytes >= s3Upload.expectedSize) {
+    s3Upload.file.close();
+    s3Upload.state = S3UP_WAITING_DONE;
+  }
 }
 
-void handleS3UploadDone() {
-  UploadDonePayload pl;
-  stS3.rxObj(pl);
+void handleS3UploadDone(const uint8_t *payload, uint16_t payloadLen) {
+  if (payloadLen < sizeof(UploadDonePayload)) return;
+  const UploadDonePayload *pl = (const UploadDonePayload *)payload;
 
-  if (!s3Upload.active) { stSendResponse(stS3, PKT_ERR_BUSY, 0); return; }
-
-  s3Upload.file.close();
+  if (s3Upload.state != S3UP_WAITING_DONE) { protoS3.sendResponse(MSG_ERR_BUSY, 0); return; }
 
   if (s3Upload.receivedBytes != s3Upload.expectedSize) {
     Serial.printf("S3 upload size mismatch: got %lu expected %lu\n",
                   s3Upload.receivedBytes, s3Upload.expectedSize);
     LittleFS.remove("/tmp_s3.bin");
-    s3Upload.active = false;
-    stSendResponse(stS3, PKT_ERR_SIZE_MISMATCH, 0);
+    s3Upload.state = S3UP_IDLE;
+    protoS3.sendResponse(MSG_ERR_SIZE_MISMATCH, 0);
     return;
   }
 
-  if (s3Upload.runningCrc32 != pl.crc32) {
+  if (s3Upload.runningCrc32 != pl->crc32) {
     Serial.printf("S3 upload CRC mismatch: got 0x%08lX expected 0x%08lX\n",
-                  s3Upload.runningCrc32, pl.crc32);
+                  s3Upload.runningCrc32, pl->crc32);
     LittleFS.remove("/tmp_s3.bin");
-    s3Upload.active = false;
-    stSendResponse(stS3, PKT_ERR_CRC32_MISMATCH, 0);
+    s3Upload.state = S3UP_IDLE;
+    protoS3.sendResponse(MSG_ERR_CRC32_MISMATCH, 0);
     return;
   }
 
@@ -2264,7 +2334,7 @@ void handleS3UploadDone() {
 
   LittleFS.remove(destPath);
   LittleFS.rename("/tmp_s3.bin", destPath);
-  s3Upload.active = false;
+  s3Upload.state = S3UP_IDLE;
 
   // Persist CRC for this file type
   int crcIdx = (s3Upload.fileType == 0) ? CRC_IDX_S3 :
@@ -2274,7 +2344,7 @@ void handleS3UploadDone() {
 
   Serial.printf("S3 upload OK: %s slot %d (%lu bytes)\n",
                 destPath.c_str(), s3Upload.slot, s3Upload.receivedBytes);
-  stSendResponse(stS3, PKT_RESP_UPLOAD_OK, numEspImages);
+  protoS3.sendResponse(MSG_RESP_UPLOAD_OK, numEspImages);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2669,13 +2739,13 @@ void s3SyncSendLabelsAndConfig() {
   for (uint8_t i = 0; i < s3Sync.targetCount; i++) {
     char lbuf[48];
     snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
-    linkS3.queueText(lbuf, false, UARTLINK_PRI_LOW);
+    s3QueueText(lbuf);
   }
   char cfgBuf[128];
   snprintf(cfgBuf, sizeof(cfgBuf),
            "CONFIG:F1_RATIO=%d,F2_RATIO=%d,F1_IMAGE=%d,F2_IMAGE=%d,numImages=%d",
            flavor1Ratio, flavor2Ratio, flavor1Image, flavor2Image, numEspImages);
-  linkS3.queueText(cfgBuf, false, UARTLINK_PRI_LOW);
+  s3QueueText(cfgBuf);
 
   numS3Images = s3Sync.targetCount;
   s3Sync.active = false;
@@ -2684,32 +2754,29 @@ void s3SyncSendLabelsAndConfig() {
   if (s3Sync.respTarget == S3_RESP_USB && s3Sync.respBuf[0]) {
     Serial.println(s3Sync.respBuf);
   } else if (s3Sync.respTarget == S3_RESP_S3 && s3Sync.respBuf[0]) {
-    stSendText(stS3, s3Sync.respBuf);
+    protoS3.sendText(s3Sync.respBuf);
   }
 }
 
-void onS3SyncPngDone(UartLink *link, uint8_t slot, bool success);
+void onS3SyncPngDone(uint8_t slot, bool success);
 
 void advanceS3SyncPngs() {
   while (s3Sync.slot < s3Sync.targetCount) {
-    // Skip slots where PNG CRC matches
     if (s3Sync.skipSlotPng[s3Sync.slot]) {
       s3Sync.slot++;
       continue;
     }
     String path = espS3PngPath(s3Sync.slot);
     if (LittleFS.exists(path)) {
-      linkS3.queueUpload(s3Sync.slot, path.c_str(), PKT_UPLOAD_PNG_START,
-                          UARTLINK_PRI_LOW, onS3SyncPngDone);
+      s3StartUpload(s3Sync.slot, path.c_str(), MSG_UPLOAD_PNG_START, onS3SyncPngDone);
       return;  // callback will advance
     }
-    s3Sync.slot++;  // no PNG for this slot, skip
+    s3Sync.slot++;
   }
-  // All PNGs done
   s3SyncSendLabelsAndConfig();
 }
 
-void onS3SyncPngDone(UartLink *link, uint8_t slot, bool success) {
+void onS3SyncPngDone(uint8_t slot, bool success) {
   if (!success) {
     Serial.printf("[S3 sync] PNG slot %d failed (non-fatal)\n", slot);
   }
@@ -2717,45 +2784,40 @@ void onS3SyncPngDone(UartLink *link, uint8_t slot, bool success) {
   advanceS3SyncPngs();
 }
 
-void onS3SyncDeleteDone(UartLink *link, uint8_t slot, bool success) {
+void onS3SyncDeleteDone(uint8_t slot, bool success) {
   if (success) {
-    // More to trim — queue another delete at the same slot
-    linkS3.queueDelete(s3Sync.targetCount, UARTLINK_PRI_LOW, onS3SyncDeleteDone);
+    s3QueueDelete(s3Sync.targetCount, onS3SyncDeleteDone);
   } else {
-    // Device's count now matches — move to PNGs
     s3Sync.phase = 2;
     s3Sync.slot = 0;
     advanceS3SyncPngs();
   }
 }
 
-void onS3SyncUploadDone(UartLink *link, uint8_t slot, bool success);
+void onS3SyncUploadDone(uint8_t slot, bool success);
 
 void advanceS3SyncImages() {
-  // Skip slots where S3 CRC matches
   while (s3Sync.slot < s3Sync.targetCount && s3Sync.skipSlotS3[s3Sync.slot]) {
     s3Sync.slot++;
   }
 
   if (s3Sync.slot < s3Sync.targetCount) {
     String path = espS3Path(s3Sync.slot);
-    linkS3.queueUpload(s3Sync.slot, path.c_str(), PKT_UPLOAD_START,
-                        UARTLINK_PRI_LOW, onS3SyncUploadDone);
+    s3StartUpload(s3Sync.slot, path.c_str(), MSG_UPLOAD_START, onS3SyncUploadDone);
   } else {
-    // All images pushed, start deleting extras
     s3Sync.phase = 1;
-    linkS3.queueDelete(s3Sync.targetCount, UARTLINK_PRI_LOW, onS3SyncDeleteDone);
+    s3QueueDelete(s3Sync.targetCount, onS3SyncDeleteDone);
   }
 }
 
-void onS3SyncUploadDone(UartLink *link, uint8_t slot, bool success) {
+void onS3SyncUploadDone(uint8_t slot, bool success) {
   if (!success) {
     Serial.printf("[S3 sync] Upload slot %d failed — aborting sync\n", slot);
     s3Sync.active = false;
     if (s3Sync.respTarget == S3_RESP_USB) {
       Serial.printf("OK:PUSH_DONE rp=%s s3=fail\n", s3Sync.rpResult ? "ok" : "fail");
     } else if (s3Sync.respTarget == S3_RESP_S3) {
-      stSendText(stS3, "ERR:sync failed");
+      protoS3.sendText("ERR:sync failed");
     }
     return;
   }
@@ -2763,7 +2825,7 @@ void onS3SyncUploadDone(UartLink *link, uint8_t slot, bool success) {
   advanceS3SyncImages();
 }
 
-void onS3CrcResponse(UartLink *link, const char *response);
+void onS3CrcResponse(const char *response);
 
 void startS3Sync(bool pushAll, uint8_t respTarget, bool rpResult) {
   if (s3Sync.active) {
@@ -2785,28 +2847,26 @@ void startS3Sync(bool pushAll, uint8_t respTarget, bool rpResult) {
   memset(s3Sync.skipSlotPng, 0, sizeof(s3Sync.skipSlotPng));
 
   if (pushAll) {
-    // Query device CRCs first to skip matching slots
     Serial.printf("[S3 sync] Start: querying CRCs for %d images\n", numEspImages);
-    linkS3.queueText("GET_CRCS", true, UARTLINK_PRI_LOW, onS3CrcResponse);
+    s3QueueText("GET_CRCS", onS3CrcResponse);
   } else {
     Serial.printf("[S3 sync] Starting PNGs+labels+config (%d images)\n", numEspImages);
-    s3Sync.phase = 2;  // skip to PNGs
+    s3Sync.phase = 2;
     s3Sync.slot = 0;
     advanceS3SyncPngs();
   }
 }
 
-void onS3CrcResponse(UartLink *link, const char *response) {
+void onS3CrcResponse(const char *response) {
   if (!s3Sync.active) return;
 
   int s3Matched = 0, pngMatched = 0;
   if (response && strncmp(response, "CRCS:", 5) == 0) {
-    // Parse "CRCS:count:s3hex0:pnghex0:s3hex1:pnghex1:..."
     const char *p = response + 5;
     int deviceCount = atoi(p);
     p = strchr(p, ':');
     for (int i = 0; i < deviceCount && i < s3Sync.targetCount && p; i++) {
-      p++;  // skip ':'
+      p++;
       uint32_t s3Crc = strtoul(p, nullptr, 16);
       p = strchr(p, ':');
       uint32_t pngCrc = 0;
@@ -2832,10 +2892,9 @@ void onS3CrcResponse(UartLink *link, const char *response) {
 
   if (s3Matched == s3Sync.targetCount && pngMatched == s3Sync.targetCount) {
     Serial.println("[S3 sync] All CRCs match — labels+config only");
-    s3Sync.phase = 3;  // skip to labels+config
+    s3Sync.phase = 3;
     s3SyncSendLabelsAndConfig();
   } else if (s3Matched == s3Sync.targetCount) {
-    // S3 images match but PNGs need update
     s3Sync.phase = 2;
     s3Sync.slot = 0;
     advanceS3SyncPngs();
@@ -2846,53 +2905,370 @@ void onS3CrcResponse(UartLink *link, const char *response) {
   }
 }
 
-// Unsolicited packet handler for S3 link (called by linkS3.service())
-void onS3Packet(UartLink *link, uint8_t pktId) {
-  switch (pktId) {
-    case PKT_UPLOAD_START:
-    case PKT_UPLOAD_PNG_START:
-    case PKT_UPLOAD_RP_START:
-      handleS3UploadStart(pktId);
+// ── S3 TinyProto message handler ──
+// Pending text callback (for GET_CRCS etc.)
+static S3TextCb s3PendingTextCb = nullptr;
+
+void onS3Message(ProtoLink *link, const uint8_t *data, uint16_t len) {
+  // During upload: all frames are raw image data (no type byte)
+  if (s3Upload.state == S3UP_RECEIVING) {
+    handleS3UploadData(data, len);
+    return;
+  }
+
+  if (len < 1) return;
+  uint8_t type = msgType(data);
+  const uint8_t *payload = msgPayload(data);
+  uint16_t payloadLen = msgPayloadLen(len);
+
+  switch (type) {
+    case MSG_UPLOAD_START:
+    case MSG_UPLOAD_PNG_START:
+    case MSG_UPLOAD_RP_START:
+      handleS3UploadStart(type, payload, payloadLen);
       break;
-    case PKT_CHUNK_DATA:
-      handleS3ChunkData();
+    case MSG_UPLOAD_DONE:
+      handleS3UploadDone(payload, payloadLen);
       break;
-    case PKT_UPLOAD_DONE:
-      handleS3UploadDone();
-      break;
-    case PKT_DEVICE_READY: {
-      ResponsePayload resp;
-      stS3.rxObj(resp);
-      Serial.printf("S3 DEVICE_READY: reports %d images\n", resp.value);
-      numS3Images = resp.value;
-      bool needsPush = (numS3Images != numEspImages);
-      startS3Sync(needsPush);
+    case MSG_DEVICE_READY: {
+      if (payloadLen >= sizeof(ResponsePayload)) {
+        const ResponsePayload *resp = (const ResponsePayload *)payload;
+        Serial.printf("S3 DEVICE_READY: reports %d images\n", resp->value);
+        numS3Images = resp->value;
+        bool needsPush = (numS3Images != numEspImages);
+        startS3Sync(needsPush);
+      }
       break;
     }
-    case PKT_TEXT: {
-      uint16_t len = stS3.bytesRead;
-      char cmd[CONFIG_BUF_SIZE];
-      uint16_t copyLen = (len < CONFIG_BUF_SIZE - 1) ? len : CONFIG_BUF_SIZE - 1;
-      memcpy(cmd, stS3.packet.rxBuff, copyLen);
-      cmd[copyLen] = '\0';
-      StStream s3out(stS3);
-      processConfigCommand(cmd, s3out);
+
+    case MSG_RESP_READY:
+      if (s3UploadTask.active && s3UploadTask.readySem) {
+        s3UploadTask.readyReceived = true;
+        xSemaphoreGive(s3UploadTask.readySem);
+      }
+      break;
+
+    case MSG_RESP_UPLOAD_OK:
+      if (s3UploadTask.active && s3UploadTask.doneSem) {
+        s3UploadTask.doneReceived = true;
+        xSemaphoreGive(s3UploadTask.doneSem);
+      }
+      break;
+
+    case MSG_RESP_COUNT:
+    case MSG_RESP_DELETE_OK:
+    case MSG_RESP_SWAP_OK: {
+      uint8_t val = 0;
+      if (payloadLen >= sizeof(ResponsePayload)) {
+        val = ((const ResponsePayload *)payload)->value;
+      }
+      // Boot-time blocking query
+      if (type == MSG_RESP_COUNT) {
+        s3CountValue = val;
+        s3CountReady = true;
+      }
+      if (s3Pending.waiting && s3Pending.expectedType == type) {
+        s3Pending.responseValue = val;
+        s3Pending.gotResponse = true;
+      }
+      break;
+    }
+
+    case MSG_ERR_SLOT_INVALID:
+    case MSG_ERR_NO_SPACE:
+    case MSG_ERR_BUSY:
+    case MSG_ERR_WRITE:
+    case MSG_ERR_SIZE_MISMATCH:
+    case MSG_ERR_CRC32_MISMATCH:
+      Serial.printf("[protoS3] Error 0x%02X\n", type);
+      if (s3Pending.waiting) {
+        s3Pending.gotError = true;
+      }
+      if (s3UploadTask.active) {
+        s3UploadTask.errorReceived = true;
+        if (s3UploadTask.readySem) xSemaphoreGive(s3UploadTask.readySem);
+        if (s3UploadTask.doneSem) xSemaphoreGive(s3UploadTask.doneSem);
+      }
+      break;
+
+    case MSG_TEXT: {
+      char text[256];
+      uint16_t copyLen = (payloadLen < 255) ? payloadLen : 255;
+      memcpy(text, payload, copyLen);
+      text[copyLen] = '\0';
+
+      // Check if this is a pending text callback (GET_CRCS response)
+      if (s3PendingTextCb) {
+        S3TextCb cb = s3PendingTextCb;
+        s3PendingTextCb = nullptr;
+        cb(text);
+        break;
+      }
+
+      // Process as config command from S3
+      ProtoStream s3out(protoS3);
+      processConfigCommand(text, s3out);
       s3out.flush();
       break;
     }
+
+    default:
+      Serial.printf("[protoS3] Unknown msg 0x%02X (len=%d)\n", type, len);
+      break;
+  }
+}
+
+// ── S3 upload FreeRTOS task (mirrors rpUploadTask) ──
+static void s3UploadFreeRTOSTask(void *param) {
+  uint8_t slot = s3UploadTask.slot;
+  const char *path = s3UploadTask.filePath;
+
+  File f = LittleFS.open(path, "r");
+  if (!f) {
+    Serial.printf("[s3Upload] Failed to open %s\n", path);
+    s3UploadTask.active = false;
+    if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  uint32_t fileSize = f.size();
+  uint8_t *buf = (uint8_t *)malloc(fileSize);
+  if (!buf) {
+    Serial.printf("[s3Upload] malloc(%lu) failed\n", fileSize);
+    f.close();
+    s3UploadTask.active = false;
+    if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  f.read(buf, fileSize);
+  f.close();
+
+  uint32_t crc = uartCrc32Update(0, buf, fileSize);
+  Serial.printf("[s3Upload] slot %d, %lu bytes, CRC=0x%08lX\n", slot, fileSize, crc);
+
+  tiny_fd_handle_t h = protoS3.getHandle();
+
+  // Send START
+  {
+    uint8_t startBuf[1 + sizeof(UploadStartPayload)];
+    startBuf[0] = s3UploadTask.startMsgType;
+    UploadStartPayload *sp = (UploadStartPayload *)(startBuf + 1);
+    sp->slot = slot;
+    sp->size = fileSize;
+    int r = tiny_fd_send(h, startBuf, sizeof(startBuf), 5000);
+    if (r < 0) {
+      Serial.printf("[s3Upload] START send failed: %d\n", r);
+      free(buf);
+      s3UploadTask.active = false;
+      if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
+      vTaskDelete(NULL);
+      return;
+    }
+  }
+
+  // Wait for READY
+  if (xSemaphoreTake(s3UploadTask.readySem, pdMS_TO_TICKS(5000)) != pdTRUE || !s3UploadTask.readyReceived) {
+    Serial.printf("[s3Upload] READY timeout\n");
+    free(buf);
+    s3UploadTask.active = false;
+    if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  if (s3UploadTask.errorReceived) {
+    Serial.printf("[s3Upload] Error after START\n");
+    free(buf);
+    s3UploadTask.active = false;
+    if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  // Send FULL IMAGE
+  Serial.printf("[s3Upload] Sending %lu bytes...\n", fileSize);
+  int r = tiny_fd_send(h, buf, fileSize, 30000);
+
+  if (r < 0) {
+    Serial.printf("[s3Upload] Image send failed: %d\n", r);
+    free(buf);
+    s3UploadTask.active = false;
+    if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  // Send DONE
+  {
+    UploadDonePayload donePl;
+    donePl.slot = slot;
+    donePl.crc32 = crc;
+    uint8_t doneBuf[1 + sizeof(UploadDonePayload)];
+    doneBuf[0] = MSG_UPLOAD_DONE;
+    memcpy(doneBuf + 1, &donePl, sizeof(donePl));
+    int r2 = tiny_fd_send(h, doneBuf, sizeof(doneBuf), 5000);
+    if (r2 < 0) {
+      Serial.printf("[s3Upload] DONE send failed: %d\n", r2);
+      free(buf);
+      s3UploadTask.active = false;
+      if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
+      vTaskDelete(NULL);
+      return;
+    }
+  }
+
+  free(buf);
+
+  // Wait for UPLOAD_OK
+  if (xSemaphoreTake(s3UploadTask.doneSem, pdMS_TO_TICKS(5000)) != pdTRUE || !s3UploadTask.doneReceived) {
+    Serial.printf("[s3Upload] UPLOAD_OK timeout\n");
+    s3UploadTask.active = false;
+    if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  Serial.printf("[s3Upload] Complete: slot %d\n", slot);
+  s3UploadTask.active = false;
+  if (s3UploadTask.callback) s3UploadTask.callback(slot, true);
+  vTaskDelete(NULL);
+}
+
+void s3StartUpload(uint8_t slot, const char *path, uint8_t startMsgType, S3UploadCb cb) {
+  if (s3UploadTask.active) {
+    Serial.printf("[s3Upload] Busy — upload rejected for slot %d\n", slot);
+    if (cb) cb(slot, false);
+    return;
+  }
+
+  s3UploadTask.active = true;
+  s3UploadTask.slot = slot;
+  strncpy(s3UploadTask.filePath, path, sizeof(s3UploadTask.filePath) - 1);
+  s3UploadTask.filePath[sizeof(s3UploadTask.filePath) - 1] = '\0';
+  s3UploadTask.startMsgType = startMsgType;
+  s3UploadTask.callback = cb;
+  s3UploadTask.readyReceived = false;
+  s3UploadTask.doneReceived = false;
+  s3UploadTask.errorReceived = false;
+
+  if (!s3UploadTask.readySem) s3UploadTask.readySem = xSemaphoreCreateBinary();
+  if (!s3UploadTask.doneSem) s3UploadTask.doneSem = xSemaphoreCreateBinary();
+  xSemaphoreTake(s3UploadTask.readySem, 0);
+  xSemaphoreTake(s3UploadTask.doneSem, 0);
+
+  xTaskCreatePinnedToCore(s3UploadFreeRTOSTask, "s3Upload", 8192, NULL, 1, NULL, 1);
+}
+
+// ── S3 TX pump task (core 1) ──
+static void s3TxPumpTask(void *param) {
+  for (;;) {
+    protoS3.serviceTx();
+    vTaskDelay(1);
+  }
+}
+
+// ── S3 queue processor (called from main loop) ──
+void s3ProcessQueue() {
+  if (s3UploadTask.active) return;
+
+  if (s3Pending.waiting) {
+    if (s3Pending.gotResponse || s3Pending.gotError) {
+      // fall through to dispatch
+    } else if (millis() - s3Pending.startTime > 3000) {
+      s3Pending.gotError = true;
+    } else {
+      return;
+    }
+  }
+
+  S3QueueEntry *e = s3Queue.peek();
+  if (!e) return;
+
+  if (s3Pending.waiting && (s3Pending.gotResponse || s3Pending.gotError)) {
+    bool ok = s3Pending.gotResponse;
+    s3Pending.waiting = false;
+
+    switch (e->type) {
+      case SQ_DELETE:
+        if (e->deleteCb) e->deleteCb(e->slot, ok);
+        break;
+      case SQ_SWAP:
+        if (e->swapCb) e->swapCb(e->slot, e->slotB, ok);
+        break;
+      case SQ_QUERY:
+        if (e->queryCb) e->queryCb(s3Pending.responseValue, ok);
+        break;
+      default:
+        break;
+    }
+    s3Queue.dequeue();
+    return;
+  }
+
+  switch (e->type) {
+    case SQ_TEXT: {
+      protoS3.sendText(e->text);
+      if (e->textCb) {
+        s3PendingTextCb = e->textCb;
+        s3Pending.waiting = true;
+        s3Pending.gotResponse = false;
+        s3Pending.gotError = false;
+        s3Pending.startTime = millis();
+      }
+      s3Queue.dequeue();
+      break;
+    }
+    case SQ_DELETE: {
+      SlotPayload pl;
+      pl.slot = e->slot;
+      protoS3.send(MSG_DELETE_IMAGE, &pl, sizeof(pl));
+      s3Pending.waiting = true;
+      s3Pending.expectedType = MSG_RESP_DELETE_OK;
+      s3Pending.gotResponse = false;
+      s3Pending.gotError = false;
+      s3Pending.startTime = millis();
+      break;
+    }
+    case SQ_SWAP: {
+      SwapPayload pl;
+      pl.slotA = e->slot;
+      pl.slotB = e->slotB;
+      protoS3.send(MSG_SWAP_IMAGES, &pl, sizeof(pl));
+      s3Pending.waiting = true;
+      s3Pending.expectedType = MSG_RESP_SWAP_OK;
+      s3Pending.gotResponse = false;
+      s3Pending.gotError = false;
+      s3Pending.startTime = millis();
+      break;
+    }
+    case SQ_QUERY: {
+      protoS3.sendEmpty(MSG_QUERY_COUNT);
+      s3Pending.waiting = true;
+      s3Pending.expectedType = MSG_RESP_COUNT;
+      s3Pending.gotResponse = false;
+      s3Pending.gotError = false;
+      s3Pending.startTime = millis();
+      break;
+    }
+    default:
+      s3Queue.dequeue();
+      break;
   }
 }
 
 void checkConfigUART() {
   checkConfigStream(Serial, configBuf0, configPos0);
-  linkS3.service();
+  protoS3.serviceRx();
+  s3ProcessQueue();
 
   // Timeout stale S3 uploads
-  if (s3Upload.active && millis() - s3Upload.lastChunkTime > 5000) {
-    Serial.printf("S3 upload timeout: %lu/%lu bytes, %d chunks received, gap=%lums\n",
-                  s3Upload.receivedBytes, s3Upload.expectedSize,
-                  s3Upload.nextSeq, millis() - s3Upload.lastChunkTime);
-    abortS3Upload();
+  if (s3Upload.state == S3UP_RECEIVING || s3Upload.state == S3UP_WAITING_DONE) {
+    if (millis() - s3Upload.lastDataTime > 10000) {
+      abortS3Upload();
+    }
   }
 }
 
@@ -3021,23 +3397,40 @@ void setup() {
 
   // UART to config display (ESP32-S3, bidirectional, 38400 baud)
   Serial1.begin(38400, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
-  stS3.begin(Serial1);
-  linkS3.init(&stS3, "S3");
-  linkS3.onPacket = onS3Packet;
+
+  // Init ProtoLink for S3 (TinyProto HDLC)
+  protoS3.onMessage = onS3Message;
+  protoS3.begin(Serial1, "S3");
+
+  // Start TX pump on core 1
+  xTaskCreatePinnedToCore(s3TxPumpTask, "s3TxPump", 4096, NULL, 1, NULL, 1);
 
   // Wait for S3 to boot, init LittleFS, and start UART.
   // First boot seeds 3 images (~345KB writes) which can take several seconds.
-  // COBS framing naturally rejects boot noise — no parser reset needed.
   delay(3000);
 
-  // Try to query S3 now; if it's not ready yet, PKT_DEVICE_READY will catch up
+  // Wait for HDLC connection before querying
+  {
+    unsigned long connWait = millis();
+    while (!protoS3.isConnected() && millis() - connWait < 3000) {
+      protoS3.serviceRx();
+      delay(10);
+    }
+    if (protoS3.isConnected()) {
+      Serial.println("S3 HDLC connected");
+    } else {
+      Serial.println("S3 HDLC not connected yet — will sync on MSG_DEVICE_READY");
+    }
+  }
+
+  // Try to query S3 now; if it's not ready yet, MSG_DEVICE_READY will catch up
   for (int attempt = 0; attempt < 3; attempt++) {
     if (queryS3ImageCount()) break;
     Serial.printf("  S3 query retry %d/3...\n", attempt + 1);
     delay(500);
   }
   if (numS3Images == 0 && numEspImages > 0) {
-    Serial.println("S3 not ready yet — will sync on PKT_DEVICE_READY");
+    Serial.println("S3 not ready yet — will sync on MSG_DEVICE_READY");
   }
 
   // Boot sync: force push on first boot, count-based sync otherwise
@@ -3103,7 +3496,7 @@ void loop() {
           if (fs != lastPushedFlowSum[activeFlavor]) {
             char buf[40];
             snprintf(buf, sizeof(buf), "CHART_LIVE:F=%d,FS=%lu", activeFlavor, (unsigned long)fs);
-            linkS3.queueText(buf, false, UARTLINK_PRI_HIGH);
+            protoS3.sendText(buf);
             lastPushedFlowSum[activeFlavor] = fs;
             lastChartPush = now;
           }
@@ -3295,7 +3688,7 @@ void loop() {
       }
       if (numS3Images != numEspImages && !s3Sync.active) {
         Serial.printf("Re-sync check: S3 mismatch %d vs %d — re-querying\n", numS3Images, numEspImages);
-        linkS3.queueQuery(UARTLINK_PRI_NORMAL, [](UartLink *link, uint8_t count, bool success) {
+        s3QueueQuery([](uint8_t count, bool success) {
           if (success) {
             numS3Images = count;
             Serial.printf("S3 re-query: %d images\n", numS3Images);
