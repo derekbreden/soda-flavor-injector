@@ -3380,8 +3380,8 @@ void setup() {
   // Read initial flavor from switch state
   activeFlavor = (digitalRead(FLAVOR_SW_PIN) == LOW) ? 1 : 0;
 
-  // UART to display board (bidirectional, 38400 baud)
-  Serial2.begin(38400, SERIAL_8N1, DISPLAY_RX_PIN, DISPLAY_TX_PIN);
+  // UART to display board (bidirectional, 115200 baud)
+  Serial2.begin(115200, SERIAL_8N1, DISPLAY_RX_PIN, DISPLAY_TX_PIN);
 
   // Init ProtoLink for RP2040 (TinyProto HDLC)
   protoRP.onMessage = onRpMessage;
@@ -3420,8 +3420,8 @@ void setup() {
   }
   sendMapToRP();
 
-  // UART to config display (ESP32-S3, bidirectional, 38400 baud)
-  Serial1.begin(38400, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
+  // UART to config display (ESP32-S3, bidirectional, 115200 baud)
+  Serial1.begin(115200, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
 
   // Init ProtoLink for S3 (TinyProto HDLC)
   protoS3.onMessage = onS3Message;

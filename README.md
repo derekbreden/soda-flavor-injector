@@ -62,12 +62,12 @@ The system runs on three microcontrollers:
   │ Config Display│     │                      │
   │ 240x240 touch │◄───►│  Pump State Machine   │
   │ + encoder     │UART │  IDLE → ON → OFF ──→ │──(cycle repeats)
-  │               │9600 │    └── COOLDOWN       │
+  │               │     │    └── COOLDOWN       │
   └───────────────┘     │    └── PRIME (via UI)  │
                         └──┬────────┬────────┬─┘
                            │        │        │
-                    UART TX│   L298N A  L298N B
-                    9600   │   ┌────┴┐  ┌───┴──┐
+                      UART │   L298N A  L298N B
+                           │   ┌────┴┐  ┌───┴──┐
                            │   │Pump1│  │Pump2 │
               ┌────────────▼┐  │Valve│  │Valve │
               │ RP2040 LCD  │  └─────┘  └──────┘
@@ -208,10 +208,10 @@ Most builders will already have these on hand.
 |----------|------|-------|
 | Flavor toggle switch | 13 | Air switch, INPUT_PULLUP |
 | Flow meter | 23 | Hall effect, FALLING edge interrupt |
-| Display UART TX | 32 | 38400 baud, TinyProto HDLC to RP2040 (Serial2) |
-| Display UART RX | 35 | 38400 baud, TinyProto HDLC from RP2040 |
-| Config UART TX | 15 | 38400 baud, TinyProto HDLC to ESP32-S3 (Serial1) |
-| Config UART RX | 34 | 38400 baud, TinyProto HDLC from ESP32-S3 (input-only pin) |
+| Display UART TX | 32 | 115200 baud, TinyProto HDLC to RP2040 (Serial2) |
+| Display UART RX | 35 | 115200 baud, TinyProto HDLC from RP2040 |
+| Config UART TX | 15 | 115200 baud, TinyProto HDLC to ESP32-S3 (Serial1) |
+| Config UART RX | 34 | 115200 baud, TinyProto HDLC from ESP32-S3 (input-only pin) |
 
 | RTC SDA (DS3231) | 21 | I2C, Wire library |
 | RTC SCL (DS3231) | 22 | I2C, Wire library |
@@ -223,8 +223,8 @@ Most builders will already have these on hand.
 | Function | GPIO | Notes |
 |----------|------|-------|
 | Flavor toggle switch | 29 | Same physical switch as ESP32 |
-| UART TX (to ESP32) | 27 | PIO-based serial, 38400 baud, TinyProto HDLC |
-| UART RX (from ESP32) | 26 | PIO-based serial, 38400 baud, TinyProto HDLC |
+| UART TX (to ESP32) | 27 | PIO-based serial, 115200 baud, TinyProto HDLC |
+| UART RX (from ESP32) | 26 | PIO-based serial, 115200 baud, TinyProto HDLC |
 | LCD DC | 8 | Fixed on board |
 | LCD CS | 9 | Fixed on board |
 | LCD CLK | 10 | Fixed on board |
@@ -254,12 +254,12 @@ All pins are fixed by the board design.
 | Encoder DT | 42 | |
 | Encoder BTN | 41 | |
 | RGB LEDs | 48 | WS2812 x5 (unused) |
-| UART TX (J34) | 43 | 38400 baud, TinyProto HDLC to ESP32 |
-| UART RX (J34) | 44 | 38400 baud, TinyProto HDLC from ESP32 |
+| UART TX (J34) | 43 | 115200 baud, TinyProto HDLC to ESP32 |
+| UART RX (J34) | 44 | 115200 baud, TinyProto HDLC from ESP32 |
 
 ### Inter-Board Communication
 
-All inter-MCU communication uses [TinyProto](https://github.com/lexus2k/tinyproto) at 38400 baud with HDLC full-duplex framing. Text commands are sent inside `MSG_TEXT` messages; binary image uploads use a state-based protocol where TinyProto handles fragmentation, ACKs, and retransmission internally.
+All inter-MCU communication uses [TinyProto](https://github.com/lexus2k/tinyproto) at 115200 baud with HDLC full-duplex framing. Text commands are sent inside `MSG_TEXT` messages; binary image uploads use a state-based protocol where TinyProto handles fragmentation, ACKs, and retransmission internally.
 
 **ESP32 ↔ RP2040 (bidirectional, Serial2, GPIO 32 TX / GPIO 35 RX):**
 

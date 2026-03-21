@@ -589,8 +589,8 @@ void setup() {
   }
   loadImageMap();
 
-  // TinyProto HDLC link with ESP32 at 38400 baud
-  pioSerial.begin(38400);
+  // TinyProto HDLC link with ESP32 at 115200 baud
+  pioSerial.begin(115200);
   proto.onMessage = onMessage;
   proto.begin(pioSerial, "RP2040");
 

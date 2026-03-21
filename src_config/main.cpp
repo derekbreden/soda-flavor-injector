@@ -1618,8 +1618,14 @@ static void onMessage(ProtoLink *link, const uint8_t *data, uint16_t len) {
   }
 }
 
+// TX pump on core 1 — drains pending TinyProto frames to UART
+// even when core 0 is blocked by LVGL/BLE/LittleFS.
+static void txPumpTask(void *param) {
+  for (;;) { proto.serviceTx(); vTaskDelay(1); }
+}
+
 static void serviceProtoLink() {
-  proto.service();
+  proto.serviceRx();
 
   // Check upload timeout (10s without data)
   if (upload.state == UPLOAD_RECEIVING || upload.state == UPLOAD_WAITING_DONE) {
@@ -2224,9 +2230,10 @@ void handleTap() {
 
 void setup() {
   Serial.begin(115200);
-  Serial0.begin(38400, SERIAL_8N1, 44, 43);  // UART0 on J34 connector (RX=44, TX=43)
+  Serial0.begin(115200, SERIAL_8N1, 44, 43);  // UART0 on J34 connector (RX=44, TX=43)
   proto.onMessage = onMessage;
   proto.begin(Serial0, "ESP32");
+  xTaskCreatePinnedToCore(txPumpTask, "txPump", 4096, NULL, 1, NULL, 1);
 
   // Create semaphores for BLE→ESP32 upload forwarding
   s3FwdReadySem = xSemaphoreCreateBinary();

@@ -31,6 +31,11 @@
 // ~4KB per window slot covers frame headers, CRC, and HDLC overhead.
 #define PROTOLINK_BUF_SIZE  (4096 * PROTOLINK_WINDOW)
 
+// Keepalive interval. TinyProto sends RR frames after this idle period,
+// and disconnects after 2x this if no response. 15s is generous enough
+// to survive any realistic main-loop block.
+#define PROTOLINK_KA_TIMEOUT  15000
+
 struct ProtoLink {
   tinyproto::FdD proto{PROTOLINK_BUF_SIZE};
   Stream *serial = nullptr;
@@ -53,9 +58,10 @@ struct ProtoLink {
     proto.setReceiveCallback(onReceiveStatic);
     proto.setConnectEventCallback(onConnectStatic);
     proto.begin();
+    tiny_fd_set_ka_timeout(proto.getHandle(), PROTOLINK_KA_TIMEOUT);
 
-    Serial.printf("[%s] init: buf=%d bytes, status=%d\n",
-                  name, PROTOLINK_BUF_SIZE, proto.getStatus());
+    Serial.printf("[%s] init: buf=%d bytes, ka=%dms, status=%d\n",
+                  name, PROTOLINK_BUF_SIZE, PROTOLINK_KA_TIMEOUT, proto.getStatus());
   }
 
   void end() {
