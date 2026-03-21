@@ -2,7 +2,6 @@
 #include <Arduino_GFX_Library.h>
 #include <LittleFS.h>
 #include <SerialPIO.h>
-#include <PersistentLog.h>
 #include <uart_st.h>
 #include <uart_queue.h>
 #include "fw_version.h"
@@ -20,7 +19,6 @@
 #define UART_RX_PIN    26  // GP26 – receives commands from ESP32
 SerialPIO pioSerial(UART_TX_PIN, UART_RX_PIN, 512);
 SerialTransfer stLink;
-PersistentLog plog(LittleFS, "/logs/system.log", 16384);
 
 // ── Display wiring (fixed on RP2040-LCD-0.99-B board) ──
 #define LCD_DC   8
@@ -534,13 +532,11 @@ static void processTextCommand(const char *cmd) {
 static void checkSerialTransfer() {
   if (stLink.available()) {
     uint8_t pktId = stLink.currentPacketID();
-    plog.println("RX pkt 0x%02X len=%u state=%d", pktId, stLink.bytesRead, upload.state);
 
     switch (pktId) {
       case PKT_UPLOAD_START: {
         UploadStartPayload p;
         stLink.rxObj(p);
-        plog.println("UPLOAD_START slot=%d size=%lu", p.slot, p.size);
         handleUploadStart(p.slot, p.size);
         break;
       }
@@ -548,7 +544,6 @@ static void checkSerialTransfer() {
         ChunkDataPayload hdr;
         stLink.rxObj(hdr);
         uint16_t dataLen = stLink.bytesRead - sizeof(hdr);
-        plog.println("CHUNK seq=%d len=%u rxBytes=%lu", hdr.seq, dataLen, upload.receivedBytes);
         handleChunkData(hdr.seq, stLink.packet.rxBuff + sizeof(hdr), dataLen);
         break;
       }
@@ -597,7 +592,6 @@ static void checkSerialTransfer() {
   // Check upload timeout
   if (upload.state == UPLOAD_RECEIVING) {
     if (millis() - upload.lastChunkTime > 3000) {
-      plog.println("UPLOAD TIMEOUT seq=%d rxBytes=%lu", upload.nextSeq, upload.receivedBytes);
       abortUpload();
     }
   }
@@ -616,9 +610,6 @@ void setup() {
     LittleFS.format();
     LittleFS.begin();
   }
-
-  plog.begin();
-  plog.println("Boot — firmware %s", FW_BUILD_TIME);
 
   // Seed default images on first boot
   seedDefaultImages();
@@ -662,21 +653,6 @@ void setup() {
 // ════════════════════════════════════════════════════════════
 
 void loop() {
-  // USB serial commands (available when UART disconnected)
-  if (Serial.available()) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
-    if (cmd == "GET_LOG") {
-      plog.dump(Serial);
-      Serial.printf("--- %lu/%lu bytes, %lu lines ---\n",
-                    (unsigned long)plog.size(), (unsigned long)plog.capacity(),
-                    (unsigned long)plog.lineCount());
-    } else if (cmd == "CLEAR_LOG") {
-      plog.clear();
-      Serial.println("Log cleared");
-    }
-  }
-
   checkSerialTransfer();
 
   uint8_t newFlavor = (digitalRead(FLAVOR_SW_PIN) == LOW) ? 1 : 0;
