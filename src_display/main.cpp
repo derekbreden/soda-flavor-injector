@@ -2,7 +2,8 @@
 #include <Arduino_GFX_Library.h>
 #include <LittleFS.h>
 #include <SerialPIO.h>
-#include <uart_proto.h>
+#include <uart_st.h>
+#include <uart_queue.h>
 #include "fw_version.h"
 
 // Seed images (compiled in for first-boot only, then served from LittleFS)
@@ -10,16 +11,16 @@
 #include "flavor2_bitmap.h"
 #include "flavor3_bitmap.h"
 
-// -- Flavor switch --
+// ── Flavor switch ──
 #define FLAVOR_SW_PIN  29  // GP29 (ADC3) on SH1.0 connector
 
-// -- Bidirectional UART with ESP32 (PIO-based) --
-#define UART_TX_PIN    27  // GP27 - sends responses to ESP32
-#define UART_RX_PIN    26  // GP26 - receives commands from ESP32
+// ── Bidirectional UART with ESP32 (PIO-based) ──
+#define UART_TX_PIN    27  // GP27 – sends ACKs/responses to ESP32
+#define UART_RX_PIN    26  // GP26 – receives commands from ESP32
 SerialPIO pioSerial(UART_TX_PIN, UART_RX_PIN, 512);
-ProtoLink protoLink;
+SerialTransfer stLink;
 
-// -- Display wiring (fixed on RP2040-LCD-0.99-B board) --
+// ── Display wiring (fixed on RP2040-LCD-0.99-B board) ──
 #define LCD_DC   8
 #define LCD_CS   9
 #define LCD_CLK  10
@@ -31,7 +32,7 @@ ProtoLink protoLink;
 #define SCREEN_H 115
 #define IMAGE_BYTES (SCREEN_W * SCREEN_H * 2)  // 29440
 
-// -- Display bus & driver --
+// ── Display bus & driver ──
 Arduino_DataBus *bus = new Arduino_RPiPicoSPI(
     LCD_DC, LCD_CS, LCD_CLK, LCD_DIN, -1 /* MISO */, spi1);
 
@@ -40,7 +41,7 @@ Arduino_GFX *gfx = new Arduino_GC9107(
     SCREEN_W, SCREEN_H,
     0 /* col offset */, 13 /* row offset */);
 
-// -- Image mapping & state --
+// ── Image mapping & state ──
 static uint8_t imageMap[2] = { 0, 1 };
 static uint8_t numImages = 0;
 static int8_t activeFlavor = -1;
@@ -57,9 +58,9 @@ static uint16_t displayBuffer[SCREEN_W * SCREEN_H];  // RAM buffer for current i
 static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];  // null-terminated labels per slot
 static uint32_t localCrcs[MAX_IMAGES];  // per-image CRC-32
 
-// ================================================================
+// ════════════════════════════════════════════════════════════
 //  LittleFS image management
-// ================================================================
+// ════════════════════════════════════════════════════════════
 
 static void imagePath(char *buf, uint8_t slot) {
   snprintf(buf, 16, "/img%02d.bin", slot);
@@ -142,9 +143,9 @@ static bool loadImageFromFS(uint8_t slot) {
   return (n == IMAGE_BYTES);
 }
 
-// ================================================================
+// ════════════════════════════════════════════════════════════
 //  First-boot seeding: write PROGMEM images to LittleFS
-// ================================================================
+// ════════════════════════════════════════════════════════════
 
 static const uint16_t *seedBitmaps[] = {
   flavor1_bitmap,   // 0 = Diet Wild Cherry Pepsi
@@ -183,9 +184,9 @@ static void seedDefaultImages() {
   Serial.println("Seeding complete.");
 }
 
-// ================================================================
+// ════════════════════════════════════════════════════════════
 //  Config persistence (image mapping)
-// ================================================================
+// ════════════════════════════════════════════════════════════
 
 static void loadImageMap() {
   if (!LittleFS.exists(CONFIG_PATH)) return;
@@ -213,9 +214,9 @@ static void saveImageMap() {
   Serial.printf("Saved image map: 0->%d, 1->%d\n", imageMap[0], imageMap[1]);
 }
 
-// ================================================================
+// ════════════════════════════════════════════════════════════
 //  Display drawing
-// ================================================================
+// ════════════════════════════════════════════════════════════
 
 static void drawFlavor(uint8_t flavor) {
   uint8_t slot = imageMap[flavor];
@@ -226,9 +227,9 @@ static void drawFlavor(uint8_t flavor) {
   }
 }
 
-// ================================================================
+// ════════════════════════════════════════════════════════════
 //  Upload state machine
-// ================================================================
+// ════════════════════════════════════════════════════════════
 
 enum UploadState { UPLOAD_IDLE, UPLOAD_RECEIVING };
 
@@ -237,6 +238,7 @@ static struct {
   uint8_t     slot;
   uint32_t    expectedSize;
   uint32_t    receivedBytes;
+  uint8_t     nextSeq;
   uint32_t    runningCrc32;
   unsigned long lastChunkTime;
   File        file;
@@ -257,22 +259,22 @@ static void handleUploadStart(uint8_t slot, uint32_t size) {
   }
 
   if (slot > MAX_IMAGES) {
-    protoLink.sendResponse(MSG_ERR_SLOT_INVALID, 0);
+    stSendResponse(stLink, PKT_ERR_SLOT_INVALID, 0);
     return;
   }
   if (size != IMAGE_BYTES) {
-    protoLink.sendResponse(MSG_ERR_SIZE_MISMATCH, 0);
+    stSendResponse(stLink, PKT_ERR_SIZE_MISMATCH, 0);
     return;
   }
   if (slot > numImages) {
-    protoLink.sendResponse(MSG_ERR_SLOT_INVALID, 0);
+    stSendResponse(stLink, PKT_ERR_SLOT_INVALID, 0);
     return;
   }
 
   LittleFS.remove("/tmp.bin");
   upload.file = LittleFS.open("/tmp.bin", "w");
   if (!upload.file) {
-    protoLink.sendResponse(MSG_ERR_NO_SPACE, 0);
+    stSendResponse(stLink, PKT_ERR_NO_SPACE, 0);
     return;
   }
 
@@ -280,40 +282,48 @@ static void handleUploadStart(uint8_t slot, uint32_t size) {
   upload.slot = slot;
   upload.expectedSize = size;
   upload.receivedBytes = 0;
+  upload.nextSeq = 0;
   upload.runningCrc32 = 0;
   upload.lastChunkTime = millis();
 
   Serial.printf("Upload started: slot %d, %lu bytes\n", slot, size);
-  protoLink.sendEmpty(MSG_RESP_READY);
+  stSendEmptyResponse(stLink, PKT_RESP_READY);
 }
 
-static void handleChunkData(const uint8_t *data, uint16_t dataLen) {
+static void handleChunkData(uint8_t seq, const uint8_t *data, uint16_t dataLen) {
   if (upload.state != UPLOAD_RECEIVING) {
-    protoLink.sendResponse(MSG_ERR_BUSY, 0);
+    stSendResponse(stLink, PKT_ERR_BUSY, 0);
     return;
   }
 
-  if (dataLen == 0) {
-    protoLink.sendResponse(MSG_ERR_WRITE, 0);
+  if (seq != upload.nextSeq) {
+    stSendResponse(stLink, PKT_ERR_SEQ, upload.nextSeq);
+    return;
+  }
+
+  if (dataLen == 0 || dataLen > MAX_CHUNK_SIZE) {
+    stSendResponse(stLink, PKT_ERR_CRC, 0);
     return;
   }
 
   size_t written = upload.file.write(data, dataLen);
   if (written != dataLen) {
-    protoLink.sendResponse(MSG_ERR_WRITE, 0);
+    stSendResponse(stLink, PKT_ERR_WRITE, 0);
     abortUpload();
     return;
   }
 
   upload.receivedBytes += dataLen;
   upload.runningCrc32 = uartCrc32Update(upload.runningCrc32, data, dataLen);
+  upload.nextSeq = (upload.nextSeq + 1) & 0xFF;
   upload.lastChunkTime = millis();
-  // No per-chunk ack -- TinyProto handles reliable delivery
+
+  stSendResponse(stLink, PKT_RESP_CHUNK_OK, upload.nextSeq);
 }
 
 static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
   if (upload.state != UPLOAD_RECEIVING) {
-    protoLink.sendResponse(MSG_ERR_BUSY, 0);
+    stSendResponse(stLink, PKT_ERR_BUSY, 0);
     return;
   }
 
@@ -324,7 +334,7 @@ static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
                   upload.receivedBytes, upload.expectedSize);
     LittleFS.remove("/tmp.bin");
     upload.state = UPLOAD_IDLE;
-    protoLink.sendResponse(MSG_ERR_SIZE_MISMATCH, 0);
+    stSendResponse(stLink, PKT_ERR_SIZE_MISMATCH, 0);
     return;
   }
 
@@ -333,7 +343,7 @@ static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
                   upload.runningCrc32, expectedCrc32);
     LittleFS.remove("/tmp.bin");
     upload.state = UPLOAD_IDLE;
-    protoLink.sendResponse(MSG_ERR_CRC32_MISMATCH, 0);
+    stSendResponse(stLink, PKT_ERR_CRC32_MISMATCH, 0);
     return;
   }
 
@@ -348,12 +358,12 @@ static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
   saveCrcs();
 
   Serial.printf("Upload complete: slot %d, %d images total\n", slot, numImages);
-  protoLink.sendResponse(MSG_RESP_UPLOAD_OK, numImages);
+  stSendResponse(stLink, PKT_RESP_UPLOAD_OK, numImages);
 }
 
 static void handleDeleteImage(uint8_t slot) {
   if (slot >= numImages || numImages <= 1) {
-    protoLink.sendResponse(MSG_ERR_SLOT_INVALID, 0);
+    stSendResponse(stLink, PKT_ERR_SLOT_INVALID, 0);
     return;
   }
 
@@ -394,17 +404,17 @@ static void handleDeleteImage(uint8_t slot) {
   if (activeFlavor >= 0) drawFlavor(activeFlavor);
 
   Serial.printf("Deleted slot %d, shifted down, %d images remain\n", slot, numImages);
-  protoLink.sendResponse(MSG_RESP_DELETE_OK, numImages);
+  stSendResponse(stLink, PKT_RESP_DELETE_OK, numImages);
 }
 
 static void handleSwapImages(uint8_t slotA, uint8_t slotB) {
   if (slotA >= numImages || slotB >= numImages) {
-    protoLink.sendResponse(MSG_ERR_SLOT_INVALID, 0);
+    stSendResponse(stLink, PKT_ERR_SLOT_INVALID, 0);
     return;
   }
 
   if (slotA == slotB) {
-    protoLink.sendResponse(MSG_RESP_SWAP_OK, numImages);
+    stSendResponse(stLink, PKT_RESP_SWAP_OK, numImages);
     return;
   }
 
@@ -437,12 +447,27 @@ static void handleSwapImages(uint8_t slotA, uint8_t slotB) {
   if (activeFlavor >= 0) drawFlavor(activeFlavor);
 
   Serial.printf("Swapped slots %d <-> %d\n", slotA, slotB);
-  protoLink.sendResponse(MSG_RESP_SWAP_OK, numImages);
+  stSendResponse(stLink, PKT_RESP_SWAP_OK, numImages);
 }
 
-// ================================================================
-//  Process text command received via MSG_TEXT
-// ================================================================
+// ════════════════════════════════════════════════════════════
+//  Process text command received via PKT_TEXT
+// ════════════════════════════════════════════════════════════
+
+// Ack seq tracking: when a #seq: prefixed command arrives, we stash
+// the seq number so response functions can prepend it.
+static int ackSeq = -1;  // -1 = no ack needed
+
+// Send a text response, prepending #seq: if an ack is pending
+static void stSendTextAck(SerialTransfer &st, const char *text) {
+  if (ackSeq >= 0) {
+    char buf[264];
+    snprintf(buf, sizeof(buf), "#%d:%s", ackSeq, text);
+    stSendText(st, buf);
+  } else {
+    stSendText(st, text);
+  }
+}
 
 static void processTextCommand(const char *cmd) {
   if (strncmp(cmd, "MAP:", 4) == 0) {
@@ -479,15 +504,15 @@ static void processTextCommand(const char *cmd) {
   } else if (strcmp(cmd, "GET_VERSION") == 0) {
     char buf[48];
     snprintf(buf, sizeof(buf), "VERSION:RP2040=%s", FW_BUILD_TIME);
-    protoLink.sendText(buf);
+    stSendTextAck(stLink, buf);
 
   } else if (strcmp(cmd, "LIST") == 0) {
     for (uint8_t i = 0; i < numImages; i++) {
       char buf[48];
       snprintf(buf, sizeof(buf), "IMG:%d:%s", i, labels[i]);
-      protoLink.sendText(buf);
+      stSendText(stLink, buf);  // list items are not acked individually
     }
-    protoLink.sendText("END");
+    stSendTextAck(stLink, "END");  // ack goes on the final response
 
   } else if (strcmp(cmd, "GET_CRCS") == 0) {
     // Respond with per-slot CRCs: "CRCS:count:hex0:hex1:..."
@@ -496,66 +521,75 @@ static void processTextCommand(const char *cmd) {
     for (uint8_t i = 0; i < numImages && pos < (int)sizeof(buf) - 10; i++) {
       pos += snprintf(buf + pos, sizeof(buf) - pos, ":%08lx", localCrcs[i]);
     }
-    protoLink.sendText(buf);
+    stSendTextAck(stLink, buf);
   }
 }
 
-// ================================================================
-//  TinyProto message handler
-// ================================================================
+// ════════════════════════════════════════════════════════════
+//  SerialTransfer packet handler
+// ════════════════════════════════════════════════════════════
 
-static void onMessage(ProtoLink *link, uint8_t msgType, const uint8_t *payload, uint16_t len) {
-  switch (msgType) {
-    case MSG_UPLOAD_START: {
-      UploadStartPayload sp;
-      memcpy(&sp, payload, sizeof(sp));
-      handleUploadStart(sp.slot, sp.size);
-      break;
+static void checkSerialTransfer() {
+  if (stLink.available()) {
+    uint8_t pktId = stLink.currentPacketID();
+
+    switch (pktId) {
+      case PKT_UPLOAD_START: {
+        UploadStartPayload p;
+        stLink.rxObj(p);
+        handleUploadStart(p.slot, p.size);
+        break;
+      }
+      case PKT_CHUNK_DATA: {
+        ChunkDataPayload hdr;
+        stLink.rxObj(hdr);
+        uint16_t dataLen = stLink.bytesRead - sizeof(hdr);
+        handleChunkData(hdr.seq, stLink.packet.rxBuff + sizeof(hdr), dataLen);
+        break;
+      }
+      case PKT_UPLOAD_DONE: {
+        UploadDonePayload p;
+        stLink.rxObj(p);
+        handleUploadDone(p.slot, p.crc32);
+        break;
+      }
+      case PKT_QUERY_COUNT:
+        stSendResponse(stLink, PKT_RESP_COUNT, numImages);
+        break;
+      case PKT_DELETE_IMAGE: {
+        SlotPayload p;
+        stLink.rxObj(p);
+        handleDeleteImage(p.slot);
+        break;
+      }
+      case PKT_SWAP_IMAGES: {
+        SwapPayload p;
+        stLink.rxObj(p);
+        handleSwapImages(p.slotA, p.slotB);
+        break;
+      }
+      case PKT_TEXT: {
+        char textBuf[256];
+        uint16_t len = stLink.bytesRead;
+        if (len > sizeof(textBuf) - 1) len = sizeof(textBuf) - 1;
+        memcpy(textBuf, stLink.packet.rxBuff, len);
+        textBuf[len] = '\0';
+
+        // Strip #seq: prefix if present, stash seq for response
+        const char *cmdStart;
+        ackSeq = stParseTextSeq(textBuf, &cmdStart);
+        if (ackSeq >= 0) {
+          processTextCommand(cmdStart);
+        } else {
+          processTextCommand(textBuf);
+        }
+        ackSeq = -1;  // clear after processing
+        break;
+      }
     }
-    case MSG_CHUNK_DATA: {
-      handleChunkData(payload, len);
-      break;
-    }
-    case MSG_UPLOAD_DONE: {
-      UploadDonePayload dp;
-      memcpy(&dp, payload, sizeof(dp));
-      handleUploadDone(dp.slot, dp.crc32);
-      break;
-    }
-    case MSG_QUERY_COUNT:
-      protoLink.sendResponse(MSG_RESP_COUNT, numImages);
-      break;
-    case MSG_DELETE_IMAGE: {
-      SlotPayload p;
-      memcpy(&p, payload, sizeof(p));
-      handleDeleteImage(p.slot);
-      break;
-    }
-    case MSG_SWAP_IMAGES: {
-      SwapPayload p;
-      memcpy(&p, payload, sizeof(p));
-      handleSwapImages(p.slotA, p.slotB);
-      break;
-    }
-    case MSG_TEXT: {
-      char textBuf[256];
-      uint16_t textLen = len;
-      if (textLen > sizeof(textBuf) - 1) textLen = sizeof(textBuf) - 1;
-      memcpy(textBuf, payload, textLen);
-      textBuf[textLen] = '\0';
-      processTextCommand(textBuf);
-      break;
-    }
-    default:
-      break;
   }
-}
 
-// ================================================================
-//  Upload timeout check
-// ================================================================
-
-static void checkUploadTimeout() {
+  // Check upload timeout
   if (upload.state == UPLOAD_RECEIVING) {
     if (millis() - upload.lastChunkTime > 3000) {
       abortUpload();
@@ -563,9 +597,9 @@ static void checkUploadTimeout() {
   }
 }
 
-// ================================================================
+// ════════════════════════════════════════════════════════════
 //  Setup
-// ================================================================
+// ════════════════════════════════════════════════════════════
 
 void setup() {
   Serial.begin(115200);
@@ -592,8 +626,7 @@ void setup() {
 
   // Bidirectional UART with ESP32 at 38400 baud
   pioSerial.begin(38400);
-  protoLink.begin(pioSerial, "RP2040");
-  protoLink.onMessage = onMessage;
+  stLink.begin(pioSerial, true, Serial, 200);  // 200ms timeout (must exceed loop delay)
 
   // Flavor switch
   pinMode(FLAVOR_SW_PIN, INPUT_PULLUP);
@@ -611,17 +644,16 @@ void setup() {
                 activeFlavor + 1, imageMap[activeFlavor]);
 
   // Announce readiness to ESP32 (image count in payload)
-  protoLink.sendResponse(MSG_DEVICE_READY, numImages);
-  Serial.printf("Sent MSG_DEVICE_READY (numImages=%d)\n", numImages);
+  stSendResponse(stLink, PKT_DEVICE_READY, numImages);
+  Serial.printf("Sent PKT_DEVICE_READY (numImages=%d)\n", numImages);
 }
 
-// ================================================================
+// ════════════════════════════════════════════════════════════
 //  Loop
-// ================================================================
+// ════════════════════════════════════════════════════════════
 
 void loop() {
-  protoLink.service();
-  checkUploadTimeout();
+  checkSerialTransfer();
 
   uint8_t newFlavor = (digitalRead(FLAVOR_SW_PIN) == LOW) ? 1 : 0;
 
@@ -632,5 +664,5 @@ void loop() {
                   activeFlavor + 1, imageMap[activeFlavor]);
   }
 
-  delay(10);  // Keep short so TinyProto service runs frequently
+  delay(10);  // Keep short so SerialTransfer parser runs frequently
 }
