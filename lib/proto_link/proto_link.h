@@ -1,6 +1,7 @@
 #pragma once
 
 #include <TinyProtocolFd.h>
+#include <hal/tiny_types.h>
 #include "proto_msg.h"
 
 #ifdef ARDUINO
@@ -104,7 +105,7 @@ struct ProtoLink {
     buf[0] = msgType;
     if (len > 0 && data) memcpy(buf + 1, data, len);
     int r = proto.write((const char *)buf, len + 1);
-    if (r < 0) Serial.printf("[%s] send(0x%02X, %u) err=%d\n", name, msgType, len, r);
+    if (r < 0 && r != TINY_ERR_TIMEOUT) Serial.printf("[%s] send(0x%02X, %u) err=%d\n", name, msgType, len, r);
     return r;
   }
 
@@ -116,7 +117,7 @@ struct ProtoLink {
     buf[0] = MSG_TEXT;
     memcpy(buf + 1, text, textLen);
     int r = proto.write((const char *)buf, textLen + 1);
-    if (r < 0) Serial.printf("[%s] sendText err=%d\n", name, r);
+    if (r < 0 && r != TINY_ERR_TIMEOUT) Serial.printf("[%s] sendText err=%d\n", name, r);
     return r;
   }
 

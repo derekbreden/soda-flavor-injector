@@ -724,15 +724,19 @@ static volatile uint8_t s3CountValue = 0;
 
 bool queryS3ImageCount() {
   s3CountReady = false;
-  protoS3.sendEmpty(MSG_QUERY_COUNT);
+  bool sent = false;
 
   unsigned long start = millis();
-  while (millis() - start < 500) {
+  while (millis() - start < 2000) {
     protoS3.serviceRx();
     if (s3CountReady) {
       numS3Images = s3CountValue;
       Serial.printf("S3 reports %d images\n", numS3Images);
       return true;
+    }
+    if (!sent) {
+      int r = protoS3.sendEmpty(MSG_QUERY_COUNT);
+      if (r >= 0) sent = true;
     }
     delay(1);
   }
@@ -2458,14 +2462,15 @@ void onRpMessage(ProtoLink *link, const uint8_t *data, uint16_t len) {
 }
 
 // ── RP2040 upload FreeRTOS task ──
-// Reads file from LittleFS, sends START, waits for READY,
-// sends full image via tiny_fd_send(), sends DONE, waits for UPLOAD_OK.
+// Streams file from LittleFS in chunks, sends START, waits for READY,
+// sends image data via tiny_fd_send() in chunks, sends DONE, waits for UPLOAD_OK.
+
+#define UPLOAD_CHUNK_SIZE 4096
 
 static void rpUploadTask(void *param) {
   uint8_t slot = rpUpload.slot;
   const char *path = rpUpload.filePath;
 
-  // Open file and read into RAM
   File f = LittleFS.open(path, "r");
   if (!f) {
     Serial.printf("[rpUpload] Failed to open %s\n", path);
@@ -2476,40 +2481,36 @@ static void rpUploadTask(void *param) {
   }
 
   uint32_t fileSize = f.size();
-  uint8_t *buf = (uint8_t *)malloc(fileSize);
-  if (!buf) {
-    Serial.printf("[rpUpload] malloc(%lu) failed\n", fileSize);
-    f.close();
-    rpUpload.active = false;
-    if (rpUpload.callback) rpUpload.callback(slot, false);
-    vTaskDelete(NULL);
-    return;
+
+  // First pass: compute CRC32 from file
+  uint32_t crc = 0;
+  {
+    uint8_t tmp[UPLOAD_CHUNK_SIZE];
+    uint32_t remaining = fileSize;
+    while (remaining > 0) {
+      uint32_t chunk = (remaining > UPLOAD_CHUNK_SIZE) ? UPLOAD_CHUNK_SIZE : remaining;
+      f.read(tmp, chunk);
+      crc = uartCrc32Update(crc, tmp, chunk);
+      remaining -= chunk;
+    }
+    f.seek(0);
   }
-
-  f.read(buf, fileSize);
-  f.close();
-
-  // Compute CRC32
-  uint32_t crc = uartCrc32Update(0, buf, fileSize);
 
   Serial.printf("[rpUpload] slot %d, %lu bytes, CRC=0x%08lX\n", slot, fileSize, crc);
 
-  // Send START
-  UploadStartPayload startPl;
-  startPl.slot = slot;
-  startPl.size = fileSize;
-
   tiny_fd_handle_t h = protoRP.getHandle();
 
-  // Use tiny_fd_send for START (typed message: [msgType | payload])
+  // Send START
   {
     uint8_t startBuf[1 + sizeof(UploadStartPayload)];
     startBuf[0] = rpUpload.startMsgType;
-    memcpy(startBuf + 1, &startPl, sizeof(startPl));
+    UploadStartPayload *sp = (UploadStartPayload *)(startBuf + 1);
+    sp->slot = slot;
+    sp->size = fileSize;
     int r = tiny_fd_send(h, startBuf, sizeof(startBuf), 5000);
     if (r < 0) {
       Serial.printf("[rpUpload] START send failed: %d\n", r);
-      free(buf);
+      f.close();
       rpUpload.active = false;
       if (rpUpload.callback) rpUpload.callback(slot, false);
       vTaskDelete(NULL);
@@ -2520,7 +2521,7 @@ static void rpUploadTask(void *param) {
   // Wait for READY
   if (xSemaphoreTake(rpUpload.readySem, pdMS_TO_TICKS(5000)) != pdTRUE || !rpUpload.readyReceived) {
     Serial.printf("[rpUpload] READY timeout\n");
-    free(buf);
+    f.close();
     rpUpload.active = false;
     if (rpUpload.callback) rpUpload.callback(slot, false);
     vTaskDelete(NULL);
@@ -2529,27 +2530,39 @@ static void rpUploadTask(void *param) {
 
   if (rpUpload.errorReceived) {
     Serial.printf("[rpUpload] Error after START\n");
-    free(buf);
+    f.close();
     rpUpload.active = false;
     if (rpUpload.callback) rpUpload.callback(slot, false);
     vTaskDelete(NULL);
     return;
   }
 
-  // Send FULL IMAGE in one call — TinyProto fragments internally
+  // Stream image data in chunks — TinyProto fragments each chunk internally
   Serial.printf("[rpUpload] Sending %lu bytes...\n", fileSize);
-  int r = tiny_fd_send(h, buf, fileSize, 30000);
-  free(buf);
+  bool sendOk = true;
+  {
+    uint8_t chunk[UPLOAD_CHUNK_SIZE];
+    uint32_t remaining = fileSize;
+    while (remaining > 0) {
+      uint32_t n = (remaining > UPLOAD_CHUNK_SIZE) ? UPLOAD_CHUNK_SIZE : remaining;
+      f.read(chunk, n);
+      int r = tiny_fd_send(h, chunk, n, 30000);
+      if (r < 0) {
+        Serial.printf("[rpUpload] Image send failed at %lu/%lu: %d\n", fileSize - remaining, fileSize, r);
+        sendOk = false;
+        break;
+      }
+      remaining -= n;
+    }
+  }
+  f.close();
 
-  if (r < 0) {
-    Serial.printf("[rpUpload] Image send failed: %d\n", r);
+  if (!sendOk) {
     rpUpload.active = false;
     if (rpUpload.callback) rpUpload.callback(slot, false);
     vTaskDelete(NULL);
     return;
   }
-
-  Serial.printf("[rpUpload] Image sent, sending DONE\n");
 
   // Send DONE
   {
@@ -3033,20 +3046,21 @@ static void s3UploadFreeRTOSTask(void *param) {
   }
 
   uint32_t fileSize = f.size();
-  uint8_t *buf = (uint8_t *)malloc(fileSize);
-  if (!buf) {
-    Serial.printf("[s3Upload] malloc(%lu) failed\n", fileSize);
-    f.close();
-    s3UploadTask.active = false;
-    if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
-    vTaskDelete(NULL);
-    return;
+
+  // First pass: compute CRC32 from file
+  uint32_t crc = 0;
+  {
+    uint8_t tmp[UPLOAD_CHUNK_SIZE];
+    uint32_t remaining = fileSize;
+    while (remaining > 0) {
+      uint32_t chunk = (remaining > UPLOAD_CHUNK_SIZE) ? UPLOAD_CHUNK_SIZE : remaining;
+      f.read(tmp, chunk);
+      crc = uartCrc32Update(crc, tmp, chunk);
+      remaining -= chunk;
+    }
+    f.seek(0);
   }
 
-  f.read(buf, fileSize);
-  f.close();
-
-  uint32_t crc = uartCrc32Update(0, buf, fileSize);
   Serial.printf("[s3Upload] slot %d, %lu bytes, CRC=0x%08lX\n", slot, fileSize, crc);
 
   tiny_fd_handle_t h = protoS3.getHandle();
@@ -3061,7 +3075,7 @@ static void s3UploadFreeRTOSTask(void *param) {
     int r = tiny_fd_send(h, startBuf, sizeof(startBuf), 5000);
     if (r < 0) {
       Serial.printf("[s3Upload] START send failed: %d\n", r);
-      free(buf);
+      f.close();
       s3UploadTask.active = false;
       if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
       vTaskDelete(NULL);
@@ -3072,7 +3086,7 @@ static void s3UploadFreeRTOSTask(void *param) {
   // Wait for READY
   if (xSemaphoreTake(s3UploadTask.readySem, pdMS_TO_TICKS(5000)) != pdTRUE || !s3UploadTask.readyReceived) {
     Serial.printf("[s3Upload] READY timeout\n");
-    free(buf);
+    f.close();
     s3UploadTask.active = false;
     if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
     vTaskDelete(NULL);
@@ -3081,20 +3095,34 @@ static void s3UploadFreeRTOSTask(void *param) {
 
   if (s3UploadTask.errorReceived) {
     Serial.printf("[s3Upload] Error after START\n");
-    free(buf);
+    f.close();
     s3UploadTask.active = false;
     if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
     vTaskDelete(NULL);
     return;
   }
 
-  // Send FULL IMAGE
+  // Stream image data in chunks
   Serial.printf("[s3Upload] Sending %lu bytes...\n", fileSize);
-  int r = tiny_fd_send(h, buf, fileSize, 30000);
+  bool sendOk = true;
+  {
+    uint8_t chunk[UPLOAD_CHUNK_SIZE];
+    uint32_t remaining = fileSize;
+    while (remaining > 0) {
+      uint32_t n = (remaining > UPLOAD_CHUNK_SIZE) ? UPLOAD_CHUNK_SIZE : remaining;
+      f.read(chunk, n);
+      int r = tiny_fd_send(h, chunk, n, 30000);
+      if (r < 0) {
+        Serial.printf("[s3Upload] Image send failed at %lu/%lu: %d\n", fileSize - remaining, fileSize, r);
+        sendOk = false;
+        break;
+      }
+      remaining -= n;
+    }
+  }
+  f.close();
 
-  if (r < 0) {
-    Serial.printf("[s3Upload] Image send failed: %d\n", r);
-    free(buf);
+  if (!sendOk) {
     s3UploadTask.active = false;
     if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
     vTaskDelete(NULL);
@@ -3112,15 +3140,12 @@ static void s3UploadFreeRTOSTask(void *param) {
     int r2 = tiny_fd_send(h, doneBuf, sizeof(doneBuf), 5000);
     if (r2 < 0) {
       Serial.printf("[s3Upload] DONE send failed: %d\n", r2);
-      free(buf);
       s3UploadTask.active = false;
       if (s3UploadTask.callback) s3UploadTask.callback(slot, false);
       vTaskDelete(NULL);
       return;
     }
   }
-
-  free(buf);
 
   // Wait for UPLOAD_OK
   if (xSemaphoreTake(s3UploadTask.doneSem, pdMS_TO_TICKS(5000)) != pdTRUE || !s3UploadTask.doneReceived) {
