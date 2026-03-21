@@ -48,7 +48,7 @@ Silicone concentrate lines are zip-tied to the outside of the faucet gooseneck:
 
 The system runs on three microcontrollers:
 
-- **ESP32** — Main controller. Reads the flow meter, drives pumps and valves via L298N motor drivers, manages the pump state machine, stores config in LittleFS, and coordinates the other boards over UART using SerialTransfer (COBS-framed packets).
+- **ESP32** — Main controller. Reads the flow meter, drives pumps and valves via L298N motor drivers, manages the pump state machine, stores config in LittleFS, and coordinates the other boards over UART using TinyProto (HDLC full-duplex reliable delivery).
 - **RP2040** (Waveshare RP2040-LCD-0.99) — Display controller. Shows the selected flavor logo on a 128x115 round LCD. Reads the same physical toggle switch for instant visual feedback.
 - **ESP32-S3** (Meshnology 1.28" Round Rotary Display) — Config display. A 240x240 round touchscreen with a rotary encoder for changing flavor images and ratios at runtime. Also serves as a BLE bridge between the iOS app and ESP32. Syncs config to the ESP32 over UART.
 
@@ -208,10 +208,10 @@ Most builders will already have these on hand.
 |----------|------|-------|
 | Flavor toggle switch | 13 | Air switch, INPUT_PULLUP |
 | Flow meter | 23 | Hall effect, FALLING edge interrupt |
-| Display UART TX | 32 | 38400 baud, SerialTransfer to RP2040 (Serial2) |
-| Display UART RX | 35 | 38400 baud, SerialTransfer from RP2040 |
-| Config UART TX | 15 | 38400 baud, SerialTransfer to ESP32-S3 (Serial1) |
-| Config UART RX | 34 | 38400 baud, SerialTransfer from ESP32-S3 (input-only pin) |
+| Display UART TX | 32 | 38400 baud, TinyProto HDLC to RP2040 (Serial2) |
+| Display UART RX | 35 | 38400 baud, TinyProto HDLC from RP2040 |
+| Config UART TX | 15 | 38400 baud, TinyProto HDLC to ESP32-S3 (Serial1) |
+| Config UART RX | 34 | 38400 baud, TinyProto HDLC from ESP32-S3 (input-only pin) |
 
 | RTC SDA (DS3231) | 21 | I2C, Wire library |
 | RTC SCL (DS3231) | 22 | I2C, Wire library |
@@ -223,8 +223,8 @@ Most builders will already have these on hand.
 | Function | GPIO | Notes |
 |----------|------|-------|
 | Flavor toggle switch | 29 | Same physical switch as ESP32 |
-| UART TX (to ESP32) | 27 | PIO-based serial, 38400 baud, SerialTransfer |
-| UART RX (from ESP32) | 26 | PIO-based serial, 38400 baud, SerialTransfer |
+| UART TX (to ESP32) | 27 | PIO-based serial, 38400 baud, TinyProto HDLC |
+| UART RX (from ESP32) | 26 | PIO-based serial, 38400 baud, TinyProto HDLC |
 | LCD DC | 8 | Fixed on board |
 | LCD CS | 9 | Fixed on board |
 | LCD CLK | 10 | Fixed on board |
@@ -254,22 +254,22 @@ All pins are fixed by the board design.
 | Encoder DT | 42 | |
 | Encoder BTN | 41 | |
 | RGB LEDs | 48 | WS2812 x5 (unused) |
-| UART TX (J34) | 43 | 38400 baud, SerialTransfer to ESP32 |
-| UART RX (J34) | 44 | 38400 baud, SerialTransfer from ESP32 |
+| UART TX (J34) | 43 | 38400 baud, TinyProto HDLC to ESP32 |
+| UART RX (J34) | 44 | 38400 baud, TinyProto HDLC from ESP32 |
 
 ### Inter-Board Communication
 
-All inter-MCU communication uses the [SerialTransfer](https://github.com/PowerBroker2/SerialTransfer) library at 38400 baud with COBS framing. Text commands are sent inside `PKT_TEXT` packets; binary image uploads use dedicated packet IDs for chunked transfer with CRC verification.
+All inter-MCU communication uses [TinyProto](https://github.com/lexus2k/tinyproto) at 38400 baud with HDLC full-duplex framing. Text commands are sent inside `MSG_TEXT` messages; binary image uploads use a state-based protocol where TinyProto handles fragmentation, ACKs, and retransmission internally.
 
 **ESP32 ↔ RP2040 (bidirectional, Serial2, GPIO 32 TX / GPIO 35 RX):**
 
-The ESP32 pushes flavor images, label mappings, and config to the RP2040. The RP2040 sends `PKT_DEVICE_READY` at boot with its image count, triggering a full sync. The ESP32 also re-syncs periodically (every 30 seconds) as a safety net.
+The ESP32 pushes flavor images, label mappings, and config to the RP2040. The RP2040 sends `MSG_DEVICE_READY` at boot with its image count, triggering a full sync. The ESP32 also re-syncs periodically (every 30 seconds) as a safety net.
 
 **ESP32 ↔ ESP32-S3 (bidirectional, Serial1, GPIO 15 TX / GPIO 34 RX):**
 
 The ESP32-S3 config display communicates with the ESP32 to read and write runtime configuration. The ESP32 is the single source of truth; config is persisted in LittleFS. The S3 also acts as a BLE bridge, forwarding commands from the iOS app to the ESP32.
 
-Text commands are wrapped in `PKT_TEXT` packets. On boot, the S3 sends `GET_CONFIG` until the ESP32 responds. When the user changes a value on the config display (or via the iOS app over BLE), the S3 sends `SET:` followed by `SAVE`.
+Text commands are wrapped in `MSG_TEXT` messages. On boot, the S3 sends `GET_CONFIG` until the ESP32 responds. When the user changes a value on the config display (or via the iOS app over BLE), the S3 sends `SET:` followed by `SAVE`.
 
 ```
 S3 → ESP32:  GET_CONFIG
@@ -290,7 +290,7 @@ ESP32 → S3:  OK:SAVED              (persists to LittleFS)
 
 Valid keys and ranges: `F1_RATIO` (6-24), `F2_RATIO` (6-24), `F1_IMAGE` (0-NUM_IMAGES-1), `F2_IMAGE` (0-NUM_IMAGES-1). The same text commands work over USB serial (115200 baud) for testing.
 
-Boot order does not matter. The S3 retries `GET_CONFIG` until the ESP32 is ready. Both the RP2040 and S3 send `PKT_DEVICE_READY` at the end of their `setup()`, and the ESP32 uses this to trigger initial sync.
+Boot order does not matter. The S3 retries `GET_CONFIG` until the ESP32 is ready. Both the RP2040 and S3 send `MSG_DEVICE_READY` at the end of their `setup()`, and the ESP32 uses this to trigger initial sync.
 
 ## Building and Flashing
 

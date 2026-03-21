@@ -18,7 +18,7 @@
 
 // Commands (ESP32 → device)
 constexpr uint8_t MSG_UPLOAD_START     = 0x01;
-// 0x02 intentionally unused (was PKT_CHUNK_DATA)
+// 0x02 reserved
 constexpr uint8_t MSG_UPLOAD_DONE      = 0x03;
 constexpr uint8_t MSG_QUERY_COUNT      = 0x04;
 constexpr uint8_t MSG_DELETE_IMAGE     = 0x05;
@@ -29,7 +29,7 @@ constexpr uint8_t MSG_DEVICE_READY     = 0x09;  // device → ESP32: "I'm ready"
 
 // Responses (device → ESP32)
 constexpr uint8_t MSG_RESP_READY       = 0x10;
-// 0x11 intentionally unused (was PKT_RESP_CHUNK_OK)
+// 0x11 reserved
 constexpr uint8_t MSG_RESP_UPLOAD_OK   = 0x12;
 constexpr uint8_t MSG_RESP_DELETE_OK   = 0x13;
 constexpr uint8_t MSG_RESP_COUNT       = 0x14;
@@ -39,7 +39,7 @@ constexpr uint8_t MSG_RESP_SWAP_OK     = 0x15;
 constexpr uint8_t MSG_ERR_SLOT_INVALID   = 0xE1;
 constexpr uint8_t MSG_ERR_NO_SPACE       = 0xE2;
 constexpr uint8_t MSG_ERR_BUSY           = 0xE3;
-// 0xE4, 0xE5 intentionally unused (were PKT_ERR_CRC, PKT_ERR_SEQ)
+// 0xE4, 0xE5 reserved
 constexpr uint8_t MSG_ERR_WRITE          = 0xE6;
 constexpr uint8_t MSG_ERR_SIZE_MISMATCH  = 0xE7;
 constexpr uint8_t MSG_ERR_CRC32_MISMATCH = 0xE8;
@@ -49,11 +49,7 @@ constexpr uint8_t MSG_TEXT = 0xFE;
 
 // ════════════════════════════════════════════════════════════
 //  Payload structs (packed, little-endian)
-//  Guarded to coexist with uart_st.h during migration
 // ════════════════════════════════════════════════════════════
-
-#ifndef UART_PAYLOAD_STRUCTS_DEFINED
-#define UART_PAYLOAD_STRUCTS_DEFINED
 
 struct __attribute__((packed)) UploadStartPayload {
   uint8_t  slot;
@@ -88,8 +84,6 @@ inline uint32_t uartCrc32Update(uint32_t prev, const uint8_t *data, size_t len) 
   }
   return ~crc;
 }
-
-#endif // UART_PAYLOAD_STRUCTS_DEFINED
 
 // ════════════════════════════════════════════════════════════
 //  Receive helpers — extract type and payload from frame

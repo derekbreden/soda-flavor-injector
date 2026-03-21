@@ -3,7 +3,7 @@
 
 The ESP32 is the authoritative image store. Images are stored on ESP32's
 LittleFS (both resolutions + compressed PNG), then pushed to display devices
-via SerialTransfer over inter-MCU UART.
+via TinyProto HDLC over inter-MCU UART.
 
 Usage:
     python3 upload_image.py --sync-factory [--port PORT]
