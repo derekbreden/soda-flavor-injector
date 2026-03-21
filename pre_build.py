@@ -60,9 +60,8 @@ if os.path.isdir(libdeps_dir):
                 f.write(content)
 
     # Patch TinyProtocolFd.cpp: increase retry_timeout from 200ms to 2000ms
-    # and retries from 2 to 4. The 200ms default is too aggressive for 38400
-    # baud links where the main loop can be blocked by LVGL/BLE/LittleFS,
-    # causing false disconnects and upload failures.
+    # and retries from 2 to 4. The 200ms default is too aggressive — the main
+    # loop can be blocked by LVGL/BLE/LittleFS, causing false disconnects.
     fd_cpp = os.path.join(libdeps_dir, "TinyProtocolFd.cpp")
     if os.path.isfile(fd_cpp):
         with open(fd_cpp, "r") as f:
