@@ -3,6 +3,7 @@ import SwiftUI
 struct ScanView: View {
     @Environment(BLEManager.self) var ble
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("prefersDemoMode") private var prefersDemoMode = false
     @State private var searchTextIndex = 0
 
     private let searchMessages = [
@@ -16,13 +17,20 @@ struct ScanView: View {
                 ConfigView()
             } else if !hasCompletedOnboarding {
                 onboardingView
+            } else if ble.demoMode {
+                // Demo mode chosen from onboarding — wait for enterDemoMode to set readyToShow
+                Color.clear
             } else {
                 animatedSearchView
             }
         }
         .onAppear {
-            if hasCompletedOnboarding && !ble.demoMode {
-                ble.activateBluetooth()
+            if hasCompletedOnboarding {
+                if prefersDemoMode {
+                    ble.enterDemoMode()
+                } else {
+                    ble.activateBluetooth()
+                }
             }
         }
     }
@@ -34,51 +42,56 @@ struct ScanView: View {
             Theme.background.ignoresSafeArea()
 
             GeometryReader { geo in
+                let animSize: CGFloat = 200
+                let animCenter = geo.size.height / 2
+                let animBottom = animCenter + animSize / 2
+                let belowSpace = geo.size.height - animBottom
+
                 GlassAnimationView()
-                    .frame(width: 200, height: 200)
-                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    .frame(width: animSize, height: animSize)
+                    .position(x: geo.size.width / 2, y: animCenter)
+
+                VStack(spacing: 0) {
+                    VStack(spacing: 8) {
+                        Text("Home Soda Machine")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(Theme.textPrimary)
+
+                        Text("Manage your machine's display images, run maintenance cycles, and view usage statistics.")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.bottom, 24)
+
+                    Button {
+                        prefersDemoMode = false
+                        hasCompletedOnboarding = true
+                        ble.activateBluetooth()
+                    } label: {
+                        Text("Scan for Hardware")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.15))
+                            .cornerRadius(10)
+                    }
+                    .padding(.bottom, 12)
+
+                    Button("Try Demo Mode") {
+                        prefersDemoMode = true
+                        hasCompletedOnboarding = true
+                        ble.enterDemoMode()
+                    }
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.textSecondary)
+                }
+                .padding(.horizontal, 32)
+                .frame(width: geo.size.width, height: belowSpace)
+                .position(x: geo.size.width / 2, y: animBottom + belowSpace / 2)
             }
             .ignoresSafeArea()
-
-            VStack {
-                Spacer()
-
-                VStack(spacing: 8) {
-                    Text("Home Soda Machine")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(Theme.textPrimary)
-
-                    Text("Manage your machine's display images, run maintenance cycles, and view usage statistics.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.bottom, 24)
-
-                Button {
-                    hasCompletedOnboarding = true
-                    ble.activateBluetooth()
-                } label: {
-                    Text("Scan for Hardware")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.15))
-                        .cornerRadius(10)
-                }
-                .padding(.bottom, 12)
-
-                Button("Try Demo Mode") {
-                    hasCompletedOnboarding = true
-                    ble.enterDemoMode()
-                }
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.textSecondary)
-
-                Spacer().frame(height: 20)
-            }
-            .padding(.horizontal, 32)
         }
     }
 

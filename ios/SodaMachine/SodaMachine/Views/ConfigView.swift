@@ -216,6 +216,7 @@ private struct SettingsPageView: View {
                     }
                     if ble.demoMode {
                         settingsButton("Connect to Machine") {
+                            UserDefaults.standard.set(false, forKey: "prefersDemoMode")
                             ble.exitDemoMode()
                         }
                     }
