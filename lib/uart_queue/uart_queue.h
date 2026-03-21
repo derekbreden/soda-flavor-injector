@@ -265,6 +265,8 @@ struct ProtoQueue {
     return enqueue(e);
   }
 
+  bool isBusy() const { return op != OP_IDLE || queueCount > 0; }
+
   // ────────────────────────────────────────────────
   //  Service — call every loop() iteration
   // ────────────────────────────────────────────────
@@ -463,6 +465,12 @@ private:
   // ────────────────────────────────────────────────
 
   void startText(const char *cmd, ProtoQueueTextCb cb) {
+    if (!link->isConnected()) {
+      Serial.printf("[%s] Not connected — failing text op\n", name);
+      if (cb) cb(this, nullptr);
+      op = OP_IDLE;
+      return;
+    }
     currentTextCb = cb;
     link->sendText(cmd);
     op = OP_TEXT_WAIT_RESPONSE;
@@ -494,6 +502,13 @@ private:
     f.close();
     #endif
 
+    if (!link->isConnected()) {
+      Serial.printf("[%s] Not connected — failing upload op\n", name);
+      if (cb) cb(this, slot, false);
+      op = OP_IDLE;
+      return;
+    }
+
     UploadStartPayload startPl{slot, uploadSize};
     link->send(startMsg, &startPl, sizeof(startPl));
 
@@ -508,6 +523,12 @@ private:
 
   void startBufferUpload(uint8_t slot, const uint8_t *data, uint32_t size,
                          uint8_t startMsg, ProtoQueueUploadCb cb) {
+    if (!link->isConnected()) {
+      Serial.printf("[%s] Not connected — failing buffer upload op\n", name);
+      if (cb) cb(this, slot, false);
+      op = OP_IDLE;
+      return;
+    }
     currentUploadCb = cb;
     uploadSlot = slot;
     uploadStartMsg = startMsg;
@@ -644,6 +665,12 @@ private:
   // ────────────────────────────────────────────────
 
   void startQuery(ProtoQueueQueryCb cb) {
+    if (!link->isConnected()) {
+      Serial.printf("[%s] Not connected — failing query op\n", name);
+      if (cb) cb(this, 0, false);
+      op = OP_IDLE;
+      return;
+    }
     currentQueryCb = cb;
     link->sendEmpty(MSG_QUERY_COUNT);
     op = OP_QUERY_WAIT_RESPONSE;

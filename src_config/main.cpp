@@ -968,11 +968,21 @@ static struct {
 } upload;
 
 static void sendResp(uint8_t msgType, uint8_t value) {
-  protoLink.sendResponse(msgType, value);
+  int r = protoLink.sendResponse(msgType, value);
+  if (r < 0) {
+    // Retry once after pumping service
+    protoLink.service();
+    protoLink.sendResponse(msgType, value);
+  }
 }
 
 static void sendEmpty(uint8_t msgType) {
-  protoLink.sendEmpty(msgType);
+  int r = protoLink.sendEmpty(msgType);
+  if (r < 0) {
+    // Retry once after pumping service
+    protoLink.service();
+    protoLink.sendEmpty(msgType);
+  }
 }
 
 static void abortUpload() {
@@ -2276,7 +2286,8 @@ void setup() {
 
 void loop() {
   // Boot sync: request config from ESP32 every 500ms until synced
-  if (!configSynced && millis() - lastGetConfig > 500) {
+  // Only queue if not already busy, to avoid flooding the TX window
+  if (!configSynced && millis() - lastGetConfig > 500 && !queueEsp.isBusy()) {
     queueEsp.queueText("GET_CONFIG", false, QUEUE_PRI_HIGH);
     Serial.println("UART TX: GET_CONFIG (boot sync)");
     lastGetConfig = millis();

@@ -478,9 +478,21 @@ bool queryImageCount() {
   _queryGot = false;
   auto oldCb = protoRP.onMessage;
   protoRP.onMessage = _onQueryRpMsg;
+
+  // Wait for HDLC link to connect before sending
+  unsigned long start = millis();
+  while (!protoRP.isConnected() && millis() - start < 2000) {
+    protoRP.service();
+  }
+  if (!protoRP.isConnected()) {
+    Serial.println("[RP2040] Not connected — skipping query");
+    protoRP.onMessage = oldCb;
+    return false;
+  }
+
   protoRP.sendEmpty(MSG_QUERY_COUNT);
 
-  unsigned long start = millis();
+  start = millis();
   while (millis() - start < 500) {
     protoRP.service();
     if (_queryGot) {
@@ -506,9 +518,21 @@ bool queryS3ImageCount() {
   _queryGot = false;
   auto oldCb = protoS3.onMessage;
   protoS3.onMessage = _onQueryS3Msg;
+
+  // Wait for HDLC link to connect before sending
+  unsigned long start = millis();
+  while (!protoS3.isConnected() && millis() - start < 2000) {
+    protoS3.service();
+  }
+  if (!protoS3.isConnected()) {
+    Serial.println("[S3] Not connected — skipping query");
+    protoS3.onMessage = oldCb;
+    return false;
+  }
+
   protoS3.sendEmpty(MSG_QUERY_COUNT);
 
-  unsigned long start = millis();
+  start = millis();
   while (millis() - start < 500) {
     protoS3.service();
     if (_queryGot) {
@@ -2549,13 +2573,19 @@ void setup() {
 
   // Wait for RP2040 to boot, init LittleFS, and start UART.
   // First boot seeds 3 images (~88KB writes) which can take several seconds.
-  delay(3000);
+  // Pump TinyProto service during the wait so HDLC handshake can proceed.
+  {
+    unsigned long waitStart = millis();
+    while (millis() - waitStart < 3000) {
+      protoRP.service();
+      delay(1);
+    }
+  }
 
   // Try to query RP2040 now; if it's not ready yet, MSG_DEVICE_READY will catch up
   for (int attempt = 0; attempt < 3; attempt++) {
     if (queryImageCount()) break;
     Serial.printf("  RP2040 query retry %d/3...\n", attempt + 1);
-    delay(500);
   }
   if (numRpImages == 0 && numEspImages > 0) {
     Serial.println("RP2040 not ready yet — will sync on MSG_DEVICE_READY");
@@ -2570,13 +2600,20 @@ void setup() {
 
   // Wait for S3 to boot, init LittleFS, and start UART.
   // First boot seeds 3 images (~345KB writes) which can take several seconds.
-  delay(3000);
+  // Pump both TinyProto links during the wait so HDLC handshakes can proceed.
+  {
+    unsigned long waitStart = millis();
+    while (millis() - waitStart < 3000) {
+      protoRP.service();
+      protoS3.service();
+      delay(1);
+    }
+  }
 
   // Try to query S3 now; if it's not ready yet, MSG_DEVICE_READY will catch up
   for (int attempt = 0; attempt < 3; attempt++) {
     if (queryS3ImageCount()) break;
     Serial.printf("  S3 query retry %d/3...\n", attempt + 1);
-    delay(500);
   }
   if (numS3Images == 0 && numEspImages > 0) {
     Serial.println("S3 not ready yet — will sync on MSG_DEVICE_READY");
@@ -2585,8 +2622,8 @@ void setup() {
   // Boot sync: force push on first boot, count-based sync otherwise
   if (firstBoot && numEspImages > 0) {
     Serial.printf("First boot — force pushing %d images to both devices\n", numEspImages);
-    startRpSync(true);          // RP2040 async
-    startS3Sync(true);          // S3 async
+    startRpSync(true);
+    startS3Sync(true);
   } else {
     bootSync();
   }
@@ -2594,7 +2631,6 @@ void setup() {
   Serial.println("Dual-Flavor Soda Maker ready!");
   Serial.printf("Active flavor: %d\n", activeFlavor + 1);
   Serial.printf("RP2040: %d/%d images, S3: %d/%d images\n", numRpImages, numEspImages, numS3Images, numEspImages);
-  Serial.printf("Sent image mapping to display: %d,%d\n", flavor1Image, flavor2Image);
 }
 
 // ════════════════════════════════════════════════════════════
