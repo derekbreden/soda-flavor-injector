@@ -32,14 +32,11 @@ WAVE_POINTS = 40  # number of points along the surface for smooth wave
 BUBBLES = [
     # speed MUST be integer for seamless looping (1 = one rise-pop cycle per loop)
     # phase offsets stagger the bubbles so they don't all move in unison
+    # 4 bubbles matching iOS GlassAnimationView — all submerged at t=0
     {"cx": 440, "r": 42, "phase": 0.0, "speed": 1},
-    {"cx": 580, "r": 35, "phase": 0.25, "speed": 1},
-    {"cx": 500, "r": 30, "phase": 0.50, "speed": 1},
-    {"cx": 620, "r": 26, "phase": 0.75, "speed": 1},
-    {"cx": 380, "r": 20, "phase": 0.12, "speed": 1},  # small + fast = 2 cycles per loop
-    {"cx": 550, "r": 22, "phase": 0.60, "speed": 1},
-    {"cx": 470, "r": 18, "phase": 0.37, "speed": 1},  # small + fast
-    {"cx": 650, "r": 16, "phase": 0.85, "speed": 1},
+    {"cx": 580, "r": 35, "phase": 0.20, "speed": 1},
+    {"cx": 500, "r": 30, "phase": 0.42, "speed": 1},
+    {"cx": 620, "r": 26, "phase": 0.62, "speed": 1},
 ]
 
 # Travel range for bubbles
@@ -158,19 +155,10 @@ def generate_frame_svg(frame, num_frames):
         if state is None:
             continue
         cx, cy, r, opacity = state
-        # Only render if inside the glass clip area
+        # Only render if inside the glass clip area and submerged
         if cy > 250 and cy < 780:
-            # Submerged bubbles get fill, above-surface ones are outlines
             surface_y = wave_surface_y(cx, frame, num_frames)
-            if cy < surface_y:
-                # Above surface - outline only, more transparent
-                bubble_elements.append(
-                    f'    <circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" '
-                    f'fill="none" stroke="rgba(255,255,255,{opacity * 0.25:.2f})" '
-                    f'stroke-width="2"/>'
-                )
-            else:
-                # Submerged - filled bubble with glow
+            if cy >= surface_y:
                 bubble_elements.append(
                     f'    <circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" '
                     f'fill="url(#bubbleGlow)" '
