@@ -17,7 +17,8 @@
 //   NOTE: RP2040 SerialPIO is NOT thread-safe across cores — use
 //   single-core service() only on RP2040.
 //
-// send() and sendText() queue data into TinyProto's internal buffer.
+// send() and sendText() retry if the TX window is full, pumping
+// serviceRx() to process ACKs until a slot opens (up to 2s timeout).
 //
 // For large transfers (image uploads), use the raw handle via
 // getHandle() with the C API tiny_fd_send() which blocks until
@@ -97,16 +98,18 @@ struct ProtoLink {
     serviceTx();
   }
 
-  // ── Send methods (non-blocking, queue into TinyProto buffer) ──
+  // ── Send methods ──
+  // Retry on window-full (-2) by pumping serviceRx() to process ACKs.
+  // Gives up after SEND_RETRY_MS to avoid blocking forever.
+
+  static constexpr unsigned long SEND_RETRY_MS = 2000;
 
   // Send typed message: [msgType | data]
   int send(uint8_t msgType, const void *data, uint16_t len) {
     uint8_t buf[len + 1];
     buf[0] = msgType;
     if (len > 0 && data) memcpy(buf + 1, data, len);
-    int r = proto.write((const char *)buf, len + 1);
-    if (r < 0 && r != TINY_ERR_TIMEOUT) Serial.printf("[%s] send(0x%02X, %u) err=%d\n", name, msgType, len, r);
-    return r;
+    return writeRetry(buf, len + 1, msgType);
   }
 
   // Send text as MSG_TEXT
@@ -116,9 +119,7 @@ struct ProtoLink {
     uint8_t buf[textLen + 1];
     buf[0] = MSG_TEXT;
     memcpy(buf + 1, text, textLen);
-    int r = proto.write((const char *)buf, textLen + 1);
-    if (r < 0 && r != TINY_ERR_TIMEOUT) Serial.printf("[%s] sendText err=%d\n", name, r);
-    return r;
+    return writeRetry(buf, textLen + 1, MSG_TEXT);
   }
 
   // Send single-byte response
@@ -142,6 +143,26 @@ struct ProtoLink {
   }
 
 private:
+  // Retry proto.write() on TINY_ERR_TIMEOUT (window full), pumping RX
+  // to process ACKs and free window slots. Returns final result.
+  int writeRetry(const uint8_t *buf, uint16_t len, uint8_t logType) {
+    unsigned long start = millis();
+    for (;;) {
+      int r = proto.write((const char *)buf, len);
+      if (r >= 0) return r;
+      if (r != TINY_ERR_TIMEOUT) {
+        Serial.printf("[%s] send(0x%02X, %u) err=%d\n", name, logType, len - 1, r);
+        return r;
+      }
+      if (millis() - start >= SEND_RETRY_MS) {
+        Serial.printf("[%s] send(0x%02X, %u) timeout after %lums\n", name, logType, len - 1, SEND_RETRY_MS);
+        return r;
+      }
+      serviceRx();
+      delay(1);
+    }
+  }
+
   // TinyProto receive callback — dispatches raw frame to application
   static void onReceiveStatic(void *userData, uint8_t addr, tinyproto::IPacket &pkt) {
     ProtoLink *self = (ProtoLink *)userData;
