@@ -78,6 +78,11 @@ class BLEManager {
     // Demo mode (no hardware needed)
     var demoMode = false
 
+    /// Ready to transition from animated splash to main UI
+    var readyToShow: Bool {
+        connectionState == .connected && (demoMode || !cachedImages.isEmpty)
+    }
+
     // Chart data (populated by GET_CHART_DATA response)
     var chartData24H: [[Double]] = [Array(repeating: 0, count: 24), Array(repeating: 0, count: 24)]
     var chartData30D: [[Double]] = [Array(repeating: 0, count: 30), Array(repeating: 0, count: 30)]
