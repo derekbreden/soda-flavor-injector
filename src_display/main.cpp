@@ -2,8 +2,7 @@
 #include <Arduino_GFX_Library.h>
 #include <LittleFS.h>
 #include <SerialPIO.h>
-#include <uart_st.h>
-#include <uart_queue.h>
+#include <proto_link.h>
 #include "fw_version.h"
 
 // Seed images (compiled in for first-boot only, then served from LittleFS)
@@ -18,7 +17,7 @@
 #define UART_TX_PIN    27  // GP27 – sends ACKs/responses to ESP32
 #define UART_RX_PIN    26  // GP26 – receives commands from ESP32
 SerialPIO pioSerial(UART_TX_PIN, UART_RX_PIN, 512);
-SerialTransfer stLink;
+ProtoLink proto;
 
 // ── Display wiring (fixed on RP2040-LCD-0.99-B board) ──
 #define LCD_DC   8
@@ -53,7 +52,6 @@ static uint16_t displayBuffer[SCREEN_W * SCREEN_H];  // RAM buffer for current i
 #define CRCS_PATH    "/img_crcs.txt"
 #define MAX_IMAGES   99
 #define MAX_LABEL_LEN 32
-#define MAX_CHUNK_SIZE 128
 
 static char labels[MAX_IMAGES][MAX_LABEL_LEN + 1];  // null-terminated labels per slot
 static uint32_t localCrcs[MAX_IMAGES];  // per-image CRC-32
@@ -228,19 +226,22 @@ static void drawFlavor(uint8_t flavor) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  Upload state machine
+//  Upload state machine (TinyProto — no per-chunk acks)
 // ════════════════════════════════════════════════════════════
+//
+// After MSG_UPLOAD_START, all incoming TinyProto frames are raw
+// image data until expectedSize bytes have been received. Then
+// the next typed message should be MSG_UPLOAD_DONE with CRC-32.
 
-enum UploadState { UPLOAD_IDLE, UPLOAD_RECEIVING };
+enum UploadState { UPLOAD_IDLE, UPLOAD_RECEIVING, UPLOAD_WAITING_DONE };
 
 static struct {
   UploadState state = UPLOAD_IDLE;
   uint8_t     slot;
   uint32_t    expectedSize;
   uint32_t    receivedBytes;
-  uint8_t     nextSeq;
   uint32_t    runningCrc32;
-  unsigned long lastChunkTime;
+  unsigned long lastDataTime;
   File        file;
 } upload;
 
@@ -254,27 +255,27 @@ static void abortUpload() {
 }
 
 static void handleUploadStart(uint8_t slot, uint32_t size) {
-  if (upload.state == UPLOAD_RECEIVING) {
+  if (upload.state != UPLOAD_IDLE) {
     abortUpload();
   }
 
   if (slot > MAX_IMAGES) {
-    stSendResponse(stLink, PKT_ERR_SLOT_INVALID, 0);
+    proto.sendResponse(MSG_ERR_SLOT_INVALID, 0);
     return;
   }
   if (size != IMAGE_BYTES) {
-    stSendResponse(stLink, PKT_ERR_SIZE_MISMATCH, 0);
+    proto.sendResponse(MSG_ERR_SIZE_MISMATCH, 0);
     return;
   }
   if (slot > numImages) {
-    stSendResponse(stLink, PKT_ERR_SLOT_INVALID, 0);
+    proto.sendResponse(MSG_ERR_SLOT_INVALID, 0);
     return;
   }
 
   LittleFS.remove("/tmp.bin");
   upload.file = LittleFS.open("/tmp.bin", "w");
   if (!upload.file) {
-    stSendResponse(stLink, PKT_ERR_NO_SPACE, 0);
+    proto.sendResponse(MSG_ERR_NO_SPACE, 0);
     return;
   }
 
@@ -282,59 +283,45 @@ static void handleUploadStart(uint8_t slot, uint32_t size) {
   upload.slot = slot;
   upload.expectedSize = size;
   upload.receivedBytes = 0;
-  upload.nextSeq = 0;
   upload.runningCrc32 = 0;
-  upload.lastChunkTime = millis();
+  upload.lastDataTime = millis();
 
   Serial.printf("Upload started: slot %d, %lu bytes\n", slot, size);
-  stSendEmptyResponse(stLink, PKT_RESP_READY);
+  proto.sendEmpty(MSG_RESP_READY);
 }
 
-static void handleChunkData(uint8_t seq, const uint8_t *data, uint16_t dataLen) {
-  if (upload.state != UPLOAD_RECEIVING) {
-    stSendResponse(stLink, PKT_ERR_BUSY, 0);
-    return;
-  }
+static void handleUploadData(const uint8_t *data, uint16_t len) {
+  if (upload.state != UPLOAD_RECEIVING) return;
 
-  if (seq != upload.nextSeq) {
-    stSendResponse(stLink, PKT_ERR_SEQ, upload.nextSeq);
-    return;
-  }
-
-  if (dataLen == 0 || dataLen > MAX_CHUNK_SIZE) {
-    stSendResponse(stLink, PKT_ERR_CRC, 0);
-    return;
-  }
-
-  size_t written = upload.file.write(data, dataLen);
-  if (written != dataLen) {
-    stSendResponse(stLink, PKT_ERR_WRITE, 0);
+  size_t written = upload.file.write(data, len);
+  if (written != len) {
+    proto.sendResponse(MSG_ERR_WRITE, 0);
     abortUpload();
     return;
   }
 
-  upload.receivedBytes += dataLen;
-  upload.runningCrc32 = uartCrc32Update(upload.runningCrc32, data, dataLen);
-  upload.nextSeq = (upload.nextSeq + 1) & 0xFF;
-  upload.lastChunkTime = millis();
+  upload.receivedBytes += len;
+  upload.runningCrc32 = uartCrc32Update(upload.runningCrc32, data, len);
+  upload.lastDataTime = millis();
 
-  stSendResponse(stLink, PKT_RESP_CHUNK_OK, upload.nextSeq);
+  if (upload.receivedBytes >= upload.expectedSize) {
+    upload.file.close();
+    upload.state = UPLOAD_WAITING_DONE;
+  }
 }
 
 static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
-  if (upload.state != UPLOAD_RECEIVING) {
-    stSendResponse(stLink, PKT_ERR_BUSY, 0);
+  if (upload.state != UPLOAD_WAITING_DONE) {
+    proto.sendResponse(MSG_ERR_BUSY, 0);
     return;
   }
-
-  upload.file.close();
 
   if (upload.receivedBytes != upload.expectedSize) {
     Serial.printf("Size mismatch: got %lu, expected %lu\n",
                   upload.receivedBytes, upload.expectedSize);
     LittleFS.remove("/tmp.bin");
     upload.state = UPLOAD_IDLE;
-    stSendResponse(stLink, PKT_ERR_SIZE_MISMATCH, 0);
+    proto.sendResponse(MSG_ERR_SIZE_MISMATCH, 0);
     return;
   }
 
@@ -343,7 +330,7 @@ static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
                   upload.runningCrc32, expectedCrc32);
     LittleFS.remove("/tmp.bin");
     upload.state = UPLOAD_IDLE;
-    stSendResponse(stLink, PKT_ERR_CRC32_MISMATCH, 0);
+    proto.sendResponse(MSG_ERR_CRC32_MISMATCH, 0);
     return;
   }
 
@@ -358,12 +345,12 @@ static void handleUploadDone(uint8_t slot, uint32_t expectedCrc32) {
   saveCrcs();
 
   Serial.printf("Upload complete: slot %d, %d images total\n", slot, numImages);
-  stSendResponse(stLink, PKT_RESP_UPLOAD_OK, numImages);
+  proto.sendResponse(MSG_RESP_UPLOAD_OK, numImages);
 }
 
 static void handleDeleteImage(uint8_t slot) {
   if (slot >= numImages || numImages <= 1) {
-    stSendResponse(stLink, PKT_ERR_SLOT_INVALID, 0);
+    proto.sendResponse(MSG_ERR_SLOT_INVALID, 0);
     return;
   }
 
@@ -404,17 +391,17 @@ static void handleDeleteImage(uint8_t slot) {
   if (activeFlavor >= 0) drawFlavor(activeFlavor);
 
   Serial.printf("Deleted slot %d, shifted down, %d images remain\n", slot, numImages);
-  stSendResponse(stLink, PKT_RESP_DELETE_OK, numImages);
+  proto.sendResponse(MSG_RESP_DELETE_OK, numImages);
 }
 
 static void handleSwapImages(uint8_t slotA, uint8_t slotB) {
   if (slotA >= numImages || slotB >= numImages) {
-    stSendResponse(stLink, PKT_ERR_SLOT_INVALID, 0);
+    proto.sendResponse(MSG_ERR_SLOT_INVALID, 0);
     return;
   }
 
   if (slotA == slotB) {
-    stSendResponse(stLink, PKT_RESP_SWAP_OK, numImages);
+    proto.sendResponse(MSG_RESP_SWAP_OK, numImages);
     return;
   }
 
@@ -447,27 +434,12 @@ static void handleSwapImages(uint8_t slotA, uint8_t slotB) {
   if (activeFlavor >= 0) drawFlavor(activeFlavor);
 
   Serial.printf("Swapped slots %d <-> %d\n", slotA, slotB);
-  stSendResponse(stLink, PKT_RESP_SWAP_OK, numImages);
+  proto.sendResponse(MSG_RESP_SWAP_OK, numImages);
 }
 
 // ════════════════════════════════════════════════════════════
-//  Process text command received via PKT_TEXT
+//  Process text command received via MSG_TEXT
 // ════════════════════════════════════════════════════════════
-
-// Ack seq tracking: when a #seq: prefixed command arrives, we stash
-// the seq number so response functions can prepend it.
-static int ackSeq = -1;  // -1 = no ack needed
-
-// Send a text response, prepending #seq: if an ack is pending
-static void stSendTextAck(SerialTransfer &st, const char *text) {
-  if (ackSeq >= 0) {
-    char buf[264];
-    snprintf(buf, sizeof(buf), "#%d:%s", ackSeq, text);
-    stSendText(st, buf);
-  } else {
-    stSendText(st, text);
-  }
-}
 
 static void processTextCommand(const char *cmd) {
   if (strncmp(cmd, "MAP:", 4) == 0) {
@@ -504,15 +476,15 @@ static void processTextCommand(const char *cmd) {
   } else if (strcmp(cmd, "GET_VERSION") == 0) {
     char buf[48];
     snprintf(buf, sizeof(buf), "VERSION:RP2040=%s", FW_BUILD_TIME);
-    stSendTextAck(stLink, buf);
+    proto.sendText(buf);
 
   } else if (strcmp(cmd, "LIST") == 0) {
     for (uint8_t i = 0; i < numImages; i++) {
       char buf[48];
       snprintf(buf, sizeof(buf), "IMG:%d:%s", i, labels[i]);
-      stSendText(stLink, buf);  // list items are not acked individually
+      proto.sendText(buf);
     }
-    stSendTextAck(stLink, "END");  // ack goes on the final response
+    proto.sendText("END");
 
   } else if (strcmp(cmd, "GET_CRCS") == 0) {
     // Respond with per-slot CRCs: "CRCS:count:hex0:hex1:..."
@@ -521,84 +493,77 @@ static void processTextCommand(const char *cmd) {
     for (uint8_t i = 0; i < numImages && pos < (int)sizeof(buf) - 10; i++) {
       pos += snprintf(buf + pos, sizeof(buf) - pos, ":%08lx", localCrcs[i]);
     }
-    stSendTextAck(stLink, buf);
+    proto.sendText(buf);
   }
 }
 
 // ════════════════════════════════════════════════════════════
-//  SerialTransfer packet handler
+//  ProtoLink message handler
 // ════════════════════════════════════════════════════════════
+//
+// During UPLOAD_RECEIVING, all frames are raw image data.
+// Otherwise, data[0] is the message type byte.
 
-static void checkSerialTransfer() {
-  if (stLink.available()) {
-    uint8_t pktId = stLink.currentPacketID();
+static void onMessage(ProtoLink *link, const uint8_t *data, uint16_t len) {
+  if (len == 0) return;
 
-    switch (pktId) {
-      case PKT_UPLOAD_START: {
-        UploadStartPayload p;
-        stLink.rxObj(p);
-        handleUploadStart(p.slot, p.size);
-        break;
-      }
-      case PKT_CHUNK_DATA: {
-        ChunkDataPayload hdr;
-        stLink.rxObj(hdr);
-        uint16_t dataLen = stLink.bytesRead - sizeof(hdr);
-        handleChunkData(hdr.seq, stLink.packet.rxBuff + sizeof(hdr), dataLen);
-        break;
-      }
-      case PKT_UPLOAD_DONE: {
-        UploadDonePayload p;
-        stLink.rxObj(p);
-        handleUploadDone(p.slot, p.crc32);
-        break;
-      }
-      case PKT_QUERY_COUNT:
-        stSendResponse(stLink, PKT_RESP_COUNT, numImages);
-        break;
-      case PKT_DELETE_IMAGE: {
-        SlotPayload p;
-        stLink.rxObj(p);
-        handleDeleteImage(p.slot);
-        break;
-      }
-      case PKT_SWAP_IMAGES: {
-        SwapPayload p;
-        stLink.rxObj(p);
-        handleSwapImages(p.slotA, p.slotB);
-        break;
-      }
-      case PKT_TEXT: {
-        char textBuf[256];
-        uint16_t len = stLink.bytesRead;
-        if (len > sizeof(textBuf) - 1) len = sizeof(textBuf) - 1;
-        memcpy(textBuf, stLink.packet.rxBuff, len);
-        textBuf[len] = '\0';
-
-        // Strip #seq: prefix if present, stash seq for response
-        const char *cmdStart;
-        ackSeq = stParseTextSeq(textBuf, &cmdStart);
-        if (ackSeq >= 0) {
-          processTextCommand(cmdStart);
-        } else {
-          processTextCommand(textBuf);
-        }
-        ackSeq = -1;  // clear after processing
-        break;
-      }
-    }
-  }
-
-  // Check upload timeout
+  // During upload: raw image data (no type byte)
   if (upload.state == UPLOAD_RECEIVING) {
-    if (millis() - upload.lastChunkTime > 3000) {
-      abortUpload();
+    handleUploadData(data, len);
+    return;
+  }
+
+  // Typed messages
+  uint8_t type = data[0];
+  const uint8_t *payload = data + 1;
+  uint16_t payloadLen = len - 1;
+
+  switch (type) {
+    case MSG_UPLOAD_START: {
+      if (payloadLen < sizeof(UploadStartPayload)) break;
+      UploadStartPayload p;
+      memcpy(&p, payload, sizeof(p));
+      handleUploadStart(p.slot, p.size);
+      break;
+    }
+    case MSG_UPLOAD_DONE: {
+      if (payloadLen < sizeof(UploadDonePayload)) break;
+      UploadDonePayload p;
+      memcpy(&p, payload, sizeof(p));
+      handleUploadDone(p.slot, p.crc32);
+      break;
+    }
+    case MSG_QUERY_COUNT:
+      proto.sendResponse(MSG_RESP_COUNT, numImages);
+      break;
+    case MSG_DELETE_IMAGE: {
+      if (payloadLen < sizeof(SlotPayload)) break;
+      SlotPayload p;
+      memcpy(&p, payload, sizeof(p));
+      handleDeleteImage(p.slot);
+      break;
+    }
+    case MSG_SWAP_IMAGES: {
+      if (payloadLen < sizeof(SwapPayload)) break;
+      SwapPayload p;
+      memcpy(&p, payload, sizeof(p));
+      handleSwapImages(p.slotA, p.slotB);
+      break;
+    }
+    case MSG_TEXT: {
+      if (payloadLen == 0) break;
+      char textBuf[256];
+      uint16_t tLen = (payloadLen > sizeof(textBuf) - 1) ? sizeof(textBuf) - 1 : payloadLen;
+      memcpy(textBuf, payload, tLen);
+      textBuf[tLen] = '\0';
+      processTextCommand(textBuf);
+      break;
     }
   }
 }
 
 // ════════════════════════════════════════════════════════════
-//  Setup
+//  Setup (core 0)
 // ════════════════════════════════════════════════════════════
 
 void setup() {
@@ -624,9 +589,10 @@ void setup() {
   }
   loadImageMap();
 
-  // Bidirectional UART with ESP32 at 38400 baud
+  // TinyProto HDLC link with ESP32 at 38400 baud
   pioSerial.begin(38400);
-  stLink.begin(pioSerial, true, Serial, 200);  // 200ms timeout (must exceed loop delay)
+  proto.onMessage = onMessage;
+  proto.begin(pioSerial, "RP2040");
 
   // Flavor switch
   pinMode(FLAVOR_SW_PIN, INPUT_PULLUP);
@@ -644,16 +610,42 @@ void setup() {
                 activeFlavor + 1, imageMap[activeFlavor]);
 
   // Announce readiness to ESP32 (image count in payload)
-  stSendResponse(stLink, PKT_DEVICE_READY, numImages);
-  Serial.printf("Sent PKT_DEVICE_READY (numImages=%d)\n", numImages);
+  // Delay briefly for HDLC link to establish
+  unsigned long start = millis();
+  while (!proto.isConnected() && millis() - start < 5000) {
+    proto.service();
+    delay(10);
+  }
+  proto.sendResponse(MSG_DEVICE_READY, numImages);
+  Serial.printf("Sent MSG_DEVICE_READY (numImages=%d)\n", numImages);
 }
 
 // ════════════════════════════════════════════════════════════
-//  Loop
+//  TX pump (core 1) — drains pending TinyProto frames to UART
+// ════════════════════════════════════════════════════════════
+
+void setup1() {
+  // Nothing to init — serial is initialized on core 0
+}
+
+void loop1() {
+  proto.serviceTx();
+  delay(1);  // yield to avoid starving core 1
+}
+
+// ════════════════════════════════════════════════════════════
+//  Main loop (core 0) — RX processing + application logic
 // ════════════════════════════════════════════════════════════
 
 void loop() {
-  checkSerialTransfer();
+  proto.serviceRx();
+
+  // Check upload timeout (10s without data)
+  if (upload.state == UPLOAD_RECEIVING || upload.state == UPLOAD_WAITING_DONE) {
+    if (millis() - upload.lastDataTime > 10000) {
+      abortUpload();
+    }
+  }
 
   uint8_t newFlavor = (digitalRead(FLAVOR_SW_PIN) == LOW) ? 1 : 0;
 
@@ -664,5 +656,5 @@ void loop() {
                   activeFlavor + 1, imageMap[activeFlavor]);
   }
 
-  delay(10);  // Keep short so SerialTransfer parser runs frequently
+  delay(10);
 }
