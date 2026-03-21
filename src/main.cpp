@@ -1598,6 +1598,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
           // Skip current seqHour (stale file entry; live RAM is authoritative)
           if (entry.seq_hour == seqHour) continue;
           if (entry.flow_sum == 0) continue;
+          if (entry.seq_hour > seqHour) continue;  // corrupt entry
 
           char pair[24];
           int pairLen = snprintf(pair, sizeof(pair), ",%lu:%lu",
