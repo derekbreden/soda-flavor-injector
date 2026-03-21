@@ -1,0 +1,163 @@
+#pragma once
+
+#include <TinyProtocolFd.h>
+#include "proto_msg.h"
+
+#ifdef ARDUINO
+#include <Arduino.h>
+#endif
+
+// ════════════════════════════════════════════════════════════
+//  ProtoLink: TinyProto Fd wrapper for dual-core serial I/O
+// ════════════════════════════════════════════════════════════
+//
+// Core 0 (main loop): call serviceRx() to process incoming data.
+//   Received messages trigger the onMessage callback.
+// Core 1 (TX pump): call serviceTx() in a tight loop to drain
+//   pending frames to the serial port.
+//
+// send() and sendText() queue data into TinyProto's internal
+// buffer (non-blocking). The TX pump transmits it in the
+// background.
+//
+// For large transfers (image uploads), use the raw handle via
+// getHandle() with the C API tiny_fd_send() which blocks until
+// all fragments are queued/sent.
+
+// Window: 4 frames allows pipelined transmission for throughput.
+#define PROTOLINK_WINDOW  4
+
+// Buffer size: generous estimate for Fd protocol internals.
+// ~4KB per window slot covers frame headers, CRC, and HDLC overhead.
+#define PROTOLINK_BUF_SIZE  (4096 * PROTOLINK_WINDOW)
+
+struct ProtoLink {
+  tinyproto::FdD proto{PROTOLINK_BUF_SIZE};
+  Stream *serial = nullptr;
+  const char *name = "";
+
+  // Application callback — fires for each received message/frame.
+  // During uploads: raw image data frames (no type byte).
+  // Otherwise: msgType is payload[0], payload points past the type byte.
+  // The callback must handle both cases based on application state.
+  void (*onMessage)(ProtoLink *link, const uint8_t *data, uint16_t len) = nullptr;
+
+  void begin(Stream &ser, const char *linkName) {
+    serial = &ser;
+    name = linkName;
+
+    proto.enableCrc16();
+    proto.setWindowSize(PROTOLINK_WINDOW);
+    proto.setSendTimeout(0);  // non-blocking by default
+    proto.setUserData(this);
+    proto.setReceiveCallback(onReceiveStatic);
+    proto.setConnectEventCallback(onConnectStatic);
+    proto.begin();
+
+    Serial.printf("[%s] init: buf=%d bytes, status=%d\n",
+                  name, PROTOLINK_BUF_SIZE, proto.getStatus());
+  }
+
+  void end() {
+    proto.end();
+  }
+
+  // ── Call from main loop (core 0) ──
+  // Reads serial bytes and feeds them to the protocol.
+  // Incoming messages trigger onMessage callback.
+  void serviceRx() {
+    if (!serial) return;
+    int avail = serial->available();
+    while (avail > 0) {
+      uint8_t buf[256];
+      int toRead = (avail > (int)sizeof(buf)) ? (int)sizeof(buf) : avail;
+      int got = serial->readBytes(buf, toRead);
+      if (got > 0) {
+        proto.run_rx(buf, got);
+      }
+      avail -= got;
+      if (got <= 0) break;
+    }
+  }
+
+  // ── Call from TX pump (core 1) ──
+  // Extracts pending frames from protocol and writes to serial.
+  void serviceTx() {
+    if (!serial) return;
+    for (;;) {
+      uint8_t txBuf[256];
+      int len = proto.run_tx(txBuf, sizeof(txBuf));
+      if (len <= 0) break;
+      serial->write(txBuf, len);
+    }
+  }
+
+  // ── Convenience: call both (single-threaded use or testing) ──
+  void service() {
+    serviceRx();
+    serviceTx();
+  }
+
+  // ── Send methods (non-blocking, queue into TinyProto buffer) ──
+
+  // Send typed message: [msgType | data]
+  int send(uint8_t msgType, const void *data, uint16_t len) {
+    uint8_t buf[len + 1];
+    buf[0] = msgType;
+    if (len > 0 && data) memcpy(buf + 1, data, len);
+    int r = proto.write((const char *)buf, len + 1);
+    if (r < 0) Serial.printf("[%s] send(0x%02X, %u) err=%d\n", name, msgType, len, r);
+    return r;
+  }
+
+  // Send text as MSG_TEXT
+  int sendText(const char *text) {
+    uint16_t textLen = strlen(text);
+    if (textLen > 510) textLen = 510;
+    uint8_t buf[textLen + 1];
+    buf[0] = MSG_TEXT;
+    memcpy(buf + 1, text, textLen);
+    int r = proto.write((const char *)buf, textLen + 1);
+    if (r < 0) Serial.printf("[%s] sendText err=%d\n", name, r);
+    return r;
+  }
+
+  // Send single-byte response
+  int sendResponse(uint8_t msgType, uint8_t value) {
+    ResponsePayload resp{value};
+    return send(msgType, &resp, sizeof(resp));
+  }
+
+  // Send type-only message (no payload)
+  int sendEmpty(uint8_t msgType) {
+    return send(msgType, nullptr, 0);
+  }
+
+  bool isConnected() {
+    return proto.getStatus() == TINY_SUCCESS;
+  }
+
+  // Access raw C handle for tiny_fd_send() (blocking large transfers)
+  tiny_fd_handle_t getHandle() {
+    return proto.getHandle();
+  }
+
+private:
+  // TinyProto receive callback — dispatches raw frame to application
+  static void onReceiveStatic(void *userData, uint8_t addr, tinyproto::IPacket &pkt) {
+    ProtoLink *self = (ProtoLink *)userData;
+    if (!self->onMessage) return;
+
+    int pktSize = pkt.size();
+    if (pktSize < 1) return;
+
+    uint8_t *data = (uint8_t *)pkt.data();
+    self->onMessage(self, data, (uint16_t)pktSize);
+  }
+
+  // TinyProto connect/disconnect callback
+  static void onConnectStatic(void *userData, uint8_t addr, bool connected) {
+    ProtoLink *self = (ProtoLink *)userData;
+    Serial.printf("[%s] %s\n", self->name, connected ? "CONNECTED" : "DISCONNECTED");
+  }
+};
