@@ -754,19 +754,25 @@ private struct GlassIcon: View {
             rim.addLine(to: CGPoint(x: 404 * sx, y: 0))
             ctx.stroke(rim, with: .color(color), lineWidth: max(2, height / 28))
 
-            // Liquid fill line — SVG liquid surface at y=347, glass-relative y=100
-            // Interpolate glass x at y=100: left edge ~= 7.4, right edge ~= 396.6
+            // Liquid surface wave — matches AppIcon.svg / GlassAnimationView t=0
+            // SVG: M300,347 Q400,327 512,352 Q624,377 724,342
+            // Glass-relative (subtract 310,247): (-10,100) Q(90,80 202,105) Q(314,130 414,95)
             var liquid = Path()
-            liquid.move(to: CGPoint(x: 7.4 * sx, y: 100 * sy))
-            liquid.addLine(to: CGPoint(x: 396.6 * sx, y: 100 * sy))
-            ctx.stroke(liquid, with: .color(color.opacity(0.4)), lineWidth: max(1, height / 50))
+            liquid.move(to: CGPoint(x: -10 * sx, y: 100 * sy))
+            liquid.addQuadCurve(
+                to: CGPoint(x: 202 * sx, y: 105 * sy),
+                control: CGPoint(x: 90 * sx, y: 80 * sy))
+            liquid.addQuadCurve(
+                to: CGPoint(x: 414 * sx, y: 95 * sy),
+                control: CGPoint(x: 314 * sx, y: 130 * sy))
+            ctx.stroke(liquid, with: .color(color), lineWidth: max(1, height / 50))
 
-            // Bubbles from SVG (stroke-only, positions relative to glass origin)
-            // SVG: cx=440,cy=567,r=42 → (130, 320, r=42)
-            // SVG: cx=580,cy=487,r=35 → (270, 240, r=35)
+            // 4 bubbles matching AppIcon.svg t=0 positions (glass-relative: subtract 310,247)
             let bubbles: [(x: CGFloat, y: CGFloat, r: CGFloat)] = [
-                (130, 320, 42),  // large bubble center-left
-                (270, 240, 35),  // medium bubble center-right
+                (130, 493, 42),   // cx=440,cy=740
+                (262, 363, 36),   // cx=572,cy=610
+                (190, 242, 33),   // cx=500,cy=489
+                (318, 161, 29),   // cx=628,cy=408
             ]
             let bw = max(1, height / 50)
             for b in bubbles {
@@ -776,7 +782,7 @@ private struct GlassIcon: View {
                     width: b.r * 2 * sx,
                     height: b.r * 2 * sy
                 ))
-                ctx.stroke(circle, with: .color(color.opacity(0.5)), lineWidth: bw)
+                ctx.stroke(circle, with: .color(color), lineWidth: bw)
             }
         }
         .frame(width: w, height: height)
