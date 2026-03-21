@@ -49,7 +49,11 @@ constexpr uint8_t MSG_TEXT = 0xFE;
 
 // ════════════════════════════════════════════════════════════
 //  Payload structs (packed, little-endian)
+//  Guarded to coexist with uart_st.h during migration
 // ════════════════════════════════════════════════════════════
+
+#ifndef UART_PAYLOAD_STRUCTS_DEFINED
+#define UART_PAYLOAD_STRUCTS_DEFINED
 
 struct __attribute__((packed)) UploadStartPayload {
   uint8_t  slot;
@@ -74,10 +78,6 @@ struct __attribute__((packed)) ResponsePayload {
   uint8_t value;
 };
 
-// ════════════════════════════════════════════════════════════
-//  CRC-32 (application-level, whole-image verification)
-// ════════════════════════════════════════════════════════════
-
 inline uint32_t uartCrc32Update(uint32_t prev, const uint8_t *data, size_t len) {
   uint32_t crc = ~prev;
   for (size_t i = 0; i < len; i++) {
@@ -88,6 +88,8 @@ inline uint32_t uartCrc32Update(uint32_t prev, const uint8_t *data, size_t len) 
   }
   return ~crc;
 }
+
+#endif // UART_PAYLOAD_STRUCTS_DEFINED
 
 // ════════════════════════════════════════════════════════════
 //  Receive helpers — extract type and payload from frame

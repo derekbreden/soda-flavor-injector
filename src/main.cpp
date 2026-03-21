@@ -6,6 +6,8 @@
 #include <PersistentLog.h>
 #include <uart_st.h>
 #include <uart_queue.h>
+#include <proto_link.h>
+#include <proto_msg.h>
 #include "fw_version.h"
 
 // ════════════════════════════════════════════════════════════
@@ -101,19 +103,133 @@ uint8_t flavor2Image = 1;
 #define DISPLAY_RX_PIN          35     // UART RX from RP2040 (input-only GPIO)
 #define CONFIG_SEND_INTERVAL_MS 30000  // resend image mapping every 30s
 
-SerialTransfer stRP;  // SerialTransfer on Serial2 (RP2040 link)
-SerialTransfer stS3;  // SerialTransfer on Serial1 (S3 link)
-UartLink linkRP;      // Non-blocking state machine for RP2040 link
-UartLink linkS3;      // Non-blocking state machine for S3 link
+// ── RP2040 link (TinyProto) ──
+ProtoLink protoRP;
+
+// ── S3 link (SerialTransfer — migrated in Phase 2) ──
+SerialTransfer stS3;
+UartLink linkS3;
+
+// ── RP2040 command queue (simple FIFO for non-upload operations) ──
+// Upload uses a dedicated FreeRTOS task; everything else goes through this queue.
+#define RP_QUEUE_SIZE 16
+#define RP_TEXT_MAX   200
+
+enum RpQueueType : uint8_t { RQ_NONE, RQ_TEXT, RQ_DELETE, RQ_SWAP, RQ_QUERY };
+
+// Callbacks for RP2040 async operations
+typedef void (*RpUploadCb)(uint8_t slot, bool success);
+typedef void (*RpDeleteCb)(uint8_t slot, bool success);
+typedef void (*RpSwapCb)(uint8_t slotA, uint8_t slotB, bool success);
+typedef void (*RpQueryCb)(uint8_t count, bool success);
+typedef void (*RpTextCb)(const char *response);
+
+struct RpQueueEntry {
+  RpQueueType type = RQ_NONE;
+  char text[RP_TEXT_MAX];
+  uint8_t slot;
+  uint8_t slotB;    // for swap
+  RpDeleteCb deleteCb;
+  RpSwapCb swapCb;
+  RpQueryCb queryCb;
+  RpTextCb textCb;
+};
+
+static struct {
+  RpQueueEntry entries[RP_QUEUE_SIZE];
+  int head = 0;
+  int tail = 0;
+  int count = 0;
+
+  bool enqueue(const RpQueueEntry &e) {
+    if (count >= RP_QUEUE_SIZE) return false;
+    entries[tail] = e;
+    tail = (tail + 1) % RP_QUEUE_SIZE;
+    count++;
+    return true;
+  }
+
+  RpQueueEntry* peek() {
+    if (count == 0) return nullptr;
+    return &entries[head];
+  }
+
+  void dequeue() {
+    if (count == 0) return;
+    entries[head].type = RQ_NONE;
+    head = (head + 1) % RP_QUEUE_SIZE;
+    count--;
+  }
+} rpQueue;
+
+// ── Pending RP2040 response tracking ──
+// For binary responses (delete, swap, query), we use simple pending flags.
+// The onMessage callback sets these; the queue processor checks and dispatches.
+static struct {
+  bool waiting = false;
+  uint8_t expectedType;  // MSG_RESP_DELETE_OK, MSG_RESP_SWAP_OK, MSG_RESP_COUNT, etc.
+  uint8_t responseValue;
+  bool gotResponse = false;
+  bool gotError = false;
+  unsigned long startTime;
+} rpPending;
+
+// ── RP2040 upload task state ──
+static struct {
+  bool active = false;
+  uint8_t slot;
+  char filePath[32];
+  uint8_t startMsgType;  // MSG_UPLOAD_START
+  RpUploadCb callback;
+  SemaphoreHandle_t readySem;
+  SemaphoreHandle_t doneSem;
+  bool readyReceived;
+  bool doneReceived;
+  bool errorReceived;
+} rpUpload;
+
+// Forward declarations
+void onRpMessage(ProtoLink *link, const uint8_t *data, uint16_t len);
+void rpProcessQueue();
 
 void sendMapToRP() {
   char buf[20];
   snprintf(buf, sizeof(buf), "MAP:%d,%d", flavor1Image, flavor2Image);
-  if (linkRP.st) {
-    linkRP.queueText(buf, false, UARTLINK_PRI_HIGH);
-  } else {
-    stSendText(stRP, buf);  // pre-init (setup)
-  }
+  protoRP.sendText(buf);
+}
+
+// Queue helper functions
+void rpQueueText(const char *text, RpTextCb cb = nullptr) {
+  RpQueueEntry e;
+  e.type = RQ_TEXT;
+  strncpy(e.text, text, RP_TEXT_MAX - 1);
+  e.text[RP_TEXT_MAX - 1] = '\0';
+  e.textCb = cb;
+  rpQueue.enqueue(e);
+}
+
+void rpQueueDelete(uint8_t slot, RpDeleteCb cb = nullptr) {
+  RpQueueEntry e;
+  e.type = RQ_DELETE;
+  e.slot = slot;
+  e.deleteCb = cb;
+  rpQueue.enqueue(e);
+}
+
+void rpQueueSwap(uint8_t slotA, uint8_t slotB, RpSwapCb cb = nullptr) {
+  RpQueueEntry e;
+  e.type = RQ_SWAP;
+  e.slot = slotA;
+  e.slotB = slotB;
+  e.swapCb = cb;
+  rpQueue.enqueue(e);
+}
+
+void rpQueueQuery(RpQueryCb cb = nullptr) {
+  RpQueueEntry e;
+  e.type = RQ_QUERY;
+  e.queryCb = cb;
+  rpQueue.enqueue(e);
 }
 
 // ── Config UART (ESP32 ↔ ESP32-S3, bidirectional) ──
@@ -464,21 +580,30 @@ static uint16_t crc16(const uint8_t *data, size_t len) {
 // ════════════════════════════════════════════════════════════
 
 bool queryImageCount() {
-  stRP.packet.txBuff[0] = 0;
-  stRP.sendData(1, PKT_QUERY_COUNT);
+  // Blocking query via ProtoLink — pumps serviceRx() during wait
+  protoRP.sendEmpty(MSG_QUERY_COUNT);
+
+  rpPending.waiting = true;
+  rpPending.expectedType = MSG_RESP_COUNT;
+  rpPending.gotResponse = false;
+  rpPending.gotError = false;
+  rpPending.startTime = millis();
 
   unsigned long start = millis();
   while (millis() - start < 500) {
-    if (stRP.available()) {
-      if (stRP.currentPacketID() == PKT_RESP_COUNT) {
-        ResponsePayload resp;
-        stRP.rxObj(resp);
-        numRpImages = resp.value;
-        Serial.printf("RP2040 reports %d images\n", numRpImages);
-        return true;
-      }
+    protoRP.serviceRx();
+    if (rpPending.gotResponse) {
+      numRpImages = rpPending.responseValue;
+      rpPending.waiting = false;
+      Serial.printf("RP2040 reports %d images\n", numRpImages);
+      return true;
+    }
+    if (rpPending.gotError) {
+      rpPending.waiting = false;
+      return false;
     }
   }
+  rpPending.waiting = false;
   return false;
 }
 
@@ -784,9 +909,10 @@ void enterStoreMode(bool isS3, uint8_t slot, bool isPng = false) {
 
 // Forward declarations
 void advanceRpSyncImages();
-void onRpSyncUploadDone(UartLink *link, uint8_t slot, bool success);
-void onRpSyncDeleteDone(UartLink *link, uint8_t slot, bool success);
+void onRpSyncUploadDone(uint8_t slot, bool success);
+void onRpSyncDeleteDone(uint8_t slot, bool success);
 void rpSyncSendLabelsAndConfig();
+void rpStartUpload(uint8_t slot, const char *path, uint8_t startMsgType, RpUploadCb cb);
 
 static struct {
   bool active = false;
@@ -797,7 +923,7 @@ static struct {
   bool skipSlot[MAX_STORE_IMAGES];  // CRC-matched slots (skip upload)
 } rpSync;
 
-void onRpCrcResponse(UartLink *link, const char *response);
+void onRpCrcResponse(const char *response);
 
 void startRpSync(bool pushAll) {
   if (rpSync.active) {
@@ -814,9 +940,8 @@ void startRpSync(bool pushAll) {
   memset(rpSync.skipSlot, 0, sizeof(rpSync.skipSlot));
 
   if (pushAll) {
-    // Query device CRCs first to skip matching slots
     Serial.printf("[RP sync] Start: querying CRCs for %d images\n", numEspImages);
-    linkRP.queueText("GET_CRCS", true, UARTLINK_PRI_LOW, onRpCrcResponse);
+    rpQueueText("GET_CRCS", onRpCrcResponse);
   } else {
     Serial.printf("[RP sync] Start: labels+config only (%d images in sync)\n", numEspImages);
     rpSync.phase = 2;
@@ -824,17 +949,16 @@ void startRpSync(bool pushAll) {
   }
 }
 
-void onRpCrcResponse(UartLink *link, const char *response) {
+void onRpCrcResponse(const char *response) {
   if (!rpSync.active) return;
 
   int matched = 0;
   if (response && strncmp(response, "CRCS:", 5) == 0) {
-    // Parse "CRCS:count:hex0:hex1:..."
     const char *p = response + 5;
     int deviceCount = atoi(p);
     p = strchr(p, ':');
     for (int i = 0; i < deviceCount && i < rpSync.targetCount && p; i++) {
-      p++;  // skip ':'
+      p++;
       uint32_t deviceCrc = strtoul(p, nullptr, 16);
       if (deviceCrc != 0 && deviceCrc == espCrcs[i][CRC_IDX_RP]) {
         rpSync.skipSlot[i] = true;
@@ -859,16 +983,14 @@ void onRpCrcResponse(UartLink *link, const char *response) {
 }
 
 void advanceRpSyncImages() {
-  // Skip slots where CRC matches
   while (rpSync.slot < rpSync.targetCount && rpSync.skipSlot[rpSync.slot]) {
     rpSync.slot++;
   }
 
   if (rpSync.slot >= rpSync.targetCount) {
-    // All images done — move to delete phase
     rpSync.phase = 1;
     if (numRpImages > rpSync.targetCount) {
-      linkRP.queueDelete(rpSync.targetCount, UARTLINK_PRI_LOW, onRpSyncDeleteDone);
+      rpQueueDelete(rpSync.targetCount, onRpSyncDeleteDone);
     } else {
       rpSync.phase = 2;
       rpSyncSendLabelsAndConfig();
@@ -877,11 +999,10 @@ void advanceRpSyncImages() {
   }
 
   String path = espRpPath(rpSync.slot);
-  linkRP.queueUpload(rpSync.slot, path.c_str(), PKT_UPLOAD_START,
-                     UARTLINK_PRI_LOW, onRpSyncUploadDone);
+  rpStartUpload(rpSync.slot, path.c_str(), MSG_UPLOAD_START, onRpSyncUploadDone);
 }
 
-void onRpSyncUploadDone(UartLink *link, uint8_t slot, bool success) {
+void onRpSyncUploadDone(uint8_t slot, bool success) {
   if (!success) {
     Serial.printf("[RP sync] Upload slot %d failed — aborting\n", slot);
     rpSync.active = false;
@@ -891,10 +1012,10 @@ void onRpSyncUploadDone(UartLink *link, uint8_t slot, bool success) {
   advanceRpSyncImages();
 }
 
-void onRpSyncDeleteDone(UartLink *link, uint8_t slot, bool success) {
-  if (success) numRpImages = link->lastResponseValue;
+void onRpSyncDeleteDone(uint8_t slot, bool success) {
+  if (success) numRpImages = rpPending.responseValue;
   if (numRpImages > rpSync.targetCount) {
-    linkRP.queueDelete(rpSync.targetCount, UARTLINK_PRI_LOW, onRpSyncDeleteDone);
+    rpQueueDelete(rpSync.targetCount, onRpSyncDeleteDone);
   } else {
     rpSync.phase = 2;
     rpSyncSendLabelsAndConfig();
@@ -905,7 +1026,7 @@ void rpSyncSendLabelsAndConfig() {
   for (uint8_t i = 0; i < rpSync.targetCount; i++) {
     char lbuf[48];
     snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
-    linkRP.queueText(lbuf, false, UARTLINK_PRI_LOW);
+    rpQueueText(lbuf);
   }
   sendMapToRP();
 
@@ -939,9 +1060,9 @@ void rpCmdSendResponse(bool success) {
   rpCmdResp.pending = false;
 }
 
-void onRpDeleteDone(UartLink *link, uint8_t slot, bool success) {
+void onRpDeleteDone(uint8_t slot, bool success) {
   if (success) {
-    numRpImages = link->lastResponseValue;
+    numRpImages = rpPending.responseValue;
     if (flavor1Image == slot) flavor1Image = 0;
     else if (flavor1Image > slot) flavor1Image--;
     if (flavor2Image == slot) flavor2Image = 0;
@@ -955,7 +1076,7 @@ void onRpDeleteDone(UartLink *link, uint8_t slot, bool success) {
   rpCmdSendResponse(success);
 }
 
-void onRpSwapDone(UartLink *link, uint8_t slotA, uint8_t slotB, bool success) {
+void onRpSwapDone(uint8_t slotA, uint8_t slotB, bool success) {
   if (success) {
     if (flavor1Image == slotA) flavor1Image = slotB;
     else if (flavor1Image == slotB) flavor1Image = slotA;
@@ -968,7 +1089,7 @@ void onRpSwapDone(UartLink *link, uint8_t slotA, uint8_t slotB, bool success) {
   rpCmdSendResponse(success);
 }
 
-void onRpQueryDone(UartLink *link, uint8_t count, bool success) {
+void onRpQueryDone(uint8_t count, bool success) {
   if (success) numRpImages = count;
   snprintf(rpCmdResp.okMsg, sizeof(rpCmdResp.okMsg),
            "OK:NUM_IMAGES=%d", numRpImages);
@@ -1324,28 +1445,30 @@ void onS3QueryDone(UartLink *link, uint8_t count, bool success) {
   s3CmdSendResponse(success);
 }
 
+// Forward declarations for blocking text response buffers
+// (defined later in onRpMessage section, used in processConfigCommand)
+static char rpTextResponseBuf[256];
+static volatile bool rpTextResponseReady = false;
+static char rpVersionBuf[64];
+static bool rpVersionGot = false;
+
 void processConfigCommand(const char *cmd, Stream &out) {
   if (strcmp(cmd, "GET_VERSION") == 0) {
     out.printf("VERSION:ESP32=%s\n", FW_VERSION);
     // Query RP2040 for its version and forward (blocking, kept simple)
-    if (linkRP.busy()) { out.printf("VERSION:RP2040=busy\n"); }
+    if (rpUpload.active) { out.printf("VERSION:RP2040=busy\n"); }
     else {
-    stSendText(stRP, "GET_VERSION");
+    // Send GET_VERSION as text, then poll for text response
+    protoRP.sendText("GET_VERSION");
+    rpVersionGot = false;
+    rpVersionBuf[0] = '\0';
     unsigned long t = millis();
-    while (millis() - t < 1000) {
-      if (stRP.available()) {
-        if (stRP.currentPacketID() == PKT_TEXT) {
-          uint16_t len = stRP.bytesRead;
-          char line[64];
-          uint16_t copyLen = (len < 63) ? len : 63;
-          memcpy(line, stRP.packet.rxBuff, copyLen);
-          line[copyLen] = '\0';
-          if (strncmp(line, "VERSION:", 8) == 0) {
-            out.println(line);
-            break;
-          }
-        }
-      }
+    while (millis() - t < 1000 && !rpVersionGot) {
+      protoRP.serviceRx();
+      // The onRpMessage callback will set rpVersionGot if it sees VERSION: text
+    }
+    if (rpVersionBuf[0]) {
+      out.println(rpVersionBuf);
     }
     } // end busy guard
 
@@ -1479,37 +1602,34 @@ void processConfigCommand(const char *cmd, Stream &out) {
     rpCmdResp.pending = true;
     rpCmdResp.target = (&out == &Serial) ? RP_RESP_USB : RP_RESP_S3;
     strncpy(rpCmdResp.errMsg, "ERR:rp query failed", sizeof(rpCmdResp.errMsg));
-    linkRP.queueQuery(UARTLINK_PRI_NORMAL, onRpQueryDone);
+    rpQueueQuery(onRpQueryDone);
 
   } else if (strcmp(cmd, "LIST_IMAGES") == 0) {
-    if (linkRP.busy()) { out.printf("ERR:RP2040 busy, try again later\n"); return; }
-    // Send LIST to RP2040 via SerialTransfer, read PKT_TEXT responses (blocking, multi-message)
-    stSendText(stRP, "LIST");
+    if (rpUpload.active) { out.printf("ERR:RP2040 busy, try again later\n"); return; }
+    // Send LIST to RP2040 via ProtoLink, read MSG_TEXT responses (blocking, multi-message)
+    protoRP.sendText("LIST");
 
     unsigned long t = millis();
     while (millis() - t < 2000) {
-      if (stRP.available()) {
-        if (stRP.currentPacketID() == PKT_TEXT) {
-          uint16_t len = stRP.bytesRead;
-          char line[256];
-          uint16_t copyLen = (len < 255) ? len : 255;
-          memcpy(line, stRP.packet.rxBuff, copyLen);
-          line[copyLen] = '\0';
-          if (strcmp(line, "END") == 0) break;
-          out.println(line);
-          t = millis();
-        }
+      protoRP.serviceRx();
+      // Text responses arrive via onRpMessage and get stored in rpTextResponse
+      // We check for buffered text responses inline here
+      // (rpTextResponse is populated by the onRpMessage callback)
+      if (rpTextResponseReady) {
+        rpTextResponseReady = false;
+        if (strcmp(rpTextResponseBuf, "END") == 0) break;
+        out.println(rpTextResponseBuf);
+        t = millis();
       }
     }
     out.println("END");
 
   } else if (strncmp(cmd, "SET_LABEL:", 10) == 0) {
-    // SET_LABEL:slot=name → forward LABEL:slot:name to RP2040
     int slot;
     char name[33] = {0};
     if (sscanf(cmd + 10, "%d=%32[^\n]", &slot, name) >= 1) {
       if (slot >= 0 && slot < numRpImages) {
-        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); linkRP.queueText(lbuf, false, UARTLINK_PRI_NORMAL); }
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); rpQueueText(lbuf); }
         out.printf("OK:LABEL=%d:%s\n", slot, name);
       } else {
         out.printf("ERR:invalid slot\n");
@@ -1530,7 +1650,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     rpCmdResp.pending = true;
     rpCmdResp.target = (&out == &Serial) ? RP_RESP_USB : RP_RESP_S3;
     strncpy(rpCmdResp.errMsg, "ERR:delete failed", sizeof(rpCmdResp.errMsg));
-    linkRP.queueDelete((uint8_t)slot, UARTLINK_PRI_NORMAL, onRpDeleteDone);
+    rpQueueDelete((uint8_t)slot, onRpDeleteDone);
 
   } else if (strncmp(cmd, "SWAP_IMG:", 9) == 0) {
     int a, b;
@@ -1546,7 +1666,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     rpCmdResp.pending = true;
     rpCmdResp.target = (&out == &Serial) ? RP_RESP_USB : RP_RESP_S3;
     strncpy(rpCmdResp.errMsg, "ERR:swap failed", sizeof(rpCmdResp.errMsg));
-    linkRP.queueSwap((uint8_t)a, (uint8_t)b, UARTLINK_PRI_NORMAL, onRpSwapDone);
+    rpQueueSwap((uint8_t)a, (uint8_t)b, onRpSwapDone);
 
   // ── S3 image management commands ──────────────────────────
 
@@ -1682,7 +1802,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
         espLabels[slot][MAX_LABEL_LEN] = '\0';
         saveEspLabels();
         // Forward to both devices
-        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); linkRP.queueText(lbuf, false, UARTLINK_PRI_NORMAL); }
+        { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); rpQueueText(lbuf); }
         { char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", slot, name); linkS3.queueText(lbuf, false, UARTLINK_PRI_NORMAL); }
         out.printf("OK:STORE_LABEL=%d:%s\n", slot, name);
       } else {
@@ -1729,8 +1849,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
     saveEspCrcs();
 
     // Forward delete to RP2040 (async)
-    linkRP.queueDelete((uint8_t)slot, UARTLINK_PRI_NORMAL, [](UartLink *link, uint8_t s, bool ok) {
-      if (ok) numRpImages = link->lastResponseValue;
+    rpQueueDelete((uint8_t)slot, [](uint8_t s, bool ok) {
+      if (ok) numRpImages = rpPending.responseValue;
     });
     // Forward delete to S3 (async)
     linkS3.queueDelete((uint8_t)slot, UARTLINK_PRI_NORMAL);
@@ -1811,8 +1931,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
     // Trim excess images from RP2040 (async)
     if (oldCount > numEspImages) {
       for (uint8_t i = oldCount; i > numEspImages; i--) {
-        linkRP.queueDelete(i - 1, UARTLINK_PRI_NORMAL, [](UartLink *link, uint8_t s, bool ok) {
-          if (ok) numRpImages = link->lastResponseValue;
+        rpQueueDelete(i - 1, [](uint8_t s, bool ok) {
+          if (ok) numRpImages = rpPending.responseValue;
         });
       }
     }
@@ -1821,7 +1941,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     for (uint8_t i = 0; i < numEspImages; i++) {
       char lbuf[48];
       snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
-      linkRP.queueText(lbuf, false, UARTLINK_PRI_NORMAL);
+      rpQueueText(lbuf);
     }
     sendMapToRP();
 
@@ -1852,13 +1972,13 @@ void processConfigCommand(const char *cmd, Stream &out) {
     }
 
     if (strcmp(target, "rp2040") == 0 || strcmp(target, "both") == 0) {
-      linkRP.queueUpload(slot, espRpPath(slot).c_str(), PKT_UPLOAD_START,
-                         UARTLINK_PRI_NORMAL, [](UartLink *link, uint8_t s, bool ok) {
+      rpStartUpload(slot, espRpPath(slot).c_str(), MSG_UPLOAD_START,
+                    [](uint8_t s, bool ok) {
         if (ok) numRpImages = max(numRpImages, (uint8_t)(s + 1));
       });
       for (uint8_t i = 0; i < numEspImages; i++) {
         char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
-        linkRP.queueText(lbuf, false, UARTLINK_PRI_LOW);
+        rpQueueText(lbuf);
       }
       sendMapToRP();
     }
@@ -1896,8 +2016,8 @@ void processConfigCommand(const char *cmd, Stream &out) {
     saveEspLabels();
 
     // Push RP2040 RGB565 to RP2040 (async)
-    linkRP.queueUpload(slot, espRpPath(slot).c_str(), PKT_UPLOAD_START,
-                       UARTLINK_PRI_NORMAL, [](UartLink *link, uint8_t s, bool ok) {
+    rpStartUpload(slot, espRpPath(slot).c_str(), MSG_UPLOAD_START,
+                  [](uint8_t s, bool ok) {
       if (ok) numRpImages = max(numRpImages, (uint8_t)(s + 1));
     });
     numS3Images = max(numS3Images, (uint8_t)(slot + 1));
@@ -1905,7 +2025,7 @@ void processConfigCommand(const char *cmd, Stream &out) {
     // Push labels + MAP to RP2040 (async, queued after upload)
     for (uint8_t i = 0; i < numEspImages; i++) {
       char lbuf[48]; snprintf(lbuf, sizeof(lbuf), "LABEL:%d:%s", i, espLabels[i]);
-      linkRP.queueText(lbuf, false, UARTLINK_PRI_LOW);
+      rpQueueText(lbuf);
     }
     sendMapToRP();
 
@@ -2158,24 +2278,386 @@ void handleS3UploadDone() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  RP2040 unsolicited packet handler (called by linkRP.service())
+//  RP2040 TinyProto message handler + upload task + queue processor
 // ════════════════════════════════════════════════════════════
 
-void onRpPacket(UartLink *link, uint8_t pktId) {
-  SerialTransfer &st = *link->st;
-  switch (pktId) {
-    case PKT_DEVICE_READY: {
-      ResponsePayload resp;
-      st.rxObj(resp);
-      Serial.printf("RP2040 DEVICE_READY: reports %d images\n", resp.value);
-      numRpImages = resp.value;
-      bool needsPush = (numRpImages != numEspImages);
-      startRpSync(needsPush);
+// Pending text callback (for GET_CRCS etc.)
+static RpTextCb rpPendingTextCb = nullptr;
+
+void onRpMessage(ProtoLink *link, const uint8_t *data, uint16_t len) {
+  if (len < 1) return;
+
+  uint8_t type = msgType(data);
+  const uint8_t *payload = msgPayload(data);
+  uint16_t payloadLen = msgPayloadLen(len);
+
+  switch (type) {
+    case MSG_DEVICE_READY: {
+      if (payloadLen >= sizeof(ResponsePayload)) {
+        const ResponsePayload *resp = (const ResponsePayload *)payload;
+        Serial.printf("RP2040 DEVICE_READY: reports %d images\n", resp->value);
+        numRpImages = resp->value;
+        bool needsPush = (numRpImages != numEspImages);
+        startRpSync(needsPush);
+      }
+      break;
+    }
+
+    case MSG_RESP_READY:
+      // Upload READY response — signal the upload task
+      if (rpUpload.active && rpUpload.readySem) {
+        rpUpload.readyReceived = true;
+        xSemaphoreGive(rpUpload.readySem);
+      }
+      break;
+
+    case MSG_RESP_UPLOAD_OK:
+      // Upload complete — signal the upload task
+      if (rpUpload.active && rpUpload.doneSem) {
+        rpUpload.doneReceived = true;
+        xSemaphoreGive(rpUpload.doneSem);
+      }
+      break;
+
+    case MSG_RESP_COUNT:
+    case MSG_RESP_DELETE_OK:
+    case MSG_RESP_SWAP_OK: {
+      // Binary response — store value and flag
+      uint8_t val = 0;
+      if (payloadLen >= sizeof(ResponsePayload)) {
+        val = ((const ResponsePayload *)payload)->value;
+      }
+      if (rpPending.waiting && rpPending.expectedType == type) {
+        rpPending.responseValue = val;
+        rpPending.gotResponse = true;
+      }
+      break;
+    }
+
+    case MSG_ERR_SLOT_INVALID:
+    case MSG_ERR_NO_SPACE:
+    case MSG_ERR_BUSY:
+    case MSG_ERR_WRITE:
+    case MSG_ERR_SIZE_MISMATCH:
+    case MSG_ERR_CRC32_MISMATCH:
+      Serial.printf("[protoRP] Error 0x%02X\n", type);
+      if (rpPending.waiting) {
+        rpPending.gotError = true;
+      }
+      if (rpUpload.active) {
+        rpUpload.errorReceived = true;
+        if (rpUpload.readySem) xSemaphoreGive(rpUpload.readySem);
+        if (rpUpload.doneSem) xSemaphoreGive(rpUpload.doneSem);
+      }
+      break;
+
+    case MSG_TEXT: {
+      // Text response from RP2040
+      char text[256];
+      uint16_t copyLen = (payloadLen < 255) ? payloadLen : 255;
+      memcpy(text, payload, copyLen);
+      text[copyLen] = '\0';
+
+      // Check if this is a pending text callback (GET_CRCS response)
+      if (rpPendingTextCb) {
+        RpTextCb cb = rpPendingTextCb;
+        rpPendingTextCb = nullptr;
+        cb(text);
+        break;
+      }
+
+      // Check if blocking GET_VERSION is waiting
+      if (strncmp(text, "VERSION:", 8) == 0) {
+        strncpy(rpVersionBuf, text, 63);
+        rpVersionBuf[63] = '\0';
+        rpVersionGot = true;
+        break;
+      }
+
+      // Buffer for blocking LIST_IMAGES polling
+      strncpy(rpTextResponseBuf, text, 255);
+      rpTextResponseBuf[255] = '\0';
+      rpTextResponseReady = true;
+      break;
+    }
+
+    default:
+      Serial.printf("[protoRP] Unknown msg 0x%02X (len=%d)\n", type, len);
+      break;
+  }
+}
+
+// ── RP2040 upload FreeRTOS task ──
+// Reads file from LittleFS, sends START, waits for READY,
+// sends full image via tiny_fd_send(), sends DONE, waits for UPLOAD_OK.
+
+static void rpUploadTask(void *param) {
+  uint8_t slot = rpUpload.slot;
+  const char *path = rpUpload.filePath;
+
+  // Open file and read into RAM
+  File f = LittleFS.open(path, "r");
+  if (!f) {
+    Serial.printf("[rpUpload] Failed to open %s\n", path);
+    rpUpload.active = false;
+    if (rpUpload.callback) rpUpload.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  uint32_t fileSize = f.size();
+  uint8_t *buf = (uint8_t *)malloc(fileSize);
+  if (!buf) {
+    Serial.printf("[rpUpload] malloc(%lu) failed\n", fileSize);
+    f.close();
+    rpUpload.active = false;
+    if (rpUpload.callback) rpUpload.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  f.read(buf, fileSize);
+  f.close();
+
+  // Compute CRC32
+  uint32_t crc = uartCrc32Update(0, buf, fileSize);
+
+  Serial.printf("[rpUpload] slot %d, %lu bytes, CRC=0x%08lX\n", slot, fileSize, crc);
+
+  // Send START
+  UploadStartPayload startPl;
+  startPl.slot = slot;
+  startPl.size = fileSize;
+
+  tiny_fd_handle_t h = protoRP.getHandle();
+
+  // Use tiny_fd_send for START (typed message: [msgType | payload])
+  {
+    uint8_t startBuf[1 + sizeof(UploadStartPayload)];
+    startBuf[0] = rpUpload.startMsgType;
+    memcpy(startBuf + 1, &startPl, sizeof(startPl));
+    int r = tiny_fd_send(h, startBuf, sizeof(startBuf), 5000);
+    if (r < 0) {
+      Serial.printf("[rpUpload] START send failed: %d\n", r);
+      free(buf);
+      rpUpload.active = false;
+      if (rpUpload.callback) rpUpload.callback(slot, false);
+      vTaskDelete(NULL);
+      return;
+    }
+  }
+
+  // Wait for READY
+  if (xSemaphoreTake(rpUpload.readySem, pdMS_TO_TICKS(5000)) != pdTRUE || !rpUpload.readyReceived) {
+    Serial.printf("[rpUpload] READY timeout\n");
+    free(buf);
+    rpUpload.active = false;
+    if (rpUpload.callback) rpUpload.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  if (rpUpload.errorReceived) {
+    Serial.printf("[rpUpload] Error after START\n");
+    free(buf);
+    rpUpload.active = false;
+    if (rpUpload.callback) rpUpload.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  // Send FULL IMAGE in one call — TinyProto fragments internally
+  Serial.printf("[rpUpload] Sending %lu bytes...\n", fileSize);
+  int r = tiny_fd_send(h, buf, fileSize, 30000);
+  free(buf);
+
+  if (r < 0) {
+    Serial.printf("[rpUpload] Image send failed: %d\n", r);
+    rpUpload.active = false;
+    if (rpUpload.callback) rpUpload.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  Serial.printf("[rpUpload] Image sent, sending DONE\n");
+
+  // Send DONE
+  {
+    UploadDonePayload donePl;
+    donePl.slot = slot;
+    donePl.crc32 = crc;
+    uint8_t doneBuf[1 + sizeof(UploadDonePayload)];
+    doneBuf[0] = MSG_UPLOAD_DONE;
+    memcpy(doneBuf + 1, &donePl, sizeof(donePl));
+    int r2 = tiny_fd_send(h, doneBuf, sizeof(doneBuf), 5000);
+    if (r2 < 0) {
+      Serial.printf("[rpUpload] DONE send failed: %d\n", r2);
+      rpUpload.active = false;
+      if (rpUpload.callback) rpUpload.callback(slot, false);
+      vTaskDelete(NULL);
+      return;
+    }
+  }
+
+  // Wait for UPLOAD_OK
+  if (xSemaphoreTake(rpUpload.doneSem, pdMS_TO_TICKS(5000)) != pdTRUE || !rpUpload.doneReceived) {
+    Serial.printf("[rpUpload] UPLOAD_OK timeout\n");
+    rpUpload.active = false;
+    if (rpUpload.callback) rpUpload.callback(slot, false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  Serial.printf("[rpUpload] Complete: slot %d\n", slot);
+  rpUpload.active = false;
+  if (rpUpload.callback) rpUpload.callback(slot, true);
+  vTaskDelete(NULL);
+}
+
+void rpStartUpload(uint8_t slot, const char *path, uint8_t startMsgType, RpUploadCb cb) {
+  if (rpUpload.active) {
+    Serial.printf("[rpUpload] Busy — upload rejected for slot %d\n", slot);
+    if (cb) cb(slot, false);
+    return;
+  }
+
+  rpUpload.active = true;
+  rpUpload.slot = slot;
+  strncpy(rpUpload.filePath, path, sizeof(rpUpload.filePath) - 1);
+  rpUpload.filePath[sizeof(rpUpload.filePath) - 1] = '\0';
+  rpUpload.startMsgType = startMsgType;
+  rpUpload.callback = cb;
+  rpUpload.readyReceived = false;
+  rpUpload.doneReceived = false;
+  rpUpload.errorReceived = false;
+
+  if (!rpUpload.readySem) rpUpload.readySem = xSemaphoreCreateBinary();
+  if (!rpUpload.doneSem) rpUpload.doneSem = xSemaphoreCreateBinary();
+  xSemaphoreTake(rpUpload.readySem, 0);  // clear any stale signal
+  xSemaphoreTake(rpUpload.doneSem, 0);
+
+  xTaskCreatePinnedToCore(rpUploadTask, "rpUpload", 8192, NULL, 1, NULL, 1);
+}
+
+// ── RP2040 TX pump task (core 1) ──
+static void rpTxPumpTask(void *param) {
+  for (;;) {
+    protoRP.serviceTx();
+    vTaskDelay(1);
+  }
+}
+
+// ── RP2040 queue processor (called from main loop) ──
+void rpProcessQueue() {
+  // Don't process queue during uploads — serialize
+  if (rpUpload.active) return;
+
+  // If we're waiting for a pending response, check timeout
+  if (rpPending.waiting) {
+    if (rpPending.gotResponse || rpPending.gotError) {
+      // Response received — let current queue entry's callback handle it
+    } else if (millis() - rpPending.startTime > 3000) {
+      rpPending.gotError = true;  // timeout
+    } else {
+      return;  // still waiting
+    }
+  }
+
+  RpQueueEntry *e = rpQueue.peek();
+  if (!e) return;
+
+  // If we just finished waiting, dispatch result to callback
+  if (rpPending.waiting && (rpPending.gotResponse || rpPending.gotError)) {
+    bool ok = rpPending.gotResponse;
+    rpPending.waiting = false;
+
+    switch (e->type) {
+      case RQ_DELETE:
+        if (e->deleteCb) e->deleteCb(e->slot, ok);
+        break;
+      case RQ_SWAP:
+        if (e->swapCb) e->swapCb(e->slot, e->slotB, ok);
+        break;
+      case RQ_QUERY:
+        if (e->queryCb) e->queryCb(rpPending.responseValue, ok);
+        break;
+      default:
+        break;
+    }
+    rpQueue.dequeue();
+    return;
+  }
+
+  // Start new operation
+  switch (e->type) {
+    case RQ_TEXT: {
+      protoRP.sendText(e->text);
+      if (e->textCb) {
+        rpPendingTextCb = e->textCb;
+        // Text callbacks are handled in onRpMessage when response arrives
+        // Set a timeout so we don't hang forever
+        rpPending.waiting = true;
+        rpPending.gotResponse = false;
+        rpPending.gotError = false;
+        rpPending.startTime = millis();
+        // We'll dequeue when the text callback fires or times out
+        // For now, use a simple approach: if textCb is set, wait for it
+      } else {
+        rpQueue.dequeue();  // fire-and-forget text
+      }
+      break;
+    }
+    case RQ_DELETE: {
+      SlotPayload pl;
+      pl.slot = e->slot;
+      protoRP.send(MSG_DELETE_IMAGE, &pl, sizeof(pl));
+      rpPending.waiting = true;
+      rpPending.expectedType = MSG_RESP_DELETE_OK;
+      rpPending.gotResponse = false;
+      rpPending.gotError = false;
+      rpPending.startTime = millis();
+      break;
+    }
+    case RQ_SWAP: {
+      SwapPayload pl;
+      pl.slotA = e->slot;
+      pl.slotB = e->slotB;
+      protoRP.send(MSG_SWAP_IMAGES, &pl, sizeof(pl));
+      rpPending.waiting = true;
+      rpPending.expectedType = MSG_RESP_SWAP_OK;
+      rpPending.gotResponse = false;
+      rpPending.gotError = false;
+      rpPending.startTime = millis();
+      break;
+    }
+    case RQ_QUERY: {
+      protoRP.sendEmpty(MSG_QUERY_COUNT);
+      rpPending.waiting = true;
+      rpPending.expectedType = MSG_RESP_COUNT;
+      rpPending.gotResponse = false;
+      rpPending.gotError = false;
+      rpPending.startTime = millis();
       break;
     }
     default:
-      Serial.printf("RP2040 unexpected packet 0x%02X — discarded\n", pktId);
+      rpQueue.dequeue();
       break;
+  }
+}
+
+// Handle text callback timeout in queue processor
+// Called when rpPendingTextCb is set and we timeout waiting for response
+static void rpCheckTextCallbackTimeout() {
+  if (rpPendingTextCb && rpPending.waiting && rpPending.gotError) {
+    RpTextCb cb = rpPendingTextCb;
+    rpPendingTextCb = nullptr;
+    rpPending.waiting = false;
+    cb(nullptr);  // timeout — pass null
+    rpQueue.dequeue();
+  } else if (rpPendingTextCb == nullptr && rpPending.waiting) {
+    // Text callback already fired — dequeue
+    rpPending.waiting = false;
+    rpQueue.dequeue();
   }
 }
 
@@ -2499,27 +2981,43 @@ void setup() {
 
   // UART to display board (bidirectional, 38400 baud)
   Serial2.begin(38400, SERIAL_8N1, DISPLAY_RX_PIN, DISPLAY_TX_PIN);
-  stRP.begin(Serial2);
+
+  // Init ProtoLink for RP2040 (TinyProto HDLC)
+  protoRP.onMessage = onRpMessage;
+  protoRP.begin(Serial2, "RP2040");
+
+  // Start TX pump on core 1
+  xTaskCreatePinnedToCore(rpTxPumpTask, "rpTxPump", 4096, NULL, 1, NULL, 1);
+
   // Wait for RP2040 to boot, init LittleFS, and start UART.
   // First boot seeds 3 images (~88KB writes) which can take several seconds.
   // GP27 (RP2040 TX) is floating until pioSerial.begin() — noise on GPIO 35.
   delay(3000);
 
-  // Try to query RP2040 now; if it's not ready yet, PKT_DEVICE_READY will catch up
+  // Wait for HDLC connection before querying
+  {
+    unsigned long connWait = millis();
+    while (!protoRP.isConnected() && millis() - connWait < 3000) {
+      protoRP.serviceRx();
+      delay(10);
+    }
+    if (protoRP.isConnected()) {
+      Serial.println("RP2040 HDLC connected");
+    } else {
+      Serial.println("RP2040 HDLC not connected yet — will sync on MSG_DEVICE_READY");
+    }
+  }
+
+  // Try to query RP2040 now; if it's not ready yet, MSG_DEVICE_READY will catch up
   for (int attempt = 0; attempt < 3; attempt++) {
     if (queryImageCount()) break;
     Serial.printf("  RP2040 query retry %d/3...\n", attempt + 1);
     delay(500);
   }
   if (numRpImages == 0 && numEspImages > 0) {
-    Serial.println("RP2040 not ready yet — will sync on PKT_DEVICE_READY");
+    Serial.println("RP2040 not ready yet — will sync on MSG_DEVICE_READY");
   }
-  // sendMapToRP uses stSendText pre-init, which is fine here
   sendMapToRP();
-
-  // Init linkRP for non-blocking operations
-  linkRP.init(&stRP, "RP2040");
-  linkRP.onPacket = onRpPacket;
 
   // UART to config display (ESP32-S3, bidirectional, 38400 baud)
   Serial1.begin(38400, SERIAL_8N1, CONFIG_RX_PIN, CONFIG_TX_PIN);
@@ -2773,7 +3271,9 @@ void loop() {
   }
 
   // ── 6. UART commands ─────────────────────────────────────────
-  linkRP.service();
+  protoRP.serviceRx();
+  rpProcessQueue();
+  rpCheckTextCallbackTimeout();
   checkConfigUART();
 
   // ── 7. Periodic device re-sync (safety net) ─────────────────
@@ -2783,7 +3283,7 @@ void loop() {
     if (numEspImages > 0) {
       if (numRpImages != numEspImages && !rpSync.active) {
         Serial.printf("Re-sync check: RP2040 mismatch %d vs %d — re-querying\n", numRpImages, numEspImages);
-        linkRP.queueQuery(UARTLINK_PRI_NORMAL, [](UartLink *link, uint8_t count, bool success) {
+        rpQueueQuery([](uint8_t count, bool success) {
           if (success) {
             numRpImages = count;
             Serial.printf("RP2040 re-query: %d images\n", numRpImages);
