@@ -21,14 +21,16 @@
 #define PROTOLINK_MTU     520
 #define PROTOLINK_WINDOW  4
 
-// Buffer size: computed by TinyProto's own formula for our MTU and window.
-#define PROTOLINK_BUF_SIZE  tiny_fd_buffer_size_by_mtu(PROTOLINK_MTU, PROTOLINK_WINDOW)
+// Buffer size: generous estimate for Fd protocol internals.
+// FD_MIN_BUF_SIZE lives in an internal header that pulls in too many
+// dependencies, so we compute a safe over-estimate: ~4KB per window
+// slot covers frame headers, CRC, and HDLC overhead.
+#define PROTOLINK_BUF_SIZE  (4096 * PROTOLINK_WINDOW)
 
 struct ProtoLink {
   tinyproto::FdD proto{PROTOLINK_BUF_SIZE};
   Stream *serial = nullptr;
   const char *name = "";
-  unsigned long lastStatusLog = 0;
 
   // Application callback — fires for each received message.
   // msgType is payload[0], payload points past the type byte,
@@ -47,12 +49,6 @@ struct ProtoLink {
     proto.setReceiveCallback(onReceiveStatic);
     proto.setConnectEventCallback(onConnectStatic);
     proto.begin();
-
-    // Log the init result (IFd::begin doesn't expose the return value
-    // from tiny_fd_init, so check status as a proxy)
-    int status = proto.getStatus();
-    Serial.printf("[%s] init: buf=%d bytes, status=%d\n",
-                  name, PROTOLINK_BUF_SIZE, status);
   }
 
   void end() {
@@ -60,69 +56,35 @@ struct ProtoLink {
   }
 
   // Call every loop() iteration to pump rx and tx.
-  // Uses buffer-based API (not callback-based) because the
-  // callback versions only process 4 bytes per call.
   void service() {
     if (!serial) return;
 
-    // Periodic status logging (every 5s for first 30s)
-    unsigned long now = millis();
-    if (now < 30000 && now - lastStatusLog >= 5000) {
-      lastStatusLog = now;
-      Serial.printf("[%s] status=%d avail=%d\n", name, proto.getStatus(), serial->available());
-    }
+    // Read available bytes from serial and feed to protocol
+    proto.run_rx(readStatic);
 
-    // Read all available bytes from serial and feed to protocol
-    int avail = serial->available();
-    while (avail > 0) {
-      uint8_t buf[256];
-      int toRead = (avail > (int)sizeof(buf)) ? (int)sizeof(buf) : avail;
-      int got = serial->readBytes(buf, toRead);
-      if (got > 0) {
-        proto.run_rx(buf, got);
-      }
-      avail -= got;
-      if (got <= 0) break;
-    }
-
-    // Send all pending frames to serial (loop until empty)
-    for (;;) {
-      uint8_t txBuf[256];
-      int len = proto.run_tx(txBuf, sizeof(txBuf));
-      if (len <= 0) break;
-      serial->write(txBuf, len);
-    }
+    // Send pending frames to serial
+    proto.run_tx(writeStatic);
   }
 
   // Send a message (convenience wrapper).
   int send(uint8_t msgType, const void *data, uint16_t len) {
-    int r = protoSend(proto, msgType, data, len);
-    if (r < 0) Serial.printf("[%s] send(0x%02X, %u bytes) FAILED: %d\n", name, msgType, len, r);
-    return r;
+    return protoSend(proto, msgType, data, len);
   }
 
   int sendText(const char *text) {
-    int r = protoSendText(proto, text);
-    if (r < 0) Serial.printf("[%s] sendText(%s) FAILED: %d\n", name, text, r);
-    return r;
+    return protoSendText(proto, text);
   }
 
   int sendResponse(uint8_t msgType, uint8_t value) {
-    int r = protoSendResponse(proto, msgType, value);
-    if (r < 0) Serial.printf("[%s] sendResponse(0x%02X) FAILED: %d\n", name, msgType, r);
-    return r;
+    return protoSendResponse(proto, msgType, value);
   }
 
   int sendEmpty(uint8_t msgType) {
-    int r = protoSendEmpty(proto, msgType);
-    if (r < 0) Serial.printf("[%s] sendEmpty(0x%02X) FAILED: %d\n", name, msgType, r);
-    return r;
+    return protoSendEmpty(proto, msgType);
   }
 
   int sendChunk(const uint8_t *data, uint16_t len) {
-    int r = protoSendChunk(proto, data, len);
-    if (r < 0) Serial.printf("[%s] sendChunk(%u bytes) FAILED: %d\n", name, len, r);
-    return r;
+    return protoSendChunk(proto, data, len);
   }
 
   bool isConnected() {
@@ -130,6 +92,23 @@ struct ProtoLink {
   }
 
 private:
+  // TinyProto read callback — reads from the Stream
+  static int readStatic(void *pdata, void *buffer, int size) {
+    ProtoLink *self = (ProtoLink *)pdata;
+    if (!self->serial) return 0;
+    int avail = self->serial->available();
+    if (avail <= 0) return 0;
+    if (avail > size) avail = size;
+    return self->serial->readBytes((uint8_t *)buffer, avail);
+  }
+
+  // TinyProto write callback — writes to the Stream
+  static int writeStatic(void *pdata, const void *buffer, int size) {
+    ProtoLink *self = (ProtoLink *)pdata;
+    if (!self->serial) return 0;
+    return self->serial->write((const uint8_t *)buffer, size);
+  }
+
   // TinyProto receive callback — parses message type and dispatches
   static void onReceiveStatic(void *userData, uint8_t addr, tinyproto::IPacket &pkt) {
     ProtoLink *self = (ProtoLink *)userData;
