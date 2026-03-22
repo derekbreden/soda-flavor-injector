@@ -156,6 +156,7 @@ class BLEManager {
     @ObservationIgnored fileprivate var connectedPeripheral: CBPeripheral?
     @ObservationIgnored fileprivate var scanTimer: Timer?
     @ObservationIgnored fileprivate var reconnectTimer: Timer?
+    @ObservationIgnored fileprivate var userInitiatedDisconnect = false
 
     init() {
         cbAdapter = CBDelegateAdapter(self)
@@ -484,12 +485,41 @@ class BLEManager {
         s3Version = ""
         espVersion = ""
         rpVersion = ""
-        activateBluetooth()
-        if centralManager?.state == .poweredOn {
-            startScan()
-        } else {
-            connectionState = .searching
+        connectionState = .searching
+    }
+
+    func disconnect() {
+        centralManager?.stopScan()
+        scanTimer?.invalidate()
+        reconnectTimer?.invalidate()
+        if let peripheral = connectedPeripheral {
+            userInitiatedDisconnect = true
+            centralManager?.cancelPeripheralConnection(peripheral)
         }
+        connectedPeripheral = nil
+        rxCharacteristic = nil
+        nusReady = false
+        frameBuffer = Data()
+        connectionState = .searching
+        configSynced = false
+        statsSynced = false
+        chartDataSynced = false
+        imgDownloadQueue = []
+        isDownloading = false
+        imageDownloadProgress = nil
+        isUploading = false
+        uploadProgress = nil
+        uploadSteps = []
+        uploadQueue = []
+        uploadQueueTotal = 0
+        uploadImageRef = nil
+        activeUploadImage = nil
+        activeUploadSlot = -1
+        primeActive = false
+        cleanCycleActive = false
+        cleanCyclePhase = nil
+        imgDownloadSlot = -1
+        binStartReceived = false
     }
 
     private func generateDemoImage(label: String, color: UIColor) -> UIImage {
@@ -1291,7 +1321,10 @@ private class CBDelegateAdapter: NSObject, CBCentralManagerDelegate, CBPeriphera
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        if ble.demoMode { return }
+        if ble.demoMode || ble.userInitiatedDisconnect {
+            ble.userInitiatedDisconnect = false
+            return
+        }
         log.info("Disconnected")
         ble.imgDownloadSlot = -1
         ble.binStartReceived = false

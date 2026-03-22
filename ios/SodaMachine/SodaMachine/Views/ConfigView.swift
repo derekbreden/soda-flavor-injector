@@ -180,7 +180,9 @@ private struct SettingsPageView: View {
     @Binding var inStats: Bool
     @Binding var inPrime: Bool
     @Binding var inClean: Bool
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var showResetAlert = false
+    @State private var showDisconnectAlert = false
     @State private var resetting = false
 
     var body: some View {
@@ -215,13 +217,27 @@ private struct SettingsPageView: View {
                         inAbout = true
                     }
                     if ble.demoMode {
-                        settingsButton("Connect to Machine") {
+                        settingsButton("Exit Demo Mode") {
                             UserDefaults.standard.set(false, forKey: "prefersDemoMode")
                             ble.exitDemoMode()
+                            hasCompletedOnboarding = false
+                        }
+                    } else {
+                        settingsButton("Disconnect") {
+                            showDisconnectAlert = true
                         }
                     }
                 }
             }
+        }
+        .alert("Disconnect?", isPresented: $showDisconnectAlert) {
+            Button("Disconnect", role: .destructive) {
+                ble.disconnect()
+                hasCompletedOnboarding = false
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to disconnect from this home soda machine?")
         }
         .alert("Factory Reset?", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {

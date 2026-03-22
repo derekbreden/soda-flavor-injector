@@ -79,7 +79,7 @@ struct ScanView: View {
                     }
                     .padding(.bottom, 12)
 
-                    Button("Try Demo Mode") {
+                    Button("Enter Demo Mode") {
                         prefersDemoMode = true
                         hasCompletedOnboarding = true
                         ble.enterDemoMode()
@@ -115,8 +115,9 @@ struct ScanView: View {
                     .frame(height: 100)
                     .padding(.bottom, 16)
 
-                Button("Try Demo Mode") {
-                    ble.enterDemoMode()
+                Button("Cancel") {
+                    ble.disconnect()
+                    hasCompletedOnboarding = false
                 }
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.textSecondary)
