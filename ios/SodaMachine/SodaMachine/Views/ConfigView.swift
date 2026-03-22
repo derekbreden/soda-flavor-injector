@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import PhotosUI
 
 // ────────────────────────────────────────────────────────────
 // Separate View structs create their own @Observable observation
@@ -55,39 +56,67 @@ private struct ImagePickerSheet: View {
     @State var selectedSlot: Int
     let onSelect: (Int) -> Void
 
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var deleteSlot: Int?
+    @State private var showDeleteConfirm = false
+
     private let columns = [GridItem(.adaptive(minimum: 120), spacing: 20)]
+    private let maxImages = 10
+
+    private var totalPendingSlots: Int {
+        ble.numImages + ble.uploadQueue.count + (ble.uploadProgress != nil ? 1 : 0)
+    }
+
+    private var canDelete: Bool {
+        ble.numImages > 1 && ble.imageDownloadProgress == nil && ble.uploadQueue.isEmpty && ble.uploadProgress == nil
+    }
 
     var body: some View {
         NavigationView {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 20) {
+                    // Existing images
                     ForEach(0..<ble.numImages, id: \.self) { slot in
-                        Group {
-                            if let uiImage = ble.imageFor(slot: slot) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 120, height: 120)
-                                    .clipShape(Circle())
-                            } else {
-                                ZStack {
-                                    Circle()
-                                        .fill(Theme.placeholder)
-                                        .frame(width: 120, height: 120)
-                                    Image(systemName: "photo")
-                                        .font(.system(size: 24))
-                                        .foregroundStyle(Theme.textSecondary)
+                        imageCircle(slot: slot)
+                    }
+
+                    // Active upload
+                    if let activeImage = ble.activeUploadImage, ble.uploadProgress != nil {
+                        RadialProgressCircle(image: activeImage, progress: ble.uploadProgress ?? 0)
+                            .contextMenu {
+                                Button("Cancel Upload", role: .destructive) {
+                                    ble.cancelActiveUpload()
                                 }
                             }
-                        }
-                        .padding(5)
-                        .overlay(
-                            Circle()
-                                .stroke(slot == selectedSlot ? Theme.textPrimary : .clear, lineWidth: 1)
-                        )
-                        .onTapGesture {
-                            selectedSlot = slot
-                            onSelect(slot)
+                    }
+
+                    // Queued uploads
+                    ForEach(ble.uploadQueue) { item in
+                        RadialProgressCircle(image: item.image, progress: nil)
+                            .contextMenu {
+                                Button("Cancel Upload", role: .destructive) {
+                                    ble.cancelQueuedUpload(id: item.id)
+                                }
+                            }
+                    }
+
+                    // Add button
+                    if totalPendingSlots < maxImages && ble.imageDownloadProgress == nil {
+                        let remaining = maxImages - totalPendingSlots
+                        PhotosPicker(
+                            selection: $selectedPhotos,
+                            maxSelectionCount: remaining,
+                            selectionBehavior: .ordered,
+                            matching: .images
+                        ) {
+                            ZStack {
+                                Circle()
+                                    .fill(Theme.placeholder)
+                                    .frame(width: 120, height: 120)
+                                Image(systemName: "plus")
+                                    .font(.system(size: 28))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
                         }
                     }
                 }
@@ -110,6 +139,110 @@ private struct ImagePickerSheet: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbarBackground(Theme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .alert("Delete Image?", isPresented: $showDeleteConfirm) {
+                Button("Delete", role: .destructive) {
+                    if let slot = deleteSlot {
+                        ble.deleteImage(slot: slot)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This cannot be undone.")
+            }
+            .alert("Delete Failed", isPresented: Binding(
+                get: { ble.deleteError != nil },
+                set: { if !$0 { ble.deleteError = nil } }
+            )) {
+                Button("OK") { ble.deleteError = nil }
+            } message: {
+                Text(ble.deleteError ?? "")
+            }
+            .onChange(of: selectedPhotos) { _, newItems in
+                guard !newItems.isEmpty else { return }
+                Task {
+                    var images: [UIImage] = []
+                    for item in newItems {
+                        if let data = try? await item.loadTransferable(type: Data.self),
+                           let image = UIImage(data: data) {
+                            images.append(image)
+                        }
+                    }
+                    selectedPhotos = []
+                    if !images.isEmpty {
+                        let items = images.map { BLEManager.UploadQueueItem(image: $0) }
+                        ble.queueUploads(items)
+                    }
+                }
+            }
+        }
+    }
+
+    private func imageCircle(slot: Int) -> some View {
+        Group {
+            if let uiImage = ble.imageFor(slot: slot) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 120, height: 120)
+                    .clipShape(Circle())
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(Theme.placeholder)
+                        .frame(width: 120, height: 120)
+                    Image(systemName: "photo")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+        }
+        .padding(5)
+        .overlay(
+            Circle()
+                .stroke(slot == selectedSlot ? Theme.textPrimary : .clear, lineWidth: 1)
+        )
+        .onTapGesture {
+            selectedSlot = slot
+            onSelect(slot)
+        }
+        .contextMenu {
+            if canDelete {
+                Button("Delete", role: .destructive) {
+                    deleteSlot = slot
+                    showDeleteConfirm = true
+                }
+            }
+        }
+    }
+}
+
+private struct RadialProgressCircle: View {
+    let image: UIImage
+    let progress: Double?  // nil = queued, 0-1 = uploading
+
+    var body: some View {
+        ZStack {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 120, height: 120)
+                .clipShape(Circle())
+
+            Circle()
+                .fill(Color.black.opacity(0.5))
+                .frame(width: 120, height: 120)
+
+            if let progress {
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(Color.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 100, height: 100)
+                    .rotationEffect(.degrees(-90))
+            } else {
+                Image(systemName: "clock")
+                    .font(.system(size: 24))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
         }
     }
 }
@@ -175,7 +308,6 @@ private struct SettingsItemButtonStyle: ButtonStyle {
 
 private struct SettingsPageView: View {
     @Environment(BLEManager.self) var ble
-    @Binding var showImageManager: Bool
     @Binding var inAbout: Bool
     @Binding var inStats: Bool
     @Binding var inPrime: Bool
@@ -196,9 +328,6 @@ private struct SettingsPageView: View {
                     .foregroundStyle(Theme.textSecondary)
             } else {
                 VStack(spacing: 0) {
-                    settingsButton("Manage Images") {
-                        showImageManager = true
-                    }
                     settingsButton("Usage Stats") {
                         ble.requestStatsAndCharts()
                         inStats = true
@@ -1058,7 +1187,6 @@ struct ConfigView: View {
     @Environment(BLEManager.self) var ble
     @Environment(\.scenePhase) private var scenePhase
     @State private var currentPage = 0
-    @State private var showImageManager = false
     @State private var showFlavor1Picker = false
     @State private var showFlavor2Picker = false
     @State private var showFlavor1Ratio = false
@@ -1087,10 +1215,6 @@ struct ConfigView: View {
             } else {
                 carouselContent
             }
-        }
-        .sheet(isPresented: $showImageManager) {
-            ImageManagerView()
-                .environment(ble)
         }
         .sheet(isPresented: $showFlavor1Picker) {
             ImagePickerSheet(flavorLabel: "Flavor 1 Image", selectedSlot: ble.flavor1Image) { slot in
@@ -1213,7 +1337,7 @@ struct ConfigView: View {
         case 3:
             ratioDisplay(ratio: ble.flavor2Ratio)
         case 4:
-            SettingsPageView(showImageManager: $showImageManager, inAbout: $inAbout, inStats: $inStats, inPrime: $inPrime, inClean: $inClean)
+            SettingsPageView(inAbout: $inAbout, inStats: $inStats, inPrime: $inPrime, inClean: $inClean)
         default:
             EmptyView()
         }
