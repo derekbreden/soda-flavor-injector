@@ -1,6 +1,6 @@
 # Under-Cabinet Ergonomics — Cartridge Dock Placement & Interaction Design
 
-Research into how real under-sink cabinet conditions constrain the cartridge insertion/removal experience. The cartridge is approximately 140 x 90 x 100mm and weighs ~2.1 lbs (940g). It contains two peristaltic pumps and connects via 4 John Guest 1/4" push-to-connect fittings. A lever mechanism releases all 4 collets simultaneously for removal.
+Research into how real under-sink cabinet conditions constrain the cartridge insertion/removal experience. The cartridge is 150 x 80 x 130mm (W x H x D) and weighs ~1.8 lbs (820g). It contains two peristaltic pumps and connects via 4 John Guest 1/4" push-to-connect fittings. A lever mechanism releases all 4 collets simultaneously for removal.
 
 This document explores how the cabinet environment dictates where the dock can live, how the user reaches it, and which lever positions and insertion directions actually work in practice.
 
@@ -291,7 +291,7 @@ The lever is on the bottom face of the cartridge, flipping downward to unlock.
 | Criterion | Assessment |
 |---|---|
 | **Reach without pulling dock out** | MODERATE. The bottom is accessible by reaching under the cartridge, which is possible if there's clearance below. Less natural than top. |
-| **One-handed flip while holding cartridge** | POOR. Holding a 2.1 lb cartridge while flipping a lever on the bottom is very awkward — the hand must grip from above while fingers reach underneath. |
+| **One-handed flip while holding cartridge** | POOR. Holding a 1.8 lb cartridge while flipping a lever on the bottom is very awkward — the hand must grip from above while fingers reach underneath. |
 | **Vertical clearance required** | YES, ~80-100mm below the cartridge for the lever to swing. Impossible if the dock is on the cabinet floor. |
 | **Works in the dark / by feel** | POOR. The bottom of anything mounted in a cabinet is the hardest surface to reach and feel. |
 | **Dock at back wall** | POOR. Same depth problem as top, plus the added difficulty of reaching under. |
@@ -429,7 +429,7 @@ The cartridge slides straight back into a dock mounted on the back wall, a side 
     ▲ user kneels here
 ```
 
-**Grip during insertion:** The user holds the cartridge from behind (the rear face) or from the sides. Natural grip: palm on the rear face, fingers wrapped around sides. For a 140mm wide x 90mm tall cartridge, this is a comfortable palmar grip — like holding a thick book spine-out.
+**Grip during insertion:** The user holds the cartridge from behind (the rear face) or from the sides. Natural grip: palm on the rear face, fingers wrapped around sides. For a 150mm wide x 80mm tall cartridge, this is a comfortable palmar grip — like holding a thick book spine-out.
 
 **Natural hand/arm motion:** Push straight forward, like sliding a book onto a shelf. The arm extends naturally into the cabinet. This is the most intuitive motion for under-cabinet work.
 
@@ -441,7 +441,7 @@ The cartridge slides straight back into a dock mounted on the back wall, a side 
 
 **Removal:** User opens the lever (releasing collets), then pulls the cartridge straight toward themselves. This is the most natural removal motion — pulling things toward you from inside a cabinet.
 
-**Drip management:** When the cartridge is removed, residual water in the tubes will drip from the 4 tube stubs on the cartridge's front face (now facing the user). The drips fall downward. If the user tilts the cartridge forward slightly during removal, drips fall onto the cabinet floor (manageable with a drip tray). If the cartridge exits level, drips may fall on the user's hand. A small drip tray under the dock catches most drips during the transition.
+**Drip management:** The clean cycle runs before cartridge removal, so residual fluid is water/air, not sticky concentrate. A few mL of water may drip from the 4 tube stubs on the cartridge's mating face during removal. The drips fall downward. A small absorbent pad or channel in the dock below the fittings catches residual water during the transition. This is a minor concern since the liquid is clean water.
 
 **Overall:** This is the most natural insertion direction for under-cabinet work. The push motion, the guide rail support, and the pull-to-remove all feel intuitive. The main weakness is alignment visibility — the user can't see the mating face during insertion.
 
@@ -472,7 +472,7 @@ The cartridge slides left-to-right (or right-to-left) into a dock mounted on a s
 
 **Feedback for full seating:** Same tactile feedback from John Guest fittings.
 
-**Removal:** User must pull the cartridge laterally (toward themselves if the dock is on the near wall, away if on the far wall). Pulling sideways from a kneeling position is awkward, especially with a 2.1 lb cartridge and dripping tubes.
+**Removal:** User must pull the cartridge laterally (toward themselves if the dock is on the near wall, away if on the far wall). Pulling sideways from a kneeling position is awkward, especially with a 1.8 lb cartridge and dripping tubes.
 
 **Drip management:** Tube stubs face sideways. Drips fall from the side of the cartridge, potentially onto the cabinet floor in a hard-to-tray location. Less contained than front-entry drips.
 
@@ -499,7 +499,7 @@ The cartridge drops into a cradle or well from above. Like inserting a water fil
     └──────────────────────────────────────┘
 ```
 
-**Grip during insertion:** The user holds the cartridge from above (pinch grip on top edges) or from the sides (palmar grip). For a 140mm x 100mm footprint at 2.1 lbs, a side grip is comfortable. The user lowers it into the cradle like setting down a coffee mug.
+**Grip during insertion:** The user holds the cartridge from above (pinch grip on top edges) or from the sides (palmar grip). For a 150mm x 130mm footprint at 1.8 lbs, a side grip is comfortable. The user lowers it into the cradle like setting down a coffee mug.
 
 **Natural hand/arm motion:** Lowering an object downward is one of the most natural human motions. Gravity assists. The arm motion is comfortable and controlled.
 
@@ -509,7 +509,7 @@ The cartridge drops into a cradle or well from above. Like inserting a water fil
 
 **Feedback for full seating:** The cartridge drops to a stop. The fittings engage with the same tactile feel. Gravity holds it in place. A lever or latch confirms docking.
 
-**Removal:** User opens the lever/latch, then lifts the cartridge straight up. This requires gripping the cartridge (handle on top is ideal) and overcoming the John Guest fitting retention plus the cartridge weight. Total extraction force: fitting retention (~5-10 lbs per fitting pulling out, so ~20-40 lbs total for 4 fittings) plus 2.1 lbs weight. This is the problem — extracting tubes from John Guest fittings requires pressing each collet. The release plate is essential here, and it must be operated BEFORE lifting.
+**Removal:** User opens the lever/latch, then lifts the cartridge straight up. This requires gripping the cartridge (handle on top is ideal) and overcoming the John Guest fitting retention plus the cartridge weight. Total extraction force: fitting retention (~5-10 lbs per fitting pulling out, so ~20-40 lbs total for 4 fittings) plus 1.8 lbs weight. This is the problem — extracting tubes from John Guest fittings requires pressing each collet. The release plate is essential here, and it must be operated BEFORE lifting.
 
 **Drip management:** GOOD. When the cartridge is lifted out, tube stubs point downward. Drips fall back into the cradle (which can have a drain or absorbent pad). The user never gets dripped on. This is the best drip management of any direction.
 
@@ -537,7 +537,7 @@ The cartridge pushes upward into a dock mounted on the ceiling of the cabinet (u
                     cartridge
 ```
 
-**Grip during insertion:** The user holds the cartridge from below, pressing it upward. For a 2.1 lb cartridge, this is manageable but tiring if alignment takes time. The user grips the bottom and sides of the cartridge, palms up.
+**Grip during insertion:** The user holds the cartridge from below, pressing it upward. For a 1.8 lb cartridge, this is manageable but tiring if alignment takes time. The user grips the bottom and sides of the cartridge, palms up.
 
 **Natural hand/arm motion:** Pushing upward is work — the user fights gravity for the full duration of alignment and insertion. Arms tire quickly when raised overhead (or in this case, above elbow height inside a cabinet).
 
@@ -547,7 +547,7 @@ The cartridge pushes upward into a dock mounted on the ceiling of the cabinet (u
 
 **Feedback for full seating:** Fittings engage, but the user may not feel it clearly because they're fighting gravity — the "push through" feel is masked by the constant upward force.
 
-**Removal:** Release the lever, and gravity drops the cartridge down. The user must catch a 2.1 lb cartridge that suddenly releases. This is uncontrolled and potentially dangerous (dropping the cartridge, splashing residual water).
+**Removal:** Release the lever, and gravity drops the cartridge down. The user must catch a 1.8 lb cartridge that suddenly releases. This is uncontrolled and potentially dangerous (dropping the cartridge, splashing residual water).
 
 **Drip management:** TERRIBLE. When the cartridge releases and drops, residual water in the tube stubs is now pointing up — it sprays/drips as the tubes pull free from the fittings. Water drips down onto the user, the cabinet floor, everything.
 
@@ -607,7 +607,7 @@ The cartridge inserts at an angle, combining horizontal and downward components.
 
 The dock is mounted inside a cabinet. The user operates it from outside the cabinet. The distance between the user's comfortable reach and the dock's location is the fundamental ergonomic constraint.
 
-The question isn't "can the user reach it?" — the question is "can the user comfortably, repeatedly, one-handedly operate a lever at this depth while holding a 2.1 lb cartridge?"
+The question isn't "can the user reach it?" — the question is "can the user comfortably, repeatedly, one-handedly operate a lever at this depth while holding a 1.8 lb cartridge?"
 
 ### 4.2 Depth Limits by Lever Position
 
@@ -637,22 +637,22 @@ This means the LEVER must be within ~10-14" of the cabinet front opening. The ma
     │  back wall                                          front opening│
     │    │                                                      │     │
     │    │◄── dock body ──►│◄── cartridge depth ──►│            │     │
-    │    │    (~25mm)       │    (~100mm / 4")      │            │     │
+    │    │    (~25mm)       │    (~130mm / 5.1")     │            │     │
     │    │                  │                       │            │     │
     │    │                  │                       ├─ lever ─►  │     │
     │    │                  │                       │            │     │
-    │    │◄────── total protrusion: ~5.5" ────────►│            │     │
+    │    │◄────── total protrusion: ~6.1" ────────►│            │     │
     │    │                                                      │     │
-    │    │◄──────── distance to lever: ~16.5" ─────────────────►│     │
+    │    │◄──────── distance to lever: ~15.9" ─────────────────►│     │
     │                                                                  │
 ```
 
 **With a back-wall-mounted dock (worst case):**
 - Dock back plate: flush with back wall (22" from front)
 - Dock body: 1" (25mm) deep
-- Cartridge depth: 4" (100mm)
-- Front face of cartridge (where lever would be): ~17" (432mm) from front
-- Lever is at ~17" depth — this is in Zone 3 (maximum reach), beyond comfortable lever operation
+- Cartridge depth: 5.1" (130mm)
+- Front face of cartridge (where lever would be): ~15.9" (404mm) from front
+- Lever is at ~15.9" depth — this is in Zone 2/3 (extended/maximum reach), at the edge of comfortable lever operation
 
 **This means back-wall mounting does not work for horizontal slide-in unless the dock pulls out.**
 
@@ -817,12 +817,12 @@ Ergonomic research on power grip handles (tools, carry handles):
 | Handle length (comfortable) | 110-130mm (4.3-5.1") | Accommodates 95th percentile male hand breadth |
 | Weight limit for one-handed tools | 1.4 kg (3.1 lbs) | CCOHS — tools above this should have counterbalance/support |
 
-**Our cartridge at 940g (2.1 lbs) is within the one-handed weight limit.** A handle 110-130mm long and 30-40mm in diameter would be comfortable for nearly all users.
+**Our cartridge at 820g (1.8 lbs) is within the one-handed weight limit.** A handle 110-130mm long and 30-40mm in diameter would be comfortable for nearly all users.
 
 For a lever that doubles as a handle:
 - The lever must be at least 100mm long (this is already in the cam-lever.md range of 50-100mm; we should target the upper end)
 - The lever cross-section should be oval or D-shaped, 30-40mm wide, to fill the palm
-- The lever must be rigid enough to support 940g without flexing (PETG at 4mm wall thickness is adequate)
+- The lever must be rigid enough to support 820g without flexing (PETG at 4mm wall thickness is adequate)
 
 ### 5.3 Lever State During Carry
 
@@ -923,7 +923,7 @@ The user reaches in, finds the lever by feel (the distinct raised shape on top),
 
 ### 6.1 Reduced Grip Strength (Older Users, Arthritis)
 
-Our cartridge at 2.1 lbs with a lever-handle requires:
+Our cartridge at 1.8 lbs with a lever-handle requires:
 - **Grip force to hold:** ~20-25N (4.5-5.5 lbs). Average grip strength for 65+ women is ~220N (49 lbs), so this is well within range even for elderly users.
 - **Lever force to flip:** The cam mechanism provides 10:1+ mechanical advantage. With 12-20N total collet force, the user applies ~1.2-2N (4-7 oz) at the lever tip. Trivial for any grip strength.
 - **Pinch force for fine manipulation:** Minimal — the lever is large enough for a full palmar grip, not a pinch.
@@ -957,9 +957,9 @@ The cartridge lives under a kitchen sink. Water drips, soap splashes, and conden
 | Hand breadth | 69mm (2.7") | 89mm (3.5") | 97mm (3.8") |
 | Grip span (power grip) | 43mm (1.7") | 51mm (2.0") | 58mm (2.3") |
 
-The cartridge at 140mm wide x 90mm tall is grippable for all hand sizes:
-- Small hands: grip the 90mm dimension (height) with fingers reaching around ~half the 140mm width. Comfortable.
-- Large hands: can nearly span the 140mm width. Very comfortable.
+The cartridge at 150mm wide x 80mm tall is grippable for all hand sizes:
+- Small hands: grip the 80mm dimension (height) with fingers reaching around ~half the 150mm width. Comfortable.
+- Large hands: can nearly span the 150mm width. Very comfortable.
 
 The lever at 100-130mm long accommodates all hand breadths (69-97mm). The lever bar diameter of 30-40mm is within the comfortable power grip range for all sizes.
 
@@ -1085,13 +1085,13 @@ Proceed with the current design direction. The horizontal slide-in with a top-mo
 
 1. **Dock placement depth:** The lever must be within 12-14" (305-356mm) of the cabinet front opening. For a 22" deep cabinet, the dock should be mounted no deeper than 8-10" from the front. This rules out back-wall mounting unless a pull-out shelf is used.
 
-2. **Vertical clearance:** Allow a minimum of 100mm (4") above the installed cartridge for lever swing. Do not mount the dock within 190mm (7.5") of the cabinet ceiling (90mm cartridge height + 100mm lever swing).
+2. **Vertical clearance:** Allow a minimum of 100mm (4") above the installed cartridge for lever swing. Do not mount the dock within 180mm (7.1") of the cabinet ceiling (80mm cartridge height + 100mm lever swing).
 
 3. **Lever dimensions:** Target 110-130mm long, 30-40mm wide, flat oval cross-section. This provides comfortable grip for 5th-95th percentile hands while serving as an effective carry handle.
 
 4. **Guide rail design quality is critical:** Since the user cannot see the mating face during horizontal insertion, the guide rails MUST provide confident, sloppy-tolerant alignment. Wide entry funnels (5-10mm wider than the cartridge at the mouth, tapering to final fit over the last 20-30mm) are essential.
 
-5. **Drip tray:** Include a removable drip tray under the dock. Horizontal removal causes tube stubs to drip toward the user. The tray catches these drips and the user empties it during cartridge swaps.
+5. **Drip management:** The clean cycle runs before cartridge removal (software-enforced or physically locked), so residual fluid is water/air, not sticky concentrate. A few mL of water dripping from tube stubs during horizontal removal is a minor concern — a small absorbent pad or channel in the dock below the fittings is sufficient.
 
 ### 8.2 Fallback: Pull-Out Shelf for Deep Installations
 

@@ -4,7 +4,7 @@ The current design uses a cartridge-side release plate with stepped bores, drive
 
 This document challenges every assumption in that design. The goal is not to prove the current design wrong, but to understand what was left on the table and why. Some alternatives explored here are clearly worse — they are included anyway so the full solution space is documented.
 
-**System context**: Soda flavor injector under a kitchen sink. Cartridge holds 2 peristaltic pumps (~140 x 90 x 100mm, ~2.1 lbs). 4 fluid connections (2 per pump: inlet and outlet). Swap frequency: maybe once every few weeks to months (pump tubing replacement, deep cleaning). Not a daily operation.
+**System context**: Soda flavor injector under a kitchen sink. Cartridge holds 2 peristaltic pumps (150 x 80 x 130mm, ~1.8 lbs / 820g). 4 fluid connections (2 per pump: inlet and outlet). Swap frequency: maybe once every few weeks to months (pump tubing replacement, deep cleaning). Not a daily operation. A clean cycle always runs before cartridge removal (software-enforced or physically locked), so residual fluid in the cartridge and dock is water/air, not sticky concentrate.
 
 ---
 
@@ -115,7 +115,7 @@ CPC is the dominant manufacturer of plastic quick-disconnect couplings for food,
 
 **Pros:**
 - Eliminates the release plate entirely
-- Auto-shutoff valves prevent dripping during swap (John Guest fittings leak when tubes are pulled)
+- Auto-shutoff valves prevent dripping during swap (John Guest fittings leak when tubes are pulled, though with clean-before-remove the drip is water, not concentrate)
 - Designed for repeated connect/disconnect cycles (rated for thousands)
 - Industry-standard in beverage dispensing
 - One-handed connect/disconnect per coupling
@@ -342,18 +342,18 @@ But this puts the release plate in the dock, not the cartridge. The dock is no l
 
 ### Dimensional Analysis
 
-For a 140mm wide cartridge, bayonet lugs would be positioned near the corners:
+For a 150mm wide cartridge, bayonet lugs would be positioned near the corners:
 
 | Parameter | Value |
 |---|---|
-| Cartridge diameter (inscribed circle) | ~90mm (H dimension) |
+| Cartridge diameter (inscribed circle) | ~80mm (H dimension) |
 | Lug size (typical) | 8-12mm wide x 4-6mm deep |
 | Slot depth | 3-5mm |
 | Rotation angle | 90 degrees |
-| Arc length at 45mm radius over 90 deg | ~70mm |
-| Ramp rise (for 3mm plate travel) | 3mm over 70mm arc = 2.5 degree helix angle |
+| Arc length at 40mm radius over 90 deg | ~63mm |
+| Ramp rise (for 3mm plate travel) | 3mm over 63mm arc = 2.7 degree helix angle |
 
-The 2.5-degree helix angle is extremely shallow — practically self-locking under friction. The user would need to twist with significant force to overcome the release plate springs plus collet release force, all through a 2.5-degree ramp. Estimated torque: (20N release force) / tan(2.5deg) = ~460N at the ramp contact, requiring ~20 N*m of torque at the cartridge OD. That is a firm two-handed grip twist — not one-handed operation.
+The 2.7-degree helix angle is extremely shallow — practically self-locking under friction. The user would need to twist with significant force to overcome the release plate springs plus collet release force, all through a 2.7-degree ramp. Estimated torque: (20N release force) / tan(2.7deg) = ~424N at the ramp contact, requiring ~17 N*m of torque at the cartridge OD. That is a firm two-handed grip twist — not one-handed operation.
 
 ### Verdict on Twist-Lock
 
@@ -586,11 +586,11 @@ But tilting the cartridge means the tubes withdraw at an angle, not straight. O-
 | Seal reliability | Moderate | O-ring in 3D-printed bore may leak at layer lines. SLA print or machined bore needed. |
 | Insertion feel | Good | Magnets snap cartridge into alignment at close range. Satisfying. |
 | Removal effort | Poor to Moderate | Straight pull is too high; peel/tilt is manageable but risks tube binding. |
-| Drip management | Poor | No auto-shutoff. Tubes drip when pulled. O-ring bores drip. |
+| Drip management | Poor | No auto-shutoff. Tubes drip when pulled. O-ring bores drip. With clean-before-remove, the drip is water, reducing the concern. |
 | Retention security | Good | Magnets won't accidentally release. |
 | Prototype cost | Excellent | ~$15-20 total (magnets + O-rings + steel plate) |
 
-**Verdict**: Magnetic retention with O-ring seals is the simplest possible mechanism and works at the near-zero pressures of this system. The main weakness is removal force — magnets strong enough to feel secure are hard to pull off. The lack of drip management (no shutoff valves) means the user will get wet during a swap. For a prototype/proof-of-concept, this is worth trying because it proves whether the O-ring seal works before investing in John Guest fittings and a release plate. If the O-ring seal works, the design could evolve to add a lever-actuated separation mechanism later.
+**Verdict**: Magnetic retention with O-ring seals is the simplest possible mechanism and works at the near-zero pressures of this system. The main weakness is removal force — magnets strong enough to feel secure are hard to pull off. The lack of auto-shutoff means tubes drip when pulled, but with clean-before-remove the drip is a few mL of water, not sticky concentrate — a minor concern. For a prototype/proof-of-concept, this is worth trying because it proves whether the O-ring seal works before investing in John Guest fittings and a release plate. If the O-ring seal works, the design could evolve to add a lever-actuated separation mechanism later.
 
 ---
 
@@ -694,7 +694,7 @@ Appropriate drawer slides:
 
 | Parameter | Requirement | Available Options |
 |---|---|---|
-| Weight capacity | ~10 lbs (dock 3-5 lbs + cartridge 2.1 lbs + tubing/fittings) | 50-100 lb slides are standard and cheap |
+| Weight capacity | ~10 lbs (dock 3-5 lbs + cartridge 1.8 lbs + tubing/fittings) | 50-100 lb slides are standard and cheap |
 | Extension length | 12-18 inches (full extension) | Standard 12", 14", 16", 18" full-extension slides |
 | Corrosion resistance | Under-sink moisture exposure | Zinc-plated, stainless steel, or powder-coated options |
 | Width | Side-mount, standard profile | 1/2" profile side-mount slides |
@@ -787,11 +787,11 @@ Scoring: 1-5 (5 = best). Weights reflect the priorities for an under-sink soda f
 
 4. **Spring-Loaded Dock Plate** — Score 110. The most interesting "new" mechanism. No lever needed — push in, pull out. Lacks the positive lock feedback of the cam design. Could be improved with a simple latch to reach near-parity with the current design.
 
-5. **Magnetic + O-Ring** — Score 109. Simplest possible mechanism. Viable at the near-zero pressures of this system. Limited by removal force and drip management. Best as a proof-of-concept prototype to validate the O-ring seal before committing to John Guest fittings.
+5. **Magnetic + O-Ring** — Score 109. Simplest possible mechanism. Viable at the near-zero pressures of this system. Limited by removal force. Drip management is less of a concern with clean-before-remove (residual is water, not concentrate). Best as a proof-of-concept prototype to validate the O-ring seal before committing to John Guest fittings.
 
 6. **Hand Disconnect** — Score 97. The baseline. Viable if the user is technically comfortable and swap frequency is low. Not suitable for a consumer product.
 
-7. **CPC Quick-Disconnect** — Score 95. Best water safety (auto-shutoff valves). Worst for user effort and one-handed operation (4 individual squeeze-and-pull operations). Good for a system where drip prevention matters more than swap speed.
+7. **CPC Quick-Disconnect** — Score 95. Best water safety (auto-shutoff valves). Worst for user effort and one-handed operation (4 individual squeeze-and-pull operations). Auto-shutoff is less critical with clean-before-remove (residual is water), but still the cleanest disconnect experience.
 
 8. **Twist-Lock** — Score 84. Does not work well with John Guest push-to-connect fittings due to tube torsion. Strong prior art for water filters (O-ring seals) does not transfer to this application. Would require fundamental redesign of the fluid connection to be viable.
 

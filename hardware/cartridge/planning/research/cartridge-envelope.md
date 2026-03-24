@@ -35,27 +35,27 @@ The enclosure is the constraining boundary. The cartridge does not float in open
 
 ### 3a. Enclosure Dimensions
 
-From layout-spatial-planning.md, the enclosure layouts under consideration:
+The active enclosure design is the front-loading tower:
 
-| Layout | W x D x H (mm) | Notes |
-|--------|----------------|-------|
-| Tall Tower | 250 x 200 x 450 | Smallest footprint, bags hang vertically above dock |
-| Cube | 300 x 300 x 300 | Balanced proportions, bags side by side |
-| Front-Loading Tower | 280 x 250 x 400 | All interaction from front face |
+| Parameter | Value |
+|-----------|-------|
+| **Outer dimensions (W x D x H)** | **280 x 250 x 400 mm** |
+| Interior dimensions | 272 x 242 x 392 mm |
+| Wall thickness | 4 mm all sides |
 
-All variants share common traits: cartridge slot on the front face at mid-height, bags above, electronics and valves below.
+Bags mount at 18-20 degrees incline using two-point stretch mounting (connector end low, sealed end high). Two 1L Platypus bags stack vertically in the bag zone (4-180mm). The cartridge slot is on the front face at mid-height (~186-266mm), with electronics above (~310-396mm) and bags below.
 
 ### 3b. Cartridge Slot Allocation
 
-The cartridge slot is one zone in the enclosure's internal layout. Using the Tall Tower (the tightest-fitting variant) as the constraining case:
+The cartridge slot is one zone in the enclosure's internal layout. Using the active 280x250x400 front-loading tower:
 
 | Dimension | Enclosure Interior | Dock Structure | Available for Cartridge |
 |-----------|-------------------|----------------|------------------------|
-| Width | ~242 mm | ~20 mm (walls, rails) | ~220 mm |
-| Height | ~130 mm (zone) | ~45 mm (lever clearance + floor) | ~85 mm |
-| Depth | ~192 mm | ~40-50 mm (back wall, fittings, tube routing) | ~142-152 mm |
+| Width | ~272 mm | ~20 mm (walls, rails) | ~252 mm |
+| Height | ~120 mm (zone) | ~40 mm (lever clearance + floor) | ~80 mm |
+| Depth | ~242 mm | ~40-50 mm (back wall, fittings, tube routing) | ~192-202 mm |
 
-Height is the tightest constraint. Width is generous. Depth is moderate.
+The 280x250x400 layout provides comfortable margins on width and depth. Height is adequate — the ~120mm dock+valves zone (186-306mm) accommodates the 80mm cartridge with ~40mm for lever swing and clearance.
 
 ### 3c. Front-Loading Implications
 
@@ -298,7 +298,7 @@ When docked, the cartridge front face is flush with the enclosure front panel. A
 
 ## 9. Depth Budget
 
-The enclosure interior depth (~192 mm for the Tall Tower) is consumed by three zones:
+The enclosure interior depth (~242 mm) is consumed by three zones, with room to spare:
 
 ```
     ← FRONT                                                BACK →
@@ -308,7 +308,7 @@ The enclosure interior depth (~192 mm for the Tall Tower) is consumed by three z
     │  body      │     + fittings            │  valves & back     │
     │  130mm     │     ~35mm                 │  panel ~22-27mm    │
     └────────────┴───────────────────────────┴────────────────────┘
-                          ~192mm total
+                          ~187-192mm used of ~242mm available
 ```
 
 | Zone | Depth | Contents |
@@ -316,9 +316,9 @@ The enclosure interior depth (~192 mm for the Tall Tower) is consumed by three z
 | Cartridge body | 130 mm | Pumps, tubing, plate, cam housing |
 | Dock back wall + fittings | ~35 mm | 5 mm wall, ~25 mm JG fitting depth, ~5 mm alignment pin protrusion |
 | Tube routing behind dock | ~22-27 mm | Silicone tubing from JG fittings to vertical runs toward valves and back panel |
-| **Total** | **~187-192 mm** | Fits within 192 mm interior |
+| **Total** | **~187-192 mm** | Fits within 242 mm interior with ~50 mm to spare |
 
-This is a tight fit. Compact right-angle barb fittings behind the dock wall help minimize the tube routing depth.
+Depth is comfortable in the 280x250x400 layout. The ~50mm of spare depth behind the dock provides room for tube routing and service access.
 
 ---
 
@@ -396,7 +396,7 @@ Comfortable for one-handed handling. Center of gravity is dominated by the two p
 
 ### 13a. Bags
 
-Bags (Platypus or similar, 10-12" realistic size) hang or sit in the zone above the cartridge slot. Bag outlets connect via silicone tubing to the dock's inlet-side John Guest fittings. The elevation difference provides gravity priming for pump inlets.
+Bags (Platypus 1L) mount at 18-20 degrees incline in the zone below the cartridge slot (4-180mm), using two-point stretch mounting (connector end low at front, sealed end high at rear). Two bags stack vertically with a thin divider between them. Bag outlets connect via silicone tubing to the dock's inlet-side John Guest fittings. The elevation difference provides gravity priming for pump inlets.
 
 Hopper filling is pump-assisted — gravity fill does not work. The peristaltic pumps run in reverse to pull concentrate from the hopper funnel through the tubing into the bags. This is handled by the existing firmware (PRIME/CLEAN modes run pumps in reverse).
 
