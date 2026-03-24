@@ -6,7 +6,7 @@
 2. [Hopper-to-Bag Fluid Path](#2-hopper-to-bag-fluid-path)
 3. [Air Management](#3-air-management)
 4. [Capacitive Liquid/Air Detection](#4-capacitive-liquidair-detection)
-5. [Bag Mounting and the Flattening Problem](#5-bag-mounting-and-the-flattening-problem)
+5. [Bag Mounting](#5-bag-mounting)
 6. [Overfill and Spill Containment](#6-overfill-and-spill-containment)
 7. [The Platypus Bottle Opening as a Design Constraint](#7-the-platypus-bottle-opening-as-a-design-constraint)
 8. [Recommendation](#8-recommendation)
@@ -98,6 +98,7 @@ The enclosure sits under a kitchen sink, roughly desktop PC tower size. The user
 - A simple twist-off or snap-on cap works
 - Could be hinged to the enclosure so it doesn't get lost
 - Silicone plug or cap with a lanyard is the simplest approach
+- For pump-assisted filling, the cap should include a one-way duckbill valve that lets air in as concentrate drains, keeping the hopper sealed during refill
 
 **Material considerations:**
 - **Food-grade silicone** is the best choice: flexible (absorbs impacts), easy to clean, dishwasher safe, transparent/translucent options available, temperature resistant
@@ -109,7 +110,7 @@ The enclosure sits under a kitchen sink, roughly desktop PC tower size. The user
 - The funnel must drain to tubing, not directly into the bag
 - The funnel outlet should be a barb fitting (matching the 1/4" OD tubing ecosystem) or a short section of integrated tubing
 - A small screen/filter at the funnel outlet catches debris (but adds cleaning burden)
-- The funnel outlet connects to the pump's intake path for pump-assisted filling (see Section 2)
+- The funnel outlet connects via tubing to TEE2 on the pump outlet side (see Section 2)
 
 ### 1c. Dual Funnels vs Single Funnel
 
@@ -131,325 +132,257 @@ With two funnels, each funnel is dedicated to one flavor. No flushing needed bet
 
 ## 2. Hopper-to-Bag Fluid Path
 
-### 2a. Pump-Assisted Filling (Preferred)
+### 2a. The Dip Tube: Why the Bag Is a Sealed Vessel
 
-The Kamoer KPHM400 peristaltic pumps are reversible DC motors. Running the pump in reverse pulls fluid from the hopper side and pushes it through the tubing into the bag.
+The Platypus Drink Tube Kit threads a sealed cap onto the bag's 28mm opening. A dip tube (1/4" ID, 6.35mm polyurethane tube) extends from the cap into the bag interior. The bag is completely sealed except for flow through this dip tube. There is no "open pouch" -- fluid entering the tubing MUST travel through the dip tube into the bag. It cannot bypass the bag.
 
-**The key question: where does the hopper connect to the existing plumbing?**
+This is proven by two existing operations:
+- **Priming** pulls air OUT of the bag through the dip tube (suction propagates through the sealed path)
+- **Clean fill** pushes water INTO the bag through the dip tube (pressure drives fluid through the sealed path)
 
-The current dispensing path is:
-```
-Bag → [dispensing solenoid] → [pump] → dispensing point (faucet)
-```
+Both demonstrate that the sealed dip tube path works bidirectionally. See [dip-tube-analysis.md](dip-tube-analysis.md) for detailed specifications and flow dynamics.
 
-To pump concentrate FROM the hopper INTO the bag, we need the pump to pull from the hopper. The pump can't pull from both the bag (dispensing) and the hopper (refilling) through the same inlet without a valve or tee.
+### 2b. Pump-Assisted Filling (Recommended)
 
-**Option A: Hopper tees into the pump outlet side**
+The Kamoer KPHM400 peristaltic pumps are reversible DC motors driven by L298N H-bridges. Reversing the pump is a 3-line firmware change (swap IN1/IN2). By connecting the hopper downstream of the pump (at the pump outlet via a tee), reversing the pump during refill pulls concentrate from the hopper and pushes it through the dispensing solenoid, through TEE1, through the dip tube, and into the bag.
 
-```
-DISPENSING MODE (pump forward):
-  Bag → [disp. solenoid OPEN] → [pump →] → dispensing point
-
-REFILL MODE (pump reverse):
-  Hopper → [hopper valve OPEN] → TEE → [← pump] → [disp. solenoid OPEN] → Bag
-                                   |
-                            dispensing point (dead end, no flow)
-```
-
-In this arrangement:
-- A TEE is placed between the pump outlet and the dispensing point
-- The hopper line connects to this TEE through a hopper valve (solenoid or manual)
-- During refill: hopper valve OPEN, pump runs in REVERSE, dispensing solenoid OPEN
-- Concentrate flows: hopper → hopper valve → tee → pump (reversed) → dispensing solenoid → bag
-- The dispensing point is a dead-end during refill (no pressure driving flow that direction)
-
-Problem: the dispensing point is open to atmosphere. During reverse pumping, could air be pulled in through the dispensing point tee instead of concentrate from the hopper? The peristaltic pump creates suction on its inlet side. If the tee is between the pump and the dispensing point, the pump would try to pull from both the hopper line AND the dispensing point. Air from the dispensing point could enter the pump.
-
-Fix: add a check valve or solenoid on the dispensing point line, or redesign the tee placement.
-
-**Option B: Hopper tees into the pump inlet side (between dispensing solenoid and pump)**
+**Topology:**
 
 ```
-DISPENSING MODE (pump forward):
-  Bag → [disp. solenoid OPEN] → TEE → [pump →] → dispensing point
-                                  |
-                    Hopper → [hopper valve CLOSED]
+COMPLETE TOPOLOGY (per flavor line):
 
-REFILL MODE (pump reverse):
-  Hopper → [hopper valve OPEN] → TEE → [← pump] → dispensing point
-                                  |
-                    Bag ← [disp. solenoid OPEN] ← (reverse flow through solenoid)
-```
-
-Wait -- this doesn't work cleanly. When the pump reverses, it pushes fluid back through the dispensing solenoid into the bag, but it's also pulling from the tee. The tee has two sources: the hopper (through the hopper valve) and the bag (through the dispensing solenoid). We need only the hopper to feed.
-
-Fix: during refill, dispensing solenoid CLOSED, hopper valve OPEN:
-```
-REFILL MODE (pump reverse):
-  Hopper → [hopper valve OPEN] → TEE → [← pump reversed] → dispensing point (waste/drip)
-                                  |
-                    Bag ← [disp. solenoid CLOSED] (blocked)
-```
-
-But now the reversed pump pushes fluid out the dispensing point, not into the bag. That's backwards.
-
-**Option C: Hopper connects to the bag directly, pump pulls from bag side**
-
-```
-                    ┌──────────────────────────────┐
-                    │                              │
-  Hopper → [hopper valve] → TEE → Bag → [disp. solenoid] → [pump] → dispensing point
-                              |
-                    clean water → [clean solenoid]
-```
-
-The hopper tee is on the BAG side of the plumbing, between the bag and the dispensing solenoid. This is the same location as the existing clean cycle tee.
-
-During refill: gravity and/or pump assistance move concentrate from the hopper through the tee into the bag. The pump doesn't need to reverse -- concentrate enters the bag through the same port that the bag drains from.
-
-But wait -- the bag has only ONE opening (the Platypus screw-cap port). If the bag is connected to the dispensing plumbing through this port, the hopper must also connect through this same port. This means the hopper, the clean water, and the dispensing path all share the same tee point near the bag.
-
-```
-                              ┌─── Bag (single opening)
+                              ┌─── Bag (sealed, dip tube)
                               │
-  Hopper → [hopper valve] → TEE ← clean water → [clean solenoid]
+                            TEE1 ← [CLEAN SOL] ← needle valve ← tap water
                               │
-                    [disp. solenoid] → [pump] → dispensing point
-```
-
-**Refill mode (gravity-fed, no pump):**
-- Hopper valve OPEN, dispensing solenoid CLOSED, clean solenoid CLOSED, pump OFF
-- Concentrate flows by gravity from hopper through the tee into the bag
-- Works only if hopper is above the bag
-
-**Refill mode (pump-assisted):**
-- Hopper valve OPEN, dispensing solenoid OPEN, clean solenoid CLOSED, pump REVERSED
-- Pump creates suction on the dispensing solenoid side, pulling concentrate from the hopper through the tee, past the bag port, through the dispensing solenoid, into the pump
-- But this pulls concentrate THROUGH the bag and into the pump/dispensing line, not INTO the bag
-- The bag is not a sealed dead-end -- it's an open pouch connected at one point. Fluid entering the bag opening can flow through the bag or past it depending on path resistance.
-
-This is the fundamental problem: **the bag has one opening, and that opening serves all fluid paths**. You can't simultaneously pump fluid through the tee (past the bag) and expect it to fill the bag. The fluid takes the path of least resistance, which is through the tubing, not into the floppy bag.
-
-**Option D: Gravity fill through the shared tee (recommended)**
-
-The simplest approach that actually works:
-
-```
-                              ┌─── Bag (single opening, connector at bottom of hanging bag)
-                              │
-  Hopper → [hopper valve] → TEE ← clean water → [clean solenoid]
-                              │
-                    [disp. solenoid] → [pump] → dispensing point
-```
-
-**Refill mode:**
-- Hopper valve OPEN, dispensing solenoid CLOSED, clean solenoid CLOSED, pump OFF
-- With dispensing solenoid CLOSED, the only path from the tee is into the bag
-- Concentrate flows from hopper, through hopper valve, through tee, into bag
-- Flow is driven by gravity (hopper must be above the bag) and/or head pressure from the concentrate column in the hopper/funnel
-
-**This works because:**
-1. The dispensing solenoid blocks the path to the pump, so all flow goes into the bag
-2. Gravity provides the driving force (hopper is on top of enclosure, bag hangs below)
-3. No pump reversal needed
-4. Air displaced from the bag exits back through the bag opening, up through the tee, and out the hopper (which is open to atmosphere during refill)
-
-**What about pump-assisted filling?**
-
-If gravity alone is too slow (narrow Platypus opening restricts flow), the pump could assist:
-- Hopper valve OPEN, dispensing solenoid OPEN, clean solenoid CLOSED
-- Pump runs FORWARD (normal direction: bag → pump → dispensing point)
-- Pump creates suction on the bag side of the dispensing solenoid
-- This suction propagates through the tee, pulling concentrate from the hopper into the bag AND through the dispensing solenoid into the pump
-- The pump pushes a mix of old bag contents and new concentrate out the dispensing point
-
-This is essentially a "flush and fill" -- not a pure bag fill. The pump accelerates flow through the tee but some concentrate goes into the bag and some goes through the pump. Not ideal because you waste some concentrate out the dispensing point.
-
-**True pump-assisted fill requires a second connection to the bag**, which the Platypus design doesn't support (single opening). So gravity fill through the shared tee with the dispensing solenoid closed is the practical answer.
-
-### 2b. Gravity-Fed Filling (Primary Approach)
-
-Given the analysis above, gravity-fed filling is the recommended primary approach.
-
-**Height differential calculation:**
-
-- Hopper is on top of the enclosure
-- Bag hangs vertically inside the enclosure, connector at bottom
-- Enclosure height: ~450mm (18", typical PC tower)
-- Hopper funnel bottom: ~450mm from cabinet floor
-- Bag connector (bottom of hanging bag): ~100mm from cabinet floor (bag hangs from near the top)
-- Height differential: ~350mm (14")
-- Hydrostatic pressure at bag: 350mm x 9.81 m/s^2 x 1050 kg/m^3 (sugar syrup density) = ~3.6 kPa = ~0.5 psi
-
-This is low pressure, but adequate for flow through tubing. Flow rate depends on the tubing restriction and the Platypus opening (see Section 7).
-
-**Flow rate estimate:**
-
-Using Poiseuille's law for laminar flow through the narrowest restriction (assumed to be the 1/4" OD tubing = ~4.5mm ID):
-- Pressure: ~3600 Pa
-- Tube length: ~500mm (total tubing run from hopper to bag)
-- Tube ID: 4.5mm (radius 2.25mm)
-- Viscosity of sugar syrup: ~5 mPa.s (5x water, typical for concentrated syrup)
-
-Q = (pi * r^4 * dP) / (8 * mu * L)
-Q = (3.14 * (0.00225)^4 * 3600) / (8 * 0.005 * 0.5)
-Q = (3.14 * 2.56e-11 * 3600) / (0.02)
-Q = 2.89e-7 / 0.02
-Q = 1.45e-5 m^3/s = 14.5 ml/s = ~870 ml/min
-
-This is a generous estimate (assumes no fittings, no bends, ideal conditions). Real flow rate will be lower due to fitting losses, bends, and the Platypus opening restriction. A realistic estimate is **200-500 ml/min**, meaning a 2L refill takes **4-10 minutes by gravity alone**.
-
-This is acceptable. The user pours concentrate into the funnel and walks away. The system drains by gravity. A capacitive sensor on the hopper line detects when the funnel is empty (see Section 4).
-
-### 2c. Hybrid Approach
-
-Not needed given the analysis. Gravity fill with solenoid isolation is simple and effective. The pump's reversibility is a future option if gravity proves too slow, but adds plumbing complexity (need a path that doesn't waste concentrate out the dispensing point).
-
-### 2d. Complete Plumbing Diagram
-
-```
-COMPLETE SYSTEM PLUMBING (per flavor line):
-
-                                    ┌─── Platypus Bag
-                                    │     (hanging vertically,
-                                    │      connector at bottom)
-                                    │
-  Funnel/Hopper ──→ [HOPPER VALVE] ─┤
-                                    │
-  Tap Water ──→ [NEEDLE VALVE] ──→ [CLEAN SOLENOID] ─┘
-                                    │
-                              ┌─────┘
-                              │
-                       [DISPENSING SOLENOID]
+                       [DISP SOL]
                               │
                            [PUMP]
                               │
-                        Dispensing Point
-                         (faucet tap)
+                            TEE2
+                           /     \
+              [HOPPER SOL]     [CHECK VALVE]
+                    │                │
+                 hopper        dispensing point
 ```
 
-Note: the hopper valve, clean solenoid, and bag all connect at a single TEE junction. The "TEE" in the diagram above is represented by the branching point.
+### 2c. How Refill Mode Works
 
-**Valve State Table:**
+1. Dispensing solenoid: **OPEN** (pump pushes fluid through it toward the bag)
+2. Hopper valve: **OPEN**
+3. Check valve at dispensing point: passively **CLOSED** (blocks air from entering through the dispensing point)
+4. Clean solenoid: **CLOSED**
+5. Pump: **REVERSED**
 
-| Mode | Hopper Valve | Clean Solenoid | Dispensing Solenoid | Pump | Flow Path |
-|------|-------------|----------------|--------------------|----- |-----------|
-| **Idle** | CLOSED | CLOSED | CLOSED | OFF | No flow |
-| **Dispensing** | CLOSED | CLOSED | OPEN | FORWARD | Bag → disp. sol. → pump → tap |
-| **Hopper Refill** | OPEN | CLOSED | CLOSED | OFF | Hopper → hopper valve → tee → bag (gravity) |
-| **Clean Fill** | CLOSED | OPEN | CLOSED | OFF | Tap water → clean sol. → tee → bag |
-| **Clean Flush** | CLOSED | CLOSED | OPEN | FORWARD | Bag → disp. sol. → pump → tap |
+Flow path:
+```
+Hopper → [hopper valve OPEN] → TEE2 → [pump REVERSED] → [disp solenoid OPEN] → TEE1 → Bag (via dip tube)
+```
 
-**New hardware needed per flavor line:**
-- 1x hopper solenoid valve (Beduan 12V 1/4" NC, same as existing) -- $8.99
-- 1x TEE fitting (from ice maker kit, already in hand)
-- 1x funnel with tubing adapter
-- Tubing run from funnel to hopper solenoid (~300mm)
+The reversed pump creates suction on the TEE2 side (pulling from hopper) and positive pressure on the dispensing solenoid side (pushing toward TEE1 and into the bag). The check valve at the dispensing point prevents the pump from pulling air through the dispensing point instead of concentrate from the hopper.
 
-**GPIO impact:**
-- 2 additional solenoid valves (one per flavor) need 2 GPIO outputs
-- Current free output GPIOs: 14, 16 (only 2 available!)
-- These are the last 2 free output-capable GPIOs on the ESP32
-- After hopper solenoids, the ESP32 has ZERO free output GPIOs
-- Future expansion (capacitive sensing, additional controls) MUST go through I2C expander (MCP23017)
-- Alternative: drive hopper solenoids from MCP23017 from the start, preserving GPIO 14 and 16 as reserve
+### 2d. Why a Check Valve at the Dispensing Point
 
-**Hopper solenoid GPIO assignment:**
-- GPIO 14: Hopper solenoid flavor 1
-- GPIO 16: Hopper solenoid flavor 2
-- Both driven via L298N #3 (which already has 2 channels for clean solenoids) -- but L298N #3 only has 2 channels and they're both used for clean solenoids
-- Need L298N #4, OR drive hopper solenoids with MOSFETs (simpler for on/off), OR use MCP23017 + MOSFETs
+During refill with the pump reversed, the pump's inlet is at TEE2, which has two branches: the hopper (valve open) and the dispensing point. Without a check valve, the pump would pull air from the dispensing point (open to atmosphere) instead of concentrate from the hopper. A 1/4" inline check valve oriented to allow flow OUT (toward dispensing point) but block flow IN solves this.
 
-**Simplest driver approach:** Individual logic-level N-channel MOSFETs (IRLZ44N or similar), one per hopper solenoid. Gate to GPIO, drain to solenoid, source to GND, flyback diode across solenoid. No L298N board needed -- these are simple on/off loads.
+During normal dispensing, the pump runs forward and pushes concentrate through the check valve to the dispensing point. The check valve opens in the forward direction with low cracking pressure (0.5-2 PSI) -- well within the Kamoer pump's capability (~8 PSI). The check valve is transparent to normal dispensing.
+
+### 2e. Alternatives Considered
+
+**Option A: Hopper tees into the pump outlet side (the recommended approach)** -- described above. Lowest cost ($6-10 for check valves), uses existing pumps, fastest fill time (400 ml/min pump at 2-5 PSI).
+
+**Option B: Dedicated fill pump per line** -- a small peristaltic pump on each hopper line pushes concentrate from the hopper into the bag through the bag-side tee (TEE1). Works, but adds 2 pumps ($10-24), 2 drivers, 2 GPIOs, and enclosure space. All for a function that runs a few minutes per week.
+
+**Option C: Gravity fill through the bag-side tee** -- hopper connects at TEE1 (bag side). Dispensing solenoid closed, hopper valve open, pump off. Gravity drains concentrate from the hopper into the bag. This was the original recommended approach, but has three disadvantages:
+1. **Slow:** 15-30 minutes for 1L (counter-flow limited through the dip tube's 6.35mm bore) vs 5-12 minutes with pump assist
+2. **Open air system:** Every refill exchanges the bag atmosphere with room air through the open funnel. Over months of weekly refills, this introduces repeated microbial exposure and volatile flavor loss
+3. **Counter-flow bottleneck:** With only ~0.5 PSI of gravity driving pressure, the air counter-flow through the dip tube is the primary flow limiter. The pump's 2-5 PSI makes a material difference
+
+Gravity fill remains an acceptable fallback if pump reversal proves problematic in testing.
+
+### 2f. Complete Plumbing Diagram
+
+```
+COMPLETE SYSTEM (per flavor line):
+
+         [Funnel]
+            │
+         [SEN-A]           ← capacitive sensor (hopper empty detect)
+            │
+       [HOPPER SOL]        ← Beduan 12V NC solenoid
+            │
+            │              ┌─── Bag (sealed, dip tube inside)
+            │              │
+            │            TEE1 ← [CLEAN SOL] ← needle valve ← tap water
+            │              │
+            │        [DISP SOL]
+            │              │
+            │           [PUMP]
+            │              │
+            └─────────── TEE2
+                           │
+                     [CHECK VALVE]   ← allows flow OUT only (toward dispensing point)
+                           │
+                        [SEN-B]      ← capacitive sensor (primed/purged detect)
+                           │
+                    dispensing point
+```
+
+### 2g. Valve State Table
+
+| Mode | Hopper Sol | Clean Sol | Disp Sol | Check Valve | Pump | Flow Path |
+|------|-----------|-----------|----------|-------------|------|-----------|
+| **Idle** | CLOSED | CLOSED | CLOSED | N/A | OFF | No flow |
+| **Dispensing** | CLOSED | CLOSED | OPEN | passes flow | FORWARD | Bag → TEE1 → disp sol → pump → TEE2 → check valve → disp point |
+| **Hopper Refill** | OPEN | CLOSED | OPEN | blocks air | REVERSE | Hopper → TEE2 → pump(rev) → disp sol → TEE1 → Bag (via dip tube) |
+| **Clean Fill** | CLOSED | OPEN | CLOSED | N/A | OFF | Tap water → clean sol → TEE1 → Bag (water pressure) |
+| **Clean Flush** | CLOSED | CLOSED | OPEN | passes flow | FORWARD | Bag → TEE1 → disp sol → pump → TEE2 → check valve → disp point |
+| **Prime** | CLOSED | CLOSED | OPEN | passes flow | FORWARD | Bag(air) → TEE1 → disp sol → pump → TEE2 → check valve → disp point |
+| **Hopper Line Flush** | OPEN | CLOSED | OPEN | passes flow | FORWARD | Hopper(water) → TEE2 → check valve → disp point |
+
+### 2h. Pump Reversal Implementation
+
+The existing L298N H-bridges support bidirectional motor control natively:
+
+```cpp
+// Current forward: IN1=HIGH, IN2=LOW
+void pumpOn(const PumpChannel& m, uint8_t speed) {
+  digitalWrite(m.in1, HIGH);
+  digitalWrite(m.in2, LOW);
+  analogWrite(m.ena, speed);
+}
+
+// Reverse: swap IN1/IN2
+void pumpReverse(const PumpChannel& m, uint8_t speed) {
+  digitalWrite(m.in1, LOW);
+  digitalWrite(m.in2, HIGH);
+  analogWrite(m.ena, speed);
+}
+```
+
+No hardware changes needed for pump reversal itself.
+
+### 2i. Fill Rate Estimate
+
+With the pump providing 2-5 PSI of driving pressure, concentrate flows through the dip tube (6.35mm ID) and into the bag. The fill rate is faster than gravity (~0.5 PSI) but still limited by counter-current air displacement through the dip tube (see Section 3).
+
+Estimated fill time for 1L: **5-10 minutes** with pump assist (vs 8-15 minutes gravity-only).
+
+### 2j. Sealed Hopper Design
+
+The hopper should be sealable to minimize air exchange with the bag during filling:
+
+```
+  [silicone cap with duckbill/check valve]
+           │
+     ┌─────┴─────┐
+     │   FUNNEL   │  ← food-grade silicone or PETG
+     │            │
+     └─────┬──────┘
+           │
+     [hopper valve solenoid]
+           │
+         TEE2
+```
+
+The duckbill valve lets air INTO the hopper as concentrate drains (preventing vacuum), but prevents hopper air from flowing outward. This keeps the system sealed during refill -- no ambient air enters the bag side.
+
+**Refill procedure:**
+1. Remove silicone cap
+2. Pour concentrate into funnel
+3. Replace silicone cap (cap has duckbill valve for air inlet)
+4. Initiate refill via S3 touchscreen or iOS app
+5. Firmware opens hopper valve, reverses pump, opens dispensing solenoid
+6. Concentrate flows: hopper → hopper valve → TEE2 → pump(rev) → disp sol → TEE1 → dip tube → bag
+7. Capacitive sensor on hopper line detects air (funnel empty) → firmware stops pump, closes valves
+8. Done. Bag is filled, minimal air exchange, system sealed.
 
 ---
 
 ## 3. Air Management
 
-### 3a. During Hopper Refilling
+### 3a. The Sealed System
 
-**The scenario:** User pours concentrate into the funnel. Gravity drains it through tubing into the bag. When the funnel empties, air enters the fill line.
-
-**Where does the air go?**
-
-With the dispensing solenoid CLOSED and the hopper valve OPEN, the only path from the tee is into the bag. As the funnel empties:
-1. Concentrate finishes draining from the funnel
-2. Air enters the hopper tubing
-3. Air travels down to the tee
-4. Air could enter the bag through the connector
-
-**Why this is actually OK for gravity-fed filling:**
-
-In gravity-fed mode with no pump, air entry is self-limiting. Once the funnel is empty, there's no pressure driving air into the bag. The air column in the hopper tubing just sits there. A small bubble might enter the bag opening, but there's no force pushing it deep into the bag.
-
-**The real air concern is in the tubing between the tee and the dispensing solenoid.** This tubing segment is always full of concentrate during normal operation. After a hopper refill:
-- The hopper valve closes
-- The dispensing solenoid opens for the next dispense cycle
-- The pump pulls concentrate from the bag through the tee
-
-As long as the tee-to-bag path is filled with liquid, the pump draws from the bag normally. The hopper tubing (between hopper valve and tee) contains some air after the funnel drains, but the hopper valve is closed, so this air is isolated.
-
-**Dead volume in the hopper tubing:**
+The dip tube + cap creates a sealed bag with a single port. When the dispensing solenoid is closed, the bag interior is completely isolated from atmosphere. No air can enter (freshness preserved), and no liquid can leak out.
 
 ```
-Funnel → ~300mm of 1/4" OD tubing → [hopper valve] → ~50mm → TEE
+    SEALED SYSTEM:
+
+    [solenoid valve] ← CLOSED = sealed system
+         │
+    black silicone tube
+         │
+    blue PU tube
+         │
+    ┌────┴────┐
+    │   cap   │ ← friction seal
+    └────┬────┘
+         │ dip tube (6.35mm ID)
+    ╔════╧════════╗
+    ║ BAG INTERIOR║ ← sealed volume, no air exchange
+    ║  (liquid +  ║    with atmosphere when valve closed
+    ║   trapped   ║
+    ║   air)      ║
+    ╚═════════════╝
+```
+
+When the dispensing solenoid opens and the pump runs forward:
+- The pump creates suction, pulling liquid through the dip tube
+- The bag collapses under atmospheric pressure (like squeezing a sealed juice box with a straw)
+- No air enters through the dip tube -- the tube is full of liquid
+- The bag is never exposed to ambient air during normal dispensing
+
+This sealed behavior is excellent for freshness. Concentrate stays sealed for weeks, similar to a bag-in-box wine system.
+
+### 3b. During Pump-Assisted Refill (Sealed Hopper)
+
+When the pump pushes concentrate into the bag through the dip tube during refill, the bag is a sealed vessel. Displaced air inside the bag has nowhere to go:
+
+1. Concentrate enters via the dip tube opening inside the bag
+2. The bag inflates as liquid enters
+3. Air inside the bag compresses as the bag fills
+4. Eventually, air back-pressure equals the pump's pushing pressure, and filling slows
+
+At 2-5 PSI pump pressure, Boyle's law gives: air compresses from ~1L to ~0.85-0.9L. The bag fills to approximately 85-90% capacity on a single fill cycle. The remaining 10-15% is compressed air trapped in the bag.
+
+**Getting above 90% fill:**
+
+1. **Accept 85-90% fill.** A 1L bag holds 850-900 ml. The user refills slightly more frequently.
+2. **Two-phase fill:** Pump concentrate in (compressing air), briefly open the hopper valve and hopper lid to vent the compressed air (it vents back through the dip tube, through tubing, out the hopper), seal and pump again. Each cycle removes more air.
+3. **Pre-fill air removal:** Before pouring concentrate, use the prime operation to pull air out of the bag through the dispensing path. The bag starts with less air, so more concentrate fits.
+
+### 3c. During Normal Operation (Dispensing)
+
+As the bag empties during dispensing, the dip tube provides two advantages:
+
+1. **Anti-pinch spine:** The semi-rigid PU tube (3/8" OD, 85-95 Shore A) maintains an open channel inside the bag even when the bag walls collapse. The bag cannot completely occlude the flow path along the tube's length. This makes bag-pinch-related sputtering less likely than with a simple open connector.
+
+2. **High-point drainage:** With the bag mounted on an incline (connector at low end, see Section 5), the dip tube extends upward from the connector into the bag interior. The tube opening is one of the last points to be exposed to air as the bag drains. Air only reaches the dip tube opening when the liquid level drops below it -- near the last 5-10% of bag volume.
+
+The dispensing solenoid seals the line between dispense cycles. No air enters from the bag side while idle.
+
+### 3d. During Clean Cycle
+
+**Fill phase:** Water enters the bag through the dip tube from the clean solenoid (house water pressure through needle valve). The bag is initially collapsed (mostly air). Water exits the dip tube opening inside the bag and cascades downward, contacting more interior surface than if it simply pooled at the connector. This "shower head" effect actually helps cleaning.
+
+Air is trapped above the rising water level. Since the only exit path is back through the dip tube (which is full of incoming water), the air compresses until equilibrium. The bag fills partially -- not to 100% capacity.
+
+**Flush phase:** The pump pulls water + dissolved residue through the dip tube. Trapped air gets pulled through once the water level drops below the tube opening.
+
+**Multi-cycle cleaning:** Each fill+flush cycle removes more residual air and concentrate. Three cycles (CLEAN_CYCLES = 3) provides adequate dilution. The dip tube's ~11 ml dead volume is flushed progressively -- after 3 cycles the dilution factor is roughly (11/1000)^3 = negligible.
+
+### 3e. Dead Volume in the Hopper Tubing
+
+```
+Funnel → ~300mm of 1/4" OD tubing → [hopper valve] → ~50mm → TEE2
 ```
 
 - 1/4" OD tubing with ~4.5mm ID: cross-section area = 15.9 mm^2
-- 300mm run: dead volume = 15.9 * 300 = 4,770 mm^3 = ~4.8 ml
-- This 4.8 ml of concentrate remains in the hopper tubing after the funnel empties
-- It's trapped between the hopper valve and the empty funnel
+- 300mm run: dead volume = ~4.8 ml
+- This concentrate remains in the hopper tubing after the funnel empties
+- Trapped between the hopper valve and the empty funnel
 - Not a significant waste, but could grow bacteria if left for weeks
-- Clean cycle should flush this line too (open hopper valve during clean flush)
-
-### 3b. During Normal Operation (Bag Emptying)
-
-As the bag empties during dispensing, it collapses. The key concern:
-
-**If the bag collapses unevenly, a fold or pinch can trap liquid above the fold while air sits at the connector.** The pump then pulls air.
-
-This is addressed in detail in Section 5 (bag flattening). In summary:
-- Bag must hang vertically with connector at the bottom
-- Gravity keeps liquid pooled at the connector
-- Mechanical assistance (elastic frame, roller, or guide channel) ensures top-down collapse
-- The dispensing solenoid is between the bag and pump -- when closed, it seals the line. No air enters from the bag side while idle.
-
-**Trapped fluid between bag connector and dispensing solenoid:**
-
-```
-Bag connector → ~50mm tubing → TEE → ~100mm tubing → [dispensing solenoid]
-```
-
-This ~150mm segment (~2.4 ml) is always filled with concentrate during operation. When the dispensing solenoid closes between dispense cycles, this segment is sealed. No air can enter from either side (solenoid sealed on one side, bag full of liquid on the other).
-
-When the bag runs very low, air can enter this segment. The capacitive sensor at the tap (see future-sensing-and-gpio.md) would detect this.
-
-### 3c. During Clean Cycle
-
-**Fill phase (water enters bag):**
-- Clean solenoid OPEN, dispensing solenoid CLOSED, pump OFF
-- Tap water flows through the tee into the bag
-- The bag is initially collapsed (empty from previous use or cleaning)
-- As water enters, it inflates the bag
-- **Air escape:** The bag was collapsed, meaning it contained mostly air. As water enters through the bottom connector, it pushes air upward. But the air has nowhere to go -- the bag is sealed except for the bottom connector, which is where the water is entering.
-
-This is a real problem. In a sealed collapsible bag with one opening at the bottom:
-- Water enters from the bottom
-- Air is trapped above the water
-- The bag inflates but the air can't escape
-- Eventually the water pressure and air pressure equalize and filling stops, with the bag partially full of water and partially full of compressed air
-
-**Solutions:**
-
-1. **Accept partial fill:** The bag fills until back-pressure from trapped air equals the water supply pressure. With typical house water pressure (40-60 psi) through a needle valve (reducing to ~1-5 psi at the bag), the air compresses significantly and the bag fills mostly full. The remaining air pocket is flushed out during the flush phase (pump pulls water + air out).
-
-2. **Bag orientation with connector at top:** If the connector were at the top, water would fill from the top and air would escape past the entering water stream. But connector-at-top is terrible for dispensing (air at the outlet). Not viable.
-
-3. **Two-port bag:** A bag with two openings (fill at bottom, vent at top) solves this perfectly. The Platypus bag has only one opening. A custom bag or modified bag could work -- drill/heat-seal a small vent hole at the top with a check valve. But this modifies a commercial product and adds complexity.
-
-4. **Fill-drain-repeat:** Fill the bag partially (air trapped), then flush (pump pulls water + air out through the dispensing line), then fill again. Each cycle removes more air. This is essentially what the existing multi-cycle clean already does -- the CLEAN_CYCLES constant (default 3) serves this purpose.
-
-**Verdict:** The existing multi-cycle clean approach handles this adequately. Each fill+flush cycle removes more residual air. Three cycles is a reasonable starting point. The trapped air during filling is annoying but not harmful -- it just means each fill cycle doesn't fill the bag to 100% capacity.
+- Clean cycle should flush this line too (open hopper valve during clean flush -- see "Hopper Line Flush" mode in Section 2g)
 
 ---
 
@@ -549,17 +482,17 @@ This means there's roughly **200mm of "overshoot"** -- the distance fluid or air
 ```
                                          ┌─── Bag
                                          │
-  Funnel → [SENSOR A] → [hopper valve] → TEE ← [clean solenoid] ← tap water
-                                         │
-                                   [disp. solenoid]
-                                         │
-                                      [pump]
-                                         │
-                               [SENSOR B] → dispensing point
+  Funnel → [SENSOR A] → [hopper valve] → TEE2 side (via pump → disp sol → TEE1)
+
+                              [pump]
+                                │
+                              TEE2
+                                │
+                     [SENSOR B] → [check valve] → dispensing point
 ```
 
-- **Sensor A (hopper line):** Detects when the funnel has drained (liquid-to-air transition). Placed between the funnel outlet and the hopper valve. When air is detected, the system knows the refill is complete. The hopper valve can close.
-- **Sensor B (dispensing line):** Detects priming status (air-to-liquid = primed) and clean cycle completion (liquid-to-air = line purged). Placed between the pump and the dispensing point.
+- **Sensor A (hopper line):** Detects when the funnel has drained (liquid-to-air transition). Placed between the funnel outlet and the hopper valve. When air is detected, the system knows the refill is complete. The hopper valve can close and the pump stops.
+- **Sensor B (dispensing line):** Detects priming status (air-to-liquid = primed) and clean cycle completion (liquid-to-air = line purged). Placed between TEE2 and the dispensing point (after the check valve).
 
 Both sensors need to work on 1/4" OD tubing (6.35mm). The **DFRobot SEN0370** (OD <= 10mm) or **FDC1004 with copper tape** are the right choices.
 
@@ -577,282 +510,135 @@ Both sensors need to work on 1/4" OD tubing (6.35mm). The **DFRobot SEN0370** (O
 
 ---
 
-## 5. Bag Mounting and the Flattening Problem
+## 5. Bag Mounting
 
-### 5a. The Problem in Detail
+### 5a. Incline Two-Point Stretch Mount (Recommended)
 
-A 2L Platypus bag is soft-sided with no internal structure. As the peristaltic pump draws liquid out, the bag must collapse. The pump creates suction at the bag outlet, and atmospheric pressure on the outside of the bag provides the collapsing force.
-
-The failure mode:
-1. Bag hangs vertically, connector at bottom, liquid inside
-2. Pump draws liquid out through the bottom connector
-3. Bag starts collapsing -- the top portion (now empty) folds inward
-4. If a fold or crease forms BELOW the remaining liquid level, liquid gets trapped above the fold
-5. The pump now pulls air from below the fold instead of liquid from above
-6. Pump sputters (alternating air and liquid)
-7. Inconsistent flavor injection into the soda water
-
-The goal: **the bag must collapse continuously from the top downward**, so remaining liquid always pools at the bottom near the connector.
-
-### 5b. Platypus 2L Bag Physical Properties
-
-**Material:** Nylon/polyethylene laminate film. Spout is polyethylene. Cap is polypropylene. BPA-free, BPS-free, phthalate-free.
-
-**Dimensions (when full):**
-- Width: 190mm (7.5")
-- Height: 350mm (13.8")
-- Depth when full: approximately 60-80mm (2.5-3") -- the bag puffs out when filled
-- Weight empty: 37g (1.3 oz)
-- Weight full (2L water): ~2037g (~4.5 lbs)
-- Weight full (2L sugar syrup, ~1.05 g/ml): ~2137g (~4.7 lbs)
-
-**Shape:** Rectangular pouch with heat-sealed edges. No gussets (flat when empty). The opening/connector is at the top-center of one of the narrow ends. When hanging by the bottom (connector down), the bag hangs like a rectangular flag.
-
-**Connector location:** The threaded screw-cap opening is at the TOP of the bag as designed (for drinking). In our application, with connector at the bottom for gravity-assisted drainage, the bag hangs UPSIDE DOWN relative to its intended orientation.
-
-**Thread:** Standard 28mm water bottle thread, same as most plastic soda bottles. Compatible with 28mm caps, adapters, and the Platypus Drink Tube Kit.
-
-**Natural collapse behavior:** When emptied slowly (gravity drain or gentle suction), the bag tends to fold inward from the sides, creating a somewhat random collapse pattern. The thin nylon/PE film has no inherent stiffness, so it folds wherever the material stress concentrates. Without mechanical guidance, the collapse is unpredictable.
-
-### 5c. Bag Orientation Analysis
-
-**Hanging vertically, connector at bottom (RECOMMENDED):**
-```
-    ┌── clip/hanger
-    │
-    ╔════════════╗  ← bag top (sealed end)
-    ║            ║
-    ║   liquid   ║  ← liquid pools at bottom due to gravity
-    ║            ║
-    ╚════╤═══════╝  ← bag bottom (connector end)
-         │
-       tubing → to plumbing
-```
-- Gravity pulls liquid to the connector (bottom)
-- As liquid is removed, the top of the bag collapses first (least hydrostatic pressure at top)
-- Natural top-down collapse behavior
-- Most reliable orientation for preventing air at the outlet
-- This is how IV bags are hung (connector at bottom, drip by gravity)
-- This is how bag-in-box systems work (tap at bottom, bag collapses from top)
-
-**Hanging vertically, connector at top:**
-- Liquid pools at the bottom, AWAY from the connector
-- Pump must suck liquid up from the bottom of the bag through the entire bag height
-- Air collects at the top near the connector first
-- Terrible for preventing air ingestion. Reject.
-
-**Laying flat:**
-- Liquid spreads across the entire bag surface area
-- Air pockets can form anywhere as the bag empties
-- No gravitational bias to keep liquid at the outlet
-- Only viable with positive pressure squeezing the bag uniformly (like a blood pressure cuff). Unnecessarily complex. Reject.
-
-**Verdict:** Hang vertically, connector at bottom. This is the standard approach used by IV bags, bag-in-box wine dispensers, and hydration pack bladders.
-
-### 5d. Mechanical Solutions for Controlled Flattening
-
-#### Solution 1: Gravity Alone (No Mechanism)
+Each Platypus bag mounts at an 18-20 degree incline between two fixed points: the sealed top end elevated at the rear and the connector/outlet end at the low front. The bag is held taut under mild tension, filling the available space diagonally rather than consuming height vertically.
 
 ```
-    ┌── hook/clip
-    │
-    ╔════════════╗
-    ║  (collapses║  ← top collapses inward as liquid drains
-    ║   inward)  ║
-    ║────────────║  ← liquid level drops
-    ║   liquid   ║
-    ╚════╤═══════╝
-         │
-       tubing
+    SIDE VIEW — one bag at 18-20 degrees
+
+    ═══════════ DOCK SHELF (180mm) ═══════════════
+                                         * sealed end (high)
+                                        /  J-hook + binder clip
+                                       /
+                      BAG            /    18-20 deg
+                                    /
+                                   /
+                         * connector (low)
+                           U-clip on front wall
+    ═══════════ FLOOR ════════════════════════════
+    FRONT                                    BACK
 ```
 
-- The bag hangs freely from a hook or clip at the top
-- Gravity pulls liquid down; atmospheric pressure collapses the empty top portion
-- No mechanical parts
+**Key advantages over vertical hanging:**
+- Uses diagonal space, dramatically reducing vertical height requirement (needs ~140mm vs 250mm+)
+- Bag is held between two fixed points, constraining collapse to thinning-in-place rather than random folding
+- The connector end is at the lowest point, so gravity pulls all liquid toward the outlet
 
-**Pros:** Simplest possible solution. Zero moving parts. Easy bag installation (hang on hook).
-**Cons:** No guarantee of orderly collapse. The bag film could fold sideways, crease in the middle, or stick to itself in ways that trap liquid. Works fine for the first 80% of the bag; the last 20% is where problems occur as the bag becomes very floppy.
-**Verdict:** Try this first. If it works for the first 1.5L (75% of bag) and only sputters in the last 0.5L, it might be "good enough" with a low-level warning to refill when the bag is at ~25%.
+**Key advantages over flat cradles:**
+- Gravity still assists drainage (sin(20) = 0.34 of gravitational acceleration drives liquid toward the connector)
+- The dip tube extends from the low connector upward along the incline, reaching deeper into the bag interior
+- Clear and predictable drainage behavior
 
-#### Solution 2: Elastic Frame / Bag Squeezer
+### 5b. Geometry
 
-```
-    SIDE VIEW (cross-section):
+At 18-20 degrees with 1L Platypus bags (250mm long):
 
-    ┌── hook
-    │
-    │  spring    │
-    │  ←────→    │
-    │ ┌──────┐   │
-    │ │ plate │   │  ← two plates with springs/elastic
-    │ │      │   │     pressing inward from both sides
-    │ │ BAG  │   │
-    │ │      │   │
-    │ │ plate │   │
-    │ └──────┘   │
-    │  ←────→    │
-    │  spring    │
-```
+| Angle | Vertical Rise (mm) | Horizontal Run (mm) | Total Vertical w/ Thickness |
+|---|---|---|---|
+| 18 deg | 77 | 238 | ~115 |
+| 20 deg | 85 | 235 | ~123 |
 
-Two flat plates (3D printed or sheet material) on either side of the bag, connected by elastic bands or springs. The plates press inward gently, encouraging the bag to flatten from the top (where there's less liquid weight resisting the squeeze).
+Available bag zone: 165mm tall (15mm floor to 180mm dock shelf), 242mm deep.
 
-**Pros:**
-- Forces controlled collapse from top down (springs provide constant inward pressure; liquid weight at bottom resists collapse there)
-- Simple to 3D print (two flat plates + elastic bands)
-- Adjustable pressure by changing elastic band tension
+### 5c. Two-Bag Arrangement
 
-**Cons:**
-- User must thread the bag between the plates during installation
-- If the elastic is too tight, it could squeeze the bag and force liquid out the connector
-- If too loose, it doesn't help
-- Need to accommodate bags from full (60-80mm thick) to empty (flat)
-
-**Complexity:** Low-medium. Two 3D printed plates, 2-4 elastic bands. Easy to prototype.
-**Bag installation:** Slide bag between plates. Plates spread apart to accommodate full bag, squeeze together as bag empties.
-**Space:** ~200mm wide x 360mm tall x 100mm deep per bag.
-
-#### Solution 3: Roller / Wiper Bar
+Two bags at 18 degrees, stacked vertically, both running front-to-back:
 
 ```
-    FRONT VIEW:
+    SIDE VIEW — Two 1L bags at 18 degrees, stacked
 
-    ┌── hook
-    │
-    ╔════════════╗  ← bag
-    ║            ║
-    ║  ══════    ║  ← weighted roller bar sits on top of liquid level
-    ║  ~~~~~~~~  ║     rolls downward as bag empties
-    ║   liquid   ║
-    ╚════╤═══════╝
-         │
-       tubing
+    ═══════════════ DOCK SHELF (180mm) ═══════════════
+                                            ·  ← 11mm clearance
+                                          * BAG 2 sealed (169mm top)
+                                         /
+                              BAG 2     /    18 deg
+                                       /
+                              * conn. /
+                             (92mm)  * ← BAG 2 connector (73mm center)
+                     ─ ─ ─ ─ ─ ─ ─ ─ ─  5mm gap
+                            * BAG 1 sealed (126mm top)
+                           /
+                BAG 1     /    18 deg
+                         /
+                * conn. /
+               (49mm)  * ← BAG 1 connector (30mm center)
+
+    ═══════════════ FLOOR (4mm) ═══════════════
+    FRONT                                        BACK
+    ◄────────────── 238mm run ──────────────────►
 ```
 
-A weighted bar or roller sits on top of the bag (on the liquid surface). As liquid is pumped out, the bar descends, pressing the empty bag flat above it. Similar to a toothpaste tube squeezer.
+| Parameter | Value |
+|---|---|
+| Incline angle | 18-20 degrees from horizontal |
+| Bag 1 connector height | ~30mm from floor |
+| Bag 1 sealed end height | ~107-115mm from floor |
+| Bag 2 connector height | ~73-78mm from floor |
+| Bag 2 sealed end height | ~150-163mm from floor |
+| Horizontal run (each bag) | 235-238mm |
+| Top clearance to dock shelf | 11-17mm |
+| Width consumed | 140mm of 272mm (centered, 66mm per side for tubing) |
 
-**Pros:**
-- Mechanically forces top-down collapse
-- The weight of the bar provides consistent downward pressure
-- Very effective at squeezing out the last bit of liquid
-- Prior art: toothpaste tube squeezers, ratchet-style tube winders
+### 5d. Drainage Behavior
 
-**Cons:**
-- The roller/bar must be guided so it doesn't tilt or jam
-- Need guide rails on both sides of the bag
-- Must be reset to the top when installing a new (full) bag
-- More mechanical complexity than elastic frame
-- Risk: if the bar gets stuck on a fold in the bag, it stops descending and the bag crumples below it
+As the bag empties, the remaining liquid collects at the low (connector) end of the incline. The bag collapses from the high (sealed) end downward because:
 
-**Complexity:** Medium-high. Guide rails, weighted bar, possibly ratchet mechanism.
-**Bag installation:** Reset roller to top, hang bag, ensure roller sits evenly on bag surface.
-**Space:** ~200mm wide x 360mm tall x 80mm deep per bag (guide rails add width).
+1. Atmospheric pressure acts uniformly on the bag exterior
+2. Liquid weight creates higher internal pressure at the low end
+3. The high end loses liquid first (gravity drains it downward along the incline)
+4. The bag film at the high end has no liquid behind it, so it collapses inward
 
-#### Solution 4: Channel / Cradle
+The incline mount constrains collapse to thinning (the two faces of the bag coming together) rather than random folding, because the bag is under mild tension between two fixed points. This is the ideal collapse mode.
 
-```
-    FRONT VIEW:
+**The dip tube advantage on incline:** The tube extends from the low connector end upward into the bag interior along the incline. The tube opening is positioned partway up the incline, in the middle of the liquid volume. As the bag drains, the dip tube opening is one of the last points to be exposed to air -- the liquid must drain past the tube opening before air reaches it. This provides a natural buffer: even if the upper portion of the bag has collapsed, the dip tube opening remains submerged in the liquid pool at the lower portion. Air only reaches the tube opening when the bag is nearly empty (last 5-10%).
 
-    ┌── hook
-    │
-    ┌────────────┐
-    │╔══════════╗│  ← bag sits inside a shaped channel
-    ││          ││     channel tapers: wide at bottom, narrow at top
-    ││  liquid  ││
-    ││          ││
-    │╚════╤═════╝│
-    └─────│──────┘
-          │
-        tubing
-```
+**The dip tube anti-pinch spine:** Even if the bag walls fully collapse, the semi-rigid PU tube (3/8" OD) holds the bag walls ~9.5mm apart along its length, maintaining a guaranteed minimum flow channel. The bag cannot completely occlude the flow path along the tube.
 
-The bag sits inside a rigid channel or cradle that constrains its shape. The channel is wider at the bottom (where the full bag bulges) and narrower at the top (encouraging collapse). As the bag empties, it naturally pulls away from the wider bottom sections and collapses into the narrower top.
+**Kinking analysis:** On a stretched incline mount, kinks above the liquid line are irrelevant (no liquid trapped above). Kinks below the liquid line are self-healing (liquid weight pushes past the fold). The stretched mount prevents severe kinking because the bag material is under mild tension along its length axis, resisting lateral folding.
 
-**Pros:**
-- Passive -- no springs or moving parts
-- The channel shape predetermines the collapse pattern
-- Rigid structure provides mounting point for the bag
+### 5e. Mounting Hardware
 
-**Cons:**
-- The channel must be precisely shaped for the Platypus bag dimensions
-- A full bag might not fit if the channel is too narrow
-- An empty bag might not collapse properly if the channel is too wide
-- Less adaptable to different bag sizes
+**Connector end (low mount):** A 3D-printed snap-fit U-clip on the enclosure front wall interior. The 28mm threaded cap sits in the clip, held by friction and gravity. Quick, one-handed installation.
 
-**Complexity:** Medium. 3D printed channel/cradle, sized for Platypus 2L.
-**Bag installation:** Drop bag into channel, connect tubing at bottom.
-**Space:** ~200mm wide x 360mm tall x 100mm deep per bag.
+**Sealed end (high mount):** A 50mm binder clip (~$0.25) grips the heat-sealed seam. The clip's handles fold up and hook onto a 3D-printed J-hook on the rear wall or dock shelf underside.
 
-#### Solution 5: Top-Suspended with Bottom Weight
+**Installation sequence:**
+1. Attach binder clip to bag's sealed seam
+2. Hang binder clip on J-hook at rear
+3. Route connector down toward front
+4. Push connector/cap into U-clip on front wall
+5. Connect tubing
 
-```
-    ┌── hook at bag BOTTOM (which is now at top, connector pointing up)
-    │
-    ╔════╤═══════╗  ← bag suspended from its connector end (top = connector)
-    ║    │       ║
-    ║   liquid   ║  ← liquid pools in the hanging bottom
-    ║            ║
-    ╚════════════╝  ← bottom of bag (sealed end) hangs down
-         │
-       weight (optional)
-```
+**Estimated installation time: 15-30 seconds per bag.**
 
-Wait -- this puts the connector at the top, which we rejected. Unless we use a siphon or the pump creates enough suction to pull liquid upward from the bag bottom through the connector at the top. But this defeats the gravity advantage and risks air at the connector. Not recommended.
+### 5f. Alternatives Considered
 
-### 5e. Prior Art
+The following mechanical solutions for bag collapse were analyzed in prior research and are superseded by the incline mount approach:
 
-**IV bags (medical):**
-- Hung vertically from an IV pole, connector/drip port at the bottom
-- Gravity feeds liquid down through the drip chamber and IV line
-- The bag collapses naturally as it empties -- no mechanical assistance
-- IV bags are made of PVC or non-PVC flexible film, similar flexibility to Platypus bags
-- IV bags have a wider, flatter form factor than Platypus bottles
-- Air is managed by the drip chamber (air separates from liquid before entering the line)
-- Key lesson: **gravity + vertical hanging + connector at bottom works for medical applications**, but IV infusion rates are slow (50-200 ml/hr). Peristaltic pump rates (400 ml/min) are much faster and create more suction, which may cause more aggressive bag collapse.
+| Solution | Why Superseded |
+|---|---|
+| Gravity only (vertical hanging) | Requires 250mm+ vertical space; 400mm enclosure can't fit bags vertically without folding |
+| Elastic frame / bag squeezer | The incline two-point stretch provides equivalent constraint without springs or elastic bands |
+| Roller / wiper bar | The incline provides natural top-down drainage; a roller adds mechanical complexity with no benefit |
+| Rigid channel / cradle | Could complement the incline but adds bulk and complicates bag installation |
+| Bottom weight | Puts connector at top, which is terrible for air management |
 
-**Bag-in-box (wine, soda syrup):**
-- Inner bag sits inside a rigid box
-- Tap/spigot at the bottom of the box
-- As liquid is dispensed, the bag collapses inside the box
-- The box prevents the bag from expanding outward, so all collapse is inward
-- Air cannot enter because the system is sealed -- the bag collapses under atmospheric pressure
-- No mechanical assistance -- just gravity and atmospheric pressure
-- Key lesson: **the rigid box constrains the bag's collapse pattern**. Without the box, the bag could balloon outward instead of collapsing inward. This suggests that the "channel/cradle" approach (Solution 4) or some form of rigid containment helps.
+The incline mount effectively combines "gravity alone" with "elastic frame" -- the bag is constrained by its mounting points, and gravity drives drainage in the right direction.
 
-**Hydration pack bladders (CamelBak, Platypus reservoirs):**
-- Hang inside a backpack, connector at bottom via drink tube
-- Collapse as water is drunk through the bite valve
-- No mechanical collapse assistance
-- Random collapse patterns are common -- users often feel air pockets when the bladder is nearly empty
-- Key lesson: **unassisted collapse works for most of the bladder capacity, but fails for the last 10-20%**. Users accept this because they can squeeze the bladder manually.
-
-**Toothpaste tube squeezers:**
-- Ratchet or roller mechanisms force controlled collapse from the bottom up
-- Very effective at extracting the last bit of product
-- Printables.com has many 3D-printable designs (ratchet, gear, roller)
-- Key lesson: **roller/ratchet mechanisms work extremely well for controlled collapse**, but toothpaste tubes are rigid enough to hold their shape. A soft bag would bunch and fold under the roller.
-
-### 5f. Recommended Approach: Start Simple, Add Complexity Only If Needed
-
-**Phase 1: Gravity only (try first)**
-- Hang bag vertically, connector at bottom, from a simple hook or clip at the top
-- Test with water: fill bag, connect to pump, run pump until bag empties
-- Observe collapse pattern: does it collapse from the top? Does the pump sputter?
-- If it works for 90%+ of the bag capacity, this is sufficient
-
-**Phase 2: Elastic frame (if gravity alone fails)**
-- Two 3D-printed plates on either side of the bag
-- Connected by elastic bands (hair ties, rubber bands, or silicone bands)
-- Plates are slightly narrower than the bag width, so they press the bag flat from the sides
-- The elastic force encourages top-down collapse
-- Test and iterate on elastic tension
-
-**Phase 3: Rigid cradle (if elastic frame is insufficient)**
-- 3D-print a channel/cradle that contains the bag
-- Shape it to be slightly tapered (wider at bottom, narrower at top)
-- This constrains the collapse pattern more aggressively than an elastic frame
-- Similar to the rigid box in bag-in-box systems
-
-**Key principle:** The simpler the solution, the easier it is for the user to install a new bag. A bare hook is trivial. An elastic frame requires threading the bag between plates. A rigid cradle requires fitting the bag into the channel. Don't add complexity unless testing proves it's needed.
+See [incline-bag-mounting.md](incline-bag-mounting.md) for detailed geometry, clearance analysis, and tubing routing.
 
 ---
 
@@ -866,44 +652,42 @@ Wait -- this puts the connector at the top, which we rejected. Unless we use a s
 - Mitigation: clear/translucent funnel so user can see the level. Funnel lip to catch minor overflows. User instruction: "pour slowly, wait for funnel to drain."
 
 **Bag is already mostly full and user overfills:**
-- Hopper valve opens, gravity drives concentrate into the bag
-- The bag has a maximum capacity of 2L
-- If the bag already has 1.5L and the user pours 1L into the hopper, the bag reaches capacity
-- Excess concentrate backs up in the tubing and into the funnel
-- No overflow as long as the funnel can hold the excess
-- The funnel level stops dropping (user sees this and stops pouring)
-- With the capacitive sensor on the hopper line: if concentrate stops flowing (sensor stays "liquid" for a long time), firmware could signal "bag full"
+- Pump reverses and pushes concentrate into the bag through the dip tube
+- The bag has a maximum capacity of 1L
+- If the bag is nearly full, back-pressure from compressed air inside the sealed bag increases rapidly
+- The pump stalls against the back-pressure -- no catastrophic failure
+- The capacitive sensor on the hopper line can detect that concentrate has stopped flowing (sensor stays "liquid" for an extended period), signaling "bag full"
 
 **Pump fails to stop (sensor failure):**
-- Only relevant for pump-assisted filling (not the recommended gravity-fill approach)
-- In gravity-fill mode, there's no pump to fail -- gravity is self-regulating
-- The worst case is the hopper valve stays open indefinitely, but this just means the empty funnel sits connected to the bag. No overflow.
+- If the pump continues running against a full bag, it simply stalls against back-pressure
+- The sealed bag cannot rupture from pump pressure (peristaltic pumps generate 2-5 PSI; the bag and tubing joints tolerate this)
+- Worst case: the pump runs until firmware timeout (clean cycle model -- REFILL_TIMEOUT_MS)
 
 ### Spill Containment
-
-**Inside the enclosure:**
-- Flavor concentrate is sticky sugar syrup. Spills attract insects and can corrode electronics if they reach PCBs.
-- A drip tray or basin under the bags is essential
-- 3D-printed or purchased shallow tray, ~250mm x 150mm x 25mm deep
-- Catches drips from bag connections, leaks from tubing joints, or condensation
-- The tray should be removable for cleaning
 
 **Around the hopper:**
 - The funnel area on top of the enclosure should have a raised lip or drip ring
 - If concentrate spills while pouring, it pools in the lip instead of running down the enclosure side
 - A small moat around the funnel base (5mm deep, 10mm wide) catches most drips
+- Hopper overflow runs down the OUTSIDE of the enclosure, not into the interior
 
-**Worst-case spill:**
-- A full bag ruptures inside the enclosure: 2L of sticky syrup
-- The drip tray catches some, but 2L will overflow a 25mm-deep tray
-- Secondary containment: line the bottom of the cabinet with a waterproof mat or tray
-- This is a rare catastrophic failure, not a normal operating concern
+**Inside the enclosure:**
+- The sealed fluid path means no liquid is exposed to the enclosure interior during normal operation
+- The only realistic internal leak scenarios are assembly defects (loose zip tie at bag connector) or catastrophic failures (bag rupture, fitting blowout)
+- Assembly defects are prevented at the source: use hose clamps instead of zip ties for production
+- Catastrophic failures (bag rupture = up to 1L of sticky syrup) overwhelm any internal drip containment
+
+**External secondary containment:**
+- Place a removable silicone mat or tray on the cabinet floor beneath the enclosure
+- This matches industry practice for under-sink water filtration systems
+- More effective and cheaper than an internal drip tray, which costs 15mm of critical vertical space
+
+See [drip-tray-shelf-analysis.md](drip-tray-shelf-analysis.md) for detailed analysis of every liquid scenario and why internal drip trays are not justified for this system.
 
 ### Spill Detection
 
-- A simple water/leak sensor on the drip tray could alert the user
-- Low-priority feature -- the system doesn't currently have leak detection
-- Could be a future MCP23017 input or FDC1004 channel
+- A simple water/leak sensor on the cabinet floor could alert the user
+- Low-priority feature -- could be a future MCP23017 input or FDC1004 channel
 
 ---
 
@@ -920,29 +704,33 @@ The Platypus bottle uses a **28mm thread**, the same standard used by most plast
 ### Available Caps and Adapters
 
 - **Platypus Closure Cap**: standard screw-on cap (replacement available from Cascade Designs)
-- **Platypus Drink Tube Kit**: threaded cap with integrated barb fitting for 1/4" drink tube. This is the current connection method in the soda injector system.
+- **Platypus Drink Tube Kit**: threaded cap with integrated dip tube (1/4" ID PU tube passes through the cap's central bore). This is the current connection method.
 - **28mm to barb adapters**: available from various sources since 28mm is a standard size. However, the Platypus thread reportedly has a 5/32" pitch, which may differ slightly from other "28mm" bottles.
 - **Sawyer filter adapters**: Sawyer uses a different 4/32" pitch, so Sawyer adapters are NOT compatible with Platypus bottles.
 
-### Flow Rate Through the Opening
+### Flow Analysis Through the Dip Tube
 
-The Platypus opening inner diameter of ~21-22mm is not the bottleneck for filling. The bottleneck is the 1/4" OD tubing (4.5mm ID) that connects the bag to the plumbing. Even if the opening were larger, the tubing restricts flow.
+The relevant flow restriction is NOT the 21mm bag opening -- fluid never flows through the raw opening. All fluid passes through the dip tube's 6.35mm ID bore.
 
-However, for gravity-fill INTO the bag (hopper → tee → bag), the concentrate must enter through this same opening. The opening is adequate -- 21mm diameter allows free flow. The tubing restriction is downstream of the bag opening.
+**Dispensing flow:** The dip tube (6.35mm ID) is not the bottleneck. The bottleneck is the black silicone tubing at 1/8" ID (3.175mm):
 
-**Actual fill rate into the bag is limited by:**
-1. Tubing diameter between hopper and tee (~4.5mm ID)
-2. Height differential (gravity pressure)
-3. Viscosity of the concentrate
-4. Air escape rate from the bag (air must exit through the same opening as concentrate enters)
+| Tube Segment | ID (mm) | Cross-Section (mm^2) | Relative Flow Capacity |
+|---|---|---|---|
+| Blue PU dip tube | 6.35 | 31.7 | 4x silicone |
+| Black silicone tube | 3.175 | 7.9 | 1x (bottleneck) |
+| Platypus bag opening | ~21 | ~346 | 44x silicone (irrelevant -- fluid goes through dip tube) |
 
-The air escape issue (#4) is the most significant limiter during refill. As concentrate enters the bag from below (through the tee and connector), air must bubble out past the incoming concentrate stream. This counter-flow (liquid down, air up through the same tube) limits the effective fill rate. In a 4.5mm ID tube, liquid and air cannot easily pass each other.
+The dip tube contributes less than 4% of total flow resistance during dispensing.
 
-**Mitigation:** The hopper-to-tee tubing run is relatively short (~300-400mm). Once the concentrate column is established in the tube, it pushes air out of the bag in slugs (large air bubbles rising through the tube periodically). This self-regulating process is slow but works. Estimated gravity-fill time for 2L: **8-15 minutes** (accounting for air counter-flow).
+**Filling flow (pump-assisted):** During refill with the pump reversed, concentrate enters the dip tube from below and exits at the tube opening inside the bag. The 6.35mm bore is the primary flow restriction for filling. At 2-5 PSI pump pressure, the flow rate through the tube is adequate (estimated 100-200 ml/min accounting for counter-flow air effects).
+
+**Air management during fill:** With pump-assisted filling through a sealed hopper, air displaced from the bag compresses in place (see Section 3b). There is no counter-current air flow through the dip tube during pump-assisted fill because the system is sealed -- air has no exit path. This eliminates the counter-flow bottleneck that limits gravity fill.
+
+With an unsealed hopper (gravity fill fallback), air must counter-flow through the 6.35mm dip tube against incoming concentrate. In a 6.35mm tube, liquid fills the entire cross-section, blocking air passage. Fill proceeds in slow slug-flow mode. Estimated gravity fill time for 1L: 8-15 minutes.
 
 ### Could a Different Bag Be Used?
 
-If the Platypus opening proves too restrictive:
+If the Platypus bag + dip tube proves too restrictive:
 
 **Wider-mouth collapsible bags:**
 - CNOC Vecto (28mm thread, same standard) -- similar constraints
@@ -954,29 +742,23 @@ If the Platypus opening proves too restrictive:
 - More complex to source/fabricate, but eliminates the single-opening constraint
 - Could be 3D printed (food-safe PETG bellows)
 
-**Verdict:** Stick with the Platypus 2L bags for now. The 28mm opening is adequate. The fill time of 8-15 minutes is acceptable (user pours and walks away). If the single-opening air counter-flow proves problematic in testing, a custom two-port bag is the next step.
+**Verdict:** Stick with the Platypus 1L bags and the Drink Tube Kit. The dip tube's sealed path provides significant advantages (freshness, anti-pinch spine, high-point drainage) that outweigh the fill-rate limitation. Pump-assisted filling through the sealed hopper largely mitigates the fill time concern.
 
 ---
 
 ## 8. Recommendation
 
-### Recommended Architecture
+### Recommended Filling Architecture
 
-**Gravity-fed filling through the shared tee junction.** No pump reversal, no additional fluid paths. The hopper solenoid valve isolates the hopper line when not in use.
+**Pump-assisted filling through TEE2 (pump outlet side), pump reversed.** The hopper connects at TEE2 between the pump outlet and the dispensing point. A check valve at the dispensing point prevents air ingress during refill. The sealed hopper (duckbill valve cap) minimizes air exchange with the bag.
 
-### Recommended Bag Orientation and Mounting
+### Recommended Bag Mounting
 
-**Hang vertically, connector at bottom.** Start with a simple hook/clip at the top of the enclosure interior. The bag hangs freely and collapses under gravity and atmospheric pressure as the pump draws liquid out.
-
-### Recommended Flattening Mechanism
-
-**Phase 1: Gravity only.** Test with water first. If the pump sputters in the last 20% of the bag, move to Phase 2.
-
-**Phase 2: Elastic frame.** Two 3D-printed flat plates on either side of the bag, connected by elastic bands. The elastic tension gently presses the bag flat from the sides, encouraging top-down collapse. This is the expected final solution -- bag-in-box systems demonstrate that some form of containment improves collapse behavior.
+**Incline two-point stretch at 18-20 degrees from horizontal.** Connector at front-low, sealed end at rear-high. Two bags stacked vertically within the 165mm bag zone. U-clip at front wall, binder clip + J-hook at rear.
 
 ### Recommended Hopper Location
 
-**Top of enclosure, one funnel per flavor.** Two funnels, each ~75-100mm diameter, with snap-on silicone lids. Positioned so the user can reach them when the cabinet door is open.
+**Top of enclosure, one funnel per flavor.** Two funnels, each ~75-100mm diameter, with snap-on silicone lids (duckbill valve for air inlet during refill). Positioned so the user can reach them when the cabinet door is open.
 
 ### Recommended Plumbing
 
@@ -987,73 +769,89 @@ COMPLETE SYSTEM (2 flavor lines):
              │                    │
          [SEN-A1]            [SEN-A2]       ← capacitive sensor (hopper empty detect)
              │                    │
-        [HOPPER SOL 1]      [HOPPER SOL 2]  ← NEW solenoid valves (Beduan 12V NC)
+        [HOPPER SOL 1]      [HOPPER SOL 2]  ← Beduan 12V NC solenoid
              │                    │
-     ┌───── TEE 1 ─────┐ ┌───── TEE 2 ─────┐
-     │       │          │ │       │          │
-   [BAG 1]  │          │ │    [BAG 2]       │
-     │    [CLEAN SOL 1] │ │    [CLEAN SOL 2] │
-     │       │          │ │       │          │
-     │   needle valve───┘ │   needle valve───┘
-     │       │            │       │
-     │    tap water ──────┘    tap water
-     │                        │
-  [DISP SOL 1]           [DISP SOL 2]
-     │                        │
-  [PUMP 1]                [PUMP 2]
-     │                        │
-  [SEN-B1]                [SEN-B2]          ← capacitive sensor (primed/purged detect)
-     │                        │
-  dispensing point        dispensing point
+             │    ┌── BAG 1 ──┐  │    ┌── BAG 2 ──┐
+             │    │ (dip tube) │  │    │ (dip tube) │
+             │    └─── TEE1a ──┘  │    └─── TEE1b ──┘
+             │         │          │         │
+             │  [CLEAN SOL 1]     │  [CLEAN SOL 2]
+             │      │             │      │
+             │   needle valve     │   needle valve
+             │      │             │      │
+             │   tap water ───────┘   tap water
+             │                        │
+             │  [DISP SOL 1]     [DISP SOL 2]
+             │      │                  │
+             │   [PUMP 1]          [PUMP 2]
+             │      │                  │
+             └── TEE2a                TEE2b ──┘
+                  │                    │
+           [CHECK VALVE 1]      [CHECK VALVE 2]
+                  │                    │
+             [SEN-B1]            [SEN-B2]       ← capacitive sensor (primed/purged detect)
+                  │                    │
+           dispensing point      dispensing point
 ```
 
 ### Valve States for All Operating Modes
 
-| Mode | Hopper Sol | Clean Sol | Disp Sol | Pump | Notes |
-|------|-----------|-----------|----------|------|-------|
-| Idle | CLOSED | CLOSED | CLOSED | OFF | |
-| Dispensing | CLOSED | CLOSED | OPEN | FWD | Normal operation |
-| Hopper Refill | OPEN | CLOSED | CLOSED | OFF | Gravity-fed, user pours into funnel |
-| Clean Fill | CLOSED | OPEN | CLOSED | OFF | Tap water fills bag |
-| Clean Flush | CLOSED | CLOSED | OPEN | FWD | Pump empties bag to dispensing point |
-| Clean Air Purge | CLOSED | CLOSED | OPEN | FWD | Pump runs on empty bag, blows air through line |
-| Hopper Line Flush | OPEN | CLOSED | OPEN | FWD | During clean cycle, flush hopper tubing too |
+| Mode | Hopper Sol | Clean Sol | Disp Sol | Check Valve | Pump | Notes |
+|------|-----------|-----------|----------|-------------|------|-------|
+| Idle | CLOSED | CLOSED | CLOSED | N/A | OFF | |
+| Dispensing | CLOSED | CLOSED | OPEN | passes flow | FWD | Normal operation |
+| Hopper Refill | OPEN | CLOSED | OPEN | blocks air | REV | Pump reversed, sealed hopper |
+| Clean Fill | CLOSED | OPEN | CLOSED | N/A | OFF | Water pressure fills bag |
+| Clean Flush | CLOSED | CLOSED | OPEN | passes flow | FWD | Pump empties bag to dispensing point |
+| Clean Air Purge | CLOSED | CLOSED | OPEN | passes flow | FWD | Pump runs on empty bag, blows air through line |
+| Hopper Line Flush | OPEN | CLOSED | OPEN | passes flow | FWD | During clean cycle, flush hopper tubing too |
+| Prime | CLOSED | CLOSED | OPEN | passes flow | FWD | Pull air out of system |
 
 ### Hardware Shopping List (New Items)
 
 | Item | Qty | Est. Price | Source |
 |------|-----|-----------|--------|
 | Beduan 12V 1/4" NC solenoid valve (hopper) | 2 | $18 | Amazon (B07NWCQJK9) |
+| 1/4" inline check valve (push-connect) | 2 | $6-10 | Amazon |
 | FDC1004 breakout board (ProtoCentral) | 1 | $18 | ProtoCentral / DigiKey |
 | IRLZ44N N-channel MOSFET (hopper sol. driver) | 2 | $2 | Amazon/DigiKey |
 | Food-grade silicone funnel, ~100mm opening | 2 | $10 | Amazon |
-| Silicone plug/cap for funnels | 2 | $5 | Amazon |
+| Silicone plug/cap for funnels (w/ duckbill valve) | 2 | $5 | Amazon |
 | Copper tape (for FDC1004 electrodes) | 1 roll | $8 | Amazon |
 | TEE fittings 1/4" push-connect | 2 | $0 | Already in hand (ice maker kit) |
 | 1/4" OD tubing runs | ~2m | $0 | Already in hand |
-| **Total** | | **~$61** | |
+| 50mm binder clips (bag sealed end mount) | 4 | $1 | Already in hand |
+| **Total** | | **~$68-73** | |
+
+### GPIO Impact
+
+- 2 additional solenoid valves (hopper, one per flavor) need 2 GPIO outputs
+- Current free output GPIOs: 14, 16 (only 2 available)
+- After hopper solenoids, the ESP32 has ZERO free output GPIOs
+- Future expansion (capacitive sensing, additional controls) MUST go through I2C expander (MCP23017)
+- Alternative: drive hopper solenoids from MCP23017 from the start, preserving GPIO 14 and 16 as reserve
+
+**Hopper solenoid driver:** Individual logic-level N-channel MOSFETs (IRLZ44N), one per hopper solenoid. Gate to GPIO, drain to solenoid, source to GND, flyback diode across solenoid. No L298N board needed -- these are simple on/off loads.
 
 ### Open Questions Requiring Physical Testing
 
-1. **Gravity fill rate:** How fast does concentrate actually drain from the hopper into the bag through 1/4" tubing with 350mm height differential? Does the air counter-flow through the single bag opening significantly slow filling?
+1. **Pump reversal fluid tightness:** When the Kamoer pump reverses, does the roller compression seal work identically in both directions? (Peristaltic pumps are symmetric, but test to confirm.)
 
-2. **Bag collapse behavior:** Does the Platypus 2L bag collapse in an orderly top-down fashion when hung vertically with pump suction at the bottom? At what fill level does sputtering begin?
+2. **Check valve cracking pressure impact on dispensing:** Does a 1/4" inline check valve add noticeable back-pressure during normal pump dispensing?
 
-3. **Elastic frame tension:** If the elastic frame (Phase 2) is needed, what tension provides good collapse without squeezing concentrate out the connector?
+3. **Counter-flow air escape during pump fill:** With the pump pushing at 2-5 PSI, does air escape the bag or does it compress and stall? What fill percentage is achieved per cycle?
 
-4. **Funnel drain rate:** With a 100mm funnel draining through a 4.5mm ID tube, how long does it take for 500ml of syrup to drain? Is the funnel volume sufficient as a buffer?
+4. **Incline mount drainage test:** Mount a filled 1L Platypus bag at 18-20 degrees, run the pump. At what remaining volume does air appear? Target: clean drainage to last 5-10%.
 
-5. **FDC1004 sensitivity through silicone tubing:** How much capacitance change does the FDC1004 detect when 1/4" silicone tubing transitions from air to sugar syrup? Is the signal margin sufficient for reliable detection?
+5. **Sealed hopper air inlet:** Does a silicone duckbill valve on the hopper cap reliably allow air IN as concentrate drains?
 
-6. **Hopper solenoid valve — food safety:** The Beduan solenoid valves are rated for water. Sugar syrup sitting in a closed solenoid valve between uses: does it crystallize and jam the valve? May need periodic flushing.
+6. **Hopper solenoid food safety:** Sugar syrup sitting in a closed solenoid valve between uses -- does it crystallize and jam? May need periodic flushing.
 
-7. **Air counter-flow in the bag opening:** When gravity-filling through a single 21mm opening, does air escape upward efficiently enough, or does it create a vapor lock that stalls filling?
+7. **FDC1004 sensitivity through silicone tubing:** How much capacitance change when 1/4" silicone tubing transitions from air to sugar syrup?
 
-8. **Clean cycle with hopper line:** Should the clean cycle flush the hopper tubing too (open hopper valve during flush phase)? This prevents stale concentrate from sitting in the dead volume.
+8. **Bag attachment seal:** Under pump suction (~0.5 psi) and pump push during refill (~2-5 psi), is the Platypus Drink Tube Kit cap friction fit adequate, or does it need a hose clamp reinforcement?
 
-9. **Fill completion detection:** Can the FDC1004 hopper sensor reliably distinguish "funnel empty, draining complete" from "funnel draining slowly"? Or does the user need to manually indicate "done pouring"?
-
-10. **Bag attachment method:** The Platypus Drink Tube Kit cap threads onto the bag. Under pump suction (~0.5 psi), is the thread seal adequate, or does it need PTFE tape or an O-ring?
+9. **TEE2 routing within the enclosure:** Does TEE2 fit in the available space between the pump outlet and the dispensing point tubing run? If the pump is inside a cartridge, TEE2 would be immediately outside the cartridge dock.
 
 ---
 
@@ -1066,6 +864,16 @@ COMPLETE SYSTEM (2 flavor lines):
 - [Platypus Drink Tube Kit - Cascade Designs](https://cascadedesigns.com/products/drink-tube-kit)
 - [Platypus Replacement Closure Cap - Cascade Designs](https://cascadedesigns.com/products/closure-cap)
 - [Platypus Platy 2L - Amazon](https://www.amazon.com/Platypus-Platy-2-Liter-Flexible-Bottle/dp/B0BX4YQ8C5)
+
+### Dip Tube and Sealed Path Analysis
+- [dip-tube-analysis.md](dip-tube-analysis.md) — Detailed analysis of the Platypus Drink Tube Kit's dip tube, cap seal, and flow dynamics
+- [pump-assisted-filling.md](pump-assisted-filling.md) — Pump reversal topology, sealed hopper, air management
+
+### Bag Mounting
+- [incline-bag-mounting.md](incline-bag-mounting.md) — Two-point stretch mount geometry, drainage analysis, mounting hardware
+
+### Spill Containment
+- [drip-tray-shelf-analysis.md](drip-tray-shelf-analysis.md) — Analysis of every liquid scenario; drip tray removed, drip shelf redesigned as open electronics shelf
 
 ### Capacitive Liquid Detection
 - [DFRobot SEN0370 - Small Pipe Diameter Level Sensor (OD <= 10mm)](https://wiki.dfrobot.com/Small_Pipe_Diameter_Level_Sensor_SKU_SEN0370)
@@ -1101,11 +909,6 @@ COMPLETE SYSTEM (2 flavor lines):
 ### Peristaltic Pumps
 - [Peristaltic Pump - Wikipedia](https://en.wikipedia.org/wiki/Peristaltic_pump)
 - [How to Set Up and Prime a Peristaltic Pump - Cole-Parmer](https://www.coleparmer.com/blog/how-to-set-up-and-prime-a-peristaltic-pump/)
-
-### Tube Squeezer / Controlled Collapse Mechanisms
-- [Ratchet Toothpaste Tube Squeezer - Printables.com](https://www.printables.com/model/265248-ratchet-toothpaste-tube-squeezer)
-- [Toothpaste Squeezer External Gear - MakerWorld](https://makerworld.com/en/models/2423006-toothpaste-squeezer-external-gear)
-- [US Patent 5167348 - Tube Squeezer](https://patents.google.com/patent/US5167348A/en)
 
 ### Funnel / Food-Safe Materials
 - [Impresa Silicone Wide Mouth Funnel - Amazon](https://www.amazon.com/Pack-Squeeze-Bottle-Funnel-Dressing/dp/B07XVQKC3X)
