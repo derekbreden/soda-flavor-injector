@@ -1,16 +1,95 @@
 # Cartridge Envelope — Bounding Volume Design
 
-Research and design exploration for the overall dimensions of the replaceable pump cartridge. The cartridge holds 2 Kamoer KPHM400 peristaltic pumps, routes tubing from pump inlet/outlet ports to 4 tube stubs on the mating face, and must fit comfortably under a kitchen sink.
+Research and design for the overall dimensions of the replaceable pump cartridge. The cartridge holds 2 Kamoer KPHM400 peristaltic pumps, routes tubing from pump inlet/outlet ports to 4 tube stubs on the mating face, and must fit into a front-loading slot in the enclosure.
 
-This document is driven by pump dimensions, tubing routing constraints, and the mating face layout established in prior research (collet-release.md, electrical-mating.md, guide-alignment.md, cam-lever.md).
+This document was originally written for an open under-sink installation. It has been rewritten to reflect the current design context: the cartridge lives inside a self-contained enclosure (~250W x 200D x 450H mm, Tall Tower layout from layout-spatial-planning.md). The pump dimension data is unchanged. The spatial constraints, arrangement rankings, and depth analysis are all new.
+
+**Key context documents:**
+- layout-spatial-planning.md — Enclosure dimensions, zone allocation, Tall Tower layout
+- mating-face.md — Tube port 2x2 grid at 15mm C-C, lever placement, release plate on cartridge
+- release-plate.md — Stepped bore geometry, 6mm plate thickness, guide pin layout
+- cam-lever.md — Eccentric cam, 1-1.5mm eccentricity, over-center locking
+- guide-alignment.md — FDM sliding clearance 0.3-0.5mm per side, tapered pin alignment
+- pump-mounting.md — Kamoer mounting brackets, vibration isolation, M3 screw bosses
+- electrical-mating.md — 3 pogo pins on dock, flat pads on cartridge top face
+- front-face-interaction-design.md — Display holders, cartridge slot on front panel
+- back-panel-and-routing.md — Dock fittings connect to valves and back panel
+- hopper-and-bag-management.md — Pump-assisted filling (gravity fill does not work), bags above cartridge
 
 ---
 
-## 1. Pump Dimensions — Kamoer KPHM400
+## 1. Enclosure Context — The Slot This Cartridge Must Fit
+
+### Enclosure Dimensions
+
+The enclosure is a Tall Tower layout (layout-spatial-planning.md, Section 3a):
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| Enclosure exterior | ~250W x 200D x 450H mm | 10" x 8" x 18" |
+| Wall thickness | 3-4mm per side (PETG) | |
+| Interior width | ~242-244mm | 250 - 2x3mm walls |
+| Interior depth | ~192-194mm | 200 - 2x3mm walls |
+
+### Zone Allocation (Top to Bottom)
+
+```
+    FRONT VIEW                    SIDE VIEW
+    ┌───────────────┐            ┌──────────────┐
+    │  ELECTRONICS  │ ~80mm      │  ELECTRONICS │
+    │  ESP32, L298N │            │              │
+    ├───────────────┤            ├──────────────┤
+    │               │            │              │
+    │  CARTRIDGE    │ ~130mm     │  CARTRIDGE   │
+    │  DOCK ZONE    │ (inc.     │  DOCK        │
+    │               │  lever)   │  + VALVES    │
+    ├───────────────┤            ├──────────────┤
+    │               │            │              │
+    │  BAG ZONE     │ ~240mm    │  BAGS        │
+    │  (2x bags,    │ (10-12"  │  (hanging or │
+    │   hanging)    │  bag ht)  │   tilted)    │
+    └───────────────┘            └──────────────┘
+         250 W                        200 D
+```
+
+The cartridge dock sits in the middle zone. The key dimensional constraints are:
+
+### Available Slot Dimensions
+
+| Dimension | Available | Consumed By | Remaining for Cartridge |
+|-----------|-----------|-------------|------------------------|
+| **Width** | ~242mm interior | Dock walls + rail clearance (~20mm total) | ~220mm usable |
+| **Height** | ~130mm zone allocation | Lever swing (~40mm above cartridge) + dock floor (~5mm) | ~85mm for cartridge body |
+| **Depth** | ~192mm interior | Dock back wall + fittings + tube routing behind dock (~40-50mm) | ~142-152mm for cartridge depth |
+
+Width is generous — the enclosure is far wider than the cartridge needs. Height is the tightest constraint. Depth is moderate — the cartridge can extend ~140-150mm into the enclosure before hitting the back-wall routing zone.
+
+### Front-Loading Constraints
+
+The cartridge is front-loading: it slides in from the enclosure's front face (front-face-interaction-design.md). The design implications:
+
+1. **The cartridge front face must be flush with the enclosure front panel.** When docked, the lever, any visible trim, and the cartridge's front surface should be flush or slightly recessed relative to the enclosure's front panel. This is an aesthetic requirement — the cartridge slot should look like an integrated part of the enclosure, not a protruding afterthought.
+
+2. **The lever is on the front face of the cartridge.** It doubles as an extraction handle. The user flips the lever to release the collets, then grips the lever to slide the cartridge out. This means the lever swings in the vertical plane on the front face, not on top of the cartridge.
+
+3. **The insertion axis is the depth axis.** The cartridge slides along the depth axis (front-to-back). The mating face (tube stubs, alignment features) is on the back of the cartridge — the face that enters the dock first and mates with the John Guest fittings in the dock's back wall.
+
+4. **The dock back wall holds the John Guest fittings, alignment pins, and pogo pins.** Tubes route from these fittings rearward to solenoid valves and then to the back panel.
+
+### Coordinate System
+
+For all dimensions in this document:
+- **Width (W)**: left-right as viewed from the front of the enclosure
+- **Height (H)**: top-bottom (gravity direction)
+- **Depth (D)**: front-to-back (insertion axis; mating face at the back of the cartridge, front face with lever at the front)
+
+---
+
+## 2. Pump Dimensions — Kamoer KPHM400
 
 ### Source Data
 
-The pump in use is the **Kamoer KPHM400-SW3B25**: 12V DC brushed motor, 3 rollers, 400ml/min flow rate, BPT tubing (4.8mm ID x 8.0mm OD). Dimensional data is from the official Kamoer KPHM400 datasheet (page 29 of the product manual, available as an Amazon-hosted PDF).
+The pump is the **Kamoer KPHM400-SW3B25**: 12V DC brushed motor, 3 rollers, 400ml/min flow rate, BPT tubing (4.8mm ID x 8.0mm OD). Dimensional data is from the official Kamoer KPHM400 datasheet and Amazon listing.
 
 Model code breakdown: KPHM400-**SW**3**B25** — SW = 12V brushed motor, 3 = 3 rollers, B25 = BPT tube 4.8x8mm.
 
@@ -18,658 +97,564 @@ Model code breakdown: KPHM400-**SW**3**B25** — SW = 12V brushed motor, 3 = 3 r
 
 | Dimension | Value | Notes |
 |-----------|-------|-------|
-| Length (motor axis direction) | 68.6 mm | Motor shaft to pump head front face |
-| Width | 62.5 mm | Across pump head, perpendicular to motor axis |
-| Height | 62.7 mm | Top to bottom of pump body |
-| Weight | ~380 g | Per pump, from Amazon listing |
+| Overall size (L x W x H) | 115.6 x 68.6 x 62.7 mm | Per Kamoer product page (verified) |
+| Weight | ~306 g | Per Kamoer specs (verified) |
+| Motor type | 12V DC brushed | Model suffix SW |
+| Power | 10W | Verified |
 
-The pump is roughly a 63mm cube with the motor extending one side to ~69mm total along the motor axis.
+Note: The overall length of 115.6mm includes the motor body extending behind the pump head. The pump head itself is approximately 16mm deep; the motor body extends ~52.7mm behind it, and the mounting bracket extends further behind the motor.
 
-### Dimensional Drawing Detail
+### Mounting Hole Pattern
 
-From the datasheet drawing (dimensions in mm):
-
-```
-                         TOP VIEW
-    ┌──────────────────────────────────────┐
-    │                                      │
-    │         Motor body                   │
-    │         (cylindrical, dia 36)        │
-    │                                      │
-    │     ┌────────────────────┐           │
-    │     │    Pump head       │           │
-    │     │    (62.5 wide)     │           │
-    │     └────────────────────┘           │
-    │                                      │
-    └──────────────────────────────────────┘
-    ├────────── 68.6 ─────────────────────►│
-
-                        SIDE VIEW
-    ┌──────────────────────────────────────┐
-    │  ○ ○  inlet/outlet barbs (top)       │
-    │                                      │
-    │     ┌────────────────────┐           │
-    │     │    Pump head       │  62.7     │
-    │     │                    │  height   │
-    │     └────────────────────┘           │
-    │         Motor body (dia 36)          │
-    └──────────────────────────────────────┘
-```
-
-### Motor Dimensions
-
-The DC brushed motor is cylindrical:
-
-| Parameter | Value |
-|-----------|-------|
-| Motor body diameter | 36 mm |
-| Motor body length | ~40 mm (from pump head rear face) |
-| Motor + gearbox total length | ~52.7 mm (inferred: 68.6 - ~16 pump head depth) |
-
-### Mounting Hole Pattern (DC Motor Variant)
-
-The datasheet shows a suggested mounting hole pattern for the DC motor variant:
-
-| Parameter | Value |
-|-----------|-------|
-| Mounting plate size | 50 x 50 mm |
-| Hole pattern | 4 holes at corners |
-| Hole spacing | ~56 mm diagonal (4x holes at 4mm diameter) |
-| Hole diameter | 4 mm (for M4 bolts) |
-| Tolerance | +0.1 / -0 mm |
-| Center bore (motor clearance) | 36 mm diameter |
-
-The mounting plate is oriented perpendicular to the motor axis — the pump mounts from the back (motor side) onto a vertical plate.
+From pump-mounting.md: the pump uses M3 screw holes on a mounting bracket. The exact hole pattern must be measured from the physical pump (inferred spacing ~55-65mm x 40-50mm based on KK series proportional scaling). The mounting plate is perpendicular to the motor axis.
 
 ### Inlet/Outlet Port Positions
 
-The inlet and outlet barb fittings protrude from the **top of the pump head**. From the datasheet drawing:
+The inlet and outlet barb fittings protrude from the **top of the pump head**:
 
 | Parameter | Value |
 |-----------|-------|
 | Port orientation | Vertical (upward from pump head top face) |
-| Port spacing (center-to-center) | ~20-25 mm (estimated from drawing proportions) |
-| Barb OD | ~8 mm (matches 4.8mm ID x 8mm OD BPT tubing) |
+| Port spacing (center-to-center) | ~20-25 mm (estimated) |
+| Barb OD | ~8 mm (matches BPT tubing) |
 | Barb protrusion above pump body | ~15-20 mm |
-| Position along length axis | Both ports near the front face of the pump head |
+| Position along length axis | Both near the front face of pump head |
 
-The ports exit the pump head **perpendicular to the motor axis** (pointing up when the pump is mounted motor-horizontal). This is important for tubing routing — the tubes exit vertically from the pump and must be routed to the mating face.
+The ports exit perpendicular to the motor axis (pointing up when mounted motor-horizontal). Tubing must route from these vertical barbs to the mating face at the back of the cartridge.
 
-### Key Takeaway for Envelope Design
+### Key Takeaway
 
-Each pump occupies approximately a **70 x 63 x 63 mm** box (L x W x H), plus ~20mm above for barb fittings. The motor axis is the longest dimension. Two pumps side by side will be approximately 126mm wide; two pumps stacked will be approximately 126mm tall (before adding tube routing space).
+Each pump occupies approximately a **116 x 69 x 63 mm** box (L x W x H), plus ~20mm above for barb fittings. Two pumps side by side are approximately 138mm wide; stacked they are approximately 126mm tall.
 
 ---
 
-## 2. Pump Arrangements
+## 3. Pump Arrangements — Re-evaluated for the Enclosure Slot
 
-With 2 pumps to fit in the cartridge, there are several possible arrangements. Each has different implications for cartridge width, height, depth, and tubing routing.
+The original analysis evaluated five arrangements for an open under-sink installation. The enclosure changes the constraints fundamentally:
 
-### Coordinate System
+- **Width is no longer the limiting factor.** The enclosure interior is ~242mm wide — more than enough for any arrangement.
+- **Height is now the tightest constraint.** The cartridge zone is ~85mm tall (after lever clearance). The pump is 62.7mm tall, leaving only ~22mm for housing walls and barb clearance.
+- **Depth is moderate but limited.** ~142-152mm available. The pump length of 115.6mm (motor axis) consumes most of this.
+- **The lever is on the front face**, not the top. This changes how lever clearance interacts with the cartridge height.
 
-For all arrangements below:
-- **Width (W)**: left-right as seen from the mating face
-- **Height (H)**: top-bottom (gravity direction)
-- **Depth (D)**: front-back (insertion axis, mating face at front)
+### Motor Axis Orientation
 
-### Arrangement A: Side by Side, Same Orientation
+A critical question for each arrangement: which direction does the motor axis point?
 
-Both pumps mounted with motor axes parallel, side by side horizontally.
+**Motor axis along the depth axis (front-to-back):** The 115.6mm pump length goes into the enclosure. The pump head faces rearward (toward the mating face and dock fittings). This is the most natural orientation — pump heads near the mating face means shorter tube runs from pump barbs to tube stubs.
+
+**Motor axis along the width axis (left-right):** The 115.6mm pump length goes across the enclosure. Pump heads face sideways. Tube routing from the sideways-facing barbs to the rear mating face is longer and more complex.
+
+**Motor axis along the height axis (top-bottom):** The pump stands vertically. The 115.6mm length goes up-down. This consumes height, which is the scarcest dimension.
+
+For all arrangements below, motor axis along the depth axis is assumed unless stated otherwise.
+
+### Arrangement A: Side by Side, Motors Forward
+
+Both pumps mounted with motor axes parallel to the insertion axis, side by side horizontally. Pump heads face rearward (toward mating face).
 
 ```
-    FRONT VIEW (looking at mating face)
+    FRONT VIEW (looking at the front face / lever side)
 
-    ┌─────────────┬─────────────┐
-    │  ↑barbs ↑   │  ↑barbs ↑   │
-    │  Pump 1     │  Pump 2     │
-    │  [head]     │  [head]     │
-    │  [motor]    │  [motor]    │
-    └─────────────┴─────────────┘
+    ┌─────────────────────────────────┐
+    │    ↑barbs ↑      ↑barbs ↑      │
+    │    Pump 1        Pump 2        │
+    │    [motor]       [motor]       │
+    │    [head→]       [head→]       │
+    └─────────────────────────────────┘
 
     TOP VIEW (looking down)
 
-    ┌─────────────┬─────────────┐
-    │  motor 1    │  motor 2    │
-    │  ──────►    │  ──────►    │
-    │  [head]     │  [head]     │
-    └─────────────┴─────────────┘
-    ▲ mating face
+    ┌─────────────────────────────────┐
+    │  [motor 1 ──► head]  [motor 2 ──► head]  │
+    └─────────────────────────────────┘
+    ▲ front face                    mating face ▲
 ```
 
 | Dimension | Value | Notes |
 |-----------|-------|-------|
-| Width | ~126 mm | 2 x 63mm pump width |
-| Height | ~83 mm | 63mm pump + 20mm barb clearance above |
-| Depth | ~69 mm | Single pump length (motor axis) |
+| Width | ~138 mm | 2 x 69mm pump width |
+| Height | ~83 mm | 63mm pump + 20mm barb clearance |
+| Depth | ~116 mm | Single pump length (motor axis) |
 
-**Port positions**: All 4 barbs exit from the top of the cartridge. Clean routing: tubes bend forward (toward mating face) and then down to the tube stubs.
+**Fit in enclosure slot:**
+- Width (138mm) vs available (220mm): fits easily, 82mm to spare
+- Height (83mm) vs available (85mm): extremely tight — only 2mm margin. Housing walls would push this over.
+- Depth (116mm) vs available (142-152mm): fits, 26-36mm to spare
 
-**Pros**: Shortest depth. Simplest wiring (motors side by side). Natural layout — wide and shallow, fits under sink horizontally.
+**Port positions:** All 4 barbs exit from the top. Tubes bend rearward to the mating face. Short routing distance since pump heads are near the back.
 
-**Cons**: Widest arrangement. All barbs on top requires vertical space for tube routing.
+**Verdict:** Height is the problem. The 83mm raw dimension (63mm pump + 20mm barbs) leaves no room for housing walls (need 6mm minimum for top + bottom walls). Actual envelope would be ~89mm, exceeding the ~85mm budget. The barb clearance might be reducible if tubes route immediately sideways rather than straight up, but this is very tight.
 
 ### Arrangement B: Stacked Vertically
 
-Both pumps stacked one above the other, motor axes horizontal.
-
-```
-    FRONT VIEW (looking at mating face)
-
-    ┌─────────────┐
-    │  ↑barbs ↑   │
-    │  Pump 2     │
-    │  [head]     │
-    │  [motor]    │
-    ├─────────────┤
-    │  ↑barbs ↑   │
-    │  Pump 1     │
-    │  [head]     │
-    │  [motor]    │
-    └─────────────┘
-```
+Both pumps stacked one above the other, motor axes along depth.
 
 | Dimension | Value | Notes |
 |-----------|-------|-------|
-| Width | ~63 mm | Single pump width |
-| Height | ~146 mm | 2 x 63mm + 20mm barb clearance for top pump |
-| Depth | ~69 mm | Single pump length |
+| Width | ~69 mm | Single pump width |
+| Height | ~146 mm | 2 x 63mm + 20mm barb clearance |
+| Depth | ~116 mm | Single pump length |
 
-**Port positions**: Each pump's barbs exit upward. Bottom pump's barbs must route around or through the top pump's space — problematic.
+**Fit in enclosure slot:**
+- Height (146mm) vs available (85mm): **does not fit.** Far too tall.
 
-**Pros**: Narrowest arrangement. Good if horizontal space is constrained.
-
-**Cons**: Tallest arrangement (146mm = ~5.7"). Bottom pump's tube routing is blocked by top pump. Under-sink height may be tight. Heavy center of gravity when tall — less stable during insertion.
+**Verdict:** Eliminated. The cartridge zone height cannot accommodate two vertically stacked pumps.
 
 ### Arrangement C: Head-to-Tail (Motors Opposing)
 
-One pump flipped 180 degrees so the motors point in opposite directions. Pumps side by side.
-
-```
-    TOP VIEW (looking down)
-
-    ┌─────────────┬─────────────┐
-    │  motor 1    │    2 motor  │
-    │  ──────►    │  ◄──────    │
-    │  [head]     │  [head]     │
-    └─────────────┴─────────────┘
-    ▲ mating face
-```
+Same footprint as Arrangement A with motors pointing in opposite directions. One pump has its head at the front, the other at the back.
 
 | Dimension | Value | Notes |
 |-----------|-------|-------|
-| Width | ~126 mm | 2 x 63mm pump width |
-| Height | ~83 mm | 63mm + 20mm barb clearance |
-| Depth | ~69 mm | Same as side-by-side (motors cancel out) |
+| Width | ~138 mm | Same as A |
+| Height | ~83 mm | Same as A |
+| Depth | ~116 mm | Same as A |
 
-**Port positions**: Same as Arrangement A — barbs still exit from top.
+Same height problem as Arrangement A. Additionally, one pump's head faces away from the mating face, requiring longer tube routing.
 
-**Pros**: Motor weight distributed symmetrically front/back. Identical envelope to Arrangement A.
-
-**Cons**: Same width as A. Wiring slightly more complex (motor leads exit opposite ends). No real advantage over Arrangement A.
+**Verdict:** Same height issue as A, plus worse tube routing. No advantage.
 
 ### Arrangement D: Perpendicular / L-Shaped
 
-One pump rotated 90 degrees relative to the other. Motor axes perpendicular.
-
-```
-    TOP VIEW (looking down)
-
-    ┌─────────────┐
-    │  motor 1    │
-    │  ──────►    │
-    │  [head]     │
-    ├─────────┐   │
-    │ motor 2 │   │
-    │   │     │   │
-    │   ▼     │   │
-    │ [head]  │   │
-    └─────────┘   │
-                  │
-    ▲ mating face
-```
+One pump rotated 90 degrees relative to the other.
 
 | Dimension | Value | Notes |
 |-----------|-------|-------|
-| Width | ~132 mm | 69mm (pump 1 depth) + 63mm (pump 2 width) |
-| Height | ~83 mm | Still limited by barb clearance |
-| Depth | ~132 mm | 69mm (pump 2 depth) + 63mm (pump 1 width) |
+| Width | ~185 mm | 116mm (pump 1 length) + 69mm (pump 2 width) |
+| Height | ~83 mm | Still barb-limited |
+| Depth | ~185 mm | 116mm (pump 2 length) + 69mm (pump 1 width) |
 
-**Port positions**: Barbs exit in different directions (up for pump 1, up-but-rotated for pump 2). Complex routing.
+**Fit in enclosure slot:**
+- Depth (185mm) vs available (142-152mm): **does not fit.**
 
-**Pros**: Interesting for corner installations. Could reduce one dimension at the expense of another.
-
-**Cons**: Largest footprint. Complex tube routing. Asymmetric — harder to handle. No clear advantage for an under-sink installation.
+**Verdict:** Eliminated. Too deep and too wide (though width isn't the binding constraint, the depth is).
 
 ### Arrangement E: Inline (Motors End-to-End)
 
 Both pumps in a line along the depth axis, one behind the other.
 
+| Dimension | Value | Notes |
+|-----------|-------|-------|
+| Width | ~69 mm | Single pump width |
+| Height | ~83 mm | 63mm + 20mm barb clearance |
+| Depth | ~237 mm | 2 x 116mm pump length + 5mm gap |
+
+**Fit in enclosure slot:**
+- Depth (237mm) vs available (142-152mm): **does not fit.** Nearly double the available depth.
+
+**Verdict:** Eliminated. Far too deep.
+
+### Arrangement F: Side by Side, Motors Sideways (NEW)
+
+Both pumps side by side, but with motor axes pointing left-right (across the width of the enclosure) instead of front-to-back. Pump heads face inward or outward.
+
 ```
     TOP VIEW (looking down)
 
-    ┌─────────────────────────────────┐
-    │  motor 1 ──► [head1] motor 2 ──► [head2]  │
-    └─────────────────────────────────┘
-    ▲ mating face
+    ┌─────────────────────────────────────────┐
+    │                                         │
+    │   [head ◄── motor 1]  [motor 2 ──► head]│
+    │                                         │
+    └─────────────────────────────────────────┘
+    ▲ front face                  mating face ▲
 ```
 
 | Dimension | Value | Notes |
 |-----------|-------|-------|
-| Width | ~63 mm | Single pump width |
+| Width | ~232 mm | 2 x 116mm pump length |
 | Height | ~83 mm | 63mm + 20mm barb clearance |
-| Depth | ~138 mm | 2 x 69mm pump length |
+| Depth | ~69 mm | Single pump width (now along depth axis) |
 
-**Port positions**: Both sets of barbs on top, but the rear pump's barbs are ~140mm from the mating face.
+**Fit in enclosure slot:**
+- Width (232mm) vs available (220mm): marginally too wide. Could possibly fit with tight packing (pumps at 115.6mm each = 231.2mm, barely over 220mm usable).
+- Height (83mm) vs available (85mm): same tight fit as Arrangement A.
+- Depth (69mm) vs available (142-152mm): very shallow, leaves 73-83mm of spare depth.
 
-**Pros**: Narrowest footprint (63mm wide). Slim profile.
+**Verdict:** Width is marginal (10-12mm over). Height remains tight. The very shallow depth is attractive. If the pumps can be packed with minimal wall thickness along the width axis, this could work — but 232mm in a 220mm usable space requires trimming walls to near zero on the sides, which isn't structural. More critically, the barbs point upward from a pump head that now faces sideways, making tube routing to the rear mating face significantly more complex.
 
-**Cons**: Very deep — nearly 6 inches. Rear pump's tubes must route a long distance to the mating face. Requires deep under-sink clearance.
+### Arrangement G: Side by Side, Motors Pointing Rearward, Pumps Dropped Low (REFINED A)
+
+This is Arrangement A re-examined with the height constraint addressed directly. The barb clearance of 20mm assumed tubes going straight up. If the BPT tubing from the barbs is immediately bent sideways or rearward (toward the mating face) using its 15-20mm bend radius, the barbs don't need 20mm of headroom — they need only enough for the tube to exit and begin its bend, perhaps 10-12mm.
+
+| Dimension | Value | Notes |
+|-----------|-------|-------|
+| Width | ~138 mm | 2 x 69mm pump width |
+| Height | ~76 mm | 63mm pump + 10mm reduced barb routing + 3mm top/bottom walls |
+| Depth | ~122 mm | 116mm pump + 6mm walls |
+
+With silicone tubing for the internal routing (confirmed: most internal tubing can be silicone, only transition points need hard tubing), the bend radius at the barbs drops to 10-15mm. The tubes exit the barbs, immediately curve rearward and downward, routing along the sides of the pump bodies to reach the mating face at the back.
+
+**Fit in enclosure slot:**
+- Width (138mm) vs available (220mm): comfortable
+- Height (76mm) vs available (85mm): **fits with 9mm margin**
+- Depth (122mm) vs available (142-152mm): fits with 20-30mm margin
+
+**This is the viable version of side-by-side.** The key insight is that silicone tubing's tight bend radius eliminates the need for 20mm of vertical barb clearance. 10mm above the pump body is sufficient for the tubes to begin their rearward bend.
+
+### Arrangement H: Staggered Side by Side (Motors Rearward, Offset)
+
+One pump shifted rearward relative to the other, so the pump heads are offset along the depth axis. This creates a staircase pattern.
+
+```
+    TOP VIEW (looking down)
+
+    ┌─────────────────────────────────────────┐
+    │                                         │
+    │  [motor 1 ──────► head]                 │
+    │                                         │
+    │       [motor 2 ──────► head]            │
+    │                                         │
+    └─────────────────────────────────────────┘
+    ▲ front face                  mating face ▲
+```
+
+| Dimension | Value | Notes |
+|-----------|-------|-------|
+| Width | ~138 mm | Same as side-by-side |
+| Height | ~76 mm | Same as refined A |
+| Depth | ~152 mm | 116mm + 30mm offset + 6mm walls |
+
+The stagger adds depth but gains nothing — the pumps still need the same height and width. The tube routing is actually worse because one pump's barbs are further from the mating face.
+
+**Verdict:** Eliminated. Deeper with no benefit.
 
 ---
 
-## 3. Tubing Routing Constraints
+## 4. The Lever on the Front Face
+
+The lever is on the front face of the cartridge, not the top (mating-face.md, Section 4). It pivots in the vertical plane — the handle swings upward to release, downward to lock. This changes the clearance analysis compared to the original document's top-mounted lever assumption.
+
+### Lever Clearance
+
+When the lever is closed (locked), it sits flush against the cartridge front face — contributing essentially zero to the cartridge's height or width. When open (released), the lever handle swings upward approximately 90-120 degrees from the cartridge face.
+
+The lever handle length is 50-80mm (cam-lever.md). When swung upward, it extends vertically above the cartridge. The ~40mm of lever swing clearance allocated in the zone budget is above the cartridge slot opening, not above the cartridge body itself.
+
+**Impact on cartridge envelope:** The lever adds ~10mm to the cartridge's front-face depth (the cam body and pivot housing protrude from the front wall). This is internal to the cartridge — it does not add to the insertion depth. The lever handle, when closed, may extend ~5-10mm below the cartridge's bottom edge as a grip tab for extraction.
+
+### Flush Front Face Requirement
+
+When docked, the cartridge front face must be flush with the enclosure's front panel. This means:
+
+1. The cartridge body terminates at the enclosure's front panel plane.
+2. The lever is recessed into or flush with the front panel.
+3. No part of the cartridge protrudes forward of the enclosure's front surface.
+
+The dock rails must position the cartridge so its front face aligns precisely with the enclosure opening. A small recessed bezel (1-2mm setback) around the cartridge slot provides visual framing and accommodates tolerance.
+
+---
+
+## 5. Tubing Routing Constraints
 
 ### Tubing Specifications
 
-The cartridge uses two types of tubing:
-
 | Tubing | ID | OD | Material | Use |
 |--------|----|----|----------|-----|
-| Pump internal tubing | 4.8 mm | 8.0 mm | BPT (PharMed) | Inside pump head, pre-installed |
-| External routing + mating stubs | 1/8" (3.2 mm) | 1/4" (6.35 mm) | Hard tubing (nylon/polyethylene) | Push-connect compatibility |
+| Pump internal | 4.8 mm | 8.0 mm | BPT (PharMed) | Inside pump head, pre-installed |
+| Internal cartridge routing | 4.8 mm | 8.0 mm | Silicone | Pump barbs to transition fittings |
+| Mating face stubs | 1/8" (3.2 mm) | 1/4" (6.35 mm) | Hard tubing (nylon/polyethylene) | Push-connect compatibility |
 
-**Critical note from project context**: Soft silicone tubing does NOT hold in push-connect fittings — it deforms and slips out. The tube stubs on the mating face MUST be hard 1/4" OD tubing (nylon or polyethylene).
-
-### Transition Between Pump Barbs and Mating Stubs
-
-The pump barbs are 8mm OD, fitting the 4.8mm ID BPT pump tubing. The mating face stubs are 1/4" (6.35mm) OD hard tubing. A transition is needed:
-
-**Option 1 — Barb-to-push-connect adapter**: A small fitting that accepts the pump's BPT tubing on one end and has a 1/4" OD hard tube stub on the other. This could be a short piece of tubing with a reducer barb, or a custom 3D printed manifold.
-
-**Option 2 — Direct barb-to-barb with hard tube**: Replace the BPT tubing with 1/4" OD hard tubing that barbs directly onto the pump ports (if the pump barb accepts it). Unlikely — the pump barb is sized for 8mm OD tubing.
-
-**Option 3 (recommended) — Short BPT tube to a barb reducer, then hard tube to mating face**: Pump barb → ~50mm BPT tubing → reducer barb fitting → 1/4" OD hard tubing → mating face stub. The BPT section provides flexibility; the hard tube provides push-connect compatibility.
+Most internal tubing is silicone — confirmed viable. Only the tube stubs at the mating face need hard 1/4" OD tubing for reliable John Guest push-connect engagement. A few barb reducer fittings at transition points bridge the silicone tubing to hard stubs.
 
 ### Minimum Bend Radius
 
-For routing tubes from pump barbs (on top of the pump) to the mating face (on the front), the tubing must make at least one 90-degree bend.
+**Soft silicone tubing (4.8mm ID x 8mm OD):**
 
-**Soft silicone/BPT tubing (4.8mm ID x 8mm OD):**
+| Source | Minimum Bend Radius |
+|--------|---------------------|
+| Conservative (2-2.5x OD) | 16-20 mm |
+| Practical (thick-wall soft silicone) | 10-15 mm |
 
-| Source | Minimum Bend Radius | Notes |
-|--------|---------------------|-------|
-| General rule (2-2.5x OD) | 16-20 mm | Conservative for soft tubing |
-| General rule (3-4x OD) | 24-32 mm | Very conservative, prevents any kinking |
-| Practical (thick-wall soft silicone) | ~10-15 mm | Can achieve tight bends when tubing wall is >1.5mm |
+**Hard tubing (1/4" OD nylon):**
 
-**Hard tubing (1/4" OD nylon/polyethylene):**
-
-| Source | Minimum Bend Radius | Notes |
-|--------|---------------------|-------|
-| General rule (4-6x OD) | 25-38 mm (~1-1.5") | Standard for semi-rigid plastic tubing |
-| With heat forming | 15-20 mm | Possible with nylon, heat-bent to shape |
-| Without forming (cold bend) | ~30-40 mm | Safe cold bend for 1/4" nylon |
-
-**Design implication**: If using hard tubing for the routing (not just the mating stubs), each 90-degree bend needs ~30-40mm of clearance. If using BPT/silicone for routing with only the last stub being hard tubing, the bend radius drops to ~15-20mm.
+| Source | Minimum Bend Radius |
+|--------|---------------------|
+| Cold bend | 30-40 mm |
+| Heat-formed | 15-20 mm |
 
 ### Recommended Routing Strategy
 
-Use **soft BPT tubing** for all internal routing (from pump barbs through bends), transitioning to **hard 1/4" OD tube stubs** only for the last ~20-25mm that protrude through the mating face. This minimizes bend radius constraints and keeps the cartridge compact.
+Use **silicone tubing** for all internal routing from pump barbs through bends. Transition to **hard 1/4" OD tube stubs** only for the last ~20-25mm that protrude through the mating face. This keeps bend radii at 10-15mm and the cartridge compact.
 
-With BPT tubing at 15-20mm bend radius, a 90-degree turn from vertical (pump barb) to horizontal (toward mating face) needs approximately:
-
-```
-    Pump barb (pointing up)
-         │
-         │  ~15-20mm
-         │  bend radius
-         └──────────── toward mating face
-
-    Space needed above pump for bend: ~15-20mm
-    Space needed in front of pump for bend: ~15-20mm
-```
-
-This adds approximately **20mm** to the height (above pump) and **20mm** to the depth (in front of pump head) for tubing routing.
+With silicone tubing at 10-15mm bend radius, the 90-degree turn from the pump barbs (vertical) to the mating face (horizontal, rearward) consumes approximately 10-15mm of vertical space above the pump body and 10-15mm of horizontal space behind the pump head. This is significantly tighter than the 20mm each assumed in the original analysis.
 
 ### Tube Stub Layout on Mating Face
 
-From collet-release.md, each John Guest fitting has:
-- Fitting body OD: ~12.7mm
-- Collet ring OD: ~11.4mm
-- Outer bore (cradle) on release plate: 12.5mm diameter
+From mating-face.md: the recommended arrangement is a **2x2 grid at 15mm center-to-center spacing**. This has been verified with parts in hand — 15mm C-C works with John Guest fittings. The tube stub zone occupies approximately **28 x 28 mm** on the mating face (fitting body clearance included at minimum).
 
-Minimum fitting-to-fitting spacing (center-to-center) must clear the outer bore diameter plus wall material:
-
-| Parameter | Value | Notes |
-|-----------|-------|-------|
-| Minimum C-C spacing | ~18-20 mm | 12.5mm bore + 2x 2.5mm wall minimum |
-| Comfortable C-C spacing | 22-25 mm | Allows thicker walls, easier printing |
-
-Four fittings can be arranged:
-
-**2x2 grid:**
 ```
-    ○  ○       ~20-25mm spacing
-    ○  ○
+    Pump 1 IN    Pump 2 IN
+        O            O          15mm C-C
+    Pump 1 OUT   Pump 2 OUT
+        O            O
 ```
-- Grid width: 20-25mm
-- Grid height: 20-25mm
-- Compact, but collet release plate must depress all 4 simultaneously
 
-**1x4 line (horizontal):**
-```
-    ○  ○  ○  ○
-```
-- Line width: 60-75mm
-- Line height: 0 (single row)
-- Wide, but simpler release plate (linear motion)
-
-**2x2 grid is strongly preferred**: keeps the mating face compact and makes the release plate a simple square.
-
-With a 2x2 grid at 22mm spacing, the tube stub zone occupies approximately **35 x 35 mm** on the mating face (including fitting body clearance).
+The 2x2 grid's compact footprint (33.5 x 33.5mm including release plate margins) fits easily on the back face of any of the viable cartridge arrangements.
 
 ---
 
-## 4. Mating Face Layout
+## 6. Minimum Envelope Estimates
 
-The mating face must accommodate:
-1. **4 tube stubs** (2x2 grid, ~35 x 35mm zone)
-2. **3 electrical pads** (pogo pin targets, ~30 x 10mm zone)
-3. **2 alignment features** (tapered pins or rail engagement, ~10mm diameter each)
-4. **Release plate clearance** (must overlap tube stub zone, ~3mm travel)
-5. **Cam/lever mechanism** clearance
-
-From electrical-mating.md: electrical contacts should be on a **different face** than water fittings, or if on the same face, electrical above water with a dam between them.
-
-### Recommended Mating Face Layout (Same Face)
-
-If all features share the front mating face:
-
-```
-    ┌───────────────────────────────────────────┐
-    │                                           │
-    │   ○ align pin                align pin ○  │
-    │                                           │
-    │          [=] [=] [=]                      │
-    │          electrical pads                  │
-    │     ─────── dam/ridge ───────             │
-    │                                           │
-    │           ○    ○                          │
-    │           tube stubs                      │
-    │           ○    ○                          │
-    │                                           │
-    └───────────────────────────────────────────┘
-
-    Minimum face dimensions:
-      Width:  ~60mm (tube grid + alignment pins + margin)
-      Height: ~80mm (alignment + electrical + dam + tubes + margin)
-```
-
-### Recommended Mating Face Layout (Split Face)
-
-Electrical pads on the **top face** of the cartridge; water fittings on the **front face**:
-
-```
-    TOP FACE:
-    ┌─────────────────────┐
-    │  [=] [=] [=]        │   Electrical pads (pogo pin targets)
-    └─────────────────────┘
-
-    FRONT FACE (mating face):
-    ┌───────────────────────────────────────────┐
-    │                                           │
-    │   ○ align pin                align pin ○  │
-    │                                           │
-    │           ○    ○                          │
-    │           tube stubs                      │
-    │           ○    ○                          │
-    │                                           │
-    └───────────────────────────────────────────┘
-
-    Front face minimum dimensions:
-      Width:  ~60mm (tube grid + alignment pins + margin)
-      Height: ~50mm (alignment + tubes + margin)
-```
-
-The split-face layout is preferred for moisture isolation and results in a smaller front mating face.
-
----
-
-## 5. Minimum Envelope Estimates
-
-For each pump arrangement, we add:
-- **Tube routing space**: +20mm above pump for bends, +20mm in front of pump head
+For each viable arrangement, we add:
+- **Tube routing space**: +10mm above pump for silicone bends (reduced from 20mm)
 - **Housing walls**: 3mm per side (PETG, structural minimum for FDM)
-- **Mating face hardware**: +5mm depth for tube stub protrusion (inside the dock, outside the cartridge envelope)
-- **Electrical pads**: negligible added volume if on top face (flush pads)
-- **Alignment features**: included in mating face zone
+- **Mating face hardware**: tube stub protrusion is outside the cartridge envelope (extends into the dock)
+- **Lever mechanism**: +10mm on the front face for cam housing (internal to cartridge depth)
 
-### Arrangement A: Side by Side (Same Orientation)
-
-```
-    Width  = 2 × 63 (pumps) + 2 × 3 (walls) + 5 (center gap) = 137 mm
-    Height = 63 (pump) + 20 (tube routing) + 2 × 3 (walls) = 89 mm
-    Depth  = 69 (pump) + 20 (tube routing to face) + 2 × 3 (walls) = 95 mm
-```
-
-**Envelope: ~137 x 89 x 95 mm (W x H x D)** — approximately 5.4" x 3.5" x 3.7"
-
-### Arrangement B: Stacked Vertically
+### Arrangement G: Side by Side, Refined (RECOMMENDED)
 
 ```
-    Width  = 63 (pump) + 2 × 3 (walls) = 69 mm
-    Height = 2 × 63 (pumps) + 20 (tube routing top) + 5 (gap) + 2 × 3 (walls) = 157 mm
-    Depth  = 69 (pump) + 20 (tube routing to face) + 2 × 3 (walls) = 95 mm
+    Width  = 2 x 69 (pumps) + 5 (center gap) + 2 x 3 (walls) = 149 mm
+    Height = 63 (pump) + 10 (tube routing) + 2 x 3 (walls) = 79 mm
+    Depth  = 116 (pump) + 10 (cam housing at front) + 2 x 3 (walls) = 135 mm
 ```
 
-**Envelope: ~69 x 157 x 95 mm (W x H x D)** — approximately 2.7" x 6.2" x 3.7"
+**Envelope: ~149 x 79 x 135 mm (W x H x D)**
 
-### Arrangement C: Head-to-Tail (Motors Opposing)
+| Constraint | Envelope | Available | Margin |
+|-----------|----------|-----------|--------|
+| Width | 149mm | 220mm | +71mm (comfortable) |
+| Height | 79mm | 85mm | +6mm (adequate) |
+| Depth | 135mm | 142-152mm | +7-17mm (tight but workable) |
 
-Same footprint as Arrangement A (motors flip direction but occupy the same volume):
+This fits the enclosure slot. The height margin of 6mm is the tightest dimension — enough for guide rail clearance (0.3-0.5mm per side from guide-alignment.md) but not generous. If the pump's 62.7mm height proves larger than spec in practice, there is limited room to absorb it.
 
-**Envelope: ~137 x 89 x 95 mm (W x H x D)** — same as A
+### Arrangement A: Side by Side, Original Spacing
 
-### Arrangement E: Inline (End-to-End)
-
-```
-    Width  = 63 (pump) + 2 × 3 (walls) = 69 mm
-    Height = 63 (pump) + 20 (tube routing) + 2 × 3 (walls) = 89 mm
-    Depth  = 2 × 69 (pumps) + 20 (tube routing to face) + 5 (gap) + 2 × 3 (walls) = 169 mm
-```
-
-**Envelope: ~69 x 89 x 169 mm (W x H x D)** — approximately 2.7" x 3.5" x 6.7"
-
-### Arrangement D: Perpendicular / L-Shaped
+If the center gap is eliminated and walls are reduced to minimum:
 
 ```
-    Width  = 69 (pump 1 depth) + 63 (pump 2 width) + 2 × 3 (walls) = 138 mm
-    Height = 63 (tallest pump) + 20 (tube routing) + 2 × 3 (walls) = 89 mm
-    Depth  = 69 (pump 2 depth) + 63 (pump 1 width) + 2 × 3 (walls) = 138 mm
+    Width  = 2 x 69 (pumps) + 2 (minimal center gap) + 2 x 3 (walls) = 146 mm
+    Height = 63 (pump) + 10 (tube routing) + 2 x 3 (walls) = 79 mm
+    Depth  = 116 (pump) + 2 x 3 (walls) = 122 mm (no cam housing if lever is flush-mounted)
 ```
 
-**Envelope: ~138 x 89 x 138 mm (W x H x D)** — approximately 5.4" x 3.5" x 5.4"
+**Envelope: ~146 x 79 x 122 mm** — slightly narrower and shallower than G, but requires the lever/cam to be truly flush with the front wall.
+
+### Arrangement F: Motors Sideways (MARGINAL)
+
+```
+    Width  = 2 x 116 (pumps) + 2 x 3 (walls) = 238 mm
+    Height = 63 (pump) + 10 (tube routing) + 2 x 3 (walls) = 79 mm
+    Depth  = 69 (pump width) + 2 x 3 (walls) = 75 mm
+```
+
+**Envelope: ~238 x 79 x 75 mm** — 18mm wider than the 220mm available. Does not fit without eliminating housing walls on the sides entirely, which is not structural. The very shallow depth (75mm) is appealing but the width is the dealbreaker.
 
 ### Comparison Table
 
-| Arrangement | W (mm) | H (mm) | D (mm) | Volume (L) | Shape Factor | Tube Routing Complexity |
-|-------------|--------|--------|--------|------------|--------------|------------------------|
-| **A: Side by side** | 137 | 89 | 95 | **1.16** | Wide, shallow | Simple — all barbs on top |
-| B: Stacked | 69 | 157 | 95 | **1.03** | Tall, narrow | Hard — bottom pump blocked |
-| C: Head-to-tail | 137 | 89 | 95 | **1.16** | Wide, shallow | Same as A |
-| D: Perpendicular | 138 | 89 | 138 | **1.70** | Square, bulky | Complex — ports in different planes |
-| **E: Inline** | 69 | 89 | 169 | **1.04** | Narrow, deep | Moderate — rear pump far from face |
+| Arrangement | W (mm) | H (mm) | D (mm) | Volume (L) | Fits Slot? | Notes |
+|-------------|--------|--------|--------|------------|------------|-------|
+| **G: Side by Side (refined)** | 149 | 79 | 135 | **1.59** | **Yes** | Recommended. 6mm height margin. |
+| A: Side by Side (original) | 146 | 79 | 122 | **1.41** | **Yes** | Tighter if cam is truly flush. |
+| F: Motors Sideways | 238 | 79 | 75 | **1.42** | **No** | 18mm too wide. |
+| B: Stacked | 69 | 146+ | 122 | — | **No** | 60mm too tall. |
+| E: Inline | 69 | 79 | 237+ | — | **No** | 85mm+ too deep. |
+| D: Perpendicular | 185 | 79 | 185 | — | **No** | Too deep. |
+
+Only the side-by-side arrangements (G and A) fit the enclosure slot. The enclosure's height constraint eliminates stacking, and the depth constraint eliminates inline and perpendicular layouts.
 
 ---
 
-## 6. Under-Sink Space Context
+## 7. Depth Budget — What Lives Behind the Cartridge
 
-### Typical Under-Sink Cabinet Dimensions
+The enclosure interior depth is ~192mm. The cartridge consumes 122-135mm of this. What fills the remaining space behind the cartridge?
 
-Standard US kitchen sink base cabinets (from cabinetry dimension guides):
+```
+    ← FRONT                                           BACK →
 
-| Dimension | Typical Range | Notes |
-|-----------|--------------|-------|
-| Cabinet width (exterior) | 30" - 42" (760 - 1070 mm) | 36" most common |
-| Cabinet interior width | 28.5" - 40.5" (720 - 1030 mm) | 1.5" less than exterior |
-| Cabinet depth (front-to-back) | 24" (610 mm) | Standard countertop depth |
-| Cabinet interior depth | ~22" (560 mm) | After face frame |
-| Cabinet height (floor to countertop bottom) | ~28" (710 mm) | 34.5" cabinet - 6" toe kick |
+    ┌──────────┬──────────────────────────────┬──────────────────┐
+    │ cartridge│        dock back wall        │   tube routing   │
+    │  lever   │        + fittings            │   to valves &    │
+    │  (flush) │  4x JG fittings: ~25mm deep │   back panel     │
+    │          │  alignment pins: ~15mm       │   ~20-30mm       │
+    │          │  pogo pins: ~10mm            │                  │
+    │          │  back wall: ~5mm             │                  │
+    └──────────┴──────────────────────────────┴──────────────────┘
+     135mm cart.   ~35mm dock back wall          ~22mm routing
+                                                 ─────────────
+                                                 Total: ~192mm
+```
 
-### Available Space (After Plumbing)
+| Zone | Depth | Notes |
+|------|-------|-------|
+| Cartridge body (including cam housing) | 135mm | Arrangement G |
+| Dock back wall + fittings | ~35mm | JG fitting depth + wall material + alignment pin protrusion |
+| Tube routing behind dock to valves | ~20-25mm | Silicone tubing bends from fittings to downward runs |
+| **Total** | **~190-195mm** | Tight fit for 192mm interior |
 
-Under a kitchen sink, the actual available space is significantly reduced by:
-- **P-trap and drain pipes**: occupy center area, typically 6-8" wide
-- **Water supply lines** (hot/cold shutoff valves): 2-4" from back wall
-- **Garbage disposal** (if present): hangs from sink, 6-8" diameter x 12-15" tall
-- **Water filter** (if present): typically on the back wall or side
+This is tight. Options to recover depth:
+1. Reduce cartridge cam housing depth from 10mm to 5mm (the cam itself needs only ~5mm of protrusion).
+2. Use compact right-angle barb fittings behind the dock wall to minimize tube routing depth.
+3. Accept that the depth budget is fully consumed and there is no spare room behind the dock.
 
-**Realistic available volume for accessories**: Two zones, one on each side of the P-trap:
-- Each zone: approximately **10-14" wide x 16-20" deep x 20-24" tall** (250-350mm x 400-500mm x 500-600mm)
+With the cam housing reduced to 5mm: cartridge depth drops to 130mm, freeing 5mm for tube routing. The total becomes ~185-190mm, fitting within the 192mm interior.
 
-### Cartridge Size Comfort Assessment
-
-| Cartridge Size | Fit Under Sink | One-Handed Handling | Notes |
-|---------------|----------------|---------------------|-------|
-| 137 x 89 x 95 mm (Arr. A) | Very comfortable | Easy | Fits in one hand, like a thick paperback |
-| 69 x 157 x 95 mm (Arr. B) | Comfortable | Awkward | Tall + narrow = tippy, hard to grip |
-| 69 x 89 x 169 mm (Arr. E) | Comfortable | Moderate | Long but narrow, like a TV remote |
-| 138 x 89 x 138 mm (Arr. D) | Comfortable | Bulky | Square footprint, harder to orient |
-
-All proposed envelopes are well within the available under-sink space. The limiting factor is not space — it is **handling ergonomics** and **dock depth** (how far the cartridge protrudes from the back/side wall where the dock is mounted).
-
-### Dock Mounting Considerations
-
-The dock is permanently mounted (screwed to the inside of the cabinet). The cartridge slides into the dock. The total protrusion from the mounting surface includes:
-- Dock body: ~20-30mm (rails, fitting holders, back plate)
-- Cartridge depth: 95-169mm depending on arrangement
-- Lever/cam mechanism: ~10-20mm in front of cartridge
-
-**Total protrusion from mounting surface**: approximately 125-220mm (5-9 inches). For a cabinet with 560mm (22") interior depth, even the deepest arrangement leaves ~340mm (13.5") of clearance in front of the dock.
+**Recommended cartridge depth: 130mm** (with 5mm cam housing, tight packaging).
 
 ---
 
-## 7. Weight Estimate
+## 8. Cartridge Front Face Design
+
+The front face is what the user sees and interacts with. It must accommodate:
+
+1. **Lever handle** — pivots vertically, ~60-80mm long, acts as both release mechanism and extraction handle
+2. **Visual indicator** — some way to tell if the lever is locked (cam over-center) or released
+3. **Aesthetic surface** — flush with enclosure front panel when docked
+
+```
+    FRONT VIEW (user-facing side of cartridge)
+
+    ┌──────────────────────────────────────────────────────────┐
+    │                                                          │
+    │                                                          │
+    │              ● pivot                                     │
+    │              ╠══════════════════╗                        │
+    │              ║  LEVER HANDLE   ║                        │
+    │              ╚══════════════════╝                        │
+    │                                                          │
+    │                                                          │
+    │                                                          │
+    └──────────────────────────────────────────────────────────┘
+              149mm wide x 79mm tall
+
+    When released, the lever swings upward ~100 degrees
+    from flush to vertical, then the cartridge slides out.
+    The lever handle also serves as the pull grip.
+```
+
+The lever pivot is near the top of the front face. In the locked position, the handle lies flat against the face, pointing downward. To release: flip the handle upward (unlocking the over-center cam), then grip the handle and pull the cartridge forward out of the dock.
+
+---
+
+## 9. Weight Estimate
 
 | Component | Weight | Qty | Subtotal |
 |-----------|--------|-----|----------|
-| Kamoer KPHM400 pump | ~380 g | 2 | 760 g |
-| BPT tubing (internal routing, ~400mm total) | ~15 g | 1 | 15 g |
+| Kamoer KPHM400 pump | ~306 g | 2 | 612 g |
+| Silicone tubing (internal routing, ~400mm total) | ~15 g | 1 | 15 g |
 | Hard tube stubs (4x, ~30mm each) | ~2 g | 4 | 8 g |
-| 3D printed PETG housing (3mm walls, ~137x89x95 shell) | ~100-150 g | 1 | ~125 g |
+| 3D printed PETG housing (3mm walls, ~149x79x130 shell) | ~80-120 g | 1 | ~100 g |
 | Barb reducer fittings | ~5 g | 4 | 20 g |
 | Brass electrical pads (3x) | ~5 g | 3 | 15 g |
-| **Total estimated** | | | **~940 g (~2.1 lbs)** |
+| Release plate (PETG, ~34x34x6mm) | ~10 g | 1 | 10 g |
+| Cam mechanism + lever (PETG + steel pin) | ~15 g | 1 | 15 g |
+| Guide dowel pins (4x 3mm steel) | ~3 g | 4 | 12 g |
+| **Total estimated** | | | **~807 g (~1.8 lbs)** |
+
+The weight reduction from 940g (original estimate) to 807g reflects the corrected pump weight (306g per Kamoer specs vs. 380g from the Amazon listing used originally) and a smaller housing shell.
 
 ### Handling Assessment
 
-- 940g / 2.1 lbs is well within comfortable one-handed handling
-- For reference: a standard can of soda is 368g; this is about 2.5 cans
-- The center of gravity will be dominated by the two pumps (81% of total weight)
-- Side-by-side arrangement (A) distributes weight symmetrically left-right, making it the most natural to grip
+- 807g / 1.8 lbs is easily one-handed
+- The center of gravity is dominated by the two pumps (76% of total weight), distributed symmetrically left-right in the side-by-side arrangement
+- The lever handle provides a natural grip point on the front face
+- The weight is comparable to a medium hardcover book
 
 ---
 
-## 8. Interdependencies with Other Components
+## 10. Interdependencies with Other Components
 
-### Release Plate (from collet-release.md)
+### Release Plate (from release-plate.md)
 
-The release plate sits between the dock and the cartridge mating face. It must:
-- Travel 3mm axially (min 2.5mm)
-- Accommodate 4 stepped bores at the tube stub positions
-- Total actuation force: 12-20N
+The release plate is part of the cartridge. It slides along the tube stubs on the cartridge's rear (mating) face, driven by the cam mechanism. Key dimensions:
+- Plate footprint: ~34 x 34mm (for 2x2 grid at 15mm C-C with margins)
+- Plate thickness: 6mm
+- Plate travel: 3mm
+- Guide pins: 4x 3mm steel dowels press-fit into cartridge body wall
 
-**Impact on envelope**: The release plate adds ~5mm to the effective depth of the dock (not the cartridge). The tube stub positions on the cartridge mating face must match the release plate hole pattern exactly. The 2x2 grid spacing chosen here (22mm C-C) must be carried through to the release plate design.
+The plate sits within the cartridge's rear wall zone and does not add to the external envelope.
 
 ### Cam/Lever Mechanism (from cam-lever.md)
 
-The lever must be accessible from outside the dock. Eccentric cam with 1-1.5mm eccentricity, lever length 50-100mm.
+The eccentric cam with 1-1.5mm eccentricity provides 2-3mm of plate displacement. The lever pivots on the cartridge's front face. A push rod or yoke transmits the cam's output from the front (where the lever is) to the rear (where the release plate is), running through the interior of the cartridge body alongside the pumps.
 
-**Impact on envelope**: The lever pivots on the dock (not the cartridge). The cam pushes the release plate. The cartridge envelope itself is not affected, but the dock's external dimensions grow by the lever length on one side. For the side-by-side arrangement (137mm wide), the lever could extend from either side of the dock, adding ~50-100mm to the total dock width.
+The push rod length is approximately the cartridge depth minus the front and rear wall thicknesses: ~130 - 6 - 6 = ~118mm. This rod must be straight and rigid. A 3mm steel rod or a printed PETG rod with 4-5mm diameter would work.
 
 ### Guide Rails (from guide-alignment.md)
 
-FDM tolerance: 0.3-0.5mm clearance per side for sliding fits in PETG. The guide rails run the full depth of the dock.
-
-**Impact on envelope**: Rail channels add ~3-5mm to the cartridge width and height (grooves in the cartridge sides that mate with rails in the dock). This is already accounted for in the 3mm wall allowance. The cartridge's exterior dimensions are the rail-to-rail dimensions.
+FDM tolerance: 0.3-0.5mm clearance per side. The cartridge slides into the dock on rails that run the full depth. Rail channels on the cartridge sides add ~3-5mm to the cartridge width (included in the wall allowance). The 6mm height margin accommodates 0.5mm clearance per side for the rails plus a small structural lip.
 
 ### Electrical Contacts (from electrical-mating.md)
 
-3 pogo pins in dock, 3 flat pads on cartridge. Recommended: different face than water fittings.
+3 pogo pins in the dock press against 3 flat brass pads on the cartridge's top face. The pads are flush-mounted, adding negligible height. Their position on the top face (not the mating face) keeps electrical contacts separated from water fittings for moisture isolation.
 
-**Impact on envelope**: If pads are on the top face, the cartridge height must include a flat zone for the pads (~10mm wide strip). Already within the 89mm height. If pads are on the mating face, the mating face grows taller by ~15mm (pads + dam + clearance).
+### Bags and Gravity Feed (from hopper-and-bag-management.md)
 
-### Pump Mounting
+Bags hang in the zone below the cartridge dock. The bag zone is ~240mm tall (10-12" of realistic bag height). Bags collapse reliably with the inlet cap rigidly secured — they don't need to be full 2L Platypus bags; smaller bags work in the available space.
 
-Pumps mount via their 50x50mm bolt pattern (4x M4 holes). Inside the cartridge, pumps can be bolted to internal ribs or shelves printed into the housing. The mounting orientation (which face of the pump contacts the mount) affects:
-- Vibration isolation: mounting from the motor side is standard
-- Tube routing: pump head must face toward the mating face for shortest tube runs
+The bag outlets connect via silicone tubing upward to the dock's John Guest fittings (pump inlet side). The elevation difference between bag outlets and the dock provides gravity priming for the pump inlets.
 
-**Recommended mounting**: Motor backs against an internal vertical rib, pump heads facing forward (toward mating face). M4 bolts through the rib into the pump mounting plate.
+Hopper filling is pump-assisted — gravity fill from the hopper to bags does not work. The peristaltic pumps run in reverse to pull concentrate from the hopper funnel into the bags.
+
+### Solenoid Valves and Flow Path
+
+Solenoid valves mount in the dock zone or just below it. Tubing routes from the dock's John Guest fittings (pump outlet side) downward to the solenoid valves, then to the flow meter and out the back panel. The tube routing behind the dock consumes ~20-25mm of depth, accounted for in the depth budget (Section 7).
+
+### Capacitive Sensing (from project context)
+
+FDC1004 capacitive sensing is confirmed working through BPT and silicone tubing for liquid/air detection. This does not affect the cartridge envelope — the sensing electrodes are on the external tubing outside the cartridge.
+
+### GPIO Exhaustion (from project context)
+
+GPIO exhaustion is solved by I2C expander — this is a routine firmware task that does not affect the cartridge's physical design.
 
 ---
 
-## 9. Scenario Ranking and Recommendation
+## 11. Scenario Ranking and Recommendation
 
 ### Scoring (1-5, 5 = best)
 
-| Criteria | Weight | A: Side-by-Side | B: Stacked | C: Head-to-Tail | D: Perpendicular | E: Inline |
-|----------|--------|-----------------|------------|-----------------|-------------------|-----------|
-| Compact volume | 3 | 4 | 4 | 4 | 2 | 4 |
-| Tube routing simplicity | 4 | 5 | 2 | 5 | 2 | 3 |
-| One-hand ergonomics | 3 | 5 | 2 | 5 | 3 | 4 |
-| Mating face compactness | 3 | 4 | 4 | 4 | 3 | 4 |
-| Symmetric weight | 2 | 5 | 4 | 5 | 2 | 3 |
-| Dock simplicity | 2 | 4 | 3 | 4 | 2 | 4 |
-| Wiring simplicity | 1 | 5 | 4 | 3 | 3 | 4 |
-| **Weighted Score** | | **82** | **54** | **79** | **43** | **65** |
+| Criteria | Weight | G: Side-by-Side (refined) | B: Stacked | E: Inline | F: Motors Sideways |
+|----------|--------|---------------------------|------------|-----------|-------------------|
+| Fits enclosure slot | 5 | 5 | 1 | 1 | 2 |
+| Compact volume | 3 | 4 | — | — | 4 |
+| Tube routing simplicity | 4 | 5 | — | — | 2 |
+| One-hand ergonomics | 3 | 5 | — | — | 3 |
+| Symmetric weight | 2 | 5 | — | — | 5 |
+| Depth margin | 3 | 3 | — | — | 5 |
+| Height margin | 4 | 3 | — | — | 3 |
+| Lever integration | 3 | 5 | — | — | 4 |
+| **Weighted Score** | | **119** | — | — | — |
 
-### Ranking
+Arrangements B, D, and E are eliminated (do not fit). Arrangement F is marginal (does not fit width). Only the side-by-side family (A/G) is viable for this enclosure.
 
-1. **Arrangement A: Side by Side** — Score 82. Best overall. Simple tube routing, symmetric handling, compact depth. The 137mm width is easily accommodated under a sink. This is the natural arrangement and the one to prototype first.
+### Recommendation
 
-2. **Arrangement C: Head-to-Tail** — Score 79. Nearly identical to A in every way. Only slightly worse due to opposing motor lead routing. No practical reason to choose this over A unless a specific wiring constraint emerges.
-
-3. **Arrangement E: Inline** — Score 65. Good narrow profile, but the 169mm depth means the rear pump's tubes must travel a long distance. Viable if width is constrained (e.g., mounting between drain pipes).
-
-4. **Arrangement B: Stacked** — Score 54. The bottom pump's tube routing is the fatal flaw — tubes must route around or through the top pump. Tall profile makes handling awkward.
-
-5. **Arrangement D: Perpendicular** — Score 43. Largest volume, asymmetric, complex routing. No advantages for this application.
-
-### Recommended Envelope
-
-**Side-by-side (Arrangement A), target dimensions:**
+**Side-by-side with motors along the depth axis (Arrangement G), target dimensions:**
 
 ```
-    ┌───────────────────────────────────────────────┐
-    │                                               │
-    │              137 mm (5.4")                     │
-    │   ┌────────────────────────────────────────┐  │
-    │   │                                        │  │ 89 mm
-    │   │     Pump 1          Pump 2             │  │ (3.5")
-    │   │     [====]          [====]             │  │
-    │   │                                        │  │
-    │   └────────────────────────────────────────┘  │
-    │              95 mm (3.7") depth                │
-    └───────────────────────────────────────────────┘
+    ┌───────────────────────────────────────────────────────┐
+    │                                                       │
+    │                149 mm (5.9")                          │
+    │   ┌───────────────────────────────────────────────┐   │
+    │   │                                               │   │ 79 mm
+    │   │     Pump 1              Pump 2                │   │ (3.1")
+    │   │     [════►]             [════►]               │   │
+    │   │                                               │   │
+    │   └───────────────────────────────────────────────┘   │
+    │                130 mm (5.1") depth                     │
+    └───────────────────────────────────────────────────────┘
 
-    Weight: ~940g (2.1 lbs)
-    Volume: ~1.16 L
+    Weight: ~807g (1.8 lbs)
+    Volume: ~1.53 L
 ```
 
-With margins for iteration, a **target envelope of 140 x 90 x 100 mm** provides comfortable room for the side-by-side arrangement with internal tube routing.
+**Target envelope: 150 x 80 x 130 mm (W x H x D)** — round numbers that provide 1-3mm of margin on each dimension beyond the calculated minimums.
+
+### Why Side-by-Side Remains the Winner
+
+The original analysis ranked side-by-side first for open under-sink use. The enclosure context reinforces this conclusion even more strongly: the enclosure's height constraint (~85mm) eliminates every arrangement except side-by-side. The enclosure's generous width (~220mm usable) accommodates the 149mm cartridge width without issue. The depth is the second-tightest constraint, and side-by-side's 130mm depth leaves just enough room for the dock back wall and tube routing.
+
+The ranking didn't change because a different arrangement became better — it changed because the enclosure constraints eliminated all alternatives. Side-by-side is not just the best option; it is the only option that physically fits.
 
 ---
 
 ## Sources
 
 - [Kamoer KPHM400 Datasheet / Product Manual (Amazon PDF)](https://m.media-amazon.com/images/I/A1at7U9PyNL.pdf) — Dimensional drawing, mounting hole pattern, tube specifications
-- [Kamoer KPHM400 Amazon Listing (B09MS6C91D)](https://www.amazon.com/peristaltic-Brushed-Kamoer-KPHM400-Liquid/dp/B09MS6C91D) — Product weight, specifications
-- [Kamoer KPHM400 Official Product Page](https://www.kamoer.com/us/product/detail.html?id=10014) — Model information
+- [Kamoer KPHM400 Amazon Listing (B09MS6C91D)](https://www.amazon.com/peristaltic-Brushed-Kamoer-KPHM400-Liquid/dp/B09MS6C91D) — Product specifications
+- [Kamoer KPHM400 Official Product Page](https://www.kamoer.com/us/product/detail.html?id=10014) — Verified dimensions: 115.6 x 68.6 x 62.7mm, 306g, 10W
 - [KPHM400 Data Sheet — DirectIndustry](https://pdf.directindustry.com/pdf/kamoer-fluid-tech-shanghai-co-ltd/kphm400-peristaltic-pump-data-sheet/242598-1017430.html) — Technical specifications
 - [Silicone Tubing Bend Radius — Zeus Inc.](https://www.zeusinc.com/resources/summary-material-properties/bend-radius/) — Bend radius engineering data
-- [Understanding Minimum Bend Radius for Hoses — Jay20hose.com](https://jay20hose.com/blogs/news/understanding-minimum-bend-radius-for-hoses) — General hose bend radius guidelines
-- [Silicone Hose Bending Techniques — CNTOPA](https://cntopa.com/silicone-hose-bending-techniques-a-complete-guide.html) — Silicone tubing bending practices
-- [Sink Base Cabinet Dimensions Guide — Casta Cabinetry](https://castacabinetry.com/post/sink-base-cabinet-dimensions/) — Under-sink space reference
-- [Standard Kitchen Cabinet Sizes — Kitchen Cabinet Kings](https://kitchencabinetkings.com/guides/kitchen-cabinet-sizes) — Cabinet dimension standards
-- [Kitchen Cabinet Dimensions — Builders Surplus](https://www.builderssurplus.net/kitchen-cabinet-dimensions-and-measurements-guide/) — Cabinet interior clearance data
