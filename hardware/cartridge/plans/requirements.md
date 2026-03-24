@@ -54,23 +54,21 @@ The cartridge mechanism is a sequence of three things that happen during inserti
 
 ## Open Design Questions
 
-These constrain everything else and should be resolved in order:
+### 1. Release plate constraints drive tube spacing
+The release plate needs a hole per tube that clears the tube OD but catches the collet ring, applying even pressure around the full circumference. A flat bar pressing from one side won't work — it would cock the collet sideways instead of pushing it straight in. The holes must apply concentric pressure, the same way a John Guest release tool works.
 
-### 1. Mating face layout
-Where do the 4 tubes and 3 electrical contacts sit relative to each other on the face where the cartridge meets the dock? This is the single most constraining decision.
-- If 4 tubes are in a line → cam can be a simple bar sweeping across all collets
-- If 4 tubes are in a 2×2 grid → need a plate-style actuator
-- Electrical contacts must be separated from fluid connections (moisture)
+This means tube spacing is constrained from below by the collet outer diameter plus enough material between holes for the plate to be structurally sound. The first print (release plate) will establish these minimum spacings. Beyond that, the tube arrangement (line, 2×2, offset, etc.) is flexible — whatever works best for pump layout and cartridge footprint.
+
+Electrical contacts must be separated from fluid connections to avoid moisture.
 
 ### 2. Cam geometry
-- Eccentric cam lobe (bicycle QR skewer style) converts rotation into ~2-3mm linear displacement
-- Single lever rotates a bar or plate that presses all 4 collets simultaneously
+- Eccentric cam lobe (bicycle QR skewer style) converts lever rotation into ~2-3mm of linear plate travel
+- The lever drives the release plate forward into the collets on removal
 - Lever position options: top (most accessible under sink), side, or front face
 
 ### 3. Rail profile
-- Determines how forgiving insertion is
-- Tapered lead-in recommended for self-centering
-- Needs to constrain to ~1mm tolerance at final position
+- Tapered lead-in recommended for self-centering — sloppy initial aim, precision on the last inch
+- Needs to constrain to ~1mm tolerance at final position so tube stubs align with fittings
 
 ## Release Plate Design
 
