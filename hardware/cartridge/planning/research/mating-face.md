@@ -1,14 +1,14 @@
-# Mating Face Layout — Front-Loading Cartridge in Enclosure
+# Mating Face Layout — Cartridge-to-Enclosure Interface Design
 
-The mating face is the interface between the cartridge and its dock. Every connection crosses this boundary: 4 tube ports, electrical contacts, guide/alignment features, and the release mechanism. This document defines the complete mating face geometry for a front-loading cartridge inside a self-contained enclosure tower.
+The mating face is the boundary between the replaceable pump cartridge and the enclosure's internal dock. Every connection crosses this interface: 4 fluid ports, 3 electrical contacts, guide/alignment features, and the release mechanism. This document defines what connects, where, how, and why.
 
-This is the keystone layout decision. Once the mating face geometry is committed, it constrains the cartridge body dimensions, the dock cavity, the release plate shape, the cam lever placement, and the enclosure front face. Everything else flows from here.
+The enclosure is a self-contained, desktop-PC-tower-sized unit that sits on the floor of a kitchen sink cabinet. The cartridge loads from the front, like a CD drive in a PC tower or a blade server ejector. A lever on the cartridge's front face doubles as the release mechanism and extraction handle. The dock inside the enclosure is entirely passive -- no moving parts.
 
-**Context: this is NOT a standalone wall-mounted dock.** The dock is part of an enclosure — a self-contained tower (~250 x 200 x 450mm) that sits inside the under-sink cabinet. The enclosure has a layered internal layout: electronics on top, cartridge dock + valves in the middle, bags + plumbing on the bottom. The cartridge slides in from the front, like a CD drive in a PC tower. The enclosure's front face should look like a product — the cartridge face should be flush and color-matched when docked.
+---
 
-**Critical design principle: the release plate, cam, and lever are all part of the cartridge (the removable part).** The dock is a simple receptacle — fittings in a wall, alignment pins, pogo pins, and guide rails. The lever is on the front face of the cartridge (the face the user sees and grabs), doubling as an extraction handle (blade server pattern). The user operates the lever and removes the cartridge in one motion, from one location, with one hand.
+## Established Parameters
 
-**Established parameters from prior research (not re-derived here):**
+These values are derived from prior research and are not re-derived here:
 
 | Parameter | Value | Source |
 |---|---|---|
@@ -20,679 +20,477 @@ This is the keystone layout decision. Once the mating face geometry is committed
 | Release plate outer bore (cradle) | 12.5mm | collet-release.md |
 | Plate travel | 3.0mm (min 2.5mm) | collet-release.md |
 | Total actuation force (4 fittings) | 12-20N | collet-release.md |
-| Plate thickness | 6.0mm (2mm cradle + 2mm lip + 2mm back) | release-plate.md |
 | Electrical contacts | 3 pogo pins, dock side | electrical-mating.md |
 | Contact pad size | ~8mm x 5mm each | electrical-mating.md |
 | Electrical-to-water separation | 10-20mm minimum | electrical-mating.md |
 | FDM sliding clearance | 0.3-0.5mm per side | guide-alignment.md |
 | Alignment pins | 15-20 deg taper, 8-10mm base | guide-alignment.md |
 | Cam eccentricity | 1-1.5mm for 2-3mm stroke | cam-lever.md |
-| Pump dimensions (each) | 115.6 x 68.6 x 62.7mm | cartridge-envelope.md |
+| Pump dimensions (each) | 115.6 x 68.6 x 62.7mm | pump-mounting.md |
 | Preferred pump arrangement | Side-by-side, motors same direction | cartridge-envelope.md |
 | Target cartridge envelope | ~140 x 90 x 100mm (W x H x D) | cartridge-envelope.md |
-| Fitting center-to-center spacing | 15mm (verified with parts in hand) | release-plate.md |
-| Enclosure dimensions | ~250 x 200 x 450mm (W x D x H) | layout-spatial-planning.md |
-
-**Confirmed facts (parts in hand):**
-
-- 15mm center-to-center is fine for John Guest fittings — verified with physical parts
-- Platypus bags collapse reliably as long as the hard inlet cap is rigidly secured in position
-- Bag zone is 10-12" of height, not the 14"+ some research assumed
-- FDC1004 capacitive sensing reliably detects liquid/air through BPT and silicone tubing
-- Most internal tubing can be silicone; only transition points need hard tubing (for push-connect fittings)
-- GPIO exhaustion is solved by I2C expander (MCP23017) — routine, not a design concern
-- Gravity fill for the hopper does NOT work — pump-assisted filling is required
 
 ---
 
-## 1. Enclosure Context — How the Dock Fits In
+## 1. Context: Front-Loading in an Enclosure
 
-### The Tower Layout
+### Why Front-Loading
 
-The enclosure is a front-loading tower. The cartridge dock is one zone within it. The internal layout from top to bottom:
+The enclosure sits on the cabinet floor, pushed against the back or side wall. The user opens the cabinet door, crouches, and reaches in. Under-cabinet ergonomics research established that comfortable forward reach is ~14" (356mm) and visibility drops sharply beyond 12" from the cabinet opening. A front-loading cartridge keeps the interaction at minimum reach depth.
 
-```
-    FRONT VIEW (enclosure)              SIDE VIEW (enclosure)
+The front face of the enclosure is the primary interaction surface. It hosts the two round displays (RP2040 flavor, S3 config), the cartridge slot, a status LED, and (optionally) the hopper access. The cartridge slot is the largest feature: approximately 146 x 96mm (cartridge cross-section plus rail clearance), with a 5mm chamfered entrance. This is where the user's attention goes during a cartridge swap.
 
-    ┌───────────────────────┐          ┌──────────────────┐
-    │  ╔═════HOPPER════╗    │          │  ╔═══HOPPER═══╗  │
-    │  ║  (2 funnels)  ║    │          │  ║            ║  │
-    │  ╚═══════════════╝    │          │  ╚════════════╝  │
-    │                       │          │                  │
-    │  [RP2040]   [S3]      │          │  ┌────────────┐  │
-    │                       │          │  │  BAGS       │  │
-    │  ┌─────────────────┐  │          │  │  (10-12")   │  │
-    │  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │  │          │  └────────────┘  │
-    │  │ ▓  CARTRIDGE  ▓ │  │          │  ┌────────────┐  │
-    │  │ ▓  (flush)    ▓ ◄──┤ slide    │  │  DOCK      │  │
-    │  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │  │ in/out   │  │  +CARTRIDGE│  │
-    │  └─────────────────┘  │          │  └────────────┘  │
-    │                       │          │  ┌────────────┐  │
-    │  ┌─────────────────┐  │          │  │ ELECTRONICS│  │
-    │  │  ELECTRONICS    │  │          │  │ VALVES     │  │
-    │  │  + VALVES       │  │          │  └────────────┘  │
-    │  └─────────────────┘  │          │                  │
-    └───────────────────────┘          └──────────────────┘
-          ~250mm wide                      ~200mm deep
-```
+### The Blade Server Ejector Analogy
 
-The cartridge slot is the single largest feature on the front face. When the cartridge is fully inserted, its front face is flush with the enclosure surface and becomes part of the product's visual identity.
+The strongest mechanical analogy is a blade server sliding into a chassis:
 
-### What "Front-Loading" Means for the Mating Face
+1. The user grips the front-mounted lever
+2. The lever swings to release the locking cam
+3. The cartridge slides out on guide rails
+4. Insertion is the reverse: slide in until the tubes engage the fittings, swing the lever closed
 
-In the original standalone dock design, the mating face was the rear wall of the dock — the cartridge pushed in and the tube stubs engaged fittings in a vertical wall. With front-loading into an enclosure, the geometry is the same but the orientation and context change:
+The lever on the cartridge's front face doubles as the extraction handle. This is a single-location, single-hand operation. The user never reaches around, over, or behind the cartridge.
 
-| Aspect | Standalone Dock (old) | Enclosure Front-Loading (current) |
+### What the Dock Provides
+
+The dock is the passive receptacle inside the enclosure. It consists of:
+
+| Component | Location | Function |
 |---|---|---|
-| Insertion direction | Horizontal, from cabinet front | Horizontal, from enclosure front |
-| Mating face orientation | Vertical wall at back of dock | Vertical wall at back of dock bay |
-| Lever location | Top of cartridge | **Front face of cartridge** |
-| Electrical contacts | Top of cartridge, dock ceiling | **Reconsidered (see Section 5)** |
-| User's view during insertion | Looking at mating face end | Looking at cartridge front face |
-| Aesthetic requirement | None (hidden under sink) | **Flush, color-matched, product finish** |
+| 4x John Guest fittings | Dock back wall | Fluid connection; collets grip tubes automatically on insertion |
+| 2-4x tapered alignment pins | Dock back wall, outside fitting pattern | Fine alignment at end of insertion travel |
+| 3x pogo pins | Dock ceiling (top inner surface) | Electrical contact to cartridge top pads |
+| Guide rail channels | Dock side walls, full depth | Coarse lateral/vertical guidance during insertion |
+| Chamfered entrance | Front opening | Captures cartridge from sloppy initial aim |
 
-The critical change: the user never sees the mating face (the back wall with fittings). They only see the cartridge's front face (with lever/handle). The mating face design is purely functional. The front face design is functional AND aesthetic.
-
----
-
-## 2. The Two Faces of the Cartridge
-
-The cartridge has two important faces with distinct roles. Separating their concerns is central to the design.
-
-### Rear Face (Mating Face) — Functional
-
-This is the face that contacts the dock's back wall. It carries:
-
-- 4 tube stubs (pass through the release plate into John Guest fittings)
-- The release plate (slides along tube stubs)
-- Release plate guide pins (fixed in cartridge body, constrain plate travel)
-- Tapered pin sockets (receive dock alignment pins)
-
-The user never directly interacts with or sees this face when the cartridge is docked.
-
-### Front Face (User Face) — Functional + Aesthetic
-
-This is the face the user sees and touches. It carries:
-
-- The cam lever (release mechanism + extraction handle)
-- A flush surface that becomes part of the enclosure front face when docked
-- Visual cues (color matching, status, lever position indicator)
-
-When docked, this face fills the cartridge slot opening in the enclosure. It should be flush with the surrounding enclosure panel to within ~1mm, color-matched (dark navy to match the enclosure), with the lever folded flat and recessed.
-
-### Relationship Between the Two Faces
-
-The two faces are connected through the cartridge body. The cam lever on the front face drives a push rod through the cartridge body to the release plate on the rear face. This ~100mm push rod (the cartridge depth) transmits the cam's 3mm stroke from front to back.
-
-```
-    Side cross-section of cartridge:
-
-    FRONT FACE                                              REAR FACE
-    (user sees)                                             (mating face)
-
-    ┌────┐                                                  ┌────────┐
-    │    │      push rod (~100mm)                           │  plate │
-    │ ●──┤─────────────────────────────────────────────────┤──┤    ├═══► tube stubs
-    │cam │                                                  │  plate │    → to fittings
-    │    │      cartridge body interior                    │        │
-    │lever│      (2 pumps, tubing, wiring)                  │        │
-    └────┘                                                  └────────┘
-    ↑                                                        ↑
-    user operates                                           interfaces with
-    from here                                               dock back wall
-```
+The dock has no moving parts. All wear items -- release plate, cam, lever, guide pin sockets -- are on the replaceable cartridge. The dock's only consumable-lifetime components are the pogo pin springs (rated 100,000+ cycles, far beyond the cartridge swap frequency).
 
 ---
 
-## 3. Rear Face (Mating Face) Layout
+## 2. What Crosses the Mating Face
 
-### Tube Port Arrangement: 2x2 Grid at 15mm C-C
+### 2a. Fluid Connections (4 Ports)
 
-The 2x2 grid remains the strongest arrangement. The compact symmetric footprint halves the maximum moment arm compared to any linear arrangement, directly addressing the plate tilt failure mode. 15mm center-to-center spacing has been verified with physical fittings in hand — the 2.3mm gap between fitting bodies is tight but workable.
+Four 1/4" OD hard tube stubs protrude from the cartridge's rear face and insert into four John Guest push-to-connect fittings mounted in the dock wall. Each stub carries one fluid path:
+
+| Port | Function | Direction (during dispensing) |
+|---|---|---|
+| Pump 1 inlet | Flavor 1 from bag to pump | Into cartridge |
+| Pump 1 outlet | Flavor 1 from pump to dispensing solenoid | Out of cartridge |
+| Pump 2 inlet | Flavor 2 from bag to pump | Into cartridge |
+| Pump 2 outlet | Flavor 2 from pump to dispensing solenoid | Out of cartridge |
+
+Inside the cartridge, soft BPT tubing (4.8mm ID x 8.0mm OD) connects the Kamoer KPHM400 pump barbs to brass barb reducers, which transition to 1/4" OD hard tubing (nylon or polyethylene) for the final stub that enters the John Guest fitting. Soft silicone does not hold in push-connect fittings; the stubs must be hard tubing.
+
+The tube stubs are permanently installed during cartridge assembly. The user never touches them.
+
+### 2b. Electrical Connections (3 Contacts)
+
+The two Kamoer KPHM400 pumps share a common ground. Three contacts are needed:
+
+| Contact | Function | Max Current |
+|---|---|---|
+| GND | Common ground for both motors | ~1.7A |
+| Motor A+ | Pump 1 positive, 12V | ~0.85A |
+| Motor B+ | Pump 2 positive, 12V | ~0.85A |
+
+Three spring-loaded pogo pins in the dock ceiling press downward against three flat nickel-plated brass pads on the cartridge top face. The pads are elongated in the insertion direction (10mm x 5mm) to provide self-cleaning wipe action as the cartridge slides in.
+
+Electrical contacts are on the cartridge's **top face**, physically separated from the fluid connections on the rear face. Water drips downward (gravity), away from the contacts. The dock ceiling is a dry surface with no fittings or O-rings. This eliminates the moisture-to-electrical failure domain entirely.
+
+Pogo pins on oversized pads tolerate 2-3mm of lateral misalignment. The guide rails position the cartridge within ~0.5mm, well inside this tolerance.
+
+### 2c. Mechanical Engagement
+
+The release plate, cam lever, and guide pin sockets are all on the cartridge. The dock provides only passive mating features (fittings, taper pins, rail channels).
+
+| Feature | Cartridge Side | Dock Side |
+|---|---|---|
+| Fluid retention | Tube stubs (hard 1/4" OD) | John Guest fittings (collets grip automatically) |
+| Collet release | Release plate with 4 stepped bores | -- (fittings are passive) |
+| Release actuation | Eccentric cam + front-mounted lever | -- |
+| Plate guidance | 2-4 steel dowel pins fixed in cartridge body | -- |
+| Coarse alignment | Rail features on cartridge exterior | Rail channels in dock side walls |
+| Fine alignment | Conical sockets on cartridge rear face | 2-4 tapered pins on dock back wall |
+| Electrical | Flat pads on cartridge top face | 3 pogo pins on dock ceiling |
+| Locking | Over-center cam position holds lever closed | -- |
+
+---
+
+## 3. Release Plate Mechanics
+
+### Where the Plate Lives
+
+The release plate is part of the cartridge. It sits on the cartridge's rear face, between the cartridge body wall and the tube stub tips. The plate slides axially along the tube stubs, guided by 2-4 steel dowel pins (3mm diameter) press-fit into the cartridge body.
+
+### Mechanical Sequence
+
+**Insertion (lever in extraction position, plate extended):**
+
+The user slides the cartridge into the dock. The tube stubs protrude past the release plate. As the cartridge reaches full insertion depth, the stubs enter the John Guest fittings. The collets grip the tubes automatically -- no mechanism needed. The user swings the lever to the locked position. The over-center cam holds the cartridge firmly.
+
+**Docked (lever locked, plate retracted):**
+
+The cam holds the lever closed. The plate is retracted against the cartridge body wall. The fittings grip the tubes. Pogo pins press against pads. The system is operational.
+
+**Removal (lever opened, plate extends):**
+
+The user swings the lever on the front face. The eccentric cam drives a push rod that pushes the release plate rearward (toward the dock). The plate's four stepped bores engage the four collet rings:
+
+1. The outer bore (12.5mm) surrounds the collet ring (11.4mm) -- lateral constraint
+2. The inner lip (10.5mm) pushes the collet face inward -- disengages gripper teeth
+
+With all four collets released simultaneously, the user grips the lever (which doubles as the extraction handle) and slides the cartridge out.
+
+### Stepped Bore Profile
+
+Each bore replicates the geometry of a John Guest PI-TOOL release tool:
 
 ```
-    Rear face of cartridge (looking at the back):
+    ← dock side (collet faces this way)        cartridge body →
 
-    ┌──────────────────────────────────────────────────────────────┐
-    │                                                              │
-    │         ◇ taper socket              taper socket ◇           │
-    │                                                              │
-    │    ○ pin    O (P1-IN)     O (P2-IN)     pin ○               │
-    │                                                              │
-    │    ○ pin    O (P1-OUT)    O (P2-OUT)    pin ○               │
-    │                                                              │
-    │         ◇ taper socket              taper socket ◇           │
-    │                                                              │
-    └──────────────────────────────────────────────────────────────┘
-
-    O  = tube stub through release plate stepped bore (15mm C-C)
-    ○  = release plate guide pin (3mm steel dowel, fixed in cartridge body)
-    ◇  = tapered pin socket (receives dock's alignment pin)
+    ┌──────────────────────────────────────────────────────────┐
+    │   outer bore      inner lip      tube clearance hole     │
+    │   12.5mm dia      10.5mm dia     8.0mm dia (through)     │
+    │   2.0mm deep      2.0mm deep     remaining thickness     │
+    └──────────────────────────────────────────────────────────┘
+    Total plate thickness: 6.0mm
 ```
 
-### Tube Port Arrangement Analysis
+The inner lip is the critical feature. Its 1.25mm annular width contacts the collet face and pushes it inward. The outer bore prevents the collet from cocking or tilting during release -- the failure mode that causes tube scoring and fitting damage.
 
-| Dimension | Value |
+### Tube Stub Length
+
+The stubs must span the full assembly stack:
+
+| Segment | Length |
 |---|---|
-| Horizontal span (C-C) | 15.0mm |
-| Vertical span (C-C) | 15.0mm |
-| Min port zone width | 15.0 + 12.5 + 2x3.0 = 33.5mm |
-| Min port zone height | 15.0 + 12.5 + 2x3.0 = 33.5mm |
-| Release plate footprint | ~39.5 x 39.5mm (with guide pin margin) |
-| Maximum moment arm (center to farthest bore) | 10.6mm |
+| Cartridge body wall | 3mm |
+| Release plate thickness | 6mm |
+| Plate travel gap (retracted position) | 3mm |
+| Insertion into fitting (to tube stop) | 15mm |
+| Safety margin | 2-3mm |
+| **Total** | **~29-30mm** |
 
-The natural pairing groups each pump's inlet and outlet in one column:
+---
+
+## 4. Tube Port Arrangement
+
+### 2x2 Grid at 15mm Center-to-Center
+
+The four fittings are arranged in a 2x2 grid with 15mm spacing. Each pump's inlet and outlet occupy one column:
 
 ```
     Pump 1 IN    Pump 2 IN
         O            O
-        ↕ 15mm
+       15mm
     Pump 1 OUT   Pump 2 OUT
         O            O
-        ←── 15mm ──→
 ```
 
-### Release Plate Mechanics (Unchanged from Prior Research)
+This arrangement was chosen over linear alternatives for three reasons:
 
-The release plate sits on the rear face between the cartridge body wall and the tube stub tips. It slides along 4 steel dowel pins (3mm diameter, press-fit into the cartridge body) and has 4 stepped bores matching the collet release tool geometry.
+1. **Smallest footprint**: The port zone occupies ~33.5 x 33.5mm, leaving maximum room on the mating face for the lever, electrical contacts, and alignment features.
 
-**Insertion (lever closed on front face, plate retracted):**
+2. **Best tilt resistance**: The maximum moment arm from plate center to any bore is 10.6mm (diagonal). For a horizontal 4-in-line arrangement, this doubles to 22.5mm. Smaller moment arms mean the plate guide pins have an easier job preventing the tilt failure mode.
 
-The plate sits flush against the cartridge body wall. Tube stubs protrude ~24mm past the wall — enough for 15mm fitting insertion + 6mm plate thickness + 3mm travel gap.
+3. **Symmetric cam loading**: The cam pushes the plate center. All four bores are equidistant from the center, so the force distributes evenly to all four collets.
 
-**Removal (lever opened on front face, plate extends toward dock):**
+**Fitting clearance at 15mm**: The fitting body OD is ~12.7mm. At 15mm center-to-center, adjacent fitting bodies have 2.3mm clearance. This is tight but physically workable for round fittings without hex flats. This must be verified with the specific fittings in hand -- if too tight, increasing to 18mm C-C gives 5.3mm clearance while growing the port zone to only 36.5mm square.
 
-Opening the front-face lever drives the push rod, which pushes the plate forward along the tube stubs. The stepped bores engage the collet rings on the dock fittings, releasing all 4 tubes simultaneously. The cartridge slides out freely.
+### Fitting Mounting in the Dock
 
-For full details on the release plate's stepped bore geometry (8.0/10.5/12.5mm concentric diameters), compliance strategy (overtravel), and guide features, see release-plate.md.
+Bulkhead/panel-mount John Guest fittings are preferred. The fitting body passes through a hole in the dock back wall, and a locknut on the inside clamps it securely. The collet face sits flush with the wall surface facing the incoming cartridge.
 
-### Tapered Pin Sockets
-
-Two or four tapered pin sockets on the cartridge rear face receive the dock's fixed alignment pins. Placed symmetrically about the tube port pattern, outside the release plate envelope, and as far apart as practical to maximize angular correction.
-
-- **Pin base diameter:** 8-10mm with 15-20 degree per-side taper
-- **Socket placement:** corners of a ~55-60mm square (10mm outside the plate on each side)
-- **Correction authority:** a 10mm base pin corrects ~4mm of misalignment over the last 15mm of insertion — more than sufficient for the ~0.5mm residual error after rail guidance
-
-### Mating Face Dimensions
-
-| Feature | Width | Height |
-|---|---|---|
-| Tube port zone (2x2 at 15mm) | 33.5mm | 33.5mm |
-| Release plate + guide pins | 39.5mm | 39.5mm |
-| Taper pin sockets (outside plate) | +20mm | +20mm |
-| Margin/walls | +6mm | +6mm |
-| **Total rear face working area** | **~66mm** | **~66mm** |
-
-This fits comfortably within the 140mm x 90mm cartridge cross-section, leaving ample room for the cartridge shell walls, rail features, and internal structure.
+The dock wall must be 5-6mm thick (PETG) to provide adequate locknut engagement and structural rigidity.
 
 ---
 
-## 4. Front Face (User Face) — Lever as Handle
+## 5. Lever Placement: Front Face of the Cartridge
 
 ### Design Principle
 
-The lever on the front face serves two purposes: cam-driven release mechanism AND extraction handle. When the user wants to remove the cartridge, they do one thing from one place: flip the lever, grip it, pull.
+The lever is on the cartridge's front face -- the face visible when the cartridge is fully inserted in the enclosure's front-loading slot. When the cartridge is docked, the lever folds flat within the slot opening. The lever swings 180 degrees to unlock, then serves as the extraction handle.
 
-This follows the blade server ejector pattern (Southco inject/eject mechanisms) where the lever on the front panel of each blade both seats/unseats the blade and provides a grip surface.
+This follows universal prior art: blade server ejector handles are on the blade's front panel. Power tool battery release buttons are on the battery. Bicycle QR levers are on the wheel. The user operates the mechanism and removes the part from the same location, with one hand.
 
-### Lever Orientation: Horizontal Swing
+### How the Lever Drives the Plate
 
-For a front-loading cartridge in a vertical enclosure slot, the lever swings horizontally in the plane of the front face:
-
-```
-    LOCKED (lever folded flat, cartridge docked):
-
-    ┌──────────────────────────────────────┐
-    │                                      │
-    │      (cartridge front face)          │
-    │      (flush with enclosure)          │
-    │                                      │
-    │  ═══════════════════╗ ← lever        │   90mm
-    │                     ●  folded flat   │
-    │                                      │
-    └──────────────────────────────────────┘
-                   140mm
-
-    UNLOCKED (lever swung 180°, ready to pull):
-
-    ┌──────────────────────────────────────┐
-    │                                      │
-    │                                      │
-    │                                      │
-    ╔═════════════════════●                │
-    ║  lever extends      pivot            │
-    ║  ~80mm to the left                   │
-    ║                                      │
-    └──────────────────────────────────────┘
-```
-
-When locked, the lever lies flat against the bottom portion of the cartridge front face, within the slot opening. The lever surface is flush with the cartridge face (recessed ~1mm). When unlocked, the lever swings out to the left (or right), protruding from the slot. The user grips the protruding lever and pulls the entire cartridge out.
-
-### Cam-to-Plate Force Transmission
-
-The cam pivot is at the front face. The release plate is ~100mm away at the rear face. A rigid push rod connects them through the cartridge body.
+The lever pivots on the cartridge's front face. An eccentric cam at the pivot (1.5mm eccentricity, providing 3mm displacement) drives a push rod that runs from the front face through the cartridge interior to the release plate on the rear face. The push rod transmits force to the plate's center, minimizing tilt.
 
 ```
-    Side cross-section (lever closed / locked):
+    Side cross-section (cartridge, lever on left/front):
 
-    FRONT FACE              INTERIOR                    REAR FACE
-
-    ┌──────┐                                           ┌────────┐
-    │      │                                           │  plate │
-    │  ●   │── push rod (rigid, ~100mm) ──────────────│──┤    │
-    │ cam  │     runs alongside pumps                  │  plate │
-    │(flat)│                                           │        │
-    └──────┘                                           └────────┘
-
-    Side cross-section (lever open / unlocked):
-
-    ┌──────┐                                           ┌────────┐
-    │      │                                           │ plate  │
-    │  ●   │── push rod extended 3mm ─────────────────├──┤    │→→
-    │ cam  │     cam rotated, pushes rod forward       │ plate  │→→
-    │(open)│                                           │ pushed │
-    └──────┘                                           └────────┘
+    FRONT FACE                              REAR FACE (mating)
+    ┌─────────────────────────────────────────────────┐
+    │ ●cam ──push rod──────────────► [release plate]  │
+    │ lever                          O  O  tube stubs │
+    │ pivot                          O  O             │
+    └─────────────────────────────────────────────────┘
+          ← user side                    dock side →
 ```
 
-**Push rod design:**
-- Length: ~95-100mm (cartridge depth minus wall thicknesses)
-- Cross-section: 4mm diameter PETG rod or 3mm x 15mm flat yoke
-- Deflection under 20N: negligible (0.003mm for a 4mm round rod, even less for a flat yoke)
-- The rod runs through the cartridge interior alongside the pumps, in a printed channel or clip
+The lever handle extends 50-80mm from the pivot, providing comfortable grip and ample force multiplication. With 1.5mm eccentricity and 12-20N total plate force, the required input force at a 75mm lever handle is approximately 1.3N (0.3 lbf) -- the lever's primary purpose is tactile feedback and over-center locking, not force multiplication.
 
-**Force at the lever handle:**
+### Over-Center Locking
 
-```
-    Input force = (actuation force x cam radius) / lever length
-                = (20N x 5mm) / 80mm
-                = 1.25N (~0.3 lbf)
-```
+The eccentric cam goes slightly past dead center when the lever is closed, creating a self-locking position (identical to a bicycle quick-release). The lever cannot vibrate open. Opening requires deliberate force past the over-center point, providing a clear "break" feel that confirms the transition from locked to released.
 
-This is extremely light. The lever's primary purpose is tactile feedback and over-center locking, not force multiplication. The over-center cam position locks the lever flat, preventing accidental release.
-
-### Lever Detailing for Flush Appearance
-
-When locked, the lever must not protrude from the cartridge front face:
-
-- **Lever thickness:** 4-5mm, recessed into a shallow pocket in the cartridge front face
-- **Lever surface:** Flat, color-matched to the cartridge face (dark navy)
-- **Lever edge detail:** A thin reveal line (~0.5mm gap) around the lever indicates its presence without disrupting the flush surface
-- **Finger pull:** A small recess or chamfer at the lever's free end lets the user get a fingertip underneath to start the swing
-
-When the cartridge is docked and locked, the front face reads as a nearly solid panel with a subtle lever outline — similar to a laptop's flush-fit port cover or a car's concealed door handle.
+The lever also needs a detent or stop at the fully open position so it stays open during cartridge withdrawal. If the lever swings closed during withdrawal, the collets re-grip the tubes and the cartridge gets stuck.
 
 ---
 
-## 5. Electrical Contact Placement
+## 6. Electrical Contact Placement: Top Face
 
-### The Front-Loading Constraint
-
-In the original design, electrical pads were on the cartridge's top face and pogo pins were on the dock ceiling. This worked well for a top-accessible lever with a clear top face. With the lever now on the front face, the top face is free for electrical contacts — but the geometry of a front-loading slot inside an enclosure changes the picture.
-
-The dock bay inside the enclosure has a ceiling, floor, two side walls, and a back wall (with fittings). All are potential pogo pin locations.
-
-### Option 1: Top Face of Cartridge (Recommended)
-
-Pogo pins in the dock ceiling, contact pads on the cartridge top face. This remains the strongest option, and the move of the lever to the front face actually makes it better — the top face is now entirely free.
+Electrical contacts are on the cartridge's **top face**, contacted by pogo pins mounted in the dock ceiling. Three pads (GND, Motor A+, Motor B+) are arranged in a line along the insertion axis, spaced 10mm center-to-center.
 
 ```
-    Cross-section looking from the front (cartridge in dock):
+    Cartridge top face (looking down):
 
-    ┌─────────────────────────────────────────────────────┐
-    │                DOCK CEILING                          │
-    │         ↓ pogo  ↓ pogo  ↓ pogo                      │
-    │      ┌──────────────────────────────────┐           │
-    │      │  [=]     [=]     [=]  ← pads    │           │
-    │      │         cartridge top face       │           │
-    │      │                                  │           │
-    │      │       (interior: pumps)          │           │
-    │      │                                  │           │
-    │      └──────────────────────────────────┘           │
-    │                DOCK FLOOR                            │
-    └─────────────────────────────────────────────────────┘
+    ┌──────────────────────────────────────────┐
+    │                                          │
+    │      [GND]    [A+]    [B+]               │
+    │       ← insertion direction →            │
+    └──────────────────────────────────────────┘
 ```
 
-3 flat brass or nickel-plated pads on the cartridge top face, elongated in the insertion direction (10mm x 5mm) to provide wipe action during slide-in.
+Each pad is 10mm long x 5mm wide (elongated in the insertion direction). The pogo pin tip drags across the pad during the final millimeters of insertion, providing self-cleaning wipe action that scrapes away oxide films and dust.
 
-**Advantages:**
-- Complete physical separation from water fittings (different face entirely)
-- Water drips down, away from contacts above
-- The dock ceiling is dry — no fittings, no O-rings, no potential leaks
-- Top face is now fully available (lever moved to front face)
-- Pogo pin alignment tolerance is generous (8mm pad for 2mm pin tolerates 2-3mm misalignment)
+### Why Top Face, Not Front Face
 
-**Pogo pin orientation:** With the cartridge sliding in horizontally, the pogo pins press downward from the dock ceiling onto the cartridge top face. The spring force presses the pads against the cartridge, and the cartridge's own weight plus the fitting retention help maintain contact pressure.
+Placing electrical contacts on a different face from the fluid connections eliminates the moisture failure domain. Water from fitting connections can weep during insertion/removal. A raised dam or splash guard on a shared face is a mitigation, not a solution. Complete physical separation (water on the rear face, electrical on the top face) means there is no geometry in which a drip from a fitting reaches an electrical contact.
 
-### Option 2: Rear Mating Face, Above Tube Stubs
+### Wire Routing Inside the Cartridge
 
-Place electrical pads on the rear face above the tube port zone, with pogo pins on the dock back wall above the fittings. A raised dam separates electrical and fluid zones.
-
-**Advantages:**
-- All connections on one face — single dock wall handles everything
-- Simpler dock structure (no ceiling-mounted pins)
-
-**Disadvantages:**
-- Moisture risk from fitting connections (splash, condensation, drip during insertion/removal)
-- The dam adds height to an already dense zone
-- If a fitting leaks, electrical contacts are directly above
-
-### Recommendation
-
-**Option 1 (top face) is strongly preferred.** The complete physical separation eliminates an entire failure domain. The guide rails position the cartridge vertically within 0.5mm — well within the pogo pin's 2-3mm tolerance window.
+Motor wires route from the rear of each pump through a channel in the cartridge wall to a small PCB on the top face that carries the three pogo target pads. Solder joints on the PCB are potted with hot glue or silicone for strain relief and moisture protection.
 
 ---
 
-## 6. Guide Feature Integration
+## 7. Guide and Alignment Features
 
 ### Two-Stage Alignment
 
-Following the universal prior art pattern (server blades, battery packs, printer cartridges), the cartridge uses two-stage alignment:
+This follows the universal pattern from server blades, printer cartridges, and power tool batteries: coarse guidance gets the module roughly in place, then fine alignment features pull it into exact position.
 
-1. **Coarse guidance (rails):** Guide rails on the cartridge sides engage channels in the dock side walls, constraining the cartridge to slide along a single axis. Clearance: 0.3-0.5mm per side.
+**Stage 1 -- Guide rails (coarse, full travel):**
 
-2. **Fine alignment (tapered pins):** Two or four tapered pins on the dock back wall enter conical sockets on the cartridge rear face during the last 15-20mm of insertion. Pins correct ~4mm of residual misalignment down to <0.5mm.
+Rails on the cartridge's outer sides engage channels in the dock's side walls. The rails run the full insertion depth (~100mm), constraining the cartridge to a single axis of motion. FDM clearance: 0.3-0.5mm per side for smooth sliding in PETG.
 
-```
-    Cross-section looking from the front (cartridge in dock):
+The cartridge slot entrance has a 5mm chamfer on all four edges, acting as a funnel that captures the cartridge from a sloppy initial aim. The user does not need to see the rail alignment; the chamfer guides the cartridge in.
 
-    DOCK SIDE WALL     CARTRIDGE              DOCK SIDE WALL
-    ┌─────┐    ┌──────────────────────┐    ┌─────┐
-    │     │    │                      │    │     │
-    │  ┌──┤    ├──┐              ┌──┤    ├──┐  │
-    │  │  │    │  │   (interior) │  │    │  │  │
-    │  │  │    │  │              │  │    │  │  │
-    │  └──┤    ├──┘              └──┤    ├──┘  │
-    │     │    │                      │    │     │
-    └─────┘    └──────────────────────┘    └─────┘
-          rail channels          rail features on cartridge
-```
+**Stage 2 -- Tapered pins (fine, last ~15mm):**
 
-### Rail Design for Front-Loading
+Two to four tapered pins on the dock back wall (15-20 degree per-side taper, 8-10mm base diameter) enter matching conical sockets on the cartridge's rear face. Over the last 15mm of insertion travel, the pins correct residual lateral error to <0.5mm.
 
-The rails run the full ~100mm depth of the cartridge (the insertion travel). For a front-loading cartridge in an enclosure, the dock guide channels are printed as part of the enclosure's internal structure — integral ribs on the dock bay's side walls.
-
-**Rail profile:** Rectangular or dovetail cross-section. A dovetail provides anti-lift constraint (preventing the cartridge from lifting out of the dock bay) in addition to lateral guidance. For FDM printing, a 55-degree dovetail with 0.3-0.5mm per-side clearance provides smooth sliding with anti-lift.
-
-**Funnel entrance:** The dock bay opening (the enclosure's front face slot) has a 5mm chamfer on all four edges. This creates a ~10mm capture zone that funnels the cartridge from a sloppy initial aim into the guide rails. The chamfer also serves as a visual frame for the cartridge slot (see front-face-interaction-design.md).
+The pins are placed symmetrically about the tube port pattern, outside the release plate envelope. At the corners of a ~55-60mm square, they provide good angular correction authority. A 10mm base pin with 15-degree taper corrects ~4mm of misalignment -- ample for the ~0.5mm residual error after rail guidance.
 
 ### Poka-Yoke (Mistake-Proofing)
 
-The cartridge should only fit one way. An asymmetric rail profile or a keying tab on one side prevents upside-down or left-right reversed insertion. With the lever on the front face at a specific location (e.g., bottom-right), the asymmetry is naturally established — the lever won't clear the slot if the cartridge is rotated.
+The cartridge can only be inserted in one orientation. Asymmetric rail profiles or a keying tab on one side prevent upside-down or reversed insertion. If it fits, it is right.
 
 ---
 
-## 7. Dock-Side Design — Passive Simplicity
+## 8. Overall Mating Face Dimensions
 
-### The Dock Back Wall
+### Cartridge Rear Face (Dock-Facing)
 
-With the release plate, cam, lever, and push rod all on the cartridge, the dock wall is a flat panel with only fixed components:
+The rear face accommodates the tube stubs, release plate, plate guide pins, and taper pin sockets:
 
 ```
-    Dock back wall (rear of dock bay, looking from inside):
+    Cartridge rear face (facing dock):
 
     ┌──────────────────────────────────────────────────────┐
-    │                                                      │
-    │  ▲ taper pin                        taper pin ▲      │
-    │                                                      │
-    │            ● fitting    ● fitting                     │
-    │                                                      │
-    │            ● fitting    ● fitting                     │
-    │                                                      │
-    │  ▲ taper pin                        taper pin ▲      │
-    │                                                      │
+    │                                                       │
+    │  ◇ taper socket                    taper socket ◇     │
+    │                                                       │
+    │    ○ pin    O (P1-IN)     O (P2-IN)    pin ○         │
+    │                                                       │
+    │    ○ pin    O (P1-OUT)    O (P2-OUT)   pin ○         │
+    │                                                       │
+    │  ◇ taper socket                    taper socket ◇     │
+    │                                                       │
     └──────────────────────────────────────────────────────┘
 
-    ▲ = tapered alignment pin (fixed, dock side)
-    ● = John Guest fitting (bulkhead mount, dock side)
+    O  = tube stub through release plate stepped bore
+    ○  = release plate guide pin (3mm steel dowel, fixed in cartridge body)
+    ◇  = tapered pin socket (receives dock's alignment pin)
 ```
 
-### Dock Components (Complete List)
-
-| Component | Location | Function |
+| Feature Zone | Width | Height |
 |---|---|---|
-| 4x John Guest fittings | Back wall (2x2 grid, 15mm C-C) | Fluid connection + passive tube retention |
-| 2-4x tapered alignment pins | Back wall, outside fitting pattern | Fine alignment at end of insertion travel |
-| 3x pogo pins | Ceiling of dock bay | Electrical contact to cartridge top pads |
-| Guide rail channels | Side walls (full ~100mm depth) | Coarse guidance during insertion |
-| Chamfered entrance | Front opening of dock bay | Captures cartridge from sloppy aim |
-| Back wall/stop | Rear of dock bay | Limits insertion depth |
+| Tube port zone (2x2 at 15mm) | 33.5mm | 33.5mm |
+| Release plate + guide pins | ~39.5mm | ~39.5mm |
+| Taper pin sockets (outside plate) | +20mm | +20mm |
+| Margin/walls | +6mm | +6mm |
+| **Total rear face feature zone** | **~66mm** | **~66mm** |
 
-### What the Dock Does NOT Have
+This fits well within the 140 x 90mm cartridge cross-section, leaving ~37mm on each side for the cartridge shell walls and rail features.
 
-- No release plate
-- No cam mechanism
-- No lever
-- No moving parts of any kind (except pogo pin springs)
+### Cartridge Front Face (User-Facing)
 
-The dock is entirely passive. All wear items (release plate, cam, guide pin sockets) are on the replaceable cartridge. The only components that contact the cartridge are spring-loaded pogo pins (100,000+ cycle life), static tapered pins, static rail channels, and John Guest fittings (designed for repeated use).
-
-### Fitting Mounting in the Dock Wall
-
-**Bulkhead/panel-mount fittings (preferred):** Male-threaded body passes through a panel hole, locknut on back. Thread size for 1/4" tube: 1/4" NPTF or 3/8" UNF. Provides rigid, repeatable positioning.
-
-**Fitting spacing in the dock wall (2x2 at 15mm C-C):**
+The front face accommodates the lever mechanism:
 
 ```
-    ●────15mm────●
-    │            │
-   15mm         15mm
-    │            │
-    ●────15mm────●
+    Cartridge front face (visible from enclosure front):
 
-    Fitting body OD: 12.7mm
-    Gap between bodies: 15.0 - 12.7 = 2.3mm
-    Status: verified workable with parts in hand
+    ┌──────────────────────────────────────┐
+    │                                      │
+    │    ┌────────────────────┐            │  90mm
+    │    │   Cartridge Body   │            │
+    │    │                    │            │
+    │    └────────────────────┘            │
+    │                                      │
+    │  ═══════════════╗  ← lever           │
+    │                 ║    (swings left     │
+    │                 ║     to unlock)      │
+    └──────────────────────────────────────┘
+                  140mm
 ```
 
-**Dock wall thickness:** 5-6mm for PETG with bulkhead fittings. The locknut engages threads on the back side, clamping the fitting against the wall face.
+When locked, the lever folds flat against the cartridge face within the enclosure's slot opening. When unlocked, it swings ~180 degrees, protruding 50-80mm. The user grips the extended lever and slides the cartridge out.
 
-### Dock Integration with Enclosure
+### Cartridge Top Face
 
-The dock back wall is either:
-1. A separate printed panel bolted inside the enclosure, or
-2. An integral wall of the enclosure's internal structure
-
-Option 1 is preferred for prototyping — the dock wall can be iterated independently of the enclosure shell. The fittings mount through the panel, with tubes routing out the back to the solenoid valves and bags below.
-
-The dock bay's side walls, ceiling, and floor are structural ribs of the enclosure. The ceiling carries the pogo pins. The side walls carry the guide rail channels. The floor supports the cartridge's weight (~940g).
+Three pogo target pads in a line, approximately centered on the top surface.
 
 ---
 
-## 8. Complete Cartridge Cross-Section
+## 9. Dock-Side Simplicity
 
-### Side View (Cartridge Sliding In)
+With everything mechanical on the cartridge, the dock is remarkably simple:
 
 ```
-    ← FRONT (user)                                    REAR (dock wall) →
+    Side view (cartridge sliding in from left):
 
-    ┌─ front face ─┐                            ┌── rear face ──┐
-    │              │                            │              │
-    │  ●cam       │    push rod (~95mm)        │  release     │
-    │  lever      │── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ──│  plate       │
-    │  (flush)    │                            │              │
-    │              │    PUMP 1     PUMP 2       │  ════════► tube stubs
-    │              │    ┌─────┐   ┌─────┐      │  ════════► (into fittings)
-    │              │    │motor│   │motor│      │  ════════►
-    │              │    └─────┘   └─────┘      │  ════════►
-    │              │                            │              │
-    │   (pads on  │    wiring, tubing          │  ◇ taper     │
-    │    top face)│                            │    sockets   │
-    └──────────────┘                            └──────────────┘
-
-    ├── ~5mm ──┤  ├── ~90mm interior ──────────┤  ├── ~5mm ──┤
-                               ~100mm total depth
+                     pogo pins (ceiling)
+                     ↓   ↓   ↓
+    ┌─────────────────────────────────────────────────┐
+    │                dock ceiling                      │
+    │                                                  │
+    │  chamfer   rail channel        fittings   wall  │
+    │  ╱                             ●●          │    │
+    │ ╱    ═══════════════════════   ●●          │    │
+    │ ╲    ═══════════════════════                │    │
+    │  ╲                             taper pins  │    │
+    │                                ▲  ▲         │    │
+    │                dock floor                        │
+    └─────────────────────────────────────────────────┘
 ```
 
-### Tube Stub Length
+**The dock has no moving parts.** It is entirely passive:
+- John Guest fittings grip tubes by spring-loaded collets (passive)
+- Tapered pins are fixed cones (passive)
+- Pogo pins are spring-loaded contacts (passive, 100K+ cycle life)
+- Rail channels are static grooves (passive)
 
-The tube stubs must span from inside the cartridge body through the rear wall, through the release plate, across the travel gap, and into the fittings:
-
-| Segment | Length |
-|---|---|
-| Cartridge body wall | ~3mm |
-| Plate thickness (when retracted, plate flush with wall) | 6mm |
-| Plate travel gap | 3mm |
-| Fitting insertion depth | 15mm |
-| Safety margin | 2-3mm |
-| **Total stub length from inside wall** | **~29-30mm** |
-
-When the plate is retracted, stubs protrude ~24mm past the cartridge body wall. When the plate extends 3mm forward, stubs still protrude ~21mm past the plate face — fully seated in the fittings.
+All wear surfaces -- release plate lip edges, cam bearing surfaces, guide pin sockets, lever pivot -- are on the cartridge. The replaceable part wears; the permanent part does not.
 
 ---
 
-## 9. Cartridge Front Face in the Enclosure
+## 10. Interface with the Enclosure
 
-### Flush Integration
+### Cartridge Slot on the Enclosure Front Face
 
-When the cartridge is fully inserted and locked, the front face fills the cartridge slot opening. The enclosure's front panel has a ~146 x 96mm slot (cartridge + rail clearance) with a 5mm chamfer. The cartridge front face sits within this opening, recessed by ~1mm from the enclosure surface.
+The dock is permanently mounted inside the enclosure. The front face of the enclosure has a rectangular slot opening (~146 x 96mm plus chamfer) through which the cartridge slides. The slot is framed with a 5mm chamfered entrance and optionally a recessed border for visual finish.
 
-```
-    Enclosure front face detail (cartridge docked):
+The cartridge's front face sits flush with the enclosure's front panel when fully inserted. The lever is accessible within the slot opening.
 
-    ┌──────────────────────────────────────────────┐
-    │                                              │
-    │        ○ RP2040 display                      │
-    │                                              │
-    │        ○ S3 display                          │
-    │                                              │
-    │  ┌──╱──────────────────────────────╲──┐      │
-    │  │ ╱   5mm chamfer                  ╲ │      │
-    │  │┌────────────────────────────────┐ │      │
-    │  ││                                │ │      │
-    │  ││    CARTRIDGE FRONT FACE        │ │      │  90mm
-    │  ││    (dark navy, flush)          │ │      │
-    │  ││                                │ │      │
-    │  ││  ═══════════════╗  lever       │ │      │
-    │  ││                 ●  (recessed)  │ │      │
-    │  │└────────────────────────────────┘ │      │
-    │  │ ╲                                ╱ │      │
-    │  └──╲──────────────────────────────╱──┘      │
-    │                                              │
-    │        [STATUS LED]                          │
-    │                                              │
-    └──────────────────────────────────────────────┘
-```
+### Routing from Dock to Internal Plumbing
 
-### Aesthetic Details
+Behind the dock wall, four tubes route from the dock's John Guest fittings to the enclosure's internal plumbing:
 
-- **Color:** Dark navy (#1a1a2e) matching the enclosure, S3 display theme, and iOS app
-- **Surface finish:** Smooth printed surface, sanded or spray-painted for consistency
-- **Chamfer accent:** The 5mm chamfer around the slot could be a contrasting matte silver, or a thin bright accent line (matching the app's accent color)
-- **Lever reveal:** A 0.5mm gap around the lever edge indicates its presence. A small finger recess at the free end allows the user to start the swing
-- **Status LED:** Above the cartridge slot, indicating cartridge state (green = present and locked, amber = present but unlocked, off = absent)
+- Pump inlet fittings connect to tubing that runs to the flavor bags
+- Pump outlet fittings connect to tubing that runs to the dispensing solenoid valves
+
+The dock wall serves as the boundary between the replaceable fluid path (cartridge side) and the permanent fluid path (enclosure side). The John Guest fittings provide tool-free, push-to-connect interfaces on both sides of the wall.
+
+### Electrical Routing
+
+The three pogo pins in the dock ceiling connect via wire to the L298N motor drivers mounted elsewhere in the enclosure. The pogo pins are soldered to a small PCB or terminated with solder cups. Wiring runs along the dock ceiling and through the enclosure's internal cable management channels.
+
+### Physical Integration
+
+The dock mounts inside the enclosure with screws into heat-set inserts. It sits behind the front panel's cartridge slot, aligned so the chamfered slot entrance funnels into the dock's rail channels. The dock back wall is the structural plate that holds the John Guest fittings, tapered alignment pins, and serves as the mechanical stop for full cartridge insertion.
 
 ---
 
-## 10. Tube Routing Behind the Dock Wall
+## 11. Cartridge Change Workflow (Summary)
 
-With the dock wall inside the enclosure, the tubes emerging from the back of the John Guest fittings route to other components:
+The full workflow analysis lives in cartridge-change-workflow.md. Here is the mating-face-relevant summary:
 
-```
-    Side view inside enclosure (behind dock wall):
+| Step | Action | Time | Mating Face Involvement |
+|---|---|---|---|
+| 1 | Open cabinet, locate cartridge slot | 5-10s | Cartridge front face visible in enclosure slot |
+| 2 | Swing lever to release position | 2s | Cam drives plate forward, collets release |
+| 3 | Pull cartridge out by lever | 2-3s | Tube stubs exit fittings, pogo pins disconnect, rails guide withdrawal |
+| 4 | Set old cartridge aside (have towel ready -- stubs drip) | 5s | Open tube stubs drip residual liquid |
+| 5 | Slide new cartridge in until tubes seat | 3s | Rails guide insertion, taper pins align, stubs enter fittings, pogo pins contact |
+| 6 | Swing lever to locked position | 2s | Over-center cam locks; clear "click" confirms docked state |
+| **Total** | | **~19-25s** | |
 
-    DOCK WALL                      ENCLOSURE INTERIOR
-    (fittings)
-
-    ● P1-IN ──── silicone tube ──── solenoid valve 1 ──── bag 1 outlet
-    ● P1-OUT ─── silicone tube ──── tee/solenoid ──── to dispensing line
-    ● P2-IN ──── silicone tube ──── solenoid valve 2 ──── bag 2 outlet
-    ● P2-OUT ─── silicone tube ──── tee/solenoid ──── to dispensing line
-```
-
-The tubes route vertically downward from the dock wall to the solenoid valves in the electronics/valves zone below, and vertically upward to the bag outlets in the bag zone above. All internal tubing can be silicone except at the push-connect fitting interfaces, which require hard 1/4" OD tubing stubs.
-
-The dock wall is a vertical partition inside the enclosure. Its back side faces downward (toward the lower electronics zone) and upward (toward the bag zone), making gravity-assisted tube routing natural.
+The entire operation is one-handed, from the front, in one location. The user never reaches behind the enclosure, never disconnects individual fittings, and never uses tools.
 
 ---
 
-## 11. Interdependencies Summary
+## 12. Interdependencies
 
-| Dependency | Relationship |
-|---|---|
-| Release plate bore pattern ↔ dock fitting positions ↔ tube stub positions | All locked to 15mm C-C, 2x2 grid |
-| Front-face cam ↔ rear-face release plate | Connected by ~100mm push rod through cartridge body |
-| Electrical pads (cartridge top) ↔ pogo pins (dock ceiling) | Dock ceiling height = cartridge height + pogo pin compression (~1-2mm) |
-| Guide rails (cartridge sides) ↔ dock channels | 0.3-0.5mm per side clearance, full 100mm depth |
-| Tapered pins (dock wall) ↔ tapered sockets (cartridge rear) | Pins outside release plate envelope, ~55-60mm square spacing |
-| Cartridge front face ↔ enclosure slot opening | 146 x 96mm slot, 5mm chamfer, flush fit |
-| Lever swing ↔ enclosure slot width | Lever folds flat within the 140mm cartridge width |
-| Push rod channel ↔ pump placement | Rod routes alongside or between the two pumps |
+### Release Plate <-> Fitting Pattern <-> Dock Wall
 
----
+The release plate bore pattern, the fitting positions in the dock wall, and the tube stub positions on the cartridge body are all locked to the same center-to-center spacing. Changing the spacing in one place changes it everywhere. The 15mm (or 18mm fallback) grid pitch is the single most constrained dimension in the entire system.
 
-## 12. Recommendation Summary
+### Cam/Lever <-> Release Plate
 
-### Rear Face (Mating Face)
+The cam provides 3mm of stroke. With the lever on the front face and the plate on the rear face, the push rod spans the full cartridge depth (~100mm). A 4mm diameter PETG push rod under 20N axial load compresses approximately 0.003mm over 100mm -- negligible.
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Tube arrangement | 2x2 grid, 15mm C-C | Verified fit with parts. Most compact, best tilt resistance, symmetric cam loading. |
-| Release plate | On cartridge, 4 stepped bores, 6mm thick | Follows all prior art. One-handed operation. Wear parts on replaceable cartridge. |
-| Guide pins for plate | 4x 3mm steel dowels in cartridge body | Constrains plate to pure axial travel. |
-| Tapered sockets | 4 conical sockets at ~55-60mm square | Receives dock alignment pins for <0.5mm final positioning. |
-| Fitting mounting (dock) | Bulkhead panel-mount, 15mm C-C | Rigid, repeatable. Locknut on back of dock wall. |
+### Pogo Pins <-> Dock Ceiling <-> Cartridge Height
 
-### Front Face (User Face)
+The dock ceiling must have a surface with precisely positioned pogo pins. The cartridge top-to-ceiling gap when docked equals the pogo pin compression distance (~1-2mm). The rail channels must position the cartridge vertically within the pogo pin tolerance.
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Lever placement | Front face, horizontal swing | Doubles as extraction handle. One location, one action. Blade server pattern. |
-| Lever style | Eccentric cam, 1.5mm eccentricity, ~80mm handle | Over-center locking. ~0.3 lbf input force. Folds flat when locked. |
-| Force transmission | Rigid push rod, ~100mm | Connects front cam to rear release plate. Negligible deflection. |
-| Flush appearance | Recessed lever, 0.5mm reveal, color-matched | Cartridge face becomes part of enclosure aesthetic. |
+### Rails <-> Taper Pins
 
-### Electrical Contacts
+The rails provide ~0.5mm lateral positioning. The taper pins correct residual error. The pin entrance cone must capture the worst-case rail positioning error. A 10mm base pin with 15-degree taper captures a 4mm misalignment window -- more than sufficient.
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Pad location | Cartridge top face | Complete moisture separation from water fittings. |
-| Pin location | Dock ceiling | Presses downward, gravity-aided contact maintenance. |
-| Pad size | 8mm x 5mm, elongated in insertion direction | Provides wipe action. Tolerates 2-3mm misalignment. |
+### Tube Stubs <-> Pump Arrangement
 
-### Overall Dimensions
+The 2x2 grid on the rear face must connect internally to two pumps arranged side-by-side. Each pump's barbs exit from the top of the pump head. BPT tubing routes from the barbs (pointing up) through a 90-degree bend (15-20mm radius) and forward to the rear face. The routing bend requires ~20mm of clearance above the pump heads and ~20mm of depth between the pump heads and the rear face.
 
-| Measurement | Value |
-|---|---|
-| Cartridge cross-section | 140 x 90mm (W x H) |
-| Cartridge depth | ~100mm |
-| Rear mating face working area | ~66 x 66mm |
-| Enclosure slot opening | ~146 x 96mm (with rail clearance) |
-| Enclosure slot with chamfer | ~156 x 106mm (visual frame) |
+### Cartridge Envelope <-> Enclosure Slot
+
+The mating face features (66 x 66mm zone on the rear face) are smaller than the cartridge cross-section (140 x 90mm). The remaining perimeter is available for the shell walls, rail features, and the front-face lever mechanism. The enclosure slot opening (146 x 96mm with clearance) is determined by the cartridge cross-section plus rail clearance, not by the mating face features.
 
 ---
 
 ## 13. Open Questions
 
-1. **Push rod routing through cartridge interior:** The pumps occupy most of the ~140 x 90mm cross-section. The push rod needs a channel between or alongside the pumps. The side-by-side pump arrangement (Arrangement A from cartridge-envelope.md) leaves a gap between the two pump bodies — the push rod should route through this gap. Verify clearance with pump dimensions in hand.
+1. **Fitting body clearance at 15mm C-C**: Do the specific John Guest fittings have hex flats, molding flash, or protrusions that prevent 2.3mm gap mounting? Measure with calipers. If too tight, the fallback is 18mm C-C.
 
-2. **Lever pivot hardware:** A 3mm steel pin through the cartridge body wall serves as the cam pivot. The lever and cam are one piece (or two pieces pinned together). For 3D printing, a separate printed lever with a press-fit steel pivot pin is most robust. The cam face should be smooth (sanded or printed on a flat surface) for consistent over-center feel.
+2. **Bulkhead fitting availability**: Are John Guest bulkhead/panel-mount fittings available for 1/4" OD tube? Check McMaster, Amazon, or John Guest direct. If not, inline fittings press-fit into printed pockets with adhesive are the fallback.
 
-3. **Push rod-to-plate interface:** The rod pushes on the release plate center. A flat-on-flat contact is simplest. A small printed socket on the plate and a matching nub on the rod end prevents lateral slipping. Alternatively, the rod terminates in a wide foot (15mm disc) that distributes force across the plate center.
+3. **Push rod routing**: The push rod runs from the front-face cam through the cartridge interior (between or beside the two pumps) to the rear-face plate center. Verify that the pump arrangement leaves a clear path for a rigid rod along the cartridge's centerline.
 
-4. **Cartridge front face construction:** The front face must be smooth and color-matched. For FDM printing, the front face should be the build surface (printed face-down on the bed) for the smoothest finish. Alternatively, sand and spray-paint. The lever pocket must be printed accurately for flush fit.
+4. **Lever swing clearance**: The lever swings 180 degrees on the cartridge front face, protruding 50-80mm when open. This must clear the enclosure slot edges and any adjacent front-face elements (displays, hopper door). The enclosure front-face layout must reserve clearance for the lever sweep.
 
-5. **Dock ceiling pogo pin mounting:** The 3 pogo pins must be positioned precisely in the dock ceiling. A small PCB (or 3D printed pocket) holds the pins. The PCB approach is cleaner: a simple board with 3 through-hole pogo pins, mounted to the dock ceiling with standoffs. Wiring runs from the PCB to the enclosure electronics zone above.
+5. **Plate return force**: The collet springs push the plate back when the lever is closed (cam retracts). When undocked, the collet springs are not engaged, but the plate position does not matter when undocked. The cam profile naturally retracts the plate during the closing motion.
 
 ---
 
 ## Sources
 
-- collet-release.md (this project) — bore dimensions, forces, failure modes
-- release-plate.md (this project) — stepped bore geometry, spacing, guide features, compliance
-- cam-lever.md (this project) — eccentric cam mechanics, over-center behavior, prior art
-- electrical-mating.md (this project) — pogo pin recommendations, moisture separation
-- guide-alignment.md (this project) — rail clearances, tapered pin geometry, FDM tolerances
-- cartridge-envelope.md (this project) — pump dimensions, arrangements, bounding volumes
-- pump-mounting.md (this project) — mounting features, tube exit points, wire routing
-- under-cabinet-ergonomics.md (this project) — reach distances, cabinet anatomy
-- release-mechanism-alternatives.md (this project) — full solution space exploration
-- dock-mounting-strategies.md (this project) — mounting location analysis
-- cartridge-change-workflow.md (this project) — end-to-end user experience
-- layout-spatial-planning.md (this project) — enclosure tower layout, component inventory
-- hopper-and-bag-management.md (this project) — bag dimensions, pump-assisted filling
-- front-face-interaction-design.md (this project) — display holders, cartridge slot aesthetics, lever on front face
-- back-panel-and-routing.md (this project) — external connections, internal routing
-- [Southco Inject/Eject Mechanisms](https://southco.com/en_us_int/fasteners/inject-eject-mechanisms) — blade server lever prior art
-- [Bicycle Quick-Release Mechanisms (Sheldon Brown)](https://sheldonbrown.com/skewers.html) — eccentric cam prior art
-- [John Guest OD Tube Fittings Technical Specifications](https://www.johnguest.com/sites/default/files/files/tech-spec-od-fittings-v2.pdf) — fitting dimensions
+- collet-release.md -- bore dimensions, collet mechanics, failure modes
+- release-plate.md -- stepped bore geometry, spacing, guide features, compliance
+- cam-lever.md -- eccentric cam mechanics, over-center behavior, prior art survey
+- electrical-mating.md -- pogo pin recommendations, moisture separation, contact specs
+- guide-alignment.md -- rail clearances, tapered pin geometry, FDM tolerances
+- pump-mounting.md -- mounting features, tube exit points, wire routing
+- cartridge-envelope.md -- pump dimensions, arrangements, bounding volumes
+- release-mechanism-alternatives.md -- full solution space (CPC couplings, hand disconnect, etc.)
+- under-cabinet-ergonomics.md -- reach depth, visibility, user posture constraints
+- dock-mounting-strategies.md -- mounting location analysis, water filter prior art
+- cartridge-change-workflow.md -- step-by-step UX analysis, drip management, timing
+- layout-spatial-planning.md -- enclosure dimensions, component inventory, tower layouts
+- hopper-and-bag-management.md -- pump-assisted filling, bag dimensions, FDC1004 sensing
+- front-face-interaction-design.md -- display holders, cartridge slot aesthetics, lever position
+- back-panel-and-routing.md -- bulkhead fittings, internal plumbing diagram, tube management
+- [Southco Inject/Eject Mechanisms](https://southco.com/en_us_int/fasteners/inject-eject-mechanisms) -- server blade ejector prior art
+- [Bicycle Quick-Release Mechanisms (Sheldon Brown)](https://sheldonbrown.com/skewers.html) -- over-center cam prior art
+- [John Guest OD Tube Fittings Technical Specifications](https://www.johnguest.com/sites/default/files/files/tech-spec-od-fittings-v2.pdf)
