@@ -12,3 +12,7 @@ src_display/fw_version.h
 **/build/
 *.xcodeproj/
 logs/*.log
+
+# CAD script output (generated STEP/STL files)
+hardware/cartridge/scripts/output/*.step
+hardware/cartridge/scripts/output/*.stl
