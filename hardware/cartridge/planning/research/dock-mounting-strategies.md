@@ -243,6 +243,8 @@ Each inlet line runs:
 
 Most of this tubing can be silicone. The only hard tubing transitions needed are at the John Guest fitting connections (push-connect requires hard 1/4" OD tubing) and at a few transition points near the valves.
 
+**FDC1004 sensor placement:** The inlet tube runs between the bag and the dock are the right location for capacitive liquid/air detection (FDC1004 confirmed working). A sensor breakout clips or zip-ties to the silicone tube in the dock zone, with the I2C lines running up to the ESP32 in Zone A. This detects empty bags and air ingestion before the pump runs dry.
+
 ### Outlet Routing (Dock to Carbonated Water Line)
 
 Two outlet lines carry flavored concentrate from the dock fittings to the carbonated water main line (which exits via the back panel):
@@ -568,7 +570,7 @@ Rubber feet with a wide stance (placed at the corners of the 250 x 200mm base) p
 
 3. **Shelf removability**: Should the dock shelf be removable for maintenance (accessing bags, replacing fittings)? If so, the electrical wiring and plumbing to the shelf need quick-disconnect points (JST connectors for wires, John Guest fittings for tubes).
 
-4. **Cartridge detection**: A microswitch or hall sensor on the fitting wall can detect whether a cartridge is fully docked. This allows the ESP32 to disable pump drive when no cartridge is present, preventing dry-running the L298N into open pogo pins.
+4. **Cartridge detection**: A microswitch or hall sensor on the fitting wall can detect whether a cartridge is fully docked. This allows the ESP32 to disable pump drive when no cartridge is present, preventing dry-running the L298N into open pogo pins. GPIO for this sensor (and any future lever-position sensor) can come from the MCP23017 I/O expander -- GPIO exhaustion on the ESP32 is a solved problem.
 
 ---
 
