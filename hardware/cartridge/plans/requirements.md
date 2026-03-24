@@ -2,16 +2,16 @@
 
 ## What the cartridge is
 
-A replaceable slide-in module containing 2 Kamoer peristaltic pumps (one per flavor line). The user slides it into a dock, it makes fluid and electrical connections automatically, and a lever locks it in place. To replace: flip the lever, slide it out, slide a new one in.
+A replaceable slide-in module containing 2 Kamoer peristaltic pumps (one per flavor line). The user slides it into a dock, it makes fluid and electrical connections automatically, and a lever gives it a solid docked feel. To replace: flip the lever, slide it out, slide a new one in.
 
 ## Functional Requirements
 
 These were agreed upon in conversation 1 (2026-03-23):
 
 1. The cartridge slides into the dock along rails, guided so that 4 tube stubs align with 4 John Guest 1/4" fittings within ~1mm tolerance.
-2. The final push of insertion seats the tubes into the fittings. The fittings latch automatically. No mechanism needed.
+2. The final push of insertion seats the tubes into the fittings. The fittings latch automatically and hold the cartridge in place — no mechanism needed for connection or retention.
 3. Three electrical contacts (ground, motor A 12V, motor B 12V) mate during the last portion of insertion via spring-loaded pins or similar. L298N motor drivers stay in the main body — only power crosses the interface.
-4. A lever or latch locks the cartridge in the fully seated position so it can't drift out.
+4. A lever locks the cartridge in the fully seated position, giving a clear "docked" feel. The fittings already provide retention — the lever adds rigidity and confidence.
 5. To remove: actuating that same lever pushes 4 collets inward ~2-3mm simultaneously, releasing the tube grip, and the user slides the cartridge out.
 6. The user should feel a clear "locked" and "released" state — no ambiguity about whether it's seated.
 7. One-handed operation is ideal given the under-sink context.
@@ -19,7 +19,7 @@ These were agreed upon in conversation 1 (2026-03-23):
 
 ## Key Insight: The Cam is a Release Mechanism
 
-The cam/lever does NOT make the fluid connections — John Guest push-to-connect fittings latch automatically when you push tubing in. The cam only actuates on removal, pressing the collets to release the tubes. When closed/locked, the cam just holds the cartridge seated and stays out of the way.
+The cam/lever does NOT make the fluid connections — John Guest push-to-connect fittings latch automatically when you push tubing in. The fittings also provide all the retention force needed to hold the cartridge in the dock. The cam only actuates on removal, pressing the collets to release the tubes. When closed, the cam adds rigidity and a tactile "locked" feel, but the cartridge is already held in place by the fittings alone.
 
 ## Three Sub-Problems
 
@@ -29,7 +29,7 @@ The cartridge mechanism is a sequence of three things that happen during inserti
 
 2. **Seat the fluid connections** — 4 tube stubs on the cartridge push into 4 John Guest fittings mounted on the back wall of the dock. Happens as part of the slide-in motion. Fittings latch automatically.
 
-3. **Lock and provide release** — The lever locks the cartridge seated. When actuated for removal, it pushes 4 collets inward ~2-3mm simultaneously via a release plate with precisely sized holes.
+3. **Secure feel and release** — The lever in its closed position adds rigidity and a solid docked feel. When opened for removal, it pushes 4 collets inward ~2-3mm simultaneously via a release plate with precisely sized holes.
 
 ## Physical Specifications
 
