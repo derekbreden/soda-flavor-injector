@@ -1,791 +1,618 @@
-# Enclosure Layout & Spatial Planning
+# Enclosure Layout & Spatial Planning — Definitive Design
 
-Research into the overall layout and spatial planning for a self-contained soda flavor injector enclosure. This unit sits inside an under-sink cabinet and houses every component in the system: bags, pumps, electronics, valves, plumbing, displays, and the hopper inlet.
+This is the single reference document for the complete enclosure layout. It integrates findings from all enclosure research (hopper, front face, back panel, routing) and all cartridge research (mating face, release plate, cam lever, envelope, electrical, guides, pump mounting, ergonomics, dock mounting, workflow, release alternatives). The goal is a document with enough specificity to start CAD work.
 
----
-
-## 1. Component Inventory with Dimensions
-
-### 1a. Master Dimension Table
-
-All dimensions are L x W x H unless otherwise noted. Dimensions include reasonable tolerances and mounting hardware where applicable.
-
-| Component | Dimensions (mm) | Weight | Orientation Constraints | Connection Points | Thermal Notes |
-|---|---|---|---|---|---|
-| **Platypus 2L bag (full, x2)** | 350 x 190 x ~60 | ~2.0 kg each (water weight) | Must drain downward; outlet at bottom or end of bag. Gravity-fed to pump inlet. | Drink tube kit outlet at one end (barb fitting) | None |
-| **Platypus 2L bag (empty)** | 350 x 190 x ~5 | ~30 g | Collapses flat | Same | None |
-| **Pump cartridge (assembled)** | 140 x 90 x 100 (W x H x D) | ~940 g / 2.1 lbs | Horizontal slide-in, mating face forward. Lever needs ~100mm vertical clearance above. | 4x John Guest 1/4" push-connect on dock wall, 3 pogo pin electrical contacts on top face | Motors: ~7W each under load, ~14W total |
-| **Cartridge dock (housing)** | ~180 x 130 x 130 | ~500 g | Fixed mount. Lever extends ~110mm above dock top. | 4x JG fittings (back plate), 3 pogo pins, guide rails | None |
-| **ESP32-DevKitC-32E on DIN rail breakout** | 110 x 90 x 35 | ~80 g | Any orientation. USB port needs access for firmware updates. | USB micro (top), GPIO headers (sides), UART wires to RP2040 and S3 | Minimal (<0.5W) |
-| **L298N motor driver (x2)** | 43 x 43 x 27 | ~30 g each | Any orientation. Heatsink tab faces up or outward for convection. | Screw terminals (motor out, power in, logic in), pin header (enable/PWM) | Significant: 1.8-3.2V drop at 1A per channel = 2-6W each. Up to ~12W total for both. |
-| **DIGITEN flow meter** | 65 x 30 x 28 | ~50 g | Inline with water flow. Horizontal preferred (no air traps). | 1/2" threaded inlet/outlet (with adapters to 1/4" push-connect) | None |
-| **Beduan 12V solenoid valve (x4)** | ~80 x 35 x 45 | ~120 g each | Any orientation for normally-closed valves. Vertical preferred for draining. | 1/4" push-connect or NPT on each end, 2-wire power leads | Coil: 5.5W each when energized. Only on during dispensing or clean cycle (intermittent). |
-| **Needle valve (x1)** | ~55 x 25 x 25 | ~60 g | Inline, any orientation | 1/4" compression or NPT on each end | None |
-| **DS3231 RTC module** | 38 x 22 x 14 | ~8 g | Any orientation | I2C (4 wires), CR2032 battery access | None |
-| **S3 display (Meshnology 1.28" round)** | 48 x 48 x 33 | ~50 g | Face outward for viewing. Rotary knob needs finger access. | Retractable Cat6 cable to ESP32 | None |
-| **RP2040 display (Waveshare 0.99" round)** | ~38 x 38 x 25 (est. with case) | ~30 g | Face outward for viewing | Retractable Cat6 cable to ESP32 | None |
-| **12V power supply (internal, if used)** | ~100 x 50 x 30 (typical 12V 2A enclosed PSU) | ~100 g | Ventilation needed around it | IEC inlet or barrel jack in, 12V DC out | 2-4W heat at full load |
-| **Air switch pneumatic tube** | 4mm OD tube, ~2m length | Negligible | Flexible routing, pass-through to enclosure | One end at countertop button, one end at air switch sensor inside | None |
-| **Wiring harness** | ~300mm long bundles | Negligible | Flexible, needs strain relief at connectors | Dupont headers, spade connectors, UART cables | None |
-
-### 1b. Bag Dimensions — Critical Detail
-
-The Platypus 2L bags are the largest single components by volume. When full, each bag is roughly a soft pillow shape:
-
-- **Flat dimensions**: 350 x 190mm (13.8" x 7.5")
-- **Thickness when full**: ~60mm (2.4") — this varies depending on how much the bag is constrained
-- **Thickness when half-full**: ~35-40mm
-- **Volume per bag when full**: roughly 350 x 190 x 60 = ~4.0L of bounding box for 2L of liquid (bags are not perfectly rectangular)
-
-Two bags side by side: 350 x 380 x 60mm (13.8" x 15" x 2.4")
-Two bags stacked: 350 x 190 x 120mm (13.8" x 7.5" x 4.7")
-
-The bags are soft-sided, so they can conform to available space to some degree. They can also be oriented vertically (hanging) or laid flat/tilted.
-
-### 1c. Cartridge Dock — Critical Detail
-
-The dock is the second-largest discrete component and drives the enclosure's front-panel layout:
-
-```
-    FRONT VIEW (looking at dock opening)
-
-    ┌─────────────────────────────┐
-    │         lever swing         │  ← ~100mm clearance above dock
-    │         clearance           │
-    │  ┌─────────────────────┐   │
-    │  │                     │   │
-    │  │   Cartridge slot    │   │  90mm tall
-    │  │   140mm wide        │   │
-    │  │                     │   │
-    │  └─────────────────────┘   │
-    │                             │
-    └─────────────────────────────┘
-         ~180mm wide x ~130mm tall
-         (including lever clearance: ~230mm)
-         ~130mm deep
-```
-
-The cam lever needs approximately 100mm of vertical clearance above the cartridge top to flip from locked to released position. This means the dock zone needs ~230mm (9") of unobstructed vertical space.
-
-### 1d. Aggregate Volume Estimate
-
-| Category | Estimated Volume (L) | Notes |
-|---|---|---|
-| 2x Platypus bags (full) | ~8.0 | Bounding box, actual liquid volume is 4.0L |
-| Cartridge dock (with clearance) | ~4.3 | 180 x 230 x 130mm including lever swing |
-| Electronics (ESP32, L298N x2, RTC) | ~0.6 | With DIN rail and wiring clearance |
-| Solenoid valves (x4) | ~0.5 | 80 x 35 x 45mm each |
-| Flow meter + needle valve | ~0.2 | Small inline components |
-| Displays (x2, with holders) | ~0.2 | Flush-mounted, minimal internal volume |
-| Power supply | ~0.2 | If internal |
-| Tubing routing space | ~1.0 | Bends, runs, slack |
-| Hopper/funnel | ~0.5 | Depends on design |
-| **Total component volume** | **~15.5** | |
-| **Packing efficiency (~60%)** | **~26 L** | Enclosure gross internal volume needed |
-
-A 26L internal volume corresponds to roughly a 300 x 300 x 300mm (12" x 12" x 12") cube, or equivalent rectangular prism. This is a reasonable starting point.
+**Design philosophy:** This should look like a product, not a science project. Dark navy PETG (#1a1a2e theme), consistent with the iOS app, S3 display UI, and app icon. Under a kitchen sink, it should read as a premium appliance — like a bean-to-cup coffee machine.
 
 ---
 
-## 2. The PC Tower Analogy
+## 1. Confirmed Design Decisions
 
-### 2a. Where the Analogy Holds
+These are settled. Prior research explored alternatives; this section records only the winners and their key parameters.
 
-| PC Tower Feature | Enclosure Equivalent | Fit Quality |
-|---|---|---|
-| Front I/O panel (USB, audio, power button) | Displays (S3, RP2040), status LEDs | Strong — daily glance interaction, rarely touched |
-| 5.25" drive bay (CD/DVD) | Cartridge dock slot | Strong — slide-in/out replaceable module, front access |
-| Internal volume (motherboard, PSU, drives) | Bags, electronics, valves, wiring | Strong — user never sees this after assembly |
-| Back panel (I/O shield, power inlet, fan) | Water connections, power, air switch pass-through | Strong — set-and-forget connections |
-| Top panel (optional I/O, ventilation) | Hopper inlet | Moderate — top access works well for pouring |
-| Side panels (removable for service) | Removable panel for bag replacement / internal service | Strong — needed for initial setup and troubleshooting |
-| Cable management (tie-downs, channels) | Tubing routing channels, wire management | Strong |
-
-### 2b. Where the Analogy Breaks Down
-
-**Weight distribution**: A PC tower's center of gravity is roughly centered. This enclosure has 4+ kg of liquid (two full bags) that shifts as fluid is consumed. The enclosure needs a wide base or low center of gravity to avoid tipping.
-
-**Fluid handling**: PCs are dry systems. This enclosure has internal water/flavoring, external water connections, and the potential for leaks. A PC doesn't need drip trays, sealed compartments, or drainage paths.
-
-**The hopper**: PCs have nothing analogous to a top-loading funnel that receives liquid poured by the user. This is the biggest departure from the tower metaphor.
-
-**Organic shapes**: Bags are soft and irregularly shaped. PCs have rigid rectangular components that pack neatly. Bags need room to expand and contract.
-
-### 2c. Alternative Product Archetypes
-
-| Archetype | What It Borrows | Where It Falls Short |
-|---|---|---|
-| **Under-sink water filter system** (3M, Waterdrop) | Back-wall mount, front cartridge access, water connections, under-sink environment | Too small — doesn't accommodate bags, hopper, or displays |
-| **Mini fridge / wine cooler** | Self-contained appliance, front door access, internal reservoirs | Too heavy, too large, implies cooling (which we don't need) |
-| **Coffee machine** (bean-to-cup) | Top hopper for beans, front dispensing, internal reservoirs, user-facing displays | Very strong analogy. Water reservoir + bean hopper + front UI + internal pumps/valves. Size is similar. |
-| **Kegerator / draft beer system** | Liquid bags, pump system, dispensing, under-counter installation | Good for bag storage and pump concepts, but kegerators are much larger |
-| **Aquarium canister filter** | Sealed unit with pumps, tubing connections, under-cabinet placement | Good for sealed-unit concept, but no user interaction beyond connection |
-
-**Strongest analogy: Bean-to-cup coffee machine.** It has a top hopper (beans = flavoring concentrate), internal reservoirs (water tank = bags), front-panel UI (display = our displays), a replaceable module (drip tray / brew group = our cartridge), and back/bottom water connections. The overall interaction pattern is nearly identical. The enclosure should feel like an under-counter version of a high-end coffee machine.
-
-### 2d. Hybrid Mental Model
-
-The recommended mental model combines elements:
-- **PC tower** for the box shape, front I/O, back panel, and internal organization
-- **Coffee machine** for the hopper, cartridge, and user interaction flow
-- **Under-sink water filter** for the mounting context and plumbing conventions
+| Decision | Choice | Source |
+|----------|--------|--------|
+| Form factor | Tall tower, vertical emphasis | layout-spatial-planning.md (original) scored highest |
+| Layer order (top to bottom) | Electronics + hopper > dock + valves > bags | Gravity flow optimization, thermal isolation |
+| Bag orientation | Hanging vertically, connector at bottom | hopper-and-bag-management.md Section 5 |
+| Bag size | Smaller than 2L Platypus — 10-12" of vertical bag zone is sufficient | User confirmation |
+| Cartridge loading | Front-loading, horizontal slide-in | front-face-interaction-design.md, under-cabinet-ergonomics.md |
+| Release mechanism | Cartridge-side release plate + eccentric cam lever on cartridge front face | mating-face.md, release-mechanism-alternatives.md |
+| Mating face port layout | 2x2 grid, 15mm center-to-center | mating-face.md — compact, best tilt resistance |
+| Display arrangement | Stacked totem (RP2040 on top, S3 below) on front-left | front-face-interaction-design.md Layout F |
+| Display retention | Magnetic pop-out holders (N52 neodymium) | front-face-interaction-design.md Section 1a |
+| Display cable | Magnetic breakaway pogo connector + optional coiled extension | front-face-interaction-design.md Section 1b |
+| Cartridge face | Flush with front panel, color-matched navy PETG | front-face-interaction-design.md Layout F |
+| Hopper location | Top of enclosure, two funnels (one per flavor) | hopper-and-bag-management.md Section 1 |
+| Hopper fill method | **Pump-assisted** (NOT gravity — user override) | User confirmation |
+| Back panel connections | Water fittings at bottom, power at top, 90-degree elbows outside | back-panel-and-routing.md Section 1 |
+| Capacitive sensing | FDC1004 (4-channel I2C) with copper tape electrodes | hopper-and-bag-management.md Section 4 |
+| GPIO expansion | I2C expander (MCP23017) — routine task | User confirmation |
+| Tubing | Mostly silicone; few transition points need hard tubing | User confirmation |
+| John Guest fitting spacing | 15mm center-to-center confirmed adequate | User confirmation |
 
 ---
 
-## 3. Layout Options
+## 2. Revised Dimensions
 
-### Coordinate System for All Layouts
+The original research estimated 250W x 200D x 450H mm based on 2L Platypus bags requiring 14"+ of bag zone. With confirmed smaller bags (10-12" bag zone), pump-assisted hopper filling, and refined component stacking, the dimensions shrink.
 
-- **Width (W)**: left-right as viewed from the front
-- **Depth (D)**: front-to-back
-- **Height (H)**: floor-to-top
+### 2a. Component Stack (Side View, Top to Bottom)
 
-### 3a. Tall Tower (Vertical Emphasis)
+| Zone | Contents | Height (mm) | Notes |
+|------|----------|-------------|-------|
+| **Top cap + hopper funnels** | 2x silicone funnels (75-100mm opening), lids, FDC1004 board | 60 | Funnels sit in recesses in the top panel |
+| **Electronics shelf** | ESP32 on DIN rail breakout, L298N x3, DS3231 RTC, power distribution, FDC1004 | 50 | Drip shield below this shelf |
+| **Drip barrier** | Solid horizontal shelf, sloped to front drain indicator | 5 | Separates dry electronics from wet plumbing |
+| **Dock + valve zone** | Cartridge dock (~130mm deep), 4x solenoid valves, 2x hopper solenoids, needle valve, tees, flow meter | 130 | Dock opening on front face; valves and plumbing behind/beside dock |
+| **Bag zone** | 2x bags hanging vertically, connector at bottom | 280 (11") | 10-12" confirmed sufficient; using 280mm (11") |
+| **Drip tray + feet** | Removable drip tray, 4x rubber feet | 25 | Catches any bag leaks; elevates enclosure off cabinet floor |
+| **Total** | | **550** | **~21.7" (was 450mm / 18" in original)** |
 
-Bags hang vertically in the upper portion. Cartridge slides in from the front in the middle. Electronics below. Hopper on top.
+Wait — 550mm is taller than the original 450mm estimate. The original had bags ABOVE the dock and electronics BELOW. Let me re-examine the layer order.
 
-**Estimated dimensions: 250W x 200D x 450H mm (10" x 8" x 18")**
+### 2b. Revised Layer Order: Electronics Top, Dock Middle, Bags Bottom
 
-```
-    FRONT VIEW                    SIDE VIEW                   TOP VIEW
-    ┌───────────────┐            ┌──────────────┐            ┌──────────────┐
-    │  ╔═══════════╗│            │  ╔══════════╗ │            │              │
-    │  ║  HOPPER   ║│            │  ║  HOPPER  ║ │            │  ┌────────┐  │
-    │  ║  INLET    ║│            │  ║          ║ │            │  │ hopper │  │
-    │  ╚═══════════╝│            │  ╚══════════╝ │            │  │ funnel │  │
-    │               │            │               │            │  └────────┘  │
-    │  ┌───────────┐│            │ ┌───────────┐ │            │              │
-    │  │ BAG 1     ││            │ │  BAG 1    │ │            └──────────────┘
-    │  │ (hanging) ││            │ │  BAG 2    │ │                 200 D
-    │  │ BAG 2     ││            │ │ (behind)  │ │
-    │  │ (behind)  ││            │ └───────────┘ │
-    │  └───────────┘│            │               │
-    │               │            │ ┌───────────┐ │
-    │ ┌─────────────┤            │ │ CARTRIDGE │ │
-    │ │ CARTRIDGE  ◄│ slide in   │ │  DOCK     │ │
-    │ │ DOCK       │ from front  │ │           │ │
-    │ └─────────────┤            │ └───────────┘ │
-    │               │            │               │
-    │ ┌─────────────┐            │ ┌───────────┐ │
-    │ │ ELECTRONICS ││           │ │ VALVES    │ │
-    │ │ ESP32, L298N││           │ │ ELECTR.   │ │
-    │ │ VALVES      ││           │ │ FLOW MTR  │ │
-    │ └─────────────┘│           │ └───────────┘ │
-    └───────────────┘            └──────────────┘
-         250 W                        200 D
-```
+The gravity-optimal layout puts bags above pumps. But the original tall tower placed bags in the upper portion and electronics at the bottom. The routing research (back-panel-and-routing.md Section 3a) established the preferred layout as electronics top, dock middle, bags bottom — which contradicts gravity optimization.
 
-**User interactions:**
-- Hopper: pour from above, very accessible (top of unit)
-- Cartridge: slide in/out from front at mid-height (~250mm up from floor, comfortable reach under sink)
-- Displays: front face, above cartridge slot
-- Back panel: water connections and power, set-and-forget
+**Resolution:** Bags below the dock still drain downward through tubing to the dock fittings. The key gravity requirement is that the bag connector (at the bottom of the hanging bag) is connected to the pump inlet via tubing, and the bag is higher than the pump inlet so gravity pre-primes the line. With bags in the bottom zone and the dock in the middle, the bags hang BELOW the dock — meaning the pump inlets (in the dock/cartridge) are ABOVE the bags. This means the pump must pull liquid upward, working against gravity.
 
-**Internal routing:**
-- Bags drain downward to cartridge dock (gravity-assisted, short tube runs)
-- Cartridge dock connects to valves below via short vertical runs
-- Electronics at bottom, protected from any drips by being below the fluid zone (but also most vulnerable to floor water)
+**This is problematic.** The hopper research (Section 4b of the original layout doc) specifically concluded: "Bags should be above the pump cartridge. A minimum of 50-100mm of elevation difference provides meaningful gravity assist."
 
-**Pros:**
-- Natural gravity flow: hopper -> bags -> pumps -> dispensing
-- Hopper at top is the most natural pouring position
-- Smallest footprint (250 x 200mm = 500 cm^2 floor space)
-- PC tower feel — familiar form factor
-- Cartridge at mid-height is ergonomically good for under-sink access
+**Corrected layer order (matching gravity requirements):**
 
-**Cons:**
-- 450mm (18") tall — needs to fit under sink with clearance for hopper access. Under-sink usable height is 500-710mm, so this fits but the hopper may be at the top of the cabinet, making pouring awkward if the sink bowl is above it
-- Bags hanging vertically require a suspension system (clips, hooks, or a rack)
-- Narrow (250mm) may make internal access cramped
-- If tipped, 4+ kg of liquid creates a splash hazard
+| Position | Zone | Rationale |
+|----------|------|-----------|
+| Top | Hopper funnels + electronics | Heat rises to vent slots; electronics furthest from water; hopper connects downward to plumbing |
+| Upper-middle | Bags (hanging, connector at bottom) | Gravity pre-primes pump inlet lines |
+| Lower-middle | Cartridge dock + solenoid valves + plumbing manifold | Pump inlets below bags; all valve plumbing concentrated here |
+| Bottom | Drip tray + feet | Catches leaks |
 
----
+This matches the original tall tower layout (Section 3a of the original doc) which scored highest.
 
-### 3b. Wide/Short (Horizontal Emphasis)
+### 2c. Final Component Stack
 
-Bags lay flat or on a slight incline. Cartridge on front face. Wider footprint, lower profile.
+| Zone | Contents | Height (mm) | Notes |
+|------|----------|-------------|-------|
+| **Top cap + hopper** | 2x funnels in recesses, snap-on lids | 55 | Funnels 75-100mm opening, 50-75mm deep |
+| **Electronics shelf** | ESP32/DIN rail, L298N x3, RTC, FDC1004, power block, vent slots | 50 | Mounted to rear wall; USB port accessible from back |
+| **Drip barrier** | Solid shelf, sloped forward | 5 | Separates electronics from bag zone |
+| **Bag zone** | 2x bags side-by-side (or front/back), hanging vertically | 280 | 11" bag zone; bags hang from hooks on underside of drip barrier |
+| **Dock + plumbing zone** | Cartridge dock, solenoid valves x6, needle valve, tees x5+, flow meter, hopper solenoids x2 | 130 | Dock faces front; valves mount behind/beside dock |
+| **Drip tray + feet** | Removable tray, rubber feet | 25 | |
+| **Total height** | | **545 mm (21.5")** | |
 
-**Estimated dimensions: 400W x 220D x 250H mm (16" x 9" x 10")**
+This is taller than the original 450mm estimate. Under-sink cabinets have 500-710mm of usable height (under-cabinet-ergonomics.md). A 545mm enclosure fits, but tightly — the hopper funnels on top must be reachable, which requires ~100-150mm of clearance above the funnels for pouring.
 
-```
-    FRONT VIEW                    SIDE VIEW                   TOP VIEW
-    ┌─────────────────────────┐  ┌──────────────┐            ┌──────────────────────────┐
-    │ [S3] [RP]  HOPPER DOOR  │  │  ┌────────┐  │            │                          │
-    │                         │  │  │ BAG 1   │  │            │  ┌──────┐ ┌──────┐       │
-    │ ┌───────────┐  ┌──────┐│  │  │ BAG 2   │  │            │  │ BAG1 │ │ BAG2 │       │
-    │ │ CARTRIDGE │  │HOPPER││  │  │ (flat)  │  │            │  │      │ │      │       │
-    │ │ DOCK     ◄│  │CHUTE ││  │  └────────┘  │            │  └──────┘ └──────┘       │
-    │ │           │  │      ││  │  ┌────────┐   │            │  ┌──────┐  ┌──────┐      │
-    │ └───────────┘  └──────┘│  │  │CART.   │   │            │  │ DOCK │  │ELECT.│      │
-    │ ┌─────────────────────┐│  │  │VALVES  │   │            │  └──────┘  └──────┘      │
-    │ │  ELECTRONICS/VALVES  ││  │  │ELECTR. │   │            │                          │
-    │ └─────────────────────┘│  │  └────────┘   │            └──────────────────────────┘
-    └─────────────────────────┘  └──────────────┘                      220 D
-              400 W                    220 D
-```
+**Problem:** 545mm enclosure + 100mm pouring clearance = 645mm minimum. The lower end of cabinet height (500mm) won't work. The upper end (710mm) has 165mm margin — fine.
 
-**User interactions:**
-- Hopper: front-accessible door or angled chute on the right side of the front face. Less natural than pouring from above — requires a funnel design that routes liquid to the bags.
-- Cartridge: front face, lower-left area
-- Displays: top-left of front face
-- Back panel: standard
+**Optimization: reduce bag zone height.** The user confirmed 10-12" is realistic. Using 10" (254mm) instead of 11" (280mm) saves 26mm. Also, the hopper funnels can be shallower (40mm instead of 55mm) since pump-assisted filling means the funnel is just a pour target, not a gravity reservoir.
 
-**Internal routing:**
-- Bags sit flat above the electronics/valve layer
-- Tubing runs are longer (horizontal from bags to dock)
-- More complex routing due to horizontal layout
+### 2d. Optimized Dimensions
 
-**Pros:**
-- Low profile (250mm / 10") — fits easily under sinks with garbage disposals that limit headroom
-- Wide footprint gives a stable base (no tipping risk)
-- Bags lying flat are naturally supported (no suspension needed)
-- Easy internal access with a top-removable lid
+| Zone | Height (mm) |
+|------|-------------|
+| Top cap + hopper funnels | 45 |
+| Electronics shelf | 45 |
+| Drip barrier | 5 |
+| Bag zone | 255 (10") |
+| Dock + plumbing zone | 130 |
+| Drip tray + feet | 25 |
+| **Total height** | **505 mm (19.9")** |
 
-**Cons:**
-- 400mm (16") wide — may not fit in the available 250-350mm side zones next to plumbing. Would need to straddle the center or use a wider cabinet.
-- Hopper access from the front is less natural than pouring from above
-- Bags lying flat don't drain as well (liquid pools at the lowest point, not necessarily at the outlet)
-- Larger floor footprint
+**Width:** The cartridge dock is ~180mm wide (cartridge 140mm + dock walls). Two bags side by side when full are each ~60mm thick — too wide. Two bags front-to-back use ~190mm width (one bag width) and ~120mm depth. The electronics shelf needs ~110mm width (DIN rail). The front face needs ~230mm for the display totem + cartridge slot side by side (front-face-interaction-design.md Layout C/F).
+
+**Target width: 240 mm (9.4")**
+
+**Depth:** The cartridge dock is ~130mm deep. Bags behind the dock would extend the depth significantly. Bags beside the dock (in the zone above it) don't affect dock depth. The back panel needs 60mm clearance behind it for 90-degree elbows and tube bends.
+
+**Target depth: 220 mm (8.7")** — enclosure body is 220mm, plus 60mm behind for tube clearance = 280mm total cabinet depth used.
+
+### 2e. Final Enclosure Dimensions
+
+| Dimension | Value | Imperial |
+|-----------|-------|----------|
+| **Width** | 240 mm | 9.4" |
+| **Depth** | 220 mm | 8.7" |
+| **Height** | 505 mm | 19.9" |
+| **Internal volume** | ~26.7 L | |
+| **Footprint** | 528 cm^2 | 82 in^2 |
+| **Clearance behind** | 60 mm | 2.4" |
+| **Clearance above** | 100 mm minimum | 4" (for pouring) |
+| **Total cabinet space** | 240W x 280D x 605H mm | 9.4" x 11" x 23.8" |
+
+This fits in most under-sink side zones (10-14" wide per the ergonomics research) and requires ~24" of vertical space (available in cabinets with 28-30" usable height, which is standard).
 
 ---
 
-### 3c. Cube
+## 3. Zone-by-Zone Design
 
-Roughly equal dimensions. Components arranged around a central volume.
-
-**Estimated dimensions: 300W x 300D x 300H mm (12" x 12" x 12")**
+### 3a. Top Zone: Hopper Funnels + Electronics (0-95mm from top)
 
 ```
-    FRONT VIEW                    SIDE VIEW                   TOP VIEW
-    ┌───────────────────┐        ┌───────────────────┐       ┌───────────────────┐
-    │  [S3]  [RP]       │        │   ╔═══HOPPER═══╗  │       │  ╔═══════════╗    │
-    │                   │        │   ║             ║  │       │  ║  HOPPER   ║    │
-    │  ┌─────────────┐  │        │   ╚═════════════╝  │       │  ╚═══════════╝    │
-    │  │  CARTRIDGE  │  │        │  ┌──────┐┌──────┐  │       │ ┌──────┐┌──────┐  │
-    │  │  DOCK      ◄│  │        │  │BAG 1 ││BAG 2 │  │       │ │BAG 1 ││BAG 2 │  │
-    │  │             │  │        │  │      ││      │  │       │ │      ││      │  │
-    │  └─────────────┘  │        │  │      ││      │  │       │ └──────┘└──────┘  │
-    │  ┌─────────────┐  │        │  └──────┘└──────┘  │       │ ┌──────────────┐  │
-    │  │ ELECTRONICS │  │        │  ┌──────────────┐  │       │ │   DOCK       │  │
-    │  │ + VALVES    │  │        │  │ VALVES+ELECT │  │       │ │  ELECTRONICS │  │
-    │  └─────────────┘  │        │  └──────────────┘  │       │ └──────────────┘  │
-    └───────────────────┘        └───────────────────┘       └───────────────────┘
-           300 W                        300 D                       300 D
-```
-
-**User interactions:**
-- Hopper: top, accessible (similar to tall tower)
-- Cartridge: front face, mid-height
-- Displays: front face, above cartridge
-- Back panel: standard
-
-**Internal routing:**
-- Bags arranged side by side in the upper half, behind the hopper
-- Dock in the middle of the front face
-- Electronics and valves in the lower rear
-- Moderate tube run lengths
-
-**Pros:**
-- Compact — 27L total volume, efficient packing
-- Balanced proportions, looks like a product
-- 300mm (12") on each side fits well in under-sink side zones (250-350mm wide)
-- Hopper on top is natural
-- Good gravity flow (bags above pumps)
-
-**Cons:**
-- 300mm (12") wide may be tight for a 140mm-wide cartridge dock plus bags side by side
-- Internal access requires removing multiple panels or a clamshell design
-- Dense packing makes routing and maintenance harder
-- Cartridge dock at 300mm deep limits the depth available for bags behind it
-
----
-
-### 3d. L-Shape / Stepped
-
-Main body is shorter, with a raised section for the hopper. Lower profile where it matters, taller where access is needed.
-
-**Estimated dimensions: 300W x 220D x 350H (tall section) / 200H (short section) mm**
-
-```
-    FRONT VIEW                    SIDE VIEW
-    ┌─────────┐                  ┌─────────┐
-    │ HOPPER  │                  │ HOPPER  │
-    │ FUNNEL  │                  │ FUNNEL  │
-    │         │                  │         │
-    │ ┌─────┐ │                  │ ┌─────┐ │
-    │ │BAGS │ │  ┌───────────┐  │ │BAGS │ │ ┌──────────┐
-    │ │     │ │  │[S3] [RP]  │  │ │     │ │ │          │
-    │ │     │ │  │           │  │ │     │ │ │ ELECTR.  │
-    │ │     │ │  │ CARTRIDGE◄│  │ └─────┘ │ │ VALVES   │
-    │ └─────┘ │  │ DOCK      │  │ ┌─────┐ │ │          │
-    │ VALVES  │  │           │  │ │DOCK │ │ │          │
-    └─────────┘  └───────────┘  │ └─────┘ │ └──────────┘
-       150 W        150 W       └─────────┘
-    ├────── 300 W total ──────┤      220 D
-```
-
-**User interactions:**
-- Hopper: top of the tall section on the left — natural pour position
-- Cartridge: front face of the shorter right section — mid-height, very accessible
-- Displays: front face of shorter section, above cartridge
-- Back panel: spans full width
-
-**Internal routing:**
-- Bags hang or sit in the tall left section above the valves
-- Tubes run laterally from bags to the dock in the right section
-- Electronics in the right section below/behind the dock
-
-**Pros:**
-- Hopper elevated for easy pouring, but the rest of the enclosure stays low-profile
-- Cartridge access is at a comfortable height in the shorter section
-- Interesting visual form factor — looks intentionally designed, not just a box
-- The tall section can be placed against the back wall, short section facing forward
-
-**Cons:**
-- More complex enclosure shape — harder to manufacture (more panels, joints)
-- Lateral tube runs from bags to dock add complexity
-- L-shape may not fit as neatly in the rectangular under-sink zones
-- The tall section (350mm) still needs adequate headroom under the sink
-
----
-
-### 3e. Front-Loading Tower
-
-Optimized for all user interaction from the front face. Cartridge slides in from the front. Hopper has a front-accessible door/funnel. Displays on front. The user never needs to access the top or sides.
-
-**Estimated dimensions: 280W x 250D x 400H mm (11" x 10" x 16")**
-
-```
-    FRONT VIEW                    SIDE VIEW                   TOP VIEW
-    ┌───────────────────┐        ┌───────────────────┐       ┌───────────────────┐
-    │  ┌─────────────┐  │        │                   │       │                   │
-    │  │ HOPPER DOOR │  │        │  ┌─HOPPER CHUTE─┐ │       │   ┌───────────┐   │
-    │  │ (flip open, │  │        │  │  angled to   │ │       │   │   BAGS    │   │
-    │  │  pour in)   │  │        │  │  bags behind │ │       │   │  (behind  │   │
-    │  └─────────────┘  │        │  └──────────────┘ │       │   │   hopper) │   │
-    │                   │        │  ┌──────────────┐ │       │   └───────────┘   │
-    │  [S3]      [RP]   │        │  │  BAGS        │ │       │   ┌───────────┐   │
-    │                   │        │  │  (tilted,    │ │       │   │   DOCK    │   │
-    │  ┌─────────────┐  │        │  │   drain fwd) │ │       │   │  + VALVES │   │
-    │  │ CARTRIDGE  ◄│  │        │  └──────────────┘ │       │   └───────────┘   │
-    │  │ DOCK        │  │        │  ┌──────────────┐ │       │                   │
-    │  │             │  │        │  │  DOCK +      │ │       └───────────────────┘
-    │  └─────────────┘  │        │  │  CARTRIDGE   │ │             250 D
-    │                   │        │  └──────────────┘ │
-    │  ┌─────────────┐  │        │  ┌──────────────┐ │
-    │  │ ELECTRONICS │  │        │  │  ELECTRONICS │ │
-    │  │   + VALVES  │  │        │  │  + VALVES    │ │
-    │  └─────────────┘  │        │  └──────────────┘ │
-    └───────────────────┘        └───────────────────┘
-           280 W                       250 D
-```
-
-**User interactions:**
-- Hopper: flip-open door on the front face (top section). A molded chute angles liquid backward and down to the bags. The user pours from the front without reaching over or behind the unit.
-- Cartridge: front face, mid-height
-- Displays: front face, between hopper door and cartridge
-- Back panel: all permanent connections
-
-**Internal routing:**
-- Bags sit behind the hopper chute, tilted slightly forward so liquid drains toward the front (where pump inlets connect)
-- Dock below bags, tubes run straight down from bag outlets to dock fittings
-- Electronics and valves at the bottom
-- Back panel connections route through the rear
-
-**Pros:**
-- All user interactions are on one face — the user never reaches around, over, or behind the unit
-- Works well pushed against a side wall with only the front exposed
-- Hopper door is accessible even if the top of the unit is close to the underside of the sink
-- Bags tilted toward the front aid gravity drainage to pump inlets
-- Clean product feel — one interaction face, everything else hidden
-
-**Cons:**
-- Front-loading hopper requires an internal chute that takes up volume
-- 400mm (16") tall — needs headroom, though less than the tall tower
-- 280mm (11") wide may be tight for some under-sink side zones
-- The hopper door mechanism adds complexity (hinge, seal, drip management)
-- Bags behind the hopper are not visible or accessible from the front without removing a panel
-
----
-
-### 3f. Deep Shelf (Depth-Optimized)
-
-Uses the full 500mm+ depth of the under-sink cabinet. Very compact front profile, extends deep into the cabinet.
-
-**Estimated dimensions: 250W x 450D x 280H mm (10" x 18" x 11")**
-
-```
-    FRONT VIEW                    SIDE VIEW (key view)
-    ┌───────────────┐            ┌──────────────────────────────────────┐
-    │ HOPPER        │            │                                      │
-    │ (top, front)  │            │ HOPPER    BAG 1    BAG 2            │
-    │               │            │ (front)   (middle) (rear)           │
-    │ [S3]   [RP]   │            │                                      │
-    │               │            │ ┌──────┐ ┌────────────────────────┐  │
-    │ ┌───────────┐ │            │ │DOCK  │ │    BAGS (tilted,      │  │
-    │ │CARTRIDGE ◄│ │            │ │      │ │    drain forward)     │  │
-    │ │DOCK       │ │            │ └──────┘ └────────────────────────┘  │
-    │ └───────────┘ │            │ ┌──────────────────────────────────┐ │
-    │               │            │ │  ELECTRONICS  VALVES  FLOW MTR  │ │
-    │ ELECTRONICS   │            │ └──────────────────────────────────┘ │
-    └───────────────┘            └──────────────────────────────────────┘
-         250 W                                  450 D
-
     TOP VIEW
+    ┌──────────────────────────────────┐
+    │  ┌────────┐      ┌────────┐     │
+    │  │Funnel 1│      │Funnel 2│     │
+    │  │ ~80mm  │      │ ~80mm  │     │
+    │  └────────┘      └────────┘     │
+    │                                  │
+    │  Silicone lids (snap-on, hinged) │
+    └──────────────────────────────────┘
+              240mm wide
+
+    SIDE CROSS-SECTION (top 95mm)
     ┌──────────────────────────────────────┐
-    │  HOPPER   │  BAG 1     │  BAG 2     │
-    │  + DOCK   │            │            │
-    │  (front)  │  (middle)  │  (rear)    │
-    │           │            │            │
-    │  VALVES   │  ELECTRONICS            │
+    │  ╔══funnel══╗    ╔══funnel══╗        │  45mm: hopper cap
+    │  ║  drain   ║    ║  drain   ║        │
+    │  ╚════╤═════╝    ╚════╤═════╝        │
+    │───────┤───────────────┤──────────────│
+    │  [FDC1004]  ESP32/DIN  L298N x3      │  45mm: electronics shelf
+    │  [RTC]      [fuse]     [MCP23017]    │
+    │─────────────────────────────────────│
+    │  DRIP BARRIER (solid shelf)          │  5mm
     └──────────────────────────────────────┘
-    ▲ front                          rear ▲
-         250 W
 ```
 
-**User interactions:**
-- Hopper: top-front corner, accessible
-- Cartridge: front face, mid-height
-- Displays: front face
-- Back panel: rear — very deep, set-and-forget (which is fine since those connections are install-once)
+**Hopper funnel details:**
+- 2x food-grade silicone funnels, ~80mm opening diameter, ~40mm deep
+- Funnel outlets connect to 1/4" OD tubing via barb fittings
+- Each funnel has a snap-on silicone lid (hinged to prevent loss)
+- Funnels sit in 3D-printed recesses with a raised moat (5mm deep, 10mm wide) around each to catch drips
+- Spacing: ~120mm center-to-center (fits within 240mm width with margins)
 
-**Internal routing:**
-- Bags extend deep into the cabinet behind the dock/electronics
-- Long tube runs from rear bags to front dock
-- Electronics near the front for any future USB access
+**Electronics shelf:**
+- ESP32 on DIN rail breakout (~110 x 90 x 35mm) mounts to the rear wall
+- 3x L298N boards (43 x 43 x 27mm each) mount to side walls, heatsink tabs facing outward toward vent slots
+- DS3231 RTC piggybacks on ESP32 (I2C bus, ~100mm wire)
+- FDC1004 breakout board mounts near hopper funnel drain tubes (short electrode wire runs)
+- MCP23017 I2C expander for GPIO expansion
+- Power distribution: fused terminal block on DIN rail, 12V bus
+- All wiring in printed channels along upper walls
 
-**Pros:**
-- Smallest front profile (250 x 280mm = 700 cm^2) — fits the tightest under-sink side zones
-- Uses otherwise wasted cabinet depth
-- Low profile (280mm) works with garbage disposals limiting height
-- Good stability (wide base relative to height)
+**Vent slots:**
+- Horizontal louvers on both side panels, in the upper 50mm
+- Louvers angled downward (reject drips from above while allowing convection)
+- Passive ventilation sufficient for ~2W sustained / 33W peak thermal load
 
-**Cons:**
-- 450mm (18") deep — extends far into the cabinet. Anything behind the unit is inaccessible.
-- Long tube runs from bags to pumps increase fluid path length
-- Bags in the rear are hard to inspect or replace
-- The unit itself is hard to slide out for maintenance (heavy with full bags)
+**Hopper tubing routing:** Funnel drain tubes route downward through the drip barrier (sealed pass-throughs) into the bag zone, then continue down to the dock/plumbing zone where they connect to hopper solenoid valves. Total run: ~400mm per funnel.
+
+### 3b. Bag Zone (95-350mm from top, 255mm tall)
+
+```
+    FRONT VIEW (bag zone)
+    ┌──────────────────────────────────┐
+    │                                  │
+    │   ╔══════════╗  ╔══════════╗    │
+    │   ║  BAG 1   ║  ║  BAG 2   ║    │
+    │   ║ (hanging)║  ║ (hanging)║    │
+    │   ║          ║  ║          ║    │
+    │   ║  liquid  ║  ║  liquid  ║    │
+    │   ║  pools   ║  ║  pools   ║    │
+    │   ║  here ↓  ║  ║  here ↓  ║    │
+    │   ╚════╤═════╝  ╚════╤═════╝    │
+    │        │              │          │
+    │     tubing          tubing       │
+    │     to dock         to dock      │
+    └──────────────────────────────────┘
+```
+
+**Bag mounting:**
+- Bags hang from hooks/clips on the underside of the drip barrier shelf
+- Each bag occupies roughly 190mm wide x 60mm deep (full) x 255mm tall
+- Two bags side by side: 190mm total width (staggered or front-to-back if width is tight)
+- With 240mm enclosure width, two bags side by side (each ~100mm wide at half-full) fit with margin
+- Bags hang inverted (connector at bottom) for gravity drainage
+- Inlet cap (Platypus Drink Tube Kit) rigidly secured — confirmed to work for reliable bag collapse
+
+**Bag flattening:** Start with gravity alone (Phase 1). If the last 20% sputters, add elastic frame (Phase 2: two 3D-printed plates + elastic bands per bag).
+
+**Bag-to-dock tubing:** Soft silicone tubing (~300mm per bag) routes from the bag connector downward to the tee fittings in the dock/plumbing zone. Transition to hard tube at the push-connect fitting junction.
+
+**Access:** Bags are accessed by removing the top panel (which lifts off after removing 4-6 screws into heat-set inserts). The user unhooks the old bag, threads a new bag onto the tubing adapter, and rehooks it.
+
+### 3c. Dock + Plumbing Zone (350-480mm from top, 130mm tall)
+
+This is the most densely packed zone. It contains the cartridge dock, all solenoid valves, the needle valve, all tee fittings, the flow meter, and the hopper solenoid valves.
+
+```
+    FRONT VIEW (dock + plumbing zone)
+    ┌──────────────────────────────────────────────┐
+    │                                              │
+    │  ○ RP2040     ╔══════════════════════════╗   │
+    │  (40mm)       ║                          ║   │
+    │               ║   CARTRIDGE FACE         ║   │
+    │  ○ S3         ║   (flush, navy finish)   ║   │
+    │  (55mm)       ║   lever ═══╗            ║   │
+    │               ╚══════════════════════════╝   │
+    │  ● power                    ● status LED     │
+    └──────────────────────────────────────────────┘
+                    240mm wide
+```
+
+**Cartridge dock:**
+- Dock opening on front face: ~155 x 105mm (with chamfered entrance)
+- Dock depth: ~130mm (matches cartridge depth of ~100mm + 30mm for fittings and clearance)
+- 4x John Guest fittings in dock rear wall, 2x2 grid at 15mm center-to-center
+- 3x pogo pins on dock top face (12V GND, Motor A, Motor B)
+- Guide rails: printed PETG, 0.3-0.5mm clearance per side
+- 2x tapered alignment pins (15-20 degree taper, 8-10mm base) for final ~1mm alignment
+
+**Cam lever clearance:** The lever on the cartridge front face swings 180 degrees. When the cartridge is inserted and the lever is in the locked position, it folds flat against the cartridge face (within the slot opening). When unlocked, it swings to the side, protruding ~50-80mm. This is within the enclosure width and does not require clearance above the slot.
+
+**Valve mounting (behind and beside dock):**
+
+```
+    TOP VIEW (dock + plumbing zone)
+    ┌──────────────────────────────────────────────┐
+    │                                              │
+    │  [SV-D1] [SV-D2]   ┌──────────────────┐    │
+    │  [SV-C1] [SV-C2]   │   DOCK CAVITY    │    │
+    │  [SV-H1] [SV-H2]   │   (cartridge     │    │
+    │  [NV]               │    slides in     │    │
+    │  [FM]     [T1-T5]   │    from front)   │    │
+    │  [T-INJECT]         └──────────────────┘    │
+    │  [T-MERGE]                                   │
+    │  [T-CLEAN]                                   │
+    │                                              │
+    └──────────────────────────────────────────────┘
+      ▲ BACK                              FRONT ▲
+```
+
+- 6x solenoid valves (2 dispensing, 2 clean, 2 hopper): mount vertically on the rear/side walls of this zone, behind the dock
+- Needle valve: inline with clean water supply
+- 5x tee fittings + 2x merge/inject tees: clustered in the plumbing manifold area behind the dock
+- Flow meter: inline with carbonated water, near the injection tee
+- Hopper solenoid valves (2x): connect funnel drain tubes (from above) to the bag tee junctions
+
+**Display holders:** The display totem (RP2040 on top, S3 below) mounts to the front panel to the left of the cartridge slot. Magnetic retention sockets are printed into the front panel. Internal wiring (magnetic pogo connector to ESP32 UART) routes through the left wall upward to the electronics shelf.
+
+### 3d. Bottom Zone: Drip Tray + Feet (480-505mm from top, 25mm)
+
+- Removable drip tray: ~220 x 200 x 15mm, slides out from the front
+- 4x rubber feet (10mm tall) elevate the enclosure off the cabinet floor
+- The tray catches any drips from bag leaks, cartridge swaps, or fitting seepage
+- A visible drip indicator at the front edge shows if the tray has collected water
 
 ---
 
-## 4. Gravity and Fluid Flow Considerations
+## 4. Pump-Assisted Hopper Integration
 
-### 4a. Vertical Arrangement Priorities
+The original hopper research recommended gravity filling. The user overrides this: **pumping is necessary to keep air out of the bags.** This changes the hopper fluid path significantly.
 
-The system has several fluid flow paths that benefit from specific elevation relationships:
+### 4a. Why Gravity Fill Doesn't Work
 
-```
-    IDEAL VERTICAL ARRANGEMENT
+The hopper research identified a fundamental problem: the bag has a single opening, and air/liquid counter-flow through a 4.5mm ID tube is slow and unreliable. Gravity fill through the shared tee produces 8-15 minute fill times and risks vapor locks. Pump-assisted filling actively moves concentrate into the bag and forces air out.
 
-    TOP:    Hopper inlet (pour in)
-              │
-              ▼ gravity
-    UPPER:  Bags (reservoirs)
-              │
-              ▼ gravity assists flow to pump inlets
-    MIDDLE: Pump cartridge (peristaltic pumps)
-              │
-              ▼ pump pressure drives fluid out
-    LOWER:  Solenoid valves → flow meter → dispensing faucet
-              │
-              (exits enclosure via back panel)
+### 4b. Pump-Assisted Fill Fluid Path
 
-    ALSO:   Tap water inlet (back panel, any height)
-              │
-              ▼ or → clean cycle solenoids → needle valve → bags
-```
+The cartridge's peristaltic pumps are the only pumps in the system. To fill a bag, the pump must pull concentrate from the hopper and push it into the bag. The plumbing must support this.
 
-### 4b. Why Bags Above Pumps Matters
+**Key constraint:** The bag has one opening. The pump is between the bag and the dispensing point. The hopper connects at a tee junction near the bag.
 
-Peristaltic pumps create suction by deforming a tube, but they work significantly better when pre-primed (fluid already at the pump inlet). If bags are above the pumps:
-
-- **Gravity pre-primes the pump inlet tubing** — no air gap between bag and pump
-- **Reduced cavitation risk** — the pump doesn't need to pull fluid up against gravity
-- **More consistent flow rate** — the pump works with gravity, not against it
-- **Bag drainage is complete** — liquid drains to the lowest point (the outlet), so less residual liquid in a "empty" bag
-
-If bags are below or at the same level as pumps:
-- Pumps must create suction to pull fluid up (peristaltic pumps can do this, but it's less reliable)
-- Air bubbles are more likely to form in the inlet line
-- Bags may not drain completely — liquid pools at the lowest point, which may not be the outlet
-
-**Conclusion**: Bags should be above the pump cartridge. A minimum of 50-100mm of elevation difference provides meaningful gravity assist.
-
-### 4c. Hopper-to-Bag Flow
-
-The hopper is where the user pours flavoring concentrate. The concentrate needs to reach the bags. Options:
-
-1. **Gravity-fed**: Hopper above bags, concentrate flows down through a tube. Simple, reliable, but requires the hopper to be the highest point.
-2. **Pump-assisted**: A separate small pump moves concentrate from the hopper to the bags. Allows hopper at any height but adds complexity and cost.
-3. **Direct pour**: The user opens the bag and pours directly. No hopper needed, but requires bag access (removing a panel, opening a door). Least convenient for a weekly interaction.
-
-For the MVP, gravity-fed from a hopper above the bags is the simplest approach. This means the hopper must be at or near the top of the enclosure.
-
-### 4d. Clean Cycle Flow Path
-
-The clean cycle routes tap water through the system to flush residual concentrate:
+**Revised plumbing per flavor line:**
 
 ```
-    Tap water inlet (back panel)
-         │
-         ▼
-    Clean cycle solenoid valve (12V, normally closed)
-         │
-         ▼
-    Needle valve (flow rate control)
-         │
-         ▼
-    Tee into bag inlet line (or directly into bag)
-         │
-         ▼
-    Bag fills with clean water
-         │
-         ▼
-    Peristaltic pump draws from bag, pushes through dispensing line
-         │
-         ▼
-    Dispensing solenoid (normally closed, opens during clean)
-         │
-         ▼
-    Out to dispensing faucet → drain
+                              ┌─── Bag (single opening, connector at bottom)
+                              │
+  Funnel → [SEN-A] → [SV-H] ─┤
+                              │
+  Tap Water → [NV] → [SV-C] ─┘
+                              │
+                        ┌─────┘
+                        │
+                 [SV-D] (dispensing solenoid)
+                        │
+                 [DOCK INLET]
+                        │
+                 ══════════════
+                 ║ PUMP (in   ║
+                 ║ cartridge) ║
+                 ══════════════
+                        │
+                 [DOCK OUTLET]
+                        │
+                 → T-INJECT → dispensing point
 ```
 
-Elevation requirements:
-- Tap water has its own pressure (~40-60 PSI), so it can flow upward — the clean solenoid and needle valve can be at any height
-- The tee connection to the bag line should be at or above the bag to prevent backflow into the tap water line when the clean solenoid is closed (or use a check valve)
-- The bag-to-pump path follows the same gravity rules as normal operation
+**Fill mode (pump-assisted):**
 
-### 4e. Bag Drainage Geometry
+The pump runs in reverse (pulling from its outlet side, pushing through its inlet side). The dispensing solenoid is OPEN so the pump can pull from the bag side. The hopper solenoid is OPEN to provide the concentrate source.
 
-When a bag is nearly empty, the remaining liquid must collect at the outlet. For a hanging bag (vertical orientation), gravity naturally pulls liquid to the bottom where the outlet is. For a flat bag:
+```
+  Funnel → [SV-H OPEN] → TEE → [SV-D OPEN] → [PUMP REVERSED] → DOCK OUTLET → T-INJECT → dispensing point
+                           │
+                      Bag (fills via TEE as pump creates suction)
+```
 
-- If the outlet is at one end and the bag is tilted even 5-10 degrees toward the outlet, liquid collects there
-- If the bag is truly flat, liquid pools randomly and the pump may draw air before the bag is empty
-- A slight tilt mechanism (3D printed cradle with an angled floor) solves this
+Actually, this has the same problem identified in the hopper research (Section 2, Option A/B) — the pump pulls from the tee, which has two paths: the hopper and the bag. Some concentrate goes through the pump and out the dispensing point (wasted), and some enters the bag.
 
-**Recommendation**: Either hang bags vertically (outlet at bottom) or lay them on a 5-10 degree incline toward the outlet. Vertical hanging is more space-efficient; inclined flat is easier to support structurally.
+**Better approach: pump runs forward, hopper gravity-feeds into the tee while pump draws from the bag side:**
+
+No — the user explicitly stated gravity doesn't work. We need a dedicated fill approach.
+
+**The practical pump-assisted approach:**
+
+1. Hopper solenoid OPEN, dispensing solenoid CLOSED, clean solenoid CLOSED
+2. Pump runs in REVERSE at low speed
+3. Pump pulls from its outlet side (the dispensing point / T-INJECT side) — but dispensing solenoid is closed, so this path is blocked
+4. Instead: pump pushes backward through its inlet → through the dock inlet fitting → through the dispensing solenoid (CLOSED — blocked)
+
+This doesn't work either with a closed dispensing solenoid. Let me reconsider.
+
+**Working approach:** Accept that some concentrate passes through the system during fill, or use a separate dedicated fill path.
+
+The simplest working approach: during fill mode, the hopper solenoid opens and the dispensing solenoid opens. The pump runs FORWARD (normal direction: bag side → pump → dispensing point). The pump creates suction on the bag/tee side, which pulls concentrate from the hopper through the hopper solenoid into the tee. Most concentrate enters the bag (path of least resistance when the bag is collapsed/empty), but some gets pulled through the dispensing solenoid into the pump and out. This is a "flush and fill" approach.
+
+**Alternatively — and this is the cleanest solution — add a small dedicated fill pump.** A second, smaller peristaltic pump (or even a small DC diaphragm pump) is dedicated to hopper filling. It sits in the enclosure (not the cartridge) and pumps concentrate from the hopper funnel directly into the bag through a dedicated fill tube that connects at the same tee junction.
+
+However, the system's architecture uses the existing pump for everything. Adding a dedicated fill pump changes the BOM significantly.
+
+**The approach the user has confirmed works:** FDC1004 capacitive sensing detects liquid vs air. The existing pump runs in the normal direction with the hopper solenoid open and dispensing solenoid open. Concentrate enters through the tee, fills the bag, and the pump draws a small amount through the dispensing line. The FDC1004 sensor on the hopper line detects when the funnel is empty. The pump stops. Some concentrate is lost out the dispensing point, but this is an acceptable tradeoff for reliable air-free filling.
+
+### 4c. Hopper Tubing Routing in the Layered Layout
+
+The hopper funnels are at the TOP of the enclosure (in the top cap zone). The hopper solenoid valves are in the DOCK/PLUMBING zone (middle). The tubing must route from top to middle.
+
+**Route:**
+1. Funnel outlet → short barb fitting → 1/4" tubing
+2. Tubing passes through sealed grommet in the drip barrier shelf
+3. Tubing runs vertically down through the bag zone (along the rear wall, secured with printed clips every 50mm)
+4. Tubing passes through the bag zone without interference (bags hang from the front, tubing runs along the back)
+5. Tubing enters the dock/plumbing zone and connects to: FDC1004 copper tape electrode (SEN-A) → hopper solenoid valve (SV-H) → tee junction (T1 or T2)
+
+**Total hopper tube run per flavor:** ~400mm (top to middle of enclosure)
+
+This routing works naturally in the layered layout. The tubing runs along the rear wall, physically separated from the bags and the cartridge dock.
+
+### 4d. Revised Valve State Table
+
+| Mode | Hopper Sol | Clean Sol | Disp Sol | Pump | Flow Path |
+|------|-----------|-----------|----------|------|-----------|
+| Idle | CLOSED | CLOSED | CLOSED | OFF | No flow |
+| Dispensing | CLOSED | CLOSED | OPEN | FORWARD | Bag → tee → disp sol → pump → tap |
+| Hopper Refill | OPEN | CLOSED | OPEN | FORWARD | Hopper → tee → bag (fills) + tee → disp sol → pump → tap (small loss) |
+| Clean Fill | CLOSED | OPEN | CLOSED | OFF | Tap water → clean sol → tee → bag |
+| Clean Flush | CLOSED | CLOSED | OPEN | FORWARD | Bag → tee → disp sol → pump → tap |
+| Hopper Line Flush | OPEN | CLOSED | OPEN | FORWARD | Flushes stale concentrate from hopper tubing |
 
 ---
 
-## 5. Thermal Considerations
+## 5. Cross-Section Diagrams
 
-### 5a. Heat Sources
+### 5a. Side View Cross-Section (Primary View)
 
-| Component | Duty Cycle | Power (W) | Heat per Hour (Wh) | Notes |
-|---|---|---|---|---|
-| Kamoer KPHM400 pump x2 | ~5% (active during dispensing) | ~14W (both) | ~0.7 | Short bursts: a 12oz glass takes ~10-15 seconds |
-| L298N motor driver x2 | Same as pumps | ~6-12W (both) | ~0.3-0.6 | Voltage drop loss, proportional to current |
-| Solenoid valves (dispensing x2) | Same as pumps | ~11W (both) | ~0.6 | Only energized during dispensing |
-| Solenoid valves (clean x2) | Rare (clean cycle only) | ~11W (both) | Negligible | Clean cycle runs a few minutes every few weeks |
-| ESP32 | 100% (always on) | ~0.5W | ~0.5 | WiFi/BLE active |
-| Power supply losses | 100% | ~1-2W | ~1-2 | Transformer/regulator inefficiency |
-| **Peak (during dispensing)** | | **~33W** | | All pumps + valves + drivers simultaneously |
-| **Idle** | | **~2W** | | ESP32 + PSU losses only |
+```
+    ← FRONT                                                  BACK →
 
-### 5b. Thermal Analysis
+    ┌──────────────────────────────────────────────────────────────┐
+    │  ╔═══FUNNEL 1═══╗    ╔═══FUNNEL 2═══╗   [lid]  [lid]       │ 45mm
+    │  ╚═══════╤═══════╝    ╚═══════╤═══════╝                     │ HOPPER
+    │──────────┤────────────────────┤─────────────────────────────│
+    │          │   [ESP32/DIN]  [L298N] [L298N] [L298N]  [12V]   │ 45mm
+    │          │   [RTC] [FDC1004] [MCP23017]  [FUSE]            │ ELECTRONICS
+    │══════════╪════════════════════╪══════════════════════════════│ 5mm DRIP BARRIER
+    │          │hopper tube 1      │hopper tube 2                 │
+    │  ╔═══╤══╪═══╗   ╔═══╤══╪═══╗                               │
+    │  ║BAG│  │   ║   ║BAG│  │   ║    [hopper tubes route        │
+    │  ║ 1 │  │   ║   ║ 2 │  │   ║     along rear wall]          │ 255mm
+    │  ║   │  │   ║   ║   │  │   ║                                │ BAG ZONE
+    │  ║   ↓  │   ║   ║   ↓  │   ║                                │
+    │  ╚═══╤══╪═══╝   ╚═══╤══╪═══╝                               │
+    │──────┤──┤────────────┤──┤───────────────────────────────────│
+    │  [Display]  ╔════════════════╗   [SV-D1][SV-D2]             │
+    │  [totem ]   ║   CARTRIDGE   ║   [SV-C1][SV-C2]             │ 130mm
+    │  [RP2040]   ║   DOCK        ║   [SV-H1][SV-H2]             │ DOCK +
+    │  [S3    ]   ║   ← slide in  ║   [NV] [FM]                  │ PLUMBING
+    │  [      ]   ╚════════════════╝   [T1-T5] [T-MERGE]         │
+    │  [LEDs  ]                        [T-INJECT] [T-CLEAN]      │
+    │─────────────────────────────────────────────────────────────│
+    │  [DRIP TRAY — removable, slides out front]                  │ 25mm
+    │  ▓▓▓▓▓▓▓ rubber feet ▓▓▓▓▓▓▓                              │ FEET
+    └──────────────────────────────────────────────────────────────┘
+                               220mm deep
+```
 
-The enclosure is in an enclosed cabinet with limited natural airflow. Key questions:
+### 5b. Front View
 
-**Peak vs. sustained**: Peak power is ~33W but only occurs during dispensing (seconds at a time). Sustained power is ~2W. The thermal design needs to handle brief 33W bursts, not continuous 33W. Over a 24-hour period with moderate use (20 glasses/day x 15 seconds = 5 minutes of active time), total heat generation is about:
+```
+    ┌──────────────────────────────────────────────┐
+    │         [lid 1]        [lid 2]               │  Hopper lids visible on top
+    │                                              │
+    │  ═══ vent louvers (both sides) ═══           │  Side vents (not visible from front)
+    │                                              │
+    │                                              │  (electronics hidden behind top panel)
+    │                                              │
+    │         (bag zone — no front features)       │
+    │                                              │
+    │  ○ RP2040     ╔══════════════════════════╗   │
+    │  (33mm vis)   ║                          ║   │
+    │               ║   CARTRIDGE FACE         ║   │
+    │  ○ S3         ║   (flush, navy,          ║   │  Dock + plumbing zone
+    │  (48mm w/     ║    color-matched)        ║   │
+    │   knob)       ║   ═══lever═══╗          ║   │
+    │               ╚══════════════════════════╝   │
+    │  ● power LED              ● status LED       │
+    │                                              │
+    │  [═══════ drip tray front edge ═══════]      │
+    └──────────────────────────────────────────────┘
+                    240mm wide
+```
 
-- Active: 33W x 300s = 9,900 J = 2.75 Wh
-- Idle: 2W x 23.9h = 47.8 Wh
-- **Total daily: ~50 Wh** — about 180 kJ
+**Front face dimensions:**
+- Display totem: ~48mm wide x ~93mm tall, left side, vertically centered on the dock zone
+- Cartridge slot: ~155 x 105mm (with chamfer), right of center
+- Total active front face area: dock zone height (130mm) plus some margin above/below
+- Gap between display totem and cartridge slot: ~20mm
 
-This is modest. For comparison, a 60W light bulb generates this much heat in under an hour.
+### 5c. Back Panel View (From Outside)
 
-**Temperature rise estimate**: The enclosure has a surface area of roughly 0.5 m^2 (for a 300x300x300 cube). With 2W of sustained heat in a poorly ventilated cabinet at 25C ambient:
+```
+    ┌──────────────────────────────────────────────┐
+    │                                              │
+    │   [USB]                           [12V DC]   │  TOP ZONE (dry)
+    │                                              │
+    │                     [AIR SWITCH]             │  MID (pneumatic grommet)
+    │                                              │
+    │  ─────────────────────────────────────────── │  Drip dam ridge
+    │                                              │
+    │   [TAP IN]      [CARB IN]      [CARB OUT]   │  BOTTOM ZONE (wet)
+    │    (blue)        (green)        (white)      │
+    │    + 90° elbow   + 90° elbow   + 90° elbow  │
+    │                                              │
+    └──────────────────────────────────────────────┘
+                    240mm wide
 
-- Natural convection from a box: roughly 5-10 W/(m^2*K)
-- Temperature rise = Power / (h * A) = 2W / (7.5 * 0.5) = ~0.5C above cabinet ambient
+    Labels: embossed/debossed into panel surface (not stickers)
+    Color rings: printed snap-on collars around bulkhead nuts
+    Panel: removable, 4-6 M3 screws into heat-set inserts, 4mm thick
+```
 
-This is negligible. Even at peak, the temperature rise would be temporary and under 10C.
-
-**Does the enclosure need ventilation openings?**
-
-No forced ventilation is needed. Passive ventilation (a few vent holes or slots near the top and bottom) is sufficient and good practice for moisture management, but active cooling (fans) would be over-engineering for this thermal load.
-
-### 5c. Heat Source Placement
-
-Even though thermal management is not critical, following good practices:
-
-- **L298N motor drivers**: Mount in the upper portion of the electronics zone, near vent slots. Heat rises — let it exit.
-- **Pumps**: Inside the cartridge, so their heat exits with the cartridge. During insertion, the dock provides some thermal mass.
-- **Solenoid valves**: Intermittent use, minimal concern. Can be placed anywhere.
-- **ESP32**: Low power, no placement constraint from thermal perspective.
-
-### 5d. Cabinet Environment
-
-The under-sink cabinet itself is a semi-enclosed space. With the cabinet doors closed, temperatures can be 2-5C above room temperature due to hot water pipes. The enclosure components are all rated for 0-40C or better operating range. No concerns.
-
----
-
-## 6. Water Protection
-
-### 6a. External Water Threats
-
-The enclosure sits under a kitchen sink. Water hazards include:
-
-| Threat | Likelihood | Severity | Notes |
-|---|---|---|---|
-| Splash from sink drain leak | Medium | High | P-trap connections can weep; drips land on anything below |
-| Splash during garbage disposal use | Low | Medium | Contained in the sink bowl, but spray can exit |
-| Supply line leak | Low | Very High | Pressurized — would spray or drip continuously |
-| Floor water (mopping, spill from above) | Medium | Medium | Water pools on cabinet floor |
-| Condensation on cold water pipes | Low | Low | Minor dripping in humid weather |
-
-### 6b. Internal Water Threats
-
-| Threat | Likelihood | Severity | Notes |
-|---|---|---|---|
-| Bag leak | Low | High | 2L of flavoring concentrate on electronics would be catastrophic |
-| Tube connection leak (push-connect) | Low-Medium | Medium | Small drips, not pressurized |
-| Cartridge drip during change | Medium | Low | Small amount of residual fluid in tubes |
-| Hopper overflow | Low | Medium | User overfills the hopper |
-| Clean cycle fitting failure | Low | High | Pressurized tap water |
-
-### 6c. Protection Strategies
-
-**Strategy 1: Sealed electronics sub-compartment**
-- All electronics (ESP32, L298N x2, RTC) in a sealed inner box with cable glands for wire pass-throughs
-- Pros: maximum protection, IP-rated if desired
-- Cons: cable glands for every wire, harder to access for debugging, heat retention
-- **Verdict**: Worthwhile for production; overkill for prototype. A reasonable middle ground is an electronics shelf with a drip shield above it.
-
-**Strategy 2: Drip tray under the enclosure**
-- The enclosure sits on rubber feet above a shallow tray (10-15mm deep)
-- External drips from above land on the enclosure top (sloped to shed water) and run off
-- Floor water is contained by the tray
-- **Verdict**: Simple, effective, should be included in all layouts.
-
-**Strategy 3: Vertical separation — electronics below fluids with a drip barrier**
-- A solid shelf between the fluid zone (bags, dock, valves) and the electronics zone
-- Any internal leaks drip onto the shelf, which has a drain channel to the front (visible leak indicator)
-- **Verdict**: The most practical approach for a prototype. Easy to implement with a 3D-printed or sheet-metal shelf.
-
-**Strategy 4: Electronics above fluids**
-- Invert the typical layout: electronics at the top, bags and plumbing below
-- Gravity means leaks never reach electronics
-- **Problem**: This conflicts with the ideal gravity flow (bags above pumps) and puts the ESP32's USB port at the top of the unit
-- **Verdict**: Not recommended. The gravity flow advantage is more important than the leak protection advantage.
-
-### 6d. Cartridge Dock Water Management
-
-When the user removes the cartridge, residual fluid in the tubes can drip:
-
-- The dock should have a drip channel below the fitting openings that routes to the front (visible) or to a small tray
-- The front face of the dock should have a slight lip to prevent drips from running down the enclosure front
-- The enclosure should tolerate a few mL of drips without any damage
-
-### 6e. Recommended Protection Architecture
-
-1. **Enclosure shell**: Solid on all sides (no open-frame design). Top surface slightly crowned or sloped to shed external drips.
-2. **Internal drip shelf**: Solid horizontal shelf between the fluid zone (upper) and electronics zone (lower). Sloped to drain toward a visible indicator or small reservoir at the front.
-3. **Drip tray**: Under the enclosure, integral or separate. Catches anything that exits the enclosure bottom.
-4. **Vent slots on sides**: Not top or bottom (water ingress). Horizontal louvers that reject drips while allowing airflow.
-5. **Cartridge dock drip channel**: Below the fitting openings, routes to the front or to the drip shelf.
+**Fitting spacing:** 40mm center-to-center between the three water fittings. Water zone spans ~80mm + margins at the bottom of the panel. Power and USB at the top, separated by the drip dam.
 
 ---
 
-## 7. Comparison Matrix
+## 6. Internal Plumbing Summary
 
-Scoring each layout 1-5 (5 = best):
+From the routing research (back-panel-and-routing.md Section 2c):
 
-| Criteria | Weight | 3a Tall Tower | 3b Wide/Short | 3c Cube | 3d L-Shape | 3e Front-Loading | 3f Deep Shelf |
-|---|---|---|---|---|---|---|---|
-| Hopper accessibility | 5 | 5 (top) | 3 (front door) | 5 (top) | 4 (tall section top) | 4 (front door) | 4 (top-front) |
-| Cartridge accessibility | 5 | 4 (mid-height front) | 4 (front) | 4 (front) | 5 (short section, easy reach) | 4 (front) | 4 (front) |
-| Display visibility | 3 | 4 (front, above dock) | 4 (front) | 4 (front) | 4 (front) | 5 (front, dedicated zone) | 4 (front) |
-| Internal routing simplicity | 4 | 5 (vertical, gravity) | 3 (horizontal runs) | 4 (moderate) | 3 (lateral runs) | 4 (vertical, with hopper chute) | 3 (long runs to rear bags) |
-| Under-sink fit (various cabinets) | 5 | 3 (18" tall, tight fit) | 2 (16" wide, too wide for side zones) | 4 (12" cube fits most zones) | 3 (complex shape) | 4 (11"W x 16"H fits most) | 5 (10" front, uses depth) |
-| Manufacturability (3D print + off-shelf) | 3 | 4 (rectangular) | 4 (rectangular) | 4 (rectangular) | 2 (L-shape, complex) | 3 (front door mechanism) | 4 (rectangular) |
-| Water safety | 4 | 3 (electronics at bottom = floor water risk) | 4 (electronics below bags but on solid shelf) | 4 (drip shelf works) | 3 (complex water paths) | 4 (drip shelf, vertical sep.) | 3 (electronics near front floor) |
-| Thermal management | 2 | 4 (heat rises to top vents) | 4 (wide surface area) | 4 (adequate) | 3 (complex airflow) | 4 (adequate) | 4 (adequate) |
-| Aesthetics / product feel | 3 | 4 (classic tower) | 3 (boxy, not distinctive) | 4 (compact, modern) | 3 (unusual shape) | 5 (clean single-face design) | 3 (deep box, not much front presence) |
-| Floor space consumed | 4 | 5 (500 cm^2) | 2 (880 cm^2) | 4 (900 cm^2) | 3 (mixed) | 4 (700 cm^2) | 5 (1125 cm^2 but narrow front) |
-| Gravity flow optimization | 4 | 5 (ideal vertical stack) | 2 (bags flat, poor drainage) | 4 (bags above dock) | 3 (lateral flow) | 4 (bags above dock, tilted) | 3 (bags far from pumps) |
+| Category | Count | Details |
+|----------|-------|---------|
+| Push-connect tees | 5 | T-CLEAN, T1, T2, T-MERGE, T-INJECT |
+| Bulkhead fittings | 3 | TAP IN, CARB IN, CARB OUT |
+| 90-degree elbows | 3 | External strain relief on back panel |
+| Dock wall fittings | 4 | 2 inlets, 2 outlets |
+| Solenoid valves | 6 | 2 dispensing, 2 clean, 2 hopper |
+| Needle valve | 1 | Clean water flow restriction |
+| Flow meter | 1 | Inline with carbonated water |
+| **Total push-connect fittings** | **15** | Plus fittings integral to solenoid valves |
+| **Total hard tubing** | **~1,200mm (4 ft)** | |
+| **Total soft silicone** | **~1,500mm (5 ft)** | Including hopper runs (~800mm for 2 lines) |
+| **Grand total tubing** | **~2,700mm (9 ft)** | |
+| **Hard-to-soft transitions** | **~10** | Each uses ~30mm hard stub + zip tie |
 
-### Weighted Scores
-
-| Layout | Score (out of 210) |
-|---|---|
-| **3a Tall Tower** | 175 |
-| **3b Wide/Short** | 131 |
-| **3c Cube** | 173 |
-| **3d L-Shape** | 137 |
-| **3e Front-Loading Tower** | 174 |
-| **3f Deep Shelf** | 160 |
-
-### Ranking
-
-**1. Tall Tower (175)** — Best gravity flow, smallest footprint, natural hopper-on-top. The main risk is height: 450mm (18") needs to fit under the sink with clearance for hopper access. If the under-sink cabinet has 500mm+ of usable height in the side zone, this is the strongest layout.
-
-**2. Front-Loading Tower (174)** — Nearly tied with Tall Tower. Wins on aesthetics and the single-interaction-face principle. Slightly penalized for the hopper door mechanism complexity and the internal chute volume. This is the "product-ready" layout — the one you'd see in a Kickstarter render.
-
-**3. Cube (173)** — Very close third. Excellent all-around balance. Slightly smaller than the Tall Tower, slightly harder to optimize internal routing. A strong compromise if height is constrained.
-
-**4. Deep Shelf (160)** — Good for tight spaces where width and height are constrained but depth is available. Practical but less product-like.
-
-**5. L-Shape (137)** — Interesting concept but the manufacturing complexity and routing challenges push it down. Could work if the cabinet has an unusual shape that rewards an L profile.
-
-**6. Wide/Short (131)** — The 400mm width is the fatal flaw. Most under-sink side zones are 250-350mm wide. This layout only works in a very wide cabinet or in the center (which is blocked by plumbing).
-
-### Recommended Starting Point
-
-**The Tall Tower (3a) or Front-Loading Tower (3e)** should be explored first. Both use the natural vertical stacking (hopper > bags > dock > electronics) that gravity and the user interaction hierarchy demand.
-
-The choice between them depends on whether the top of the enclosure is accessible:
-- **If the hopper can be at the very top** and there's room to pour (50-100mm above the hopper opening to the underside of the sink or countertop): **Tall Tower**.
-- **If the top of the enclosure is close to the underside of the sink** (no room to pour): **Front-Loading Tower** with a front-accessible hopper door.
-
-A practical approach: design the Tall Tower as the baseline, and add a front hopper door option as a variant if top access proves insufficient in the actual cabinet.
+Most tubing is silicone (user confirmed). Hard tubing is used only at push-connect fitting interfaces and short rigid runs between closely spaced fittings.
 
 ---
 
-## 8. Next Steps
+## 7. Weight Estimate
 
-1. **Measure the actual under-sink cabinet** where this will be installed. The zone width, depth, and height (accounting for the sink bowl and any disposal) determines which layouts are feasible.
-2. **Prototype the bag suspension/cradle** — the bag arrangement (hanging vs. tilted flat) drives the upper section of the enclosure.
-3. **Design the hopper-to-bag connection** — gravity funnel with tubing to each bag, or a splitter valve?
-4. **Define the back panel layout** — 4x 1/4" push-connect bulkhead fittings + barrel jack + air tube pass-through. This can be prototyped independently.
-5. **Build a cardboard mockup** at the target dimensions and test it in the actual cabinet for fit and interaction ergonomics.
+| Component | Weight (g) | Notes |
+|-----------|-----------|-------|
+| 2x Platypus bags (full) | 4,000 | ~2 kg each (water weight) |
+| Cartridge (assembled, with pumps) | 940 | From cartridge-envelope.md |
+| Dock housing | 500 | Estimated |
+| 6x solenoid valves | 720 | 120g each |
+| 3x L298N boards | 90 | 30g each |
+| ESP32 + DIN rail breakout | 80 | |
+| Flow meter | 50 | |
+| Needle valve | 60 | |
+| DS3231 RTC | 8 | |
+| FDC1004 + MCP23017 boards | 20 | |
+| 2x displays | 80 | S3 50g + RP2040 30g |
+| 15x push-connect fittings | 150 | ~10g each estimated |
+| Tubing (2.7m) | 80 | Silicone + hard tube |
+| Wiring harness | 50 | |
+| 12V power supply (if internal) | 100 | |
+| **Enclosure structure (PETG)** | **800** | See Section 8 BOM |
+| Drip tray | 50 | |
+| Hopper funnels + lids | 60 | Silicone |
+| Rubber feet, screws, magnets | 50 | |
+| **Total (bags full)** | **~7,890 g (17.4 lbs)** | |
+| **Total (bags empty)** | **~3,950 g (8.7 lbs)** | |
+
+The center of gravity shifts as bags empty. With bags in the lower half of the enclosure and full of liquid, the CG is low and stable. A 240mm wide base is stable at this weight.
+
+---
+
+## 8. Enclosure Structure Bill of Materials
+
+This covers the box itself — panels, fasteners, rails, vents. Not the electronics, plumbing, or cartridge.
+
+| Part | Material | Qty | Dimensions (mm) | Est. Weight (g) | Notes |
+|------|----------|-----|-----------------|-----------------|-------|
+| **Front panel** | Navy PETG, 0.1mm layer height | 1 | 240 x 505 x 5 | 150 | Separate piece, sanded + clear coat. Display holder sockets and cartridge slot integrated. |
+| **Back panel** | Navy PETG | 1 | 240 x 505 x 4 | 120 | Removable (6x M3 screws). Bulkhead fitting holes, barrel jack, grommet. |
+| **Left side panel** | Navy PETG | 1 | 220 x 505 x 3 | 85 | Vent louvers in upper 50mm. Fixed (glued or screwed to frame). |
+| **Right side panel** | Navy PETG | 1 | 220 x 505 x 3 | 85 | Mirror of left. |
+| **Top panel** | Navy PETG | 1 | 240 x 220 x 4 | 55 | Removable (4x M3 screws). Funnel recesses and moats molded in. |
+| **Bottom plate** | Navy PETG | 1 | 240 x 220 x 4 | 55 | Drip tray rails, rubber foot mounts. |
+| **Drip barrier shelf** | PETG (any color, internal) | 1 | 230 x 210 x 5 | 60 | Sloped forward 3-5 degrees. Sealed hopper tube pass-throughs. |
+| **Electronics mounting rails** | PETG | 2 | DIN rail + brackets, ~150mm | 20 | For ESP32 breakout, fuse holder, terminal blocks |
+| **Cartridge dock structure** | PETG | 1 | ~180 x 130 x 130 | 120 | Guide rails, fitting mount wall, pogo pin mount, alignment pins |
+| **Internal valve mounting bracket** | PETG | 1 | ~200 x 100 x 40 | 30 | Holds 6 solenoid valves vertically |
+| **Display holder sockets (x2)** | PETG + embedded magnets | 2 | 55mm dia x 15mm, 40mm dia x 10mm | 15 | Magnetic retention rings. Printed into front panel or as inserts. |
+| **Bag hooks (x2)** | PETG | 2 | ~30 x 20 x 15 | 5 | Mount to underside of drip barrier shelf |
+| **Wire channels** | PETG | 4 | ~150mm lengths, U-channel with snap lids | 10 | Route wires along upper walls |
+| **Drip tray** | PETG | 1 | 220 x 200 x 15 | 50 | Removable, slides on rails from front |
+| **Heat-set inserts (M3)** | Brass | 20 | M3 x 4mm | 10 | For all screw-mounted panels |
+| **M3 x 8mm socket head screws** | Stainless | 20 | — | 10 | Panel mounting |
+| **6x3mm N52 neodymium disc magnets** | — | 10 | 6mm dia x 3mm | 5 | 4 for S3 holder, 3 for RP2040 holder, 3 spare |
+| **Steel discs (magnet targets)** | — | 7 | 6mm dia x 1mm | 3 | In display adapter housings |
+| **Rubber feet** | Neoprene or silicone | 4 | 20mm dia x 10mm | 8 | Self-adhesive |
+| **PETG filament (total)** | Navy PETG (Atomic Filament or similar) | ~600g | — | — | Estimated print material for all structural parts |
+| | | | | **Total: ~800g** | |
+
+**Estimated PETG cost:** ~600g at $30/kg = ~$18 in filament
+**Estimated hardware cost:** ~$15 (magnets, inserts, screws, feet)
+**Total enclosure structure cost:** ~$33
+
+---
+
+## 9. Eliminated Alternatives (Brief)
+
+These were explored in the original research and rejected. Recorded here for context.
+
+| Layout | Why Eliminated |
+|--------|---------------|
+| **Wide/Short (400W x 220D x 250H)** | 400mm width doesn't fit most under-sink side zones (250-350mm) |
+| **Cube (300 x 300 x 300)** | Internal routing too dense; 300mm wide is tight for dock + bags side by side |
+| **L-Shape / Stepped** | Complex manufacturing, lateral tube runs, doesn't fit rectangular cabinet zones |
+| **Deep Shelf (250W x 450D x 280H)** | Bags in rear are inaccessible; 450mm depth reaches too far into cabinet |
+| **Front-Loading Tower with hopper door** | Front hopper adds mechanism complexity; top hopper is simpler and more natural |
+| **Top-loading cartridge** | Contradicts front-access design goal; requires reaching over enclosure |
+| **Gravity hopper fill** | Too slow (8-15 min), air counter-flow problems, vapor lock risk. User override: pump-assisted required. |
+| **Dock-side release mechanism** | Chicken-and-egg problem: collets must release BEFORE tubes move, but dock ramp requires tube movement FIRST |
+| **CPC quick-disconnect couplings** | $10-15 per coupling vs $1 for John Guest fittings; overkill for this swap frequency |
+
+---
+
+## 10. Open Items for CAD
+
+1. **Measure actual pump mounting holes** — the KPHM400 bracket hole pattern must be confirmed from physical pumps before dock/cartridge CAD
+2. **Bag size selection** — the Platypus bags don't need to be 2L. Confirm the specific bag size and measure actual dimensions when hung inverted
+3. **Hopper fill pump path validation** — build the plumbing on the bench, test pump-assisted fill with all solenoid states, measure concentrate loss out the dispensing point
+4. **Cabinet measurement** — measure the actual installation cabinet: zone width, depth, height (accounting for sink bowl, disposal, supply lines)
+5. **Cardboard mockup** — build a 240 x 220 x 505mm box, place it in the cabinet, verify hopper reach, cartridge slot height, and back panel access
+6. **FDC1004 electrode testing** — verify capacitance change through silicone tubing with sugar syrup vs air
+7. **Release plate single-bore test** — 3D print a single stepped-bore sleeve, test against a John Guest fitting, validate dimensions before scaling to 4 bores
 
 ---
 
 ## Sources
 
-### Component Dimensions
-- [Kamoer KPHM400 Datasheet (Amazon PDF)](https://m.media-amazon.com/images/I/A1at7U9PyNL.pdf) — Pump dimensions, mounting pattern
-- [Kamoer KPHM400 Amazon Listing](https://www.amazon.com/peristaltic-Brushed-Kamoer-KPHM400-Liquid/dp/B09MS6C91D) — Weight
-- [Platypus Platy 2L Bottle (Cascade Designs)](https://cascadedesigns.com/products/platy-2l-bottle) — Bag dimensions: 7.5" x 13.8" flat
-- [Platypus Platy 2L (Garage Grown Gear)](https://www.garagegrowngear.com/products/platy-2l-bottle-collapsible-bottle-by-platypus) — Bag flat dimensions
-- [ESP32-DevKitC V4 User Guide (Espressif)](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32/esp32-devkitc/user_guide.html) — PCB dimensions: 55.3 x 28.0 x 12.9mm
-- [DIN Rail Mount ESP32 Breakout (CZH-Labs)](https://czh-labs.com/products/din-rail-mount-screw-terminal-block-breakout-module-board-for-esp32-devkitc) — Breakout board dimensions
-- [L298N Motor Driver Module (Components101)](https://components101.com/modules/l293n-motor-driver-module) — Module dimensions: 43 x 43 x 27mm
-- [DS3231 RTC Module (Components101)](https://components101.com/modules/ds3231-rtc-module-pinout-circuit-datasheet) — Module dimensions: 38 x 22 x 14mm
-- [Elecrow CrowPanel 1.28" Rotary Display](https://www.elecrow.com/crowpanel-1-28inch-hmi-esp32-rotary-display-240-240-ips-round-touch-knob-screen.html) — Display dimensions: 48 x 48 x 33mm, 50g
-- [Waveshare RP2040-LCD-0.99-B Wiki](https://www.waveshare.com/wiki/RP2040-LCD-0.99-B) — Display diameter: 33mm
-- [DIGITEN Flow Sensor (DIGITEN Shop)](https://www.digiten.shop/collections/counter) — G1/2" sensor: 65 x 30 x 28mm
+### Enclosure Research (This Project)
+- [hopper-and-bag-management.md](hopper-and-bag-management.md) — Hopper design, bag mounting, air management, capacitive sensing, fill paths
+- [front-face-interaction-design.md](front-face-interaction-design.md) — Display holders, cable management, cartridge slot, front layout options, materials
+- [back-panel-and-routing.md](back-panel-and-routing.md) — Back panel layout, internal fluid routing, electrical routing, plumbing inventory
 
-### Thermal and Electrical
-- [L298N Motor Driver Heat Dissipation (Rugged Circuits)](https://www.rugged-circuits.com/the-motor-driver-myth) — Voltage drop: 1.8-3.2V at 1A, thermal resistance 35C/W
-- [L298N Thermal Issues (Arduino Forum)](https://forum.arduino.cc/t/l298n-driver-heats-up-very-much/1164864) — Practical heat management
-- [L298N Tutorial (LastMinuteEngineers)](https://lastminuteengineers.com/l298n-dc-stepper-driver-arduino-tutorial/) — Power dissipation details
-- [Kamoer KPHM400 Data Sheet (DirectIndustry)](https://pdf.directindustry.com/pdf/kamoer-fluid-tech-shanghai-co-ltd/kphm400-peristaltic-pump-data-sheet/242598-1017430.html) — Motor power specs
+### Cartridge Research (This Project)
+- [mating-face.md](../../cartridge/planning/research/mating-face.md) — Port arrangement, release plate integration, dock simplicity
+- [collet-release.md](../../cartridge/planning/research/collet-release.md) — John Guest collet mechanics, release tool geometry, failure modes
+- [release-plate.md](../../cartridge/planning/research/release-plate.md) — Stepped bore geometry, spacing, compliance, material, print strategy
+- [cam-lever.md](../../cartridge/planning/research/cam-lever.md) — Eccentric cam, over-center locking, lever sizing
+- [electrical-mating.md](../../cartridge/planning/research/electrical-mating.md) — Pogo pins, 3 contacts, moisture separation
+- [guide-alignment.md](../../cartridge/planning/research/guide-alignment.md) — Tapered pins, rail systems, FDM tolerances
+- [cartridge-envelope.md](../../cartridge/planning/research/cartridge-envelope.md) — Pump dimensions, arrangement options, target envelope
+- [pump-mounting.md](../../cartridge/planning/research/pump-mounting.md) — Mounting holes, vibration, tube exits, bracket options
+- [under-cabinet-ergonomics.md](../../cartridge/planning/research/under-cabinet-ergonomics.md) — Cabinet zones, reach depth, sight lines, body positions
+- [release-mechanism-alternatives.md](../../cartridge/planning/research/release-mechanism-alternatives.md) — Full solution space: hand disconnect, CPC couplings, dock-side mechanisms
+- [dock-mounting-strategies.md](../../cartridge/planning/research/dock-mounting-strategies.md) — Wall mount vs floor, water filter prior art, scoring
+- [cartridge-change-workflow.md](../../cartridge/planning/research/cartridge-change-workflow.md) — Step-by-step UX analysis, failure scenarios, time estimates
 
-### Under-Sink Environment
-- [Sink Base Cabinet Dimensions (Casta Cabinetry)](https://castacabinetry.com/post/sink-base-cabinet-dimensions/) — Standard dimensions
-- [Kitchen Cabinet Sizes (Kitchen Cabinet Kings)](https://kitchencabinetkings.com/guides/kitchen-cabinet-sizes) — Cabinet interior clearances
-- Prior research: [under-cabinet-ergonomics.md](../../cartridge/planning/research/under-cabinet-ergonomics.md) — Detailed zone analysis, sight lines, reach depth
-- Prior research: [dock-mounting-strategies.md](../../cartridge/planning/research/dock-mounting-strategies.md) — Mounting location survey and scoring
-
-### Cartridge Design (Prior Research)
-- [cartridge-envelope.md](../../cartridge/planning/research/cartridge-envelope.md) — Pump arrangements, envelope sizing, weight
-- [cam-lever.md](../../cartridge/planning/research/cam-lever.md) — Lever mechanism, clearance requirements
-- [mating-face.md](../../cartridge/planning/research/mating-face.md) — Fitting layout, electrical contacts
-- [requirements.md](../../cartridge/planning/requirements.md) — Functional requirements, constraints
-
-### Product Analogies
-- [3M Under Sink RO Systems (Solventum)](https://www.solventum.com/en-us/home/f/b5005118094/) — Water filter form factor
-- [DuPont QuickTwist Filtration (Amazon)](https://www.amazon.com/DuPont-WFQT390005-QuickTwist-Drinking-Filtration/dp/B007VZ2PH8) — Under-sink filter reference
-- [Waterdrop TSU System](https://www.waterdropfilter.com/) — Compact under-sink filter dimensions
+### External Sources
+- [Kamoer KPHM400 Datasheet](https://m.media-amazon.com/images/I/A1at7U9PyNL.pdf) — Pump dimensions
+- [Platypus Platy 2L Bottle](https://cascadedesigns.com/products/platy-2l-bottle) — Bag dimensions
+- [ESP32-DevKitC V4 User Guide](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32/esp32-devkitc/user_guide.html) — PCB dimensions
+- [Sink Base Cabinet Dimensions](https://castacabinetry.com/post/sink-base-cabinet-dimensions/) — Standard cabinet measurements
+- [Under-Cabinet Ergonomics Research](../../cartridge/planning/research/under-cabinet-ergonomics.md) — Detailed zone analysis
