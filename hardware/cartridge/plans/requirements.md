@@ -60,12 +60,21 @@ The cartridge mechanism is a sequence of three things that happen during inserti
 
 ## Research
 
+### Round 1: Mechanism Families
 Each sub-problem has a corresponding research document exploring mechanism families and tradeoffs:
 
 - [Collet Release Mechanics](../research/collet-release.md)
 - [Guide & Alignment Mechanisms](../research/guide-alignment.md)
 - [Electrical Mating Approaches](../research/electrical-mating.md)
 - [Cam & Lever Mechanisms + Prior Art](../research/cam-lever.md)
+
+### Round 2: Component-Level Design
+Grounded in specific dimensions from parts in hand and Round 1 research:
+
+- [Release Plate](../research/release-plate.md) — Stepped bore geometry, hole arrangements, first-print spec
+- [Mating Face](../research/mating-face.md) — Tube port layout, fitting mounting, electrical contact placement, guide features
+- [Cartridge Envelope](../research/cartridge-envelope.md) — Pump dimensions, arrangements, tubing routing, bounding volumes
+- [Pump Mounting](../research/pump-mounting.md) — Mounting features, vibration isolation, strain relief, wire routing
 
 ## Design Approach (4 Phases)
 
