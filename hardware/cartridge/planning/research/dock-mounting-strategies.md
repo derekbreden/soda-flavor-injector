@@ -1,18 +1,18 @@
 # Dock Integration Within the Enclosure
 
-The original version of this document asked "where in the cabinet does the dock mount?" That question is obsolete. The dock is not a standalone bracket screwed to a cabinet wall. The dock is part of a self-contained enclosure — a tower (~250 x 200 x 450mm) that sits inside the cabinet as a single unit. The dock is structurally integrated into the enclosure.
+The dock is not a standalone bracket screwed to a cabinet wall. It is part of a self-contained enclosure — a tower (~280 x 250 x 400mm) that sits inside the cabinet as a single unit. The dock is structurally integrated into the enclosure.
 
-The new question: **where on/in the enclosure does the cartridge dock sit, and how does it integrate structurally with the enclosure frame, fluid routing, and electrical routing?**
+The question: **where on/in the enclosure does the cartridge dock sit, and how does it integrate structurally with the enclosure frame, fluid routing, and electrical routing?**
 
 **Established parameters from other research:**
 
 | Parameter | Value | Source |
 |---|---|---|
-| Enclosure (tall tower layout) | ~250W x 200D x 450H mm | layout-spatial-planning.md |
-| Cartridge envelope | ~140W x 90H x 100D mm, ~940g | cartridge-envelope.md |
+| Enclosure (front-loading tower) | ~280W x 250D x 400H mm | layout-spatial-planning.md |
+| Cartridge envelope | ~150W x 80H x 130D mm, ~820g | cartridge-envelope.md |
 | Dock estimate (housing) | ~180W x 130H x 130D mm, ~500g | layout-spatial-planning.md |
-| Lever clearance above dock | ~100mm | layout-spatial-planning.md |
-| Dock + lever vertical extent | ~230mm | layout-spatial-planning.md |
+| Lever clearance above dock | ~40mm | layout-spatial-planning.md |
+| Dock + lever vertical extent | ~120mm (80mm cartridge + 40mm lever) | layout-spatial-planning.md |
 | Tube fittings (dock wall) | 4x John Guest 1/4" push-connect | collet-release.md |
 | Electrical contacts (dock) | 3x pogo pins | electrical-mating.md |
 | Fitting C-C spacing | 15mm recommended | mating-face.md |
@@ -20,15 +20,16 @@ The new question: **where on/in the enclosure does the cartridge dock sit, and h
 | Guide rail clearance (FDM) | 0.3-0.5mm per side | guide-alignment.md |
 | Cam lever eccentricity | 1-1.5mm for 2-3mm stroke | cam-lever.md |
 | Pump vibration frequency | 10-17 Hz (roller), plus motor HF | pump-mounting.md |
-| Bag zone height | 10-12" (250-300mm) realistic | confirmed |
-| Hopper fill method | Pump-assisted (gravity does not work) | confirmed |
+| Bag zone height | ~176mm (two 1L bags at 18-20 deg incline) | bag-zone-geometry.md |
+| Bag mounting | Two-point stretch, 18-20 deg incline | incline-bag-mounting.md |
+| Hopper fill method | Pump-assisted (reversed main pump) | pump-assisted-filling.md |
 | FDC1004 capacitive sensing | Confirmed working | confirmed |
 
 ---
 
 ## 1. The Enclosure's Layered Architecture
 
-The tall tower layout divides the enclosure into three horizontal zones stacked vertically. The dock sits in the middle zone.
+The front-loading tower layout divides the enclosure into three horizontal zones stacked vertically. The dock sits in the middle zone.
 
 ```
     FRONT VIEW                           SIDE VIEW (cross-section)
@@ -38,32 +39,33 @@ The tall tower layout divides the enclosure into three horizontal zones stacked 
     │   (pump-assisted)   │ ← top cap   │   INLET         │
     ├─────────────────────┤             ├─────────────────┤
     │ [S3]         [RP]   │             │                 │
-    │   ESP32, L298N x2   │             │  ELECTRONICS    │  ~100mm
-    │   RTC, wiring       │ ZONE A      │  zone           │
-    ├─────────────────────┤ ─ ─ ─ ─ ─  ├─────────────────┤ ← DOCK SHELF
+    │   ESP32, L298N x3   │             │  ELECTRONICS    │  ~90mm
+    │   RTC, fuse block   │ ZONE A      │  zone           │
+    ├═════════════════════┤ ─ ─ ─ ─ ─  ├═════════════════┤ ← ELECTRONICS SHELF (~310mm)
     │ ┌─────────────────┐ │             │  ┌───────────┐  │
     │ │  CARTRIDGE     ◄│ │             │  │ CARTRIDGE │  │
-    │ │  DOCK           │ │ ZONE B      │  │ DOCK      │  │  ~230mm
+    │ │  DOCK           │ │ ZONE B      │  │ DOCK      │  │  ~120mm
     │ │  (slide-in)     │ │             │  │           │  │  (incl lever)
     │ └─────────────────┘ │             │  └───────────┘  │
     │   Solenoid valves   │             │  VALVES         │
     │   Flow meter        │             │  FLOW METER     │
-    ├─────────────────────┤ ─ ─ ─ ─ ─  ├─────────────────┤ ← DOCK FLOOR
-    │                     │             │                 │
-    │   Platypus bags     │             │  BAG 1          │
-    │   (2x, hanging or   │ ZONE C      │  BAG 2          │  ~250-300mm
-    │    draped, outlets   │             │  (behind)       │
-    │    at bottom)       │             │                 │
-    │                     │             │                 │
+    ├═════════════════════┤ ─ ─ ─ ─ ─  ├═════════════════┤ ← DOCK SHELF (~180mm)
+    │                     │             │        *  sealed│
+    │   Platypus bags     │             │       / BAG 2   │
+    │   (2x 1L, incline   │ ZONE C      │      / 18 deg  │  ~176mm
+    │    mount 18-20 deg, │             │  * conn        │
+    │    connector low,   │             │        *  sealed│
+    │    sealed end high) │             │       / BAG 1   │
+    │                     │             │  * conn        │
     └─────────────────────┘             └─────────────────┘
-         250mm                               200mm
+         280mm                               250mm
 ```
 
-**Zone A (top, ~100mm):** Electronics. ESP32, two L298N motor drivers, RTC module, wiring. Displays mount flush on the front face. Hopper inlet on top cap.
+**Zone A (top, ~90mm, 310-400mm):** Electronics. ESP32, three L298N motor drivers, RTC module, MCP23017, fuse block, DIN rail, wiring. Displays mount flush on the front face. Hopper inlet on top cap. Vent louvers on side walls for passive convection.
 
-**Zone B (middle, ~230mm including lever clearance):** The dock, cartridge, solenoid valves, flow meter, needle valve. This is the densest zone. The dock occupies the upper portion; valves sit below or beside the dock.
+**Zone B (middle, ~120mm, 186-306mm):** The dock, cartridge, solenoid valves, flow meter, needle valve, tees, check valves. This is the densest zone. The cartridge occupies 80mm of height, with 40mm of lever clearance above it. Valves sit beside the dock on the shelf.
 
-**Zone C (bottom, ~250-300mm):** Bags. Two Platypus 2L bags hang or drape with outlets at the bottom, gravity-feeding upward to the dock's inlet fittings via short tube runs. Bags collapse reliably as fluid is consumed. 10-12 inches of bag zone height is realistic for 2L bags.
+**Zone C (bottom, ~176mm, 4-180mm):** Bags. Two 1L Platypus bags mount at an 18-20 degree incline with two-point stretch (connector low at front, sealed end high at rear). Bags stack vertically in the same depth footprint. The incline mount constrains collapse to thinning-in-place, and the dip tube extends upward along the incline to remain submerged until the bag is nearly empty. See [incline-bag-mounting.md](../../../enclosure/research/incline-bag-mounting.md) for full geometry.
 
 ---
 
@@ -73,7 +75,7 @@ The dock is not just a receptacle for the cartridge. It is a horizontal structur
 
 ### Why a Shelf, Not a Floating Sub-Assembly
 
-A dock bolted to the front face and cantilevered inward would rely on the front panel for all structural load. The cartridge weighs 940g, the dock itself ~500g, and insertion force adds ~20N of momentary push. A cantilevered mount from a 3D printed front panel would flex visibly.
+A dock bolted to the front face and cantilevered inward would rely on the front panel for all structural load. The cartridge weighs ~820g, the dock itself ~500g, and insertion force adds ~20N of momentary push. A cantilevered mount from a 3D printed front panel would flex visibly.
 
 Making the dock a shelf that spans the full depth of the enclosure (front wall to back wall) distributes load to both walls. The dock shelf also:
 
@@ -87,14 +89,14 @@ Making the dock a shelf that spans the full depth of the enclosure (front wall t
 ```
     TOP VIEW — dock shelf in enclosure (looking down)
 
-    ┌──────────────────────────────── 250mm ──────────────────────────────┐
+    ┌──────────────────────────────── 280mm ──────────────────────────────┐
     │                                                                      │
     │  ┌──────────────── DOCK SHELF ────────────────────────────────────┐ │
     │  │                                                                │ │
     │  │  ┌─────────────────────────┐    ┌────────────────────────┐    │ │
     │  │  │   CARTRIDGE CAVITY      │    │   FITTING WALL         │    │ │
     │  │  │   (open to front face)  │    │   (4x JG fittings)     │    │ │
-    │  │  │   140W x 100D x 90H    │    │   faces back of        │    │ │
+    │  │  │   150W x 130D x 80H    │    │   faces back of        │    │ │
     │  │  │                         │    │   enclosure             │    │ │
     │  │  │   guide rails on sides  │    │                        │    │ │
     │  │  └─────────────────────────┘    └────────────────────────┘    │ │
@@ -109,14 +111,14 @@ Making the dock a shelf that spans the full depth of the enclosure (front wall t
     └──────────────────────────────────────────────────────────────────────┘
 ```
 
-The dock shelf is a single 3D printed piece (or a 2-part assembly: shelf floor + fitting wall) that drops into the enclosure and screws to the side walls via heat-set inserts. The shelf spans the full 200mm depth and most of the 250mm width.
+The dock shelf is a single 3D printed piece (or a 2-part assembly: shelf floor + fitting wall) that drops into the enclosure and screws to the side walls via heat-set inserts. The shelf spans the full 242mm depth and most of the 272mm width (interior dimensions after 4mm walls).
 
 ### Shelf Dimensions
 
 | Parameter | Value | Notes |
 |---|---|---|
-| Shelf width | ~240mm | 250mm enclosure interior minus ~5mm clearance per side |
-| Shelf depth | ~190mm | 200mm enclosure interior minus clearance |
+| Shelf width | ~264mm | 272mm enclosure interior minus ~4mm clearance per side |
+| Shelf depth | ~234mm | 242mm enclosure interior minus clearance |
 | Shelf thickness (floor) | 6mm | Structural minimum for PETG span, supports cartridge weight |
 | Fitting wall height | ~100mm | Enough to house JG fittings + pogo pins + guide rail attachment |
 | Fitting wall thickness | 6mm | Bulkhead fittings need ~4mm panel minimum |
@@ -128,29 +130,27 @@ The dock shelf is a single 3D printed piece (or a 2-part assembly: shelf floor +
 
 ### Height Above Enclosure Floor
 
-The cartridge slot opening is on the front face of the enclosure, at the boundary between Zone A (electronics) and Zone B (dock/valves).
+The cartridge slot opening is on the front face of the enclosure, within Zone B (dock/valves).
 
 ```
     FRONT VIEW — vertical position of cartridge slot
 
-    ┌─────────────────────────┐ ← 450mm (top of enclosure)
+    ┌─────────────────────────┐ ← 400mm (top of enclosure)
     │  HOPPER                 │
-    │  ───────────────────    │ ~430mm
+    │  ───────────────────    │ ~396mm
     │  [S3]          [RP]    │
-    │  ESP32, L298N           │ ~380mm
-    │  ═══════════════════    │ ← top of lever swing clearance
-    │  ┌───── lever ──────┐  │ ~350mm
+    │  ESP32, L298N, DIN     │ ~310mm
+    │  ═══════════════════    │ ← electronics shelf
+    │  ┌───── lever ──────┐  │ ~306mm
     │  │                  │  │
-    │  │ ╔═══════════════╗│  │ ~310mm  ← top of cartridge slot
+    │  │ ╔═══════════════╗│  │ ~266mm  ← top of cartridge slot
     │  │ ║  CARTRIDGE    ║│  │
-    │  │ ║  SLOT         ║│  │ ~220mm  ← bottom of cartridge slot
+    │  │ ║  SLOT         ║│  │ ~186mm  ← bottom of cartridge slot
     │  │ ╚═══════════════╝│  │
     │  └──────────────────┘  │
-    │  valves, flow meter    │ ~180mm
-    │  ═══════════════════   │ ← dock shelf floor / Zone B-C boundary
-    │                        │ ~170mm
-    │  bags                  │
+    │  ═══════════════════   │ ← dock shelf floor (~180mm)
     │                        │
+    │  bags (incline mount)  │ ~176mm bag zone
     │                        │
     │                        │
     └────────────────────────┘ ← 0mm (enclosure floor)
@@ -159,40 +159,42 @@ The cartridge slot opening is on the front face of the enclosure, at the boundar
 | Reference Point | Height from enclosure floor |
 |---|---|
 | Enclosure floor | 0mm |
-| Top of bag zone (dock shelf floor) | ~170mm |
-| Bottom of cartridge slot opening | ~220mm |
-| Top of cartridge slot opening | ~310mm |
-| Top of lever swing | ~350mm |
-| Bottom of electronics zone | ~350mm |
-| Displays | ~380mm |
-| Top of enclosure | ~450mm |
+| Floor panel top | 4mm |
+| Top of bag zone (dock shelf floor) | ~180mm |
+| Bottom of cartridge slot opening | ~186mm |
+| Top of cartridge slot opening | ~266mm |
+| Top of lever swing | ~306mm |
+| Electronics shelf | ~310mm |
+| Displays | ~350mm |
+| Top of enclosure | 400mm |
 
-The cartridge slot center is at roughly **265mm** from the enclosure floor. If the enclosure sits on the cabinet floor (~0mm), the slot center is 265mm (~10.5") up — a comfortable reach height under a sink where the user is crouching or kneeling.
+The cartridge slot center is at roughly **226mm** from the enclosure floor. If the enclosure sits on the cabinet floor (~0mm), the slot center is 226mm (~9") up — a comfortable reach height under a sink where the user is crouching or kneeling.
 
 ### Distance From Front Face
 
-The cartridge slides in from the front face. The slot opening is flush with the front panel. The dock cavity extends ~130mm into the enclosure (100mm cartridge depth + ~30mm for the fitting wall behind the cartridge).
+The cartridge slides in from the front face. The slot opening is flush with the front panel. The dock cavity extends ~165mm into the enclosure (130mm cartridge depth + ~35mm for the fitting wall behind the cartridge).
 
 ```
     SIDE CROSS-SECTION — dock zone
 
     FRONT FACE                                          BACK PANEL
     │                                                         │
-    │  ┌─ cartridge ─────────┐  ┌─ fitting wall ─┐          │
-    │  │                     │  │  ○ ○  JG fittings│         │
-    │  │  140W x 90H x 100D │  │  ○ ○  (facing    │         │
-    │  │  (slide-in space)   │  │       back)      │         │
-    │  │                     │  │  • • • pogo pins │         │
-    │  └─────────────────────┘  └─────────────────┘          │
+    │  ┌─ cartridge ──────────────┐  ┌─ fitting wall ─┐      │
+    │  │                          │  │  ○ ○  JG fittings│     │
+    │  │  150W x 80H x 130D      │  │  ○ ○  (facing    │     │
+    │  │  (slide-in space)        │  │       back)      │     │
+    │  │                          │  │  • • • pogo pins │     │
+    │  └──────────────────────────┘  └─────────────────┘      │
     │                                                         │
-    │◄──────── 100mm ────────►◄──── 30mm ────►◄── 60mm ────►│
-    │    cartridge depth       fitting wall    remaining depth│
-    │                          + fittings      for tube runs  │
+    │◄──────── 130mm ──────────────►◄── 35mm ──►◄── 77mm ──►│
+    │    cartridge depth            fitting wall  remaining   │
+    │                               + fittings   depth for   │
+    │                                            tube runs   │
     │                                                         │
-    ├────────────────────── 200mm total depth ────────────────┤
+    ├────────────────────── 250mm total depth ────────────────┤
 ```
 
-Behind the fitting wall, there is approximately 60mm of depth for tube routing from the fittings down through the shelf floor to the bag zone below, and up to the valves mounted on or under the shelf. This is adequate for 1/4" tubing with 90-degree bends (minimum bend radius ~20mm for silicone, ~30mm for hard tubing).
+Behind the fitting wall, there is approximately 77mm of depth for tube routing from the fittings down through the shelf floor to the bag zone below, and up to the valves mounted on or under the shelf. This is more than adequate for 1/4" tubing with 90-degree bends (minimum bend radius ~20mm for silicone, ~30mm for hard tubing).
 
 ---
 
@@ -235,7 +237,7 @@ Two inlet lines carry flavor concentrate from the bags (Zone C, below) to the do
 ```
 
 Each inlet line runs:
-1. From bag outlet (bottom of bag zone) through a **soft silicone tube** (~300mm)
+1. From bag dip tube connector (low point of incline mount, near front wall) through a **soft silicone tube** (~200-250mm)
 2. Through a **tee fitting** (splits to clean cycle solenoid)
 3. Through the **dispensing solenoid valve** (SV-D1 or SV-D2)
 4. Through a **hole in the dock shelf floor** (or around the shelf edge)
@@ -255,6 +257,10 @@ Two outlet lines carry flavored concentrate from the dock fittings to the carbon
 ```
 
 The outlet tubes route from the back of the fitting wall, through the shelf or around its edge, and across to the back panel area where they join the carbonated water stream via tee fittings. These runs are mostly horizontal, ~100-150mm long.
+
+### Hopper Connection (Pump Outlet Side)
+
+The hopper connects downstream of the pump (between pump outlet and dispensing point), not at the bag-side tee. During refill, the pump reverses direction to pull concentrate from the hopper funnel and push it through the dip tube into the bag. This corrects an earlier topology assumption. A check valve at the dispensing point prevents air ingestion during refill.
 
 ### Tube Pass-Through Design
 
@@ -339,7 +345,7 @@ The guide rails are part of the dock shelf assembly, attached to the shelf's sid
 
 | Component | Material | Minimum Thickness | Notes |
 |---|---|---|---|
-| Dock shelf floor | PETG | 6mm | Spans ~190mm depth; must not flex under 1.5kg cartridge + dock weight |
+| Dock shelf floor | PETG | 6mm | Spans ~234mm depth; must not flex under ~1.3kg cartridge + dock weight |
 | Fitting wall | PETG | 6mm | Holds bulkhead fittings (hex nut clamps against 4mm+ panel) |
 | Guide rail features | PETG | 4mm walls | FDM sliding surfaces, 0.3-0.5mm clearance per side |
 | Shelf-to-enclosure attachment | M3 heat-set inserts | 2.5mm wall around insert | 4-6 screws into enclosure side walls |
@@ -409,7 +415,7 @@ Point B (cartridge-to-dock rail isolation) is unnecessary if Points A and C are 
 The dock shelf is a flat span of PETG — a potential sounding board. If the shelf resonates at or near the pump pulsation frequency (10-17 Hz), it amplifies noise.
 
 Mitigation:
-- The shelf's natural frequency should be well above 17 Hz. For a 6mm thick PETG shelf spanning 190mm with ~2 kg of load, the natural frequency is roughly 30-50 Hz (depends on boundary conditions) — comfortably above the excitation range.
+- The shelf's natural frequency should be well above 17 Hz. For a 6mm thick PETG shelf spanning 234mm with ~1.5 kg of load, the natural frequency is roughly 25-40 Hz (depends on boundary conditions) — comfortably above the excitation range.
 - If noise is objectionable in practice, adding a thin damping layer (adhesive-backed neoprene or butyl sheet) to the underside of the shelf floor converts vibration energy to heat. This is a post-hoc fix, not something to design in from the start.
 
 ---
@@ -423,37 +429,38 @@ Mitigation:
     │  FRONT PANEL                                  BACK PANEL │
     │  │                                                   │   │
     │  │  ╔════════════════════════╗                        │   │  ← Zone A (electronics)
-    │  │  ║ ESP32, L298N, wiring  ║                        │   │     ~100mm
+    │  │  ║ ESP32, L298N x3,      ║                        │   │     ~90mm
+    │  │  ║ RTC, fuse, DIN rail   ║                        │   │
     │  │  ╚════════════════════════╝                        │   │
-    │  │  ─────────────────────────────────────────────────│   │  ← electronics floor / dock ceiling
+    │  │  ═══════════════════════════════════════════════   │   │  ← electronics shelf (~310mm)
     │  │                                                   │   │
-    │  │  ┌── cartridge ───────┐  ┌── fitting wall ──┐    │   │
-    │  │  │                    │  │                   │    │   │
-    │  │  │  P1  P2  (pumps)  │  │ ○ ○  JG fittings │    │   │     ~90mm cartridge height
-    │  │  │                    │  │ ○ ○               │    │   │
-    │  │  │  cam lever above   │  │ • • • pogo pins  │    │   │
-    │  │  │                    │  │                   │    │   │
-    │  │  └────────────────────┘  └───────────────────┘    │   │
-    │  │  ════════════════════════════════════════════════  │   │  ← dock shelf floor (6mm PETG)
+    │  │  ┌── cartridge ──────────────┐  ┌─ fitting wall ┐ │   │
+    │  │  │                           │  │               │ │   │
+    │  │  │  P1  P2  (pumps)         │  │ ○ ○  JG fitt. │ │   │     ~80mm cartridge height
+    │  │  │                           │  │ ○ ○           │ │   │
+    │  │  │  cam lever above          │  │ • • • pogos   │ │   │
+    │  │  │                           │  │               │ │   │
+    │  │  └───────────────────────────┘  └───────────────┘ │   │
+    │  │  ════════════════════════════════════════════════  │   │  ← dock shelf floor (6mm PETG, ~180mm)
     │  │       ↕ tube pass-throughs (10mm holes)           │   │
     │  │                                                   │   │
-    │  │       solenoid valves mounted under shelf         │   │     ~60mm valve zone
-    │  │       SV-D1  SV-D2  SV-C1  SV-C2                │   │
-    │  │                                                   │   │
-    │  │  ─────────────────────────────────────────────────│   │  ← Zone B / Zone C boundary
-    │  │                                                   │   │
-    │  │       Platypus bags                               │   │     ~250-300mm bag zone
-    │  │       (outlets at bottom, gravity feed up)         │   │
+    │  │                            * sealed end (high)    │   │
+    │  │                           /  BAG 2                │   │     ~176mm bag zone
+    │  │                     * conn/                       │   │     (two 1L bags at
+    │  │                         /                         │   │      18-20 deg incline)
+    │  │                 * sealed end (high)                │   │
+    │  │                /  BAG 1                            │   │
+    │  │          * conn/                                   │   │
     │  │                                                   │   │
     │  └───────────────────────────────────────────────────┘   │
     └──────────────────────────────────────────────────────────┘
-    │◄──── 200mm depth ────►│
+    │◄──── 250mm depth ────►│
 ```
 
 ### Top-Down Cross-Section (Plan View at Dock Shelf Height)
 
 ```
-    ┌────────────────────────── 250mm ──────────────────────────┐
+    ┌────────────────────────── 280mm ──────────────────────────┐
     │                                                            │
     │  FRONT FACE                                    BACK PANEL  │
     │  │                                                    │    │
@@ -461,7 +468,7 @@ Mitigation:
     │  │   │                                          │     │    │
     │  │   │  ┌─ cartridge cavity ──────────┐        │     │    │
     │  │   │  │                              │ fitting│     │    │
-    │  │   │  │   140mm wide x 100mm deep   │  wall  │     │    │
+    │  │   │  │   150mm wide x 130mm deep   │  wall  │     │    │
     │  │   │  │                              │  (6mm) │     │    │
     │  │   │  │   open to front face         │  ○ ○   │     │    │
     │  │   │  │   (cartridge slides in)      │  ○ ○   │     │    │
@@ -475,7 +482,7 @@ Mitigation:
     │  │   │  SV-D1   SV-C1   NV   SV-C2   SV-D2  │       │    │
     │  │   └───────────────────────────────────────┘       │    │
     │  │                                                    │    │
-    │  │◄── 100mm ──►◄─ 30mm ─►◄────── 60mm ──────►       │    │
+    │  │◄── 130mm ──►◄─ 35mm ─►◄────── 77mm ──────►       │    │
     │  │  cartridge   fitting   tube routing space          │    │
     │  │  depth        wall                                 │    │
     │                                                            │
@@ -485,17 +492,17 @@ Mitigation:
 ### Front Face Elevation (Cartridge Slot Detail)
 
 ```
-    ┌────────────────── 250mm ──────────────────┐
+    ┌────────────────── 280mm ──────────────────┐
     │                                            │
     │     ┌──────────────────────────────┐       │
-    │     │     lever swing zone         │       │  ← ~100mm above slot
+    │     │     lever swing zone         │       │  ← ~40mm above slot
     │     │     (clearance, no           │       │
     │     │      obstruction)            │       │
     │     ├──────────────────────────────┤       │
     │     │  ┌────────────────────────┐  │       │
     │     │  │                        │  │       │
-    │     │  │   CARTRIDGE SLOT       │  │       │  90mm tall
-    │     │  │   140mm x 90mm         │  │       │
+    │     │  │   CARTRIDGE SLOT       │  │       │  80mm tall
+    │     │  │   150mm x 80mm         │  │       │
     │     │  │                        │  │       │
     │     │  └────────────────────────┘  │       │
     │     │      180mm (dock width)      │       │
@@ -504,13 +511,13 @@ Mitigation:
     └────────────────────────────────────────────┘
 ```
 
-The cartridge slot is centered horizontally on the front face. The 140mm slot width within a 250mm enclosure leaves 55mm on each side — enough for the enclosure wall structure (5mm), guide rail housing (20mm on each side), and margin.
+The cartridge slot is centered horizontally on the front face. The 150mm slot width within a 280mm enclosure leaves 65mm on each side — enough for the enclosure wall structure (4mm), guide rail housing (20mm on each side), and margin.
 
 ---
 
 ## 9. The Enclosure-in-Cabinet Question
 
-The original document's entire focus — where the dock mounts in the cabinet — reduces to a simpler question now: where does the enclosure box sit?
+Where does the enclosure box sit?
 
 ### Placement
 
@@ -529,7 +536,7 @@ The enclosure is a self-contained tower that sits on the cabinet floor, in one o
     │                    │    │     │                             │
     │   ┌─────────┐     │  ┌─┴─┐   │                             │
     │   │ENCLOSURE│     │  │P- │   │                             │
-    │   │ 250x200 │     │  │trap│  │                             │
+    │   │ 280x250 │     │  │trap│  │                             │
     │   │         │     │  │   │   │                             │
     │   │ front   │     │  └───┘   │                             │
     │   │ face →  │     │          │                             │
@@ -539,7 +546,7 @@ The enclosure is a self-contained tower that sits on the cabinet floor, in one o
     └────────────────────────────────────────────────────────────┘
 ```
 
-The 250 x 200mm footprint fits comfortably in the 250-350mm wide side zones. The enclosure front face should be oriented toward the cabinet opening for cartridge and display access.
+The 280 x 250mm footprint fits comfortably in the 250-350mm wide side zones. The enclosure front face should be oriented toward the cabinet opening for cartridge and display access.
 
 ### Orientation
 
@@ -552,13 +559,13 @@ The enclosure front face must face the cabinet door opening. The back panel face
 
 Per back-panel-and-routing.md, the back panel has 3 John Guest bulkhead fittings with 90-degree elbows, a barrel jack, an air switch grommet, and an optional USB port. With 90-degree elbows on the water fittings, the enclosure can sit as close as **60mm (2.4 inches)** from the cabinet wall.
 
-In a 22" deep cabinet, the enclosure (200mm / 8" deep) plus 60mm (2.4") rear clearance uses ~260mm (10.4"), leaving ~300mm (12") of clearance in front. More than enough for the cartridge to slide out and for the user to operate the lever.
+In a 22" deep cabinet, the enclosure (250mm / 10" deep) plus 60mm (2.4") rear clearance uses ~310mm (12.2"), leaving ~250mm (10") of clearance in front. More than enough for the cartridge to slide out and for the user to operate the lever.
 
 ### Anti-Tip Considerations
 
-The enclosure with two full 2L bags weighs approximately 6-7 kg (13-15 lbs), with the bags near the bottom (Zone C). This gives a low center of gravity — the tower is bottom-heavy when the bags are full. As bags empty, the center of gravity shifts upward, but the enclosure becomes lighter overall.
+The enclosure with two full 1L bags weighs approximately 7-8 kg (15-18 lbs), with the bags near the bottom (Zone C). This gives a low center of gravity — the tower is bottom-heavy when the bags are full. As bags empty, the center of gravity shifts upward, but the enclosure becomes lighter overall.
 
-Rubber feet with a wide stance (placed at the corners of the 250 x 200mm base) provide adequate stability. For extra security, a single L-bracket screwed to the cabinet wall and hooked over the enclosure's back panel prevents the unit from tipping forward during cartridge insertion (when the user pushes the cartridge in, the force vector could tip the enclosure backward, but the wall is right there).
+Rubber feet with a wide stance (placed at the corners of the 280 x 250mm base) provide adequate stability. For extra security, a single L-bracket screwed to the cabinet wall and hooked over the enclosure's back panel prevents the unit from tipping forward during cartridge insertion (when the user pushes the cartridge in, the force vector could tip the enclosure backward, but the wall is right there).
 
 ---
 
@@ -576,9 +583,12 @@ Rubber feet with a wide stance (placed at the corners of the 250 x 200mm base) p
 
 ## References
 
-- [layout-spatial-planning.md](../../../enclosure/research/layout-spatial-planning.md) — Enclosure dimensions, zone layout, tall tower architecture
+- [layout-spatial-planning.md](../../../enclosure/research/layout-spatial-planning.md) — Enclosure dimensions, zone layout, front-loading tower architecture
 - [back-panel-and-routing.md](../../../enclosure/research/back-panel-and-routing.md) — Back panel connections, internal plumbing diagram, clearance behind enclosure
-- [hopper-and-bag-management.md](../../../enclosure/research/hopper-and-bag-management.md) — Hopper design, bag zone height, pump-assisted filling
+- [incline-bag-mounting.md](../../../enclosure/research/incline-bag-mounting.md) — 18-20 degree incline mount, two-point stretch, drainage analysis
+- [bag-zone-geometry.md](../../bag-zone-geometry.md) — Bag zone dimensions, vertical space budget, incline stacking geometry
+- [pump-assisted-filling.md](../../../enclosure/research/pump-assisted-filling.md) — Pump reversal fill method, topology correction, hopper connection
+- [drip-tray-shelf-analysis.md](../../../enclosure/research/drip-tray-shelf-analysis.md) — Drip tray removal justification, electronics shelf redesignation
 - [front-face-interaction-design.md](../../../enclosure/research/front-face-interaction-design.md) — Display mounting, cartridge slot on front face
 - [cartridge-envelope.md](cartridge-envelope.md) — Cartridge dimensions, weight, pump arrangement
 - [mating-face.md](mating-face.md) — Tube port layout, fitting spacing, release plate geometry

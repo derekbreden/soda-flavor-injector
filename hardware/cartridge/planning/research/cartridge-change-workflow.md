@@ -32,9 +32,9 @@ There is currently no automatic detection of tubing wear. The triggers are:
 - **System power**: Not strictly necessary. The ESP32 should detect cartridge removal (pogo pin contact loss) and stop driving the pumps. However, as a safety measure, the user should stop any active dispensing. If the system is idle (no one is pouring soda water), it is safe to remove the cartridge without any software action.
 - **iOS app**: Not required. But if the user wants to configure new flavors after the swap, they will need the app afterward.
 
-**Recommended pre-change sequence:**
-1. Stop dispensing (wait for any active pour to finish)
-2. Optionally run clean cycle if the old cartridge will be discarded (cleans the lines before removal)
+**Required pre-change sequence:**
+1. Run clean cycle (mandatory — see Section 1.1a)
+2. Wait for clean cycle to complete
 3. Open cabinet door
 
 **Does the user need to prepare anything?**
@@ -43,11 +43,27 @@ There is currently no automatic detection of tubing wear. The triggers are:
 - A towel or small container for the old cartridge (it will have residual water — see Section 7)
 - Nothing else. No tools required.
 
-**What state is the system in?**
+### 1.1a Clean-Before-Remove — The Primary Drip Prevention Strategy
 
-- Soda water line: pressurized (always, from ice maker T-fitting)
-- Flavor lines (cartridge side): gravity-fed, low pressure (~0.1-0.3 PSI from bag head height)
-- Flavor lines (post-pump, outlet side): atmospheric pressure when idle (peristaltic pump is a positive displacement pump — when stopped, the rollers occlude the tubing, creating a crude check valve)
+The clean cycle is not optional before cartridge removal. The software enforces this: the S3 touchscreen menu and iOS app require a completed clean cycle before presenting the "remove cartridge" option. This is the single most important UX design decision for cartridge changes.
+
+**Why this matters:**
+
+Without a clean cycle, the cartridge's internal tubing contains sticky flavor concentrate (~10mL). With a clean cycle, the tubing contains only water and air. The difference between cleaning up water drips and cleaning up sugar syrup is the difference between a 5-second towel wipe and a 10-minute sticky mess.
+
+**Enforcement levels:**
+
+| Level | Implementation | Bypass |
+|-------|---------------|--------|
+| Software gate | S3 menu and iOS app hide "remove cartridge" until clean cycle completes | User could physically remove without using the menu |
+| Servo-actuated latch (production) | A small servo blocks the cam lever from opening until firmware unlocks it post-clean-cycle | Manual override with hex key (fail-safe) |
+
+For the prototype, software enforcement is sufficient. The UI will make it unnatural to remove a cartridge without first running the clean cycle. If a physical lock is needed to prevent bypass, a servo-actuated latch on the cam lever provides that guarantee.
+
+**What state is the system in after clean cycle?**
+
+- Flavor lines (cartridge side): contain clean water and/or air
+- Pump chambers: contain water (not concentrate)
 - Solenoid valves: closed when not dispensing (backflow prevention)
 - Electrical: 12V available at pogo pins, but L298N not driving motors when idle
 
@@ -60,9 +76,9 @@ Under a standard kitchen sink cabinet (36" wide is most common), the interior is
 - Hot/cold water supply lines and shutoff valves (back wall)
 - Garbage disposal (if present, hangs from sink)
 - Cleaning supplies, sponges, trash bags (typical cabinet contents)
-- The soda flavor injector main body (mounted to cabinet wall or floor)
+- The soda flavor injector enclosure (self-contained tower on the cabinet floor)
 
-The dock is permanently mounted — likely screwed to the interior side wall or back wall of the cabinet, positioned to avoid the P-trap and supply lines.
+The enclosure is a self-contained 280 x 250 x 400mm tower on the cabinet floor, with the cartridge slot on the front face.
 
 **User assesses the situation.**
 
@@ -77,8 +93,8 @@ The dock is permanently mounted — likely screwed to the interior side wall or 
     │  │     │    │  pipes     │       │     │   │
     │  │     │    └────────────┘       │     │   │
     │  │     │                         │     │   │
-    │  │ [DOCK]◄── cartridge here      │     │   │
-    │  │     │                         │     │   │
+    │  │ [ENCL]◄── cartridge slot      │     │   │
+    │  │     │     (front face)        │     │   │
     │  │ supply                        │     │   │
     │  │ lines                         │     │   │
     │  └─────┘                         └─────┘   │
@@ -87,7 +103,7 @@ The dock is permanently mounted — likely screwed to the interior side wall or 
               ▲ cabinet opening (door removed)
 ```
 
-The dock is likely on the left or right side wall, at a height of 6-12 inches from the cabinet floor. This puts it below the user's waist level when standing.
+The cartridge slot is at approximately 226mm (~9") from the cabinet floor — the center of Zone B on the front face of the enclosure.
 
 **User positions themselves.**
 
@@ -100,8 +116,8 @@ Most common body position: **kneeling on one knee** or **crouching** in front of
     │                            │
     │   ← cabinet interior →     │
     │                            │
-    │        [DOCK with          │
-    │         CARTRIDGE]         │
+    │        [ENCLOSURE with     │
+    │         CARTRIDGE SLOT]    │
     │                            │
     └────────────────────────────┘
          │
@@ -116,7 +132,7 @@ Most common body position: **kneeling on one knee** or **crouching** in front of
 - User's dominant hand reaches into the cabinet
 - Line of sight is at an angle — looking slightly upward into a dark space
 - The back of the cabinet is typically unlit
-- If the dock is on the side wall, the user reaches laterally, which is more awkward than reaching straight back
+- The enclosure front face is oriented toward the cabinet opening for direct access
 
 **Lighting.**
 
@@ -155,17 +171,13 @@ The lever should have a detent or stop at the fully open position so it stays op
 
 **What happens to the water in the tubes?**
 
-At the moment of disconnection:
-- The flavor inlet lines (from bags to pump inlets) contain flavoring liquid
-- The flavor outlet lines (from pump outlets toward the soda line) contain a mix of flavoring and water
-- The pump chambers contain liquid trapped between the rollers
-- See Section 7 for volume calculations
-
-When the collets release and the user begins withdrawing the cartridge:
+After the mandatory clean cycle, the cartridge's internal tubing contains clean water and air — not sticky concentrate. When the collets release and the user begins withdrawing the cartridge:
 1. The 4 tube stubs slide out of the John Guest fittings
 2. The John Guest fittings **seal immediately** when the tube is removed — the O-ring closes against the fitting bore. No water drips from the dock side.
-3. The tube stubs on the cartridge **do not seal** — they are open tube ends. Residual liquid in the stubs and internal tubing will begin to drip from the stub tips due to gravity.
-4. The pump chambers retain liquid (trapped between rollers) until the cartridge is tilted or shaken.
+3. The tube stubs on the cartridge **do not seal** — they are open tube ends. Residual water in the stubs and internal tubing will begin to drip from the stub tips due to gravity.
+4. The pump chambers retain water (trapped between rollers) until the cartridge is tilted or shaken.
+
+Because the clean cycle has already run, this residual fluid is water — it will not stain surfaces or leave sticky residue.
 
 **Is there residual pressure from the soda water line?**
 
@@ -179,8 +191,8 @@ The user grips the cartridge body (or the lever, if it is sturdy enough to serve
 |-------|----------|-----------------|
 | Initial pull | 0-5mm | Pogo pins lose contact (light spring resistance, ~0.5N total for 3 pins). Tube stubs begin exiting fittings. |
 | Tube withdrawal | 5-15mm | Tube stubs sliding out of fitting O-rings. Very light resistance (~1-2N total). O-rings provide a slight "suck" as they release. |
-| Free slide | 15-100mm | Cartridge slides freely on guide rails. Only rail friction (~2-5N depending on fit and lubrication). |
-| Full withdrawal | 100mm+ | Cartridge clears the dock. User has cartridge in hand. |
+| Free slide | 15-130mm | Cartridge slides freely on guide rails. Only rail friction (~2-5N depending on fit and lubrication). |
+| Full withdrawal | 130mm+ | Cartridge clears the dock. User has cartridge in hand. |
 
 Total withdrawal force: ~5-10N peak (about 1-2 lbs). Easily one-handed.
 
@@ -189,8 +201,8 @@ The slide should feel smooth and controlled. Any binding, catching, or jerky mot
 **Where does the user put the old cartridge?**
 
 This is a critical UX detail. The old cartridge:
-- Weighs ~940g (2.1 lbs)
-- Has 4 open tube stubs that will drip (see Section 7 for volume)
+- Weighs ~820g (1.8 lbs)
+- Has 4 open tube stubs that will drip water (see Section 7 for volume)
 - Has wet pump chambers
 - Is held in one hand
 
@@ -200,7 +212,7 @@ Options:
 3. **Hand it to someone else** — requires a second person.
 4. **Set it on the counter above** — requires reaching up while kneeling, potentially dripping on the counter.
 
-**Design opportunity:** A printed drip tray or cap that covers the tube stubs would significantly reduce mess. A silicone cap that press-fits over the 4 tube stubs (like a dust cap) would contain drips.
+**Design opportunity:** A printed cap that covers the tube stubs would reduce dripping during transport. A silicone cap that press-fits over the 4 tube stubs (like a dust cap) would contain drips. Since the residual is water (post-clean-cycle), the drip concern is modest — a towel handles it easily.
 
 ### 1.4 Transition
 
@@ -212,7 +224,7 @@ The user now has the old cartridge in one hand (or set down) and needs to pick u
 3. Pick up new cartridge with dominant hand
 4. Insert new cartridge
 
-This requires a surface within arm's reach to place the old cartridge. The cabinet floor directly in front of the dock is the natural spot.
+This requires a surface within arm's reach to place the old cartridge. The cabinet floor directly in front of the enclosure is the natural spot.
 
 **Is the new cartridge pre-prepared?**
 
@@ -224,8 +236,6 @@ For the baseline design, the new cartridge should arrive fully assembled:
 - Lever in the **open** position (release plate extended, so tube stubs protrude freely)
 
 **What if the lever is in the wrong position?**
-
-If the new cartridge's lever is closed (release plate retracted), the tube stubs still protrude — the release plate retracts toward the cartridge body, not over the stubs. So the lever position does not affect insertion. However, the lever must be open after insertion to lock the cartridge (flip lever closed = cam engages over-center = cartridge locked). Wait — let me re-examine this.
 
 Per mating-face.md: when the lever is **open**, the release plate is **extended** (pushed forward toward the dock). When the lever is **closed**, the release plate is **retracted** (pulled back toward the cartridge body). This means:
 
@@ -241,7 +251,7 @@ So the new cartridge should have its lever in the **closed** position for insert
 
 **User picks up new cartridge.**
 
-The cartridge is ~140 x 90 x 100mm and ~940g. It fits comfortably in one hand, oriented so the mating face (with tube stubs) faces forward and the lever handle is on top.
+The cartridge is ~150 x 80 x 130mm and ~820g. It fits comfortably in one hand, oriented so the mating face (with tube stubs) faces forward and the lever handle is on top.
 
 ```
     USER'S HAND HOLDING CARTRIDGE (right hand, palm down)
@@ -263,7 +273,7 @@ The cartridge is ~140 x 90 x 100mm and ~940g. It fits comfortably in one hand, o
 
 **User aligns cartridge with dock opening.**
 
-The dock has a funnel entrance — the guide rails flare outward at the dock mouth (per guide-alignment.md: tapered lead-in, 15-20 degree taper on alignment pins, rail chamfers). The user aims the cartridge at the dock opening and pushes.
+The dock has a funnel entrance — the guide rails flare outward at the dock mouth (per guide-alignment.md: tapered lead-in, 15-20 degree taper on alignment pins, rail chamfers). The cartridge slot has a 5mm x 45-degree chamfer on all edges, providing a funnel for sloppy insertion. The user aims the cartridge at the dock opening and pushes.
 
 Even in a dark cabinet, the funnel entrance provides ~10-15mm of tolerance in each direction. The user does not need to achieve precise alignment by hand — only get the cartridge roughly aimed at the opening.
 
@@ -274,11 +284,11 @@ Even in a dark cabinet, the funnel entrance provides ~10-15mm of tolerance in ea
 | Funnel entry | 0-20mm | Tapered lead-in captures the cartridge, corrects lateral and vertical misalignment | ~2-5N (light push) |
 | Rail engagement | 20-50mm | Guide rails fully engage, cartridge is constrained to 1-axis motion | ~3-5N (rail friction) |
 | Pogo pin contact | 50-80mm | Pogo pins on dock contact cartridge pads, electrical connection made | ~1-2N additional (3 pogo springs, ~0.5N each) |
-| Tube stub entry | 80-95mm | 4 tube stubs enter the John Guest fitting bores, O-rings not yet reached | ~5N (guiding stubs into bore openings) |
-| Tube seating | 95-110mm | Tube stubs push past O-rings and gripper teeth, fittings latch | ~20-40N peak (4 fittings x 5-10N each for O-ring compression + tooth deflection) |
-| Bottomed out | 110mm | Tube stubs hit the internal tube stops in the fittings. Cartridge is fully seated. | Firm stop — distinct feel |
+| Tube stub entry | 80-115mm | 4 tube stubs enter the John Guest fitting bores, O-rings not yet reached | ~5N (guiding stubs into bore openings) |
+| Tube seating | 115-130mm | Tube stubs push past O-rings and gripper teeth, fittings latch | ~20-40N peak (4 fittings x 5-10N each for O-ring compression + tooth deflection) |
+| Bottomed out | 130mm | Tube stubs hit the internal tube stops in the fittings. Cartridge is fully seated. | Firm stop — distinct feel |
 
-**Total insertion force at the seating phase: ~20-40N (4.5-9 lbs).** This is the most significant force in the entire operation. The user must push firmly for the last 15-20mm to seat all 4 tubes past the O-rings simultaneously. This force is applied through a comfortable grip on a ~140mm wide cartridge, so it feels like a firm push, not a struggle.
+**Total insertion force at the seating phase: ~20-40N (4.5-9 lbs).** This is the most significant force in the entire operation. The user must push firmly for the last 15-20mm to seat all 4 tubes past the O-rings simultaneously. This force is applied through a comfortable grip on a ~150mm wide cartridge, so it feels like a firm push, not a struggle.
 
 **How does the user know it's fully seated?**
 
@@ -289,7 +299,7 @@ Multiple feedback mechanisms:
 4. **Electrical**: ESP32 detects pogo pin contact and could trigger the S3 display to show "Cartridge Connected" or the RP2040 display to change state.
 5. **Lever**: The lever is already in the closed/locked position, so no further action is needed for locking. The cam is in its over-center position.
 
-Wait — re-examining: the lever should already be closed for insertion. If the cam is over-center, it holds the cartridge locked. Does the user need to do anything else with the lever? No — if the lever is closed (locked) during insertion, and the John Guest fittings provide retention force, the cartridge is held by both the fittings and the cam. The lever-closed state is both the insertion configuration and the locked configuration.
+The lever should already be closed for insertion. If the cam is over-center, it holds the cartridge locked. The lever-closed state is both the insertion configuration and the locked configuration.
 
 **This is elegant.** Insert with lever closed, remove by opening lever. One step fewer than a system that requires insert-then-lock.
 
@@ -336,7 +346,7 @@ If switching flavors:
    - **Disposal**: The cartridge is 3D printed PETG + 2 Kamoer pumps + brass fittings + tubing. The pumps are the expensive part (~$30-40 each). If the pumps are still functional and only the tubing is worn, the user can replace the BPT tubing in the pump head (Kamoer sells replacement tubing) and reassemble the cartridge.
    - **Refurbishment**: Remove old BPT tubing from pump heads, install new tubing, reconnect barb fittings, verify tube stubs are undamaged (trim if scored from collet teeth). The cartridge body itself should last indefinitely.
    - **Trash**: If the user does not want to refurbish, the cartridge goes in the trash. PETG is recyclable but not commonly accepted in curbside recycling.
-3. Clean up any dripped water (typically a few mL — towel handles it)
+3. Clean up any dripped water (typically a few mL — towel handles it in seconds, since it is water, not concentrate)
 
 ---
 
@@ -388,7 +398,7 @@ If switching flavors:
     Force: 5-15N at the cartridge perimeter (~0.5-1.5 Nm torque)
 ```
 
-The grip requires wrapping fingers around the cartridge body. At 140mm wide and 90mm tall, the cartridge is too wide to grip with fingertips — the user must use a palm grip. This works but is less precise than a lever grip. In a dark, cramped cabinet, finding the correct rotational starting position by feel is harder than finding a lever by feel.
+The grip requires wrapping fingers around the cartridge body. At 150mm wide and 80mm tall, the cartridge is grippable but wide — the user must use a palm grip. This works but is less precise than a lever grip. In a dark, cramped cabinet, finding the correct rotational starting position by feel is harder than finding a lever by feel.
 
 ### 2b. Pull-Out Dock (Dock on Drawer Slides)
 
@@ -451,12 +461,12 @@ This is solvable with service loops (extra tubing coiled behind the dock) and fl
 | Drip direction | Forward/down from tube stubs | Straight down into hand/lap |
 | Visibility | Look straight in | Look up (neck strain) |
 
-**The weight problem:** The cartridge weighs 940g (2.1 lbs). Holding it overhead while aligning it with a dock opening and pushing 4 tubes into fittings requires:
-- Lifting force: 9.2N (gravity) + 20-40N (fitting seating force) = ~30-50N (~7-11 lbs) upward
+**The weight problem:** The cartridge weighs ~820g (1.8 lbs). Holding it overhead while aligning it with a dock opening and pushing 4 tubes into fittings requires:
+- Lifting force: 8.0N (gravity) + 20-40N (fitting seating force) = ~28-48N (~6-11 lbs) upward
 - This force must be sustained with one hand while the other operates the lever
-- Arm fatigue: holding 2.1 lbs overhead is fine for a few seconds, but alignment fumbling could extend this to 15-30 seconds
+- Arm fatigue: holding 1.8 lbs overhead is fine for a few seconds, but alignment fumbling could extend this to 15-30 seconds
 
-**Drip problem:** When the old cartridge drops, the tube stubs point upward (toward the dock). Residual water in the cartridge drains down — some toward the pump chambers (internal), some out the tube stubs (dripping onto whatever is below). If the user catches the cartridge with the stubs pointing up, the water stays inside longer. But as soon as the cartridge is tilted or inverted, water drains from the open stubs.
+**Drip problem:** When the old cartridge drops, the tube stubs point upward (toward the dock). Residual water in the cartridge drains down — some toward the pump chambers (internal), some out the tube stubs (dripping onto whatever is below). Since the clean cycle has already run, this is water, not concentrate — annoying but not damaging.
 
 **Verdict:** Vertical drop-in makes removal trivially easy (gravity) but makes insertion meaningfully harder (fighting gravity, two-hand operation). For infrequent replacements (every few months), the insertion difficulty is tolerable. For a system that might see weekly swaps (during prototyping), it would be annoying. The ergonomics of looking up into a dark cabinet ceiling are also poor — neck strain and water dripping downward.
 
@@ -490,14 +500,6 @@ Pressing a collet requires positioning a fingertip precisely on the collet ring 
 - The fittings are spaced ~22mm apart (2x2 grid)
 - The user's fingers are large relative to the collet — risk of pressing off-center (see collet-release.md Section 4: cocking failure)
 - The two fittings furthest from the user are the hardest to reach with proper thumb/finger positioning
-
-For the inlet fittings (tubes from bags to pump), the tubes run from the dock wall back toward the bags. The user might be able to press the collet and pull the tube simultaneously. For the outlet fittings (tubes from pump to soda line), the tubes run toward the cartridge — the user presses the collet on the dock and pulls the cartridge away from the dock. This requires either:
-- Two hands (one presses collet, other pulls cartridge)
-- Wedging something to hold the collet depressed while pulling with one hand
-
-**Insertion workflow:**
-
-Insertion is simpler — just slide the cartridge in. The John Guest fittings latch automatically. No lever needed. This is actually the simplest insertion of any variant.
 
 **Verdict:** No release plate eliminates mechanical complexity (no plate, no cam, no lever) at the cost of a significantly worse removal experience. The 4 sequential collet releases are fiddly, time-consuming, and error-prone in a dark cabinet. This is acceptable for a prototype (where you're testing other aspects of the design) but not for a user-facing product. The insertion experience is actually the best of all variants — no lever to worry about, just push until it stops.
 
@@ -574,7 +576,7 @@ If the cartridge is only partially inserted, the pogo pins may not contact the p
 
 **Can the pump run with a partially-seated cartridge?**
 
-Only if the pogo pins are making contact AND the tubes are gripped by the fittings. This requires the cartridge to be at least ~80% inserted. At that depth, the tubes are likely past the gripper teeth (functional, if not fully seated). The pump would run but with a slightly less secure tube connection. Risk: tube could slip out under vibration if not at the tube stop. Consequence: flavor leaks inside the dock. Not catastrophic (gravity-fed, low pressure) but messy.
+Only if the pogo pins are making contact AND the tubes are gripped by the fittings. This requires the cartridge to be at least ~80% inserted. At that depth, the tubes are likely past the gripper teeth (functional, if not fully seated). The pump would run but with a slightly less secure tube connection. Risk: tube could slip out under vibration if not at the tube stop. Consequence: water leaks inside the dock (post-clean-cycle, this is water, not concentrate). Not catastrophic but messy.
 
 **Detection:** The system could detect partial insertion by checking for a "cartridge present" signal (pogo pin continuity) without a "fully seated" confirmation. A mechanical microswitch at the full-insertion position (activated only when the cartridge is fully bottomed out) would provide definitive detection. This is not implemented today.
 
@@ -603,21 +605,21 @@ Recovery:
 
 **User drops the old cartridge:**
 
-The cartridge contains approximately 5-15 mL of residual water and flavoring (see Section 7). If dropped:
+The cartridge contains approximately 10 mL of residual water (see Section 7). After the mandatory clean cycle, this is clean water — not sticky concentrate. If dropped:
 - On the cabinet floor: a small puddle, easily wiped up
-- On carpet or clothing: flavoring may stain (depends on flavor concentrate)
-- On electronics: if the ESP32/L298N main body is below the dock, a dropped cartridge could splash. The electronics should be in an enclosure or positioned above the dock.
+- On carpet or clothing: water, no staining
+- On electronics: the electronics are in Zone A (above the dock, at ~310-400mm). The cartridge would have to be flung upward to reach them. Not a realistic concern.
 
 **A tube comes loose during insertion:**
 
 The tubes are rigidly mounted in the cartridge — they do not come loose during normal insertion. However, if a barb fitting inside the cartridge is poorly secured, a tube could pop off when the insertion force is applied (the John Guest fitting pushes back on the tube, which pushes back on the barb connection). If this happens:
-- A small amount of liquid (from the tube interior) leaks inside the cartridge body
+- A small amount of water (from the tube interior) leaks inside the cartridge body
 - The insertion fails (the tube doesn't reach the fitting)
 - The user must remove the cartridge and repair the internal connection
 
 **How much water is in the cartridge?**
 
-See Section 7 for detailed volume calculation. Summary: approximately 5-15 mL total. This is a tablespoon or less — trivially manageable with a towel. It is not a flood scenario.
+See Section 7 for detailed volume calculation. Summary: approximately 10 mL total. This is a tablespoon or less — trivially manageable with a towel. Because the clean cycle has already run, this is water, not concentrate.
 
 ### 3e. Wrong Cartridge
 
@@ -641,7 +643,7 @@ Alternatively, a small NFC tag or I2C EEPROM on the cartridge could store cartri
 
 ### 4.1 Time Breakdown by Phase
 
-All times in seconds. Assumes the user is already in front of the cabinet.
+All times in seconds. Assumes the user is already in front of the cabinet. The clean cycle runs before the user opens the cabinet — its time is not included here.
 
 | Phase | Optimistic | Realistic | Pessimistic |
 |-------|-----------|-----------|-------------|
@@ -668,9 +670,9 @@ All times in seconds. Assumes the user is already in front of the cabinet.
 | **Cleanup** | | | |
 | Stand up | 2 | 3 | 5 |
 | Close cabinet door | 2 | 2 | 3 |
-| Wipe up drips | 0 | 5 | 15 |
-| **TOTAL (without priming)** | **23s** | **46s** | **104s** |
-| **TOTAL (with priming)** | **53s** | **106s** | **224s** |
+| Wipe up water drips | 0 | 3 | 5 |
+| **TOTAL (without priming)** | **23s** | **44s** | **94s** |
+| **TOTAL (with priming)** | **53s** | **104s** | **214s** |
 
 ### 4.2 Comparison Across Architectures
 
@@ -698,9 +700,8 @@ The pull-out dock wins on the cartridge change itself because the user has excel
 | Phone (for app) | For priming/config | Same | Same | Same | Same | Same |
 | Any hand tools | None | None | None | None | None | None |
 | Surface for old cartridge | Yes | Yes | Yes (dock provides it when pulled out) | Yes | Yes | Yes |
-| Drip container/bag | Recommended | Recommended | Recommended | Recommended | Recommended | Not needed (valved) |
 
-**The baseline design is tool-free.** The only items the user needs are things they would naturally have nearby (a towel, their phone). No wrenches, screwdrivers, or specialty tools.
+**The baseline design is tool-free.** The only items the user needs are things they would naturally have nearby (a towel, their phone). No wrenches, screwdrivers, or specialty tools. The towel is for water drips only — since the clean cycle runs before removal, there is no sticky residue to deal with.
 
 ---
 
@@ -710,23 +711,22 @@ The pull-out dock wins on the cartridge change itself because the user has excel
 
 A new soda flavor injector system ships with:
 
-1. **Main body** (ESP32 + L298N motor drivers + flow meter + solenoid valves + wiring harness) — pre-assembled
-2. **Dock** — partially assembled (John Guest fittings installed, pogo pins installed, guide rails integrated)
-3. **Cartridge** — fully assembled (pumps, tubing, electrical pads, lever)
-4. **RP2040 display module** — separate unit with cable
-5. **ESP32-S3 config display** — separate unit with cable
-6. **Tubing kit** — 1/4" OD tubing for connecting bags to dock, ice maker T-fitting, saddle valve or ice maker adapter
-7. **Hardware bag** — mounting screws, cable ties, etc.
-8. **Quick start guide** — single sheet with QR code to video
+1. **Enclosure** (self-contained tower with ESP32, L298N motor drivers, flow meter, solenoid valves, dock, wiring harness) — pre-assembled
+2. **Cartridge** — fully assembled (pumps, tubing, electrical pads, lever)
+3. **RP2040 display module** — separate unit with cable
+4. **ESP32-S3 config display** — separate unit with cable
+5. **Tubing kit** — 1/4" OD tubing for connecting bags to dock, ice maker T-fitting, saddle valve or ice maker adapter
+6. **Hardware bag** — mounting screws, cable ties, etc.
+7. **Quick start guide** — single sheet with QR code to video
 
 ### 6.2 First-Time Installation
 
 This is a one-time operation, not a cartridge change. The user must:
 
-1. **Mount the dock** to the cabinet interior (2-4 screws into the side wall or back wall)
-2. **Mount the main body** near the dock (positioning constrained by wire lengths to dock)
-3. **Connect tubing** from the ice maker T-fitting through the flow meter and solenoid valves to the dock outlet fittings
-4. **Connect flavor bag tubing** from platypus bags (hung or placed nearby) to the dock inlet fittings
+1. **Place the enclosure** in the cabinet (it is a free-standing tower — no mounting required)
+2. **Connect tubing** from the ice maker T-fitting through the flow meter and solenoid valves to the dock outlet fittings (pre-routed inside the enclosure)
+3. **Install flavor bags** on the incline mounts inside the bag zone (snap connector into U-clip, hang sealed end on J-hook)
+4. **Connect flavor bag tubing** from platypus bag drink tube adapters to the dock inlet fittings
 5. **Wire the display modules** (UART cables from ESP32 to RP2040 and S3)
 6. **Insert the cartridge** for the first time
 7. **Power on the system**
@@ -753,8 +753,8 @@ The first cartridge insertion follows the same procedure as Section 1.5 (Connect
 ### 6.4 Instructions
 
 A QR code on the quick start guide linking to a 60-second installation video is the most effective instruction format. The video shows:
-1. Mounting the dock (10 seconds)
-2. Connecting tubing (15 seconds)
+1. Placing the enclosure in the cabinet (5 seconds)
+2. Installing bags and connecting tubing (20 seconds)
 3. Inserting the cartridge (10 seconds) — close-up of the push, the stop, the sound
 4. Powering on and app pairing (15 seconds)
 5. Priming (10 seconds)
@@ -766,6 +766,8 @@ Paper instructions with clear diagrams are the fallback.
 ## 7. Residual Water and Drip Analysis
 
 ### 7.1 Volume Calculations
+
+After the mandatory clean cycle, all residual fluid in the cartridge is clean water (not flavor concentrate). The volume calculations remain the same regardless of fluid type.
 
 **Tube stubs (4 total, protruding from cartridge mating face):**
 
@@ -814,7 +816,7 @@ Total (2 pumps) = 2.64 mL
 | Pump chambers (2x) | 2.6 |
 | **Total** | **~10.0 mL** |
 
-10 mL is approximately **2 teaspoons**. This is a small but non-zero amount. It is flavoring concentrate mixed with water — it will stain or leave residue if it drips on a surface.
+10 mL is approximately **2 teaspoons**. After the mandatory clean cycle, this is clean water — it will not stain or leave sticky residue.
 
 ### 7.2 Where Does the Water Go?
 
@@ -834,7 +836,7 @@ When the collets release and the tube stubs begin to withdraw from the fittings:
 - Slow drain (over 30-60 seconds): ~3-5 mL as internal tubing drains through stubs
 - Pump chamber (retained until tilted): ~2.6 mL stays trapped between rollers until the cartridge is tilted or shaken
 
-**Total expected drip:** 3-5 mL within the first minute. The remaining 5-7 mL stays in the cartridge until it is tilted or cleaned.
+**Total expected drip:** 3-5 mL within the first minute. The remaining 5-7 mL stays in the cartridge until it is tilted or cleaned. Since this is water (post-clean-cycle), the cleanup is trivial — a quick towel wipe.
 
 ### 7.3 Where Does the Dock Drip?
 
@@ -846,22 +848,24 @@ The John Guest fittings seal well when the tube is removed. The dock itself shou
 
 ### 7.4 Mitigation Strategies
 
-**Drip tray (dock-mounted):**
-- A small 3D printed tray below the dock fittings catches any weepage
-- Tray is shallow (~5mm deep, ~80mm x 40mm) — holds a few mL
-- Removable for cleaning
-- Cost: trivial (one small print)
+The primary drip mitigation is the mandatory clean-before-remove workflow (Section 1.1a). Because all residual fluid is water after the clean cycle, the drip problem is dramatically reduced — water drips are trivially managed compared to sticky concentrate.
+
+**Dock drip channel:**
+- A small channel or groove below the dock fittings routes any weepage to the dock shelf
+- Shallow (~3mm deep, ~80mm x 40mm) — holds a few mL
+- Integral to the dock shelf print (no separate part)
+- Cost: zero (just a groove in the CAD model)
 
 **Tube stub caps (cartridge-mounted):**
 - 4 small silicone or 3D printed caps that press-fit over the tube stub tips after removal
-- The user pops the caps on after removing the cartridge — prevents dripping during transport to the trash/refurbishment area
+- The user pops the caps on after removing the cartridge — prevents dripping during transport
 - Could be attached to the cartridge by a flexible tether (so they don't get lost)
 - Alternative: a single plate or sleeve that covers all 4 stubs simultaneously
 
 **Pre-removal drain:**
-- Before removing the cartridge, run the pumps briefly in reverse (if the motor driver supports bidirectional operation, which L298N does). This pulls liquid back toward the bags, partially emptying the cartridge-side tubing.
+- Before removing the cartridge, run the pumps briefly in reverse (if the motor driver supports bidirectional operation, which L298N does). This pulls water back toward the bags, partially emptying the cartridge-side tubing.
 - Reduces residual volume from ~10 mL to ~3-5 mL (the pump chambers still retain fluid)
-- Requires firmware support for reverse pumping
+- Requires firmware support for reverse pumping (already feasible — pump reversal is used for hopper filling)
 
 **Absorbent pad in dock:**
 - A small sponge or absorbent pad in the dock below the fittings
@@ -886,7 +890,7 @@ Under-sink water filter systems face the same problem and handle it in several w
 - This is the gold standard for drip-free replacement
 - Advertised as "3-second replacement, no mess"
 
-**Lesson for our design:** The baseline John Guest fitting approach falls between these two extremes. It is much better than a screw-on canister (0-5 mL drip vs. 500-2000 mL) but worse than a sealed cartridge with auto-shutoff valves (CPC valved fittings would close this gap). For the prototype, a towel and a drip tray are sufficient mitigation. For a production product, CPC valved fittings or a pre-removal drain cycle are worth considering.
+**Lesson for our design:** The baseline John Guest fitting approach with enforced clean-before-remove falls closer to the quick-change end of the spectrum. The residual is ~10mL of water (not concentrate), versus 500-2000mL for a screw-on canister. For the prototype, a towel is sufficient. For a production product, CPC valved fittings or a pre-removal drain cycle could eliminate drips entirely.
 
 ---
 
@@ -948,7 +952,7 @@ SodaStream has evolved through two generations of cylinder replacement UX:
 **Relevance to our design:**
 - The new cartridge should have minimal packaging to remove before installation (ideally: take it out of the box and insert it)
 - If we add cartridge identification in the future (resistor ID or NFC), it should be purely informational (not DRM)
-- The drip problem is shared — our ~10 mL residual is much less than an ink cartridge's potential mess, but flavoring concentrate can stain similarly
+- The drip problem is shared — but our enforced clean cycle means residual is water, not sticky concentrate
 
 ### 8.4 Power Tool Battery Packs
 
@@ -973,7 +977,7 @@ SodaStream has evolved through two generations of cylinder replacement UX:
 | Tool-free replacement | Quick-change water filters | Lever is the only interface — no wrenches, no screwdrivers |
 | Tactile feedback at lock | All successful designs | Over-center cam break feel when lever is opened/closed |
 | Keyed geometry (poka-yoke) | Printer cartridges, batteries | Asymmetric rail profile prevents wrong-way insertion |
-| Minimal drip | Sealed filter cartridges | Drip tray + tube stub caps mitigate residual water |
+| Clean-before-remove | Enforced workflow | Software gate (or physical lock) ensures residual is water, not concentrate |
 | First-time guidance | SodaStream, printer setup wizards | QR-to-video quick start guide |
 
 ### 8.6 UX Patterns to Avoid
@@ -981,10 +985,11 @@ SodaStream has evolved through two generations of cylinder replacement UX:
 | Anti-Pattern | Source | How to Avoid |
 |-------------|--------|-------------|
 | Requiring tools (wrench) for routine replacement | Traditional RO filter housings | Lever + release plate, no tools ever |
-| Large water volume released during swap | Screw-on filter canisters | Gravity-fed system with minimal residual volume |
+| Large water volume released during swap | Screw-on filter canisters | Gravity-fed system with minimal residual volume (~10mL water post-clean) |
 | Multi-step sequence with unclear order | Complex printer cartridge replacement (remove tape, open lid, press tab, insert, close lid) | Single motion: slide in. Single motion: flip lever + slide out. |
 | DRM / artificial incompatibility | Printer cartridge region locking | No electronic restrictions on cartridge acceptance |
 | Requiring water shutoff before swap | Traditional water filter systems | John Guest fittings self-seal; no water shutoff needed |
+| Sticky residue on removal | Allowing removal without cleaning | Mandatory clean cycle before removal — residual is always water |
 
 ---
 
@@ -994,39 +999,3 @@ SodaStream has evolved through two generations of cylinder replacement UX:
 - [How to Connect and Disconnect John Guest Fittings -- ESP Water Products](https://espwaterproducts.com/pages/how-do-john-guest-fittings-work)
 - [How to Fix Leaking Quick-Connect Fittings -- Fresh Water Systems](https://www.freshwatersystems.com/blogs/blog/how-to-fix-leaking-quick-connect-fittings)
 - [How to Change an Under-Sink Water Filter -- Quality Water Lab](https://qualitywaterlab.com/undersink/how-to-change-an-under-sink-water-filter/)
-- [Fix Your Under-Sink Filter Problems -- Water Filter Direct](https://waterfilterdirect.com/blogs/installation-guides/why-your-under-sink-filter-isnt-working-and-how-to-fix-it-15-minutes)
-- [Waterdrop Under Sink Filter Reviews -- Home Depot](https://www.homedepot.com/p/reviews/Waterdrop-16000-Gal-Long-Last-Under-Sink-Water-Filter-System-with-Direct-Connect-to-Kitchen-Faucet-NSF-ANSI-Certified-B-WD-15UA/319413774/1)
-- [Waterdrop Reviews -- Trustpilot](https://www.trustpilot.com/review/waterdropfilter.com)
-- [SodaStream Quick Connect Cylinder Replacement -- SodaStream Support](https://support-us.sodastream.com/hc/en-us/articles/4420064050331-How-to-replace-the-Sodastream-Quick-Connect-Cylinder-in-my-Sodastream-ART-Sparkling-Water-Maker)
-- [SodaStream CO2 Cylinder Exchange](https://sodastream.com/products/refill)
-- [Ink Cartridge Not Clicking Into Place -- CompAndSave](https://www.compandsave.com/help/articles/25834315815565/ink-cartridge-installation-problem-how-to-fix-when-not-clicking-into-place)
-- [10 Ink Cartridge Problems and How to Fix Them -- SmartInk](https://smartink.pro/eu/top-10-problems-with-printer-cartridges-how-to-solve-them/)
-- [HP Printer Says Cartridge Incompatible -- CompAndSave](https://www.compandsave.com/blog/posts/hp-printer-says-cartridge-incompatible-try-these-real-fixes.html)
-
-### Water Filter Systems and Quick-Change Technology
-- [Quick Change Twist-Lock RO Filters](https://www.home-water-purifiers-and-filters.com/quick-change-ro.php)
-- [Best Under Sink Water Filters 2026 -- This Old House](https://www.thisoldhouse.com/kitchens/22818652/best-under-sink-water-filter)
-- [Best Under-Sink Water Filters -- Quality Water Lab](https://qualitywaterlab.com/undersink/)
-- [Waterdrop Single-Stage vs 3-Stage Comparison](https://www.waterdropfilter.com/blogs/buyers-guides/under-sink-water-filter-comparison-between-single-stage-and-3-stage)
-
-### Quick-Disconnect Fittings
-- [CPC Valved Quick Disconnect Fittings](https://www.cpcworldwide.com/General-Purpose/Products/Valved)
-- [CPC Quick Disconnect Couplings & Solutions](https://www.cpcworldwide.com/)
-- [John Guest Quick Connect Fittings -- Pure Water Products](https://www.purewaterproducts.com/john-guest-fittings)
-- [Preventing and Fixing Leaks in John Guest Fittings -- Pure Water Products](https://www.purewaterproducts.com/parts/quick-connect-parts)
-
-### Tubing and Pump Specifications
-- [Kamoer KPHM400 Amazon Listing](https://www.amazon.com/peristaltic-Brushed-Kamoer-KPHM400-Liquid/dp/B09MS6C91D)
-- [Kamoer KPHM400 Product Page](https://www.kamoer.com/us/product/detail.html?id=10014)
-- [PharMed BPT Tubing -- Saint-Gobain](https://www.biopharm.saint-gobain.com/components/fluid-transfer/pharmed-bpt-tubing)
-- [PharMed BPT Peristaltic Pump Tubing 1/8" ID x 1/4" OD -- Cole-Parmer](https://www.coleparmer.com/i/pharmed-bpt-biocompatible-peristaltic-pump-tubing-1-8-id-x-1-4-od-25-ft/5012355)
-
-### Prior Art Research (from existing project documents)
-- [Cam & Lever Mechanisms + Prior Art (cam-lever.md)](cam-lever.md)
-- [Collet Release Mechanics (collet-release.md)](collet-release.md)
-- [Electrical Mating Approaches (electrical-mating.md)](electrical-mating.md)
-- [Guide & Alignment Mechanisms (guide-alignment.md)](guide-alignment.md)
-- [Release Plate Design (release-plate.md)](release-plate.md)
-- [Mating Face Layout (mating-face.md)](mating-face.md)
-- [Cartridge Envelope (cartridge-envelope.md)](cartridge-envelope.md)
-- [Pump Mounting (pump-mounting.md)](pump-mounting.md)
