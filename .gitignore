@@ -10,6 +10,7 @@ src_config/fw_version.h
 src_display/fw_version.h
 **/xcuserdata/
 **/build/
+__pycache__/
 *.xcodeproj/
 logs/*.log
 
