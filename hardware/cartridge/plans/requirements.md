@@ -4,8 +4,6 @@
 
 A replaceable slide-in module containing 2 Kamoer peristaltic pumps (one per flavor line). The user slides it into a dock, it makes fluid and electrical connections automatically, and a lever locks it in place. To replace: flip the lever, slide it out, slide a new one in.
 
-The cartridge does NOT include the flavor bags — bags are part of the permanent installation with their own maintenance cycle (hopper fill, clean cycle via tap water). The cartridge is purely the pump module.
-
 ## Functional Requirements
 
 These were agreed upon in conversation 1 (2026-03-23):
