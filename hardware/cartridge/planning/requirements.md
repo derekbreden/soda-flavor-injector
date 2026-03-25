@@ -134,6 +134,10 @@ The cartridge mechanism is a sequence of three things that happen during inserti
 - Inner diameter where collet meets the fitting body
 - CPC insert OD and engagement depth (if CPC fittings are ordered)
 
+## Design Synthesis
+
+See [architecture.md](architecture.md) for the current design state — how the cartridge implements these requirements.
+
 ## Research
 
 ### Round 1: Mechanism Families
@@ -148,14 +152,14 @@ Each sub-problem has a corresponding research document exploring mechanism famil
 Grounded in specific dimensions from parts in hand and Round 1 research:
 
 - [Release Plate](../research/release-plate.md) — Stepped bore geometry, hole arrangements, first-print spec (only relevant if JG fittings are chosen)
-- [Mating Face](../research/mating-face.md) — Tube port layout, fitting mounting, electrical contact placement, guide features
-- [Cartridge Envelope](../research/cartridge-envelope.md) — Pump dimensions, arrangements, tubing routing, bounding volumes
 - [Pump Mounting](../research/pump-mounting.md) — Mounting features, vibration isolation, strain relief, wire routing
+- ~~Mating Face~~ — archived (`archive-assumes-zone-layout/mating-face.md`), needs rewrite for diagonal layout
+- ~~Cartridge Envelope~~ — archived (`archive-assumes-zone-layout/cartridge-envelope.md`), superseded by pump_tray.py and dock-placement.md
 
 ### Round 3: Dock Placement and Fitting Alternatives
 Research driven by the diagonal interleave enclosure layout:
 
-- [V1 Cartridge Dock Placement](../research/v1-cartridge-dock-placement.md) — Front-bottom triangular void geometry, envelope optimization, ergonomics, fluid/electrical connection analysis for the diagonal interleave layout
+- [Dock Placement](../research/dock-placement.md) — Front-bottom triangular void geometry, envelope optimization, ergonomics, fluid/electrical connection analysis for the diagonal interleave layout
 - [Fitting Alternatives](../research/fitting-alternatives.md) — Comprehensive comparison of JG, CPC, barb, Luer, bayonet, magnetic, and press-fit options. Recommends CPC for auto-shutoff and simplicity; JG as fallback.
 
 ## Design Approach (4 Phases)
