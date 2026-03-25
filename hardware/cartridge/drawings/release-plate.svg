@@ -1,0 +1,592 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 780" width="1050" height="780"
+     font-family="Helvetica, Arial, sans-serif" font-size="9">
+  <defs>
+    <marker id="as" viewBox="0 0 10 6" refX="0" refY="3" markerWidth="7" markerHeight="4.5" orient="auto">
+      <path d="M10,0 L0,3 L10,6 Z" fill="#333"/>
+    </marker>
+    <marker id="ae" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="7" markerHeight="4.5" orient="auto">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#333"/>
+    </marker>
+  </defs>
+
+  <!-- Background and border -->
+  <rect width="1050" height="780" fill="white"/>
+  <rect x="10" y="10" width="1030" height="760" fill="none" stroke="#000" stroke-width="1.5"/>
+
+  <!--
+    SCALE: 8 px/mm (8:1)
+
+    RELEASE PLATE DIMENSIONS (from parts.md):
+    - Envelope: 50W x 36H x 6D mm
+    - 4x stepped bores, 2x2 grid, 40mm H x 28mm V center-to-center
+    - Bore centers relative to plate bottom-left: (5,4), (45,4), (5,32), (45,32)
+    - Bore tiers (from front/collet face):
+        Outer bore (collet cradle): dia 12.5mm, 2mm deep
+        Inner lip (collet pusher): dia 10.5mm, 2mm deep
+        Tube clearance: dia 8.0mm, through remaining 2mm
+    - Guide pin slots: 3.3W x 7.3L mm at X=-8,Z=18 and X=58,Z=18 (ears extend beyond main plate)
+    - Push rod boss: centered at (25,18) on back face, 8mm dia x 1mm proud
+
+    COORDINATE TRANSFORMS:
+    s = 8 (px per mm)
+
+    FRONT VIEW: plate bottom-left at (fx0, fy0) = (110, 560)
+      px = fx0 + X*s = 110 + X*8
+      py = fy0 - Z*s = 560 - Z*8
+
+    TOP VIEW: plate front-left at (tx0, ty0) = (110, 205)  (above front view)
+      px = tx0 + X*s = 110 + X*8
+      py = ty0 - Y*s = 205 - Y*8   (Y=0 is front face, Y=6 is back)
+
+    SIDE VIEW: plate front-bottom at (sx0, sy0) = (650, 560)  (right of front view)
+      px = sx0 + Y*s = 650 + Y*8
+      py = sy0 - Z*s = 560 - Z*8
+  -->
+
+  <!-- ================================================================ -->
+  <!-- FRONT VIEW (center-left) -->
+  <!-- Looking along depth axis at collet-engagement face -->
+  <!-- Shows width (X) horizontal, height (Z) vertical -->
+  <!-- ================================================================ -->
+
+  <text x="310" y="148" text-anchor="middle" font-size="11" font-weight="bold" fill="#000">FRONT VIEW</text>
+
+  <!-- Main plate outline: X=0..50, Z=0..36 -->
+  <!-- (110, 560) to (110+400, 560-288) = (510, 272) -->
+  <rect x="110" y="272" width="400" height="288" fill="none" stroke="#000" stroke-width="2"/>
+
+  <!-- Left ear tab for guide pin slot -->
+  <!-- Ear: X=-10 to X=0, Z=13 to Z=23 (10mm tall centered at Z=18) -->
+  <!-- px: 110+(-10)*8=30 to 110, py: 560-23*8=376 to 560-13*8=456 -->
+  <path d="M110,376 L30,376 L30,456 L110,456" fill="none" stroke="#000" stroke-width="2"/>
+
+  <!-- Right ear tab -->
+  <!-- Ear: X=50 to X=60, Z=13 to Z=23 -->
+  <!-- px: 510 to 510+10*8=590, py: 376 to 456 -->
+  <path d="M510,376 L590,376 L590,456 L510,456" fill="none" stroke="#000" stroke-width="2"/>
+
+  <!-- Left guide pin slot: circle at X=-8, Z=18 (3.3mm dia shown end-on) -->
+  <!-- px=110+(-8)*8=46, py=560-18*8=416, r=1.65*8=13.2 -->
+  <circle cx="46" cy="416" r="13.2" fill="none" stroke="#000" stroke-width="1.5"/>
+  <!-- Center mark -->
+  <line x1="38" y1="416" x2="54" y2="416" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+  <line x1="46" y1="408" x2="46" y2="424" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+
+  <!-- Right guide pin slot: circle at X=58, Z=18 -->
+  <!-- px=110+58*8=574, py=416, r=13.2 -->
+  <circle cx="574" cy="416" r="13.2" fill="none" stroke="#000" stroke-width="1.5"/>
+  <line x1="566" y1="416" x2="582" y2="416" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+  <line x1="574" y1="408" x2="574" y2="424" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+
+  <!-- 4x Stepped Bores -->
+  <!-- Bore 1: bottom-left (5, 4) -> px=110+5*8=150, py=560-4*8=528 -->
+  <!-- Bore 2: bottom-right (45, 4) -> px=110+45*8=470, py=528 -->
+  <!-- Bore 3: top-left (5, 32) -> px=150, py=560-32*8=304 -->
+  <!-- Bore 4: top-right (45, 32) -> px=470, py=304 -->
+  <!-- Radii: outer 6.25*8=50, inner 5.25*8=42, tube 4.0*8=32 -->
+
+  <!-- Bore 1 (5,4) -->
+  <circle cx="150" cy="528" r="50" fill="none" stroke="#000" stroke-width="1.5"/>
+  <circle cx="150" cy="528" r="42" fill="none" stroke="#000" stroke-width="1.2"/>
+  <circle cx="150" cy="528" r="32" fill="none" stroke="#000" stroke-width="1.2"/>
+  <line x1="140" y1="528" x2="160" y2="528" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+  <line x1="150" y1="518" x2="150" y2="538" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+
+  <!-- Bore 2 (45,4) -->
+  <circle cx="470" cy="528" r="50" fill="none" stroke="#000" stroke-width="1.5"/>
+  <circle cx="470" cy="528" r="42" fill="none" stroke="#000" stroke-width="1.2"/>
+  <circle cx="470" cy="528" r="32" fill="none" stroke="#000" stroke-width="1.2"/>
+  <line x1="460" y1="528" x2="480" y2="528" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+  <line x1="470" y1="518" x2="470" y2="538" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+
+  <!-- Bore 3 (5,32) -->
+  <circle cx="150" cy="304" r="50" fill="none" stroke="#000" stroke-width="1.5"/>
+  <circle cx="150" cy="304" r="42" fill="none" stroke="#000" stroke-width="1.2"/>
+  <circle cx="150" cy="304" r="32" fill="none" stroke="#000" stroke-width="1.2"/>
+  <line x1="140" y1="304" x2="160" y2="304" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+  <line x1="150" y1="294" x2="150" y2="314" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+
+  <!-- Bore 4 (45,32) -->
+  <circle cx="470" cy="304" r="50" fill="none" stroke="#000" stroke-width="1.5"/>
+  <circle cx="470" cy="304" r="42" fill="none" stroke="#000" stroke-width="1.2"/>
+  <circle cx="470" cy="304" r="32" fill="none" stroke="#000" stroke-width="1.2"/>
+  <line x1="460" y1="304" x2="480" y2="304" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+  <line x1="470" y1="294" x2="470" y2="314" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+
+  <!-- Push rod boss (hidden, on back face): (25,18), 8mm dia -->
+  <!-- px=110+25*8=310, py=560-18*8=416, r=4*8=32 -->
+  <circle cx="310" cy="416" r="32" fill="none" stroke="#000" stroke-width="0.8"
+          stroke-dasharray="6,3"/>
+
+  <!-- ================================================================ -->
+  <!-- FRONT VIEW DIMENSIONS -->
+  <!-- ================================================================ -->
+
+  <!-- Overall width: 50mm, below plate -->
+  <line x1="110" y1="565" x2="110" y2="598" stroke="#333" stroke-width="0.5"/>
+  <line x1="510" y1="565" x2="510" y2="598" stroke="#333" stroke-width="0.5"/>
+  <line x1="110" y1="593" x2="510" y2="593" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="310" y="590" text-anchor="middle" fill="#333" font-size="9">50</text>
+
+  <!-- Overall height: 36mm, right of plate -->
+  <line x1="515" y1="272" x2="545" y2="272" stroke="#333" stroke-width="0.5"/>
+  <line x1="515" y1="560" x2="545" y2="560" stroke="#333" stroke-width="0.5"/>
+  <line x1="540" y1="272" x2="540" y2="560" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="540" y="416" text-anchor="middle" fill="#333" font-size="9"
+        transform="rotate(-90,540,416)">36</text>
+
+  <!-- Horizontal bore spacing: 40mm, above top bores -->
+  <line x1="150" y1="249" x2="150" y2="260" stroke="#333" stroke-width="0.5"/>
+  <line x1="470" y1="249" x2="470" y2="260" stroke="#333" stroke-width="0.5"/>
+  <line x1="150" y1="253" x2="470" y2="253" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="310" y="250" text-anchor="middle" fill="#333" font-size="9">40</text>
+
+  <!-- Vertical bore spacing: 28mm, left of plate -->
+  <line x1="70" y1="304" x2="98" y2="304" stroke="#333" stroke-width="0.5"/>
+  <line x1="70" y1="528" x2="98" y2="528" stroke="#333" stroke-width="0.5"/>
+  <line x1="75" y1="304" x2="75" y2="528" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="75" y="416" text-anchor="middle" fill="#333" font-size="9"
+        transform="rotate(-90,75,416)">28</text>
+
+  <!-- Left edge to left bore center: 5mm -->
+  <line x1="110" y1="600" x2="110" y2="612" stroke="#333" stroke-width="0.4"/>
+  <line x1="150" y1="600" x2="150" y2="612" stroke="#333" stroke-width="0.4"/>
+  <line x1="110" y1="608" x2="150" y2="608" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="130" y="605" text-anchor="middle" fill="#333" font-size="8">5</text>
+
+  <!-- Right bore center to right edge: 5mm -->
+  <line x1="470" y1="600" x2="470" y2="612" stroke="#333" stroke-width="0.4"/>
+  <line x1="510" y1="600" x2="510" y2="612" stroke="#333" stroke-width="0.4"/>
+  <line x1="470" y1="608" x2="510" y2="608" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="490" y="605" text-anchor="middle" fill="#333" font-size="8">5</text>
+
+  <!-- Bottom edge to bottom bore center: 4mm -->
+  <line x1="548" y1="528" x2="562" y2="528" stroke="#333" stroke-width="0.4"/>
+  <line x1="548" y1="560" x2="562" y2="560" stroke="#333" stroke-width="0.4"/>
+  <line x1="557" y1="528" x2="557" y2="560" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="570" y="544" text-anchor="start" fill="#333" font-size="8">4</text>
+
+  <!-- Top edge to top bore center: 4mm -->
+  <line x1="548" y1="272" x2="562" y2="272" stroke="#333" stroke-width="0.4"/>
+  <line x1="548" y1="304" x2="562" y2="304" stroke="#333" stroke-width="0.4"/>
+  <line x1="557" y1="272" x2="557" y2="304" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="570" y="288" text-anchor="start" fill="#333" font-size="8">4</text>
+
+  <!-- Bore diameter callouts with leader lines from bore 1 (bottom-left) -->
+  <!-- Leader from outer bore circle -->
+  <line x1="186" y1="493" x2="220" y2="465" stroke="#333" stroke-width="0.5"/>
+  <circle cx="186" cy="493" r="1.5" fill="#333"/>
+  <text x="223" y="463" text-anchor="start" fill="#333" font-size="8">&#x2300;12.5 OUTER BORE</text>
+
+  <line x1="180" y1="498" x2="220" y2="478" stroke="#333" stroke-width="0.5"/>
+  <circle cx="180" cy="498" r="1.5" fill="#333"/>
+  <text x="223" y="476" text-anchor="start" fill="#333" font-size="8">&#x2300;10.5 INNER LIP</text>
+
+  <line x1="173" y1="503" x2="220" y2="491" stroke="#333" stroke-width="0.5"/>
+  <circle cx="173" cy="503" r="1.5" fill="#333"/>
+  <text x="223" y="489" text-anchor="start" fill="#333" font-size="8">&#x2300;8.0 TUBE CLEARANCE</text>
+
+  <!-- Guide pin slot callout -->
+  <line x1="46" y1="400" x2="46" y2="370" stroke="#333" stroke-width="0.5"/>
+  <text x="46" y="365" text-anchor="middle" fill="#333" font-size="8">&#x2300;3.3 SLOT</text>
+  <text x="46" y="355" text-anchor="middle" fill="#333" font-size="7">(7.3 LONG, TYP x2)</text>
+
+  <!-- Push rod boss callout -->
+  <line x1="332" y1="393" x2="370" y2="375" stroke="#333" stroke-width="0.5"/>
+  <text x="373" y="373" text-anchor="start" fill="#333" font-size="8">&#x2300;8 BOSS</text>
+  <text x="373" y="383" text-anchor="start" fill="#333" font-size="7">(BACK FACE, 1mm PROUD)</text>
+
+  <!-- Section cut line A-A through left bore column X=5 -->
+  <line x1="150" y1="240" x2="150" y2="585" stroke="#333" stroke-width="0.8"
+        stroke-dasharray="18,3,3,3"/>
+  <text x="140" y="243" font-size="11" font-weight="bold" fill="#333">A</text>
+  <text x="140" y="585" font-size="11" font-weight="bold" fill="#333">A</text>
+
+  <!-- ================================================================ -->
+  <!-- TOP VIEW (above front view) -->
+  <!-- Looking down (along -Z) -->
+  <!-- Shows width (X) horizontal, depth (Y) vertical (Y=0 front at bottom, Y=6 back at top) -->
+  <!-- Top view: px = 110 + X*8, py = 205 - Y*8 -->
+  <!-- Plate: X=0..50, Y=0..6 -->
+  <!-- px: 110..510, py: 205..205-48=157 -->
+  <!-- ================================================================ -->
+
+  <text x="310" y="136" text-anchor="middle" font-size="11" font-weight="bold" fill="#000">TOP VIEW</text>
+
+  <!-- Main plate rectangle -->
+  <rect x="110" y="157" width="400" height="48" fill="none" stroke="#000" stroke-width="2"/>
+
+  <!-- Left ear: X=-10 to 0, narrower in Y to match ear depth -->
+  <!-- Ear same depth as plate (Y=0..6) but narrower for the slot area -->
+  <!-- Actually ears span full plate depth. py: 157..205 -->
+  <path d="M110,165 L30,165 L30,197 L110,197" fill="none" stroke="#000" stroke-width="2"/>
+
+  <!-- Right ear -->
+  <path d="M510,165 L590,165 L590,197 L510,197" fill="none" stroke="#000" stroke-width="2"/>
+
+  <!-- Guide pin slots in top view - elongated along Y (vertical in this view) -->
+  <!-- Left slot at X=-8: px=110+(-8)*8=46. Slot 3.3mm wide in X, goes through full depth -->
+  <!-- Slot half-width X: 1.65*8=13.2. px: 46-13.2=32.8 to 46+13.2=59.2 -->
+  <!-- Slot extends full depth (7.3mm > 6mm plate depth, so through-slot) -->
+  <rect x="32.8" y="155" width="26.4" height="52" fill="white" stroke="none"/>
+  <line x1="32.8" y1="157" x2="32.8" y2="205" fill="none" stroke="#000" stroke-width="1.5"/>
+  <line x1="59.2" y1="157" x2="59.2" y2="205" fill="none" stroke="#000" stroke-width="1.5"/>
+
+  <!-- Right slot at X=58: px=110+58*8=574. px: 574-13.2=560.8 to 574+13.2=587.2 -->
+  <rect x="560.8" y="155" width="26.4" height="52" fill="white" stroke="none"/>
+  <line x1="560.8" y1="157" x2="560.8" y2="205" fill="none" stroke="#000" stroke-width="1.5"/>
+  <line x1="587.2" y1="157" x2="587.2" y2="205" fill="none" stroke="#000" stroke-width="1.5"/>
+
+  <!-- Bore positions as hidden lines -->
+  <!-- From top, the bores are circles. Show tube clearance (8mm dia) as hidden dashed circles -->
+  <!-- Bore 1 (5,4): px=150 (but Y position varies - bores span full depth as through-holes) -->
+  <!-- In top view, bores at X=5 and X=45 appear as hidden vertical bands or dashed lines -->
+  <!-- The tube hole (8mm dia) appears as two hidden lines at X=5-4=1 and X=5+4=9 -->
+  <!-- px: 110+1*8=118 and 110+9*8=182 -->
+
+  <!-- Bore column at X=5: tube hole edges at X=1 and X=9 -->
+  <line x1="118" y1="157" x2="118" y2="205" fill="none" stroke="#000" stroke-width="0.7"
+        stroke-dasharray="5,3"/>
+  <line x1="182" y1="157" x2="182" y2="205" fill="none" stroke="#000" stroke-width="0.7"
+        stroke-dasharray="5,3"/>
+
+  <!-- Bore column at X=45: tube hole edges at X=41 and X=49 -->
+  <line x1="438" y1="157" x2="438" y2="205" fill="none" stroke="#000" stroke-width="0.7"
+        stroke-dasharray="5,3"/>
+  <line x1="502" y1="157" x2="502" y2="205" fill="none" stroke="#000" stroke-width="0.7"
+        stroke-dasharray="5,3"/>
+
+  <!-- Bore centerlines -->
+  <line x1="150" y1="153" x2="150" y2="209" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+  <line x1="470" y1="153" x2="470" y2="209" stroke="#666" stroke-width="0.4" stroke-dasharray="8,2,2,2"/>
+
+  <!-- Top view dimensions -->
+  <!-- Depth: 6mm -->
+  <line x1="515" y1="157" x2="530" y2="157" stroke="#333" stroke-width="0.4"/>
+  <line x1="515" y1="205" x2="530" y2="205" stroke="#333" stroke-width="0.4"/>
+  <line x1="525" y1="157" x2="525" y2="205" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="538" y="181" text-anchor="start" fill="#333" font-size="9">6</text>
+
+  <!-- ================================================================ -->
+  <!-- SIDE VIEW / SECTION A-A (right of front view) -->
+  <!-- Looking along -X axis (from right side) -->
+  <!-- Shows depth (Y) horizontal, height (Z) vertical -->
+  <!-- Section cut through bore column at X=5, showing bore profiles -->
+  <!-- px = 650 + Y*8, py = 560 - Z*8 -->
+  <!-- Plate: Y=0..6 (px: 650..698), Z=0..36 (py: 560..272) -->
+  <!-- ================================================================ -->
+
+  <text x="674" y="148" text-anchor="middle" font-size="11" font-weight="bold" fill="#000">SECTION A-A</text>
+
+  <!-- Plate outline -->
+  <rect x="650" y="272" width="48" height="288" fill="none" stroke="#000" stroke-width="2"/>
+
+  <!-- Section shows two bores cut through their centers -->
+  <!-- Bore at Z=4 (py=528) and Z=32 (py=304) -->
+  <!-- The bore axis goes along Y (horizontal in this view) -->
+
+  <!-- DEPTH STACK (from front face Y=0, left side of section): -->
+  <!--   Y=0..2: Outer bore (collet cradle) dia 12.5mm, half-height 6.25mm = 50px -->
+  <!--   Y=2..4: Inner lip (collet pusher) dia 10.5mm, half-height 5.25mm = 42px -->
+  <!--   Y=4..6: Tube clearance dia 8.0mm, half-height 4.0mm = 32px -->
+
+  <!-- px positions: Y=0->650, Y=2->666, Y=4->682, Y=6->698 -->
+
+  <!-- BOTTOM BORE section (center at Z=4, py=528) -->
+  <!-- Outer bore: py=528-50=478 to py=528+50=578 (clips at plate bottom py=560) -->
+  <!-- Inner lip: py=528-42=486 to py=528+42=570 (clips at 560) -->
+  <!-- Tube: py=528-32=496 to py=528+32=560 (exactly touches plate bottom) -->
+
+  <!-- Section fill: solid material around bottom bore (above bore) -->
+  <!-- Solid band from bore outer top (py=478) to inter-bore zone -->
+  <!-- For the solid region between bores: bottom of top bore outer (py=304+50=354) to top of bottom bore outer (py=478) -->
+
+  <!-- Fill solid regions with gray + hatching -->
+  <!-- Region above top bore: plate top (py=272) to top bore outer top (py=304-50=254) — bore extends above plate, no solid here at top -->
+  <!-- Actually top bore at Z=32: outer bore extends to Z=32+6.25=38.25, above plate (Z=36). -->
+  <!-- So the bore breaks through the top. Let me calculate what's solid. -->
+
+  <!-- Solid region between bores: -->
+  <!-- Top of bottom bore outer: Z=4+6.25=10.25 -> py=560-10.25*8=478 -->
+  <!-- Bottom of top bore outer: Z=32-6.25=25.75 -> py=560-25.75*8=354 -->
+  <!-- Solid band: py=354 to py=478, full depth px=650 to 698 -->
+  <rect x="650" y="354" width="48" height="124" fill="#ddd" stroke="none"/>
+
+  <!-- Solid corners at top bore (where plate exists but bore doesn't reach) -->
+  <!-- Top bore outer extends above plate. Inner lip extends to Z=32+5.25=37.25 (above plate Z=36) -->
+  <!-- Tube extends to Z=32+4=36 (exactly to plate top) -->
+  <!-- On bottom side of top bore: outer extends to Z=25.75 (all within plate) -->
+  <!-- So at top of plate around the top bore, there's some solid material at the corners -->
+
+  <!-- Actually, let me think about this differently. The section shows the bore profile at X=5. -->
+  <!-- At X=5, both bores (Z=4 and Z=32) are centered. The section cuts through both. -->
+
+  <!-- I'll draw the bore cutouts as white regions over the gray solid fill -->
+
+  <!-- Solid fill for the whole plate cross-section first -->
+  <rect x="650" y="272" width="48" height="288" fill="#ddd" stroke="none"/>
+
+  <!-- Bottom bore cutout (Z=4, py=528) -->
+  <!-- Upper half: visible within plate (py=478 to py=528) -->
+  <!-- Lower half: clips at plate bottom (py=528 to py=560) -->
+  <!-- Stepped profile: outer(12.5)->inner(10.5)->tube(8.0) -->
+
+  <!-- Outer bore region: Y=0..2 (px=650..666), extends 50px from center -->
+  <!-- upper: py=528-50=478, lower: py=528+50=578 but clips at 560 -->
+  <rect x="650" y="478" width="16" height="82" fill="white" stroke="none"/>
+
+  <!-- Inner lip region: Y=2..4 (px=666..682), extends 42px from center -->
+  <!-- upper: py=486, lower: clips at 560 -->
+  <rect x="666" y="486" width="16" height="74" fill="white" stroke="none"/>
+
+  <!-- Tube region: Y=4..6 (px=682..698), extends 32px from center -->
+  <!-- upper: py=496, lower: py=560 -->
+  <rect x="682" y="496" width="16" height="64" fill="white" stroke="none"/>
+
+  <!-- Top bore cutout (Z=32, py=304) -->
+  <!-- Upper half: py=304-50=254, clips at plate top py=272 -->
+  <!-- Lower half: py=304+50=354 -->
+
+  <!-- Outer bore: Y=0..2 (px=650..666) -->
+  <rect x="650" y="272" width="16" height="82" fill="white" stroke="none"/>
+
+  <!-- Inner lip: Y=2..4 (px=666..682) -->
+  <!-- upper: clips at 272, lower: py=304+42=346 -->
+  <rect x="666" y="272" width="16" height="74" fill="white" stroke="none"/>
+
+  <!-- Tube: Y=4..6 (px=682..698) -->
+  <!-- upper: py=304-32=272, lower: py=304+32=336 -->
+  <rect x="682" y="272" width="16" height="64" fill="white" stroke="none"/>
+
+  <!-- Section cross-hatching on remaining solid areas -->
+  <!-- Hatching for the solid band between bores (py=354 to py=478) -->
+  <!-- Full width px=650 to 698 -->
+  <defs>
+    <pattern id="hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#999" stroke-width="0.5"/>
+    </pattern>
+    <clipPath id="solid-clip">
+      <!-- All solid regions after bore cutouts -->
+      <!-- Band between bores -->
+      <rect x="650" y="354" width="48" height="124"/>
+      <!-- Top-left corner solids (outer bore doesn't reach full plate width) -->
+      <!-- At top bore, the outer bore (r=50px from py=304) goes to py=354 (lower). -->
+      <!-- The inner lip (r=42) lower edge at py=346. Between py=346 and py=354, only outer bore zone is open. -->
+      <!-- Actually the solid region at the bottom-right of the top bore: -->
+      <!-- Between inner lip lower (346) and outer bore lower (354), Y=0..2 is open, Y=2..6 is solid -->
+      <rect x="666" y="346" width="32" height="8"/>
+      <!-- Between tube lower (336) and inner lip lower (346), Y=0..4 open, Y=4..6 solid -->
+      <rect x="682" y="336" width="16" height="10"/>
+      <!-- Mirror for bottom bore upper portions -->
+      <!-- Between outer top (478) and inner top (486): Y=0..2 open, Y=2..6 solid -->
+      <rect x="666" y="478" width="32" height="8"/>
+      <!-- Between inner top (486) and tube top (496): Y=0..4 open, Y=4..6 solid -->
+      <rect x="682" y="486" width="16" height="10"/>
+    </clipPath>
+  </defs>
+  <rect x="648" y="270" width="52" height="292" fill="url(#hatch)" clip-path="url(#solid-clip)"/>
+
+  <!-- Bore profile outlines (stepped edges) -->
+  <!-- Bottom bore - upper profile (visible portion) -->
+  <path d="M650,478 L666,478 L666,486 L682,486 L682,496 L698,496"
+        fill="none" stroke="#000" stroke-width="1.5"/>
+  <!-- Bottom bore - lower profile (clips at plate bottom py=560) -->
+  <path d="M650,560 L666,560 L682,560 L698,560"
+        fill="none" stroke="#000" stroke-width="0"/><!-- plate edge handles this -->
+
+  <!-- Top bore - lower profile -->
+  <path d="M650,354 L666,354 L666,346 L682,346 L682,336 L698,336"
+        fill="none" stroke="#000" stroke-width="1.5"/>
+  <!-- Top bore - upper profile clips at plate top -->
+
+  <!-- Vertical step lines (bore tier boundaries) -->
+  <!-- At Y=2 (px=666): lines at steps -->
+  <line x1="666" y1="478" x2="666" y2="486" stroke="#000" stroke-width="1.5"/>
+  <line x1="666" y1="354" x2="666" y2="346" stroke="#000" stroke-width="1.5"/>
+  <!-- At Y=4 (px=682) -->
+  <line x1="682" y1="486" x2="682" y2="496" stroke="#000" stroke-width="1.5"/>
+  <line x1="682" y1="346" x2="682" y2="336" stroke="#000" stroke-width="1.5"/>
+
+  <!-- Guide pin slot in section view -->
+  <!-- Slot at Z=18, py=560-18*8=416. Slot 3.3mm tall in Z (half=1.65*8=13.2px) -->
+  <!-- Through-slot across full depth. Upper edge py=402.8, lower py=429.2 -->
+  <rect x="648" y="402.8" width="52" height="26.4" fill="white" stroke="none"/>
+  <line x1="650" y1="402.8" x2="698" y2="402.8" stroke="#000" stroke-width="1.5"/>
+  <line x1="650" y1="429.2" x2="698" y2="429.2" stroke="#000" stroke-width="1.5"/>
+
+  <!-- Redraw plate outline on top -->
+  <rect x="650" y="272" width="48" height="288" fill="none" stroke="#000" stroke-width="2"/>
+
+  <!-- ================================================================ -->
+  <!-- SIDE VIEW DIMENSIONS -->
+  <!-- ================================================================ -->
+
+  <!-- Total depth: 6mm -->
+  <line x1="650" y1="565" x2="650" y2="590" stroke="#333" stroke-width="0.4"/>
+  <line x1="698" y1="565" x2="698" y2="590" stroke="#333" stroke-width="0.4"/>
+  <line x1="650" y1="585" x2="698" y2="585" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="674" y="600" text-anchor="middle" fill="#333" font-size="9">6</text>
+
+  <!-- Tier depth dimensions above plate -->
+  <line x1="650" y1="268" x2="650" y2="245" stroke="#333" stroke-width="0.4"/>
+  <line x1="666" y1="268" x2="666" y2="245" stroke="#333" stroke-width="0.4"/>
+  <line x1="682" y1="268" x2="682" y2="245" stroke="#333" stroke-width="0.4"/>
+  <line x1="698" y1="268" x2="698" y2="245" stroke="#333" stroke-width="0.4"/>
+
+  <!-- 2mm outer bore depth -->
+  <line x1="650" y1="260" x2="666" y2="260" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="658" y="256" text-anchor="middle" fill="#333" font-size="7">2</text>
+
+  <!-- 2mm inner lip depth -->
+  <line x1="666" y1="252" x2="682" y2="252" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="674" y="248" text-anchor="middle" fill="#333" font-size="7">2</text>
+
+  <!-- 2mm tube depth -->
+  <line x1="682" y1="244" x2="698" y2="244" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="690" y="240" text-anchor="middle" fill="#333" font-size="7">2</text>
+
+  <!-- Tier labels -->
+  <text x="658" y="232" text-anchor="middle" fill="#555" font-size="7">OUTER</text>
+  <text x="674" y="224" text-anchor="middle" fill="#555" font-size="7">INNER</text>
+  <text x="690" y="216" text-anchor="middle" fill="#555" font-size="7">TUBE</text>
+
+  <!-- Tier diameter leader lines from bore profile -->
+  <!-- Bottom bore upper profile: outer at py=478, inner at py=486, tube at py=496 -->
+  <line x1="650" y1="478" x2="625" y2="460" stroke="#333" stroke-width="0.5"/>
+  <circle cx="650" cy="478" r="1.5" fill="#333"/>
+  <text x="622" y="458" text-anchor="end" fill="#333" font-size="8">&#x2300;12.5</text>
+
+  <line x1="666" y1="486" x2="625" y2="475" stroke="#333" stroke-width="0.5"/>
+  <circle cx="666" cy="486" r="1.5" fill="#333"/>
+  <text x="622" y="473" text-anchor="end" fill="#333" font-size="8">&#x2300;10.5</text>
+
+  <line x1="682" y1="496" x2="625" y2="490" stroke="#333" stroke-width="0.5"/>
+  <circle cx="682" cy="496" r="1.5" fill="#333"/>
+  <text x="622" y="488" text-anchor="end" fill="#333" font-size="8">&#x2300;8.0</text>
+
+  <!-- Guide pin slot width in section -->
+  <line x1="703" y1="402.8" x2="720" y2="402.8" stroke="#333" stroke-width="0.4"/>
+  <line x1="703" y1="429.2" x2="720" y2="429.2" stroke="#333" stroke-width="0.4"/>
+  <line x1="715" y1="402.8" x2="715" y2="429.2" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="728" y="416" text-anchor="start" fill="#333" font-size="8">3.3</text>
+
+  <!-- ================================================================ -->
+  <!-- BORE DETAIL INSET (bottom right, above title block) -->
+  <!-- ================================================================ -->
+  <rect x="760" y="272" width="260" height="130" fill="none" stroke="#000" stroke-width="0.8"/>
+  <text x="890" y="290" text-anchor="middle" font-size="10" font-weight="bold" fill="#000">BORE DETAIL (TYP x4)</text>
+
+  <!-- Mini section at 12px/mm scale -->
+  <!-- Bore depth 6mm = 72px. Start at px=810 -->
+  <!-- Bore half at center line, show upper half only with step profile -->
+  <!-- Center line at py=365 -->
+  <!-- Outer bore r=6.25*12=75px -> top at py=365-75=290... too big -->
+  <!-- Use 6px/mm scale for mini section -->
+  <!-- Outer r=6.25*6=37.5, inner r=5.25*6=31.5, tube r=4*6=24 -->
+  <!-- Depth: 6mm=36px per tier: 2mm=12px -->
+  <!-- Center line py=365 -->
+  <!-- Start px=815 -->
+
+  <!-- Solid block -->
+  <rect x="815" y="303" width="36" height="124" fill="#eee" stroke="#000" stroke-width="1"/>
+
+  <!-- Outer bore cutout: px=815..827, half-height=37.5 => py=365-37.5=327.5 to py=365+37.5=402.5 -->
+  <rect x="815" y="327.5" width="12" height="75" fill="white" stroke="none"/>
+  <line x1="815" y1="327.5" x2="827" y2="327.5" stroke="#000" stroke-width="1"/>
+  <line x1="827" y1="327.5" x2="827" y2="333.5" stroke="#000" stroke-width="1"/>
+  <line x1="815" y1="402.5" x2="827" y2="402.5" stroke="#000" stroke-width="1"/>
+  <line x1="827" y1="402.5" x2="827" y2="396.5" stroke="#000" stroke-width="1"/>
+
+  <!-- Inner lip cutout: px=827..839, half-height=31.5 => py=333.5 to py=396.5 -->
+  <rect x="827" y="333.5" width="12" height="63" fill="white" stroke="none"/>
+  <line x1="827" y1="333.5" x2="839" y2="333.5" stroke="#000" stroke-width="1"/>
+  <line x1="839" y1="333.5" x2="839" y2="341" stroke="#000" stroke-width="1"/>
+  <line x1="827" y1="396.5" x2="839" y2="396.5" stroke="#000" stroke-width="1"/>
+  <line x1="839" y1="396.5" x2="839" y2="389" stroke="#000" stroke-width="1"/>
+
+  <!-- Tube clearance cutout: px=839..851, half-height=24 => py=341 to py=389 -->
+  <rect x="839" y="341" width="12" height="48" fill="white" stroke="none"/>
+  <line x1="839" y1="341" x2="851" y2="341" stroke="#000" stroke-width="1"/>
+  <line x1="839" y1="389" x2="851" y2="389" stroke="#000" stroke-width="1"/>
+
+  <!-- Center line -->
+  <line x1="810" y1="365" x2="856" y2="365" stroke="#666" stroke-width="0.4" stroke-dasharray="6,2,2,2"/>
+
+  <!-- Labels for detail -->
+  <text x="860" y="330" text-anchor="start" fill="#333" font-size="8">&#x2300;12.5 x 2 deep</text>
+  <line x1="858" y1="328" x2="821" y2="328" stroke="#333" stroke-width="0.4"/>
+
+  <text x="860" y="342" text-anchor="start" fill="#333" font-size="8">&#x2300;10.5 x 2 deep</text>
+  <line x1="858" y1="340" x2="833" y2="334" stroke="#333" stroke-width="0.4"/>
+
+  <text x="860" y="354" text-anchor="start" fill="#333" font-size="8">&#x2300;8.0 THRU</text>
+  <line x1="858" y1="352" x2="845" y2="345" stroke="#333" stroke-width="0.4"/>
+
+  <!-- Depth dimensions below detail -->
+  <line x1="815" y1="430" x2="815" y2="440" stroke="#333" stroke-width="0.4"/>
+  <line x1="827" y1="430" x2="827" y2="440" stroke="#333" stroke-width="0.4"/>
+  <line x1="839" y1="430" x2="839" y2="440" stroke="#333" stroke-width="0.4"/>
+  <line x1="851" y1="430" x2="851" y2="440" stroke="#333" stroke-width="0.4"/>
+
+  <line x1="815" y1="436" x2="827" y2="436" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="821" y="433" text-anchor="middle" fill="#333" font-size="7">2</text>
+
+  <line x1="827" y1="436" x2="839" y2="436" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="833" y="433" text-anchor="middle" fill="#333" font-size="7">2</text>
+
+  <line x1="839" y1="436" x2="851" y2="436" stroke="#333" stroke-width="0.5"
+        marker-start="url(#as)" marker-end="url(#ae)"/>
+  <text x="845" y="433" text-anchor="middle" fill="#333" font-size="7">2</text>
+
+  <!-- Face labels -->
+  <text x="815" y="420" text-anchor="middle" fill="#555" font-size="7">FRONT</text>
+  <text x="851" y="420" text-anchor="middle" fill="#555" font-size="7">BACK</text>
+
+  <!-- ================================================================ -->
+  <!-- TITLE BLOCK -->
+  <!-- ================================================================ -->
+  <rect x="760" y="670" width="260" height="90" fill="none" stroke="#000" stroke-width="1.2"/>
+  <line x1="760" y1="695" x2="1020" y2="695" stroke="#000" stroke-width="0.6"/>
+  <line x1="760" y1="714" x2="1020" y2="714" stroke="#000" stroke-width="0.6"/>
+  <line x1="760" y1="733" x2="1020" y2="733" stroke="#000" stroke-width="0.6"/>
+
+  <text x="890" y="688" text-anchor="middle" font-size="14" font-weight="bold" fill="#000">RELEASE PLATE</text>
+  <text x="775" y="709" fill="#333" font-size="10">Material: PETG</text>
+  <text x="775" y="728" fill="#333" font-size="10">Envelope: 50W x 36H x 6D mm</text>
+  <text x="775" y="747" fill="#333" font-size="10">Scale: 8:1</text>
+  <text x="900" y="747" fill="#333" font-size="10">Projection: Third Angle</text>
+  <text x="775" y="758" fill="#333" font-size="9">4x stepped bores, 2x2 grid, 40H x 28V mm c-c</text>
+
+  <!-- ================================================================ -->
+  <!-- NOTES -->
+  <!-- ================================================================ -->
+  <text x="760" y="470" font-size="10" font-weight="bold" fill="#000">NOTES:</text>
+  <text x="760" y="485" fill="#555" font-size="8">1. All dimensions in mm.</text>
+  <text x="760" y="497" fill="#555" font-size="8">2. 4x identical stepped bores in 2x2 grid.</text>
+  <text x="760" y="509" fill="#555" font-size="8">3. Depth stack: 2mm outer + 2mm inner + 2mm tube = 6mm total.</text>
+  <text x="760" y="521" fill="#555" font-size="8">4. Guide pin slots: 3.3W x 7.3L mm (through-slot along travel axis).</text>
+  <text x="760" y="533" fill="#555" font-size="8">5. Tube clearance: +0.5/-0 mm tolerance.</text>
+  <text x="760" y="545" fill="#555" font-size="8">6. Inner lip: +/-0.25mm tolerance. Outer bore: +/-0.5mm tolerance.</text>
+  <text x="760" y="557" fill="#555" font-size="8">7. 0.2mm chamfer at tube hole entry edge.</text>
+  <text x="760" y="569" fill="#555" font-size="8">8. 0.3mm x 45-deg lead-in chamfer at outer bore entry.</text>
+  <text x="760" y="581" fill="#555" font-size="8">9. Push rod boss: 8mm dia x 1mm proud, centered on back face at (25, 18).</text>
+  <text x="760" y="593" fill="#555" font-size="8">10. Print orientation: bore axis perpendicular to build plate (Z-axis).</text>
+
+</svg>
