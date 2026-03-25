@@ -1,0 +1,361 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 800" width="900" height="800" font-family="Arial, Helvetica, sans-serif">
+  <title>Dock Back Wall (Fitting Mount Wall) — Engineering Drawing</title>
+
+  <defs>
+    <style>
+      .outline { fill: none; stroke: #000; stroke-width: 1.5; }
+      .hidden  { fill: none; stroke: #000; stroke-width: 0.75; stroke-dasharray: 4,3; }
+      .hidden-thin { fill: none; stroke: #000; stroke-width: 0.75; stroke-dasharray: 2,2; }
+      .center  { fill: none; stroke: #000; stroke-width: 0.4; stroke-dasharray: 12,3,2,3; }
+      .dim     { fill: none; stroke: #000; stroke-width: 0.5; }
+      .dimtext { font-size: 10px; text-anchor: middle; fill: #000; }
+      .label   { font-size: 12px; font-weight: bold; text-anchor: middle; fill: #000; }
+      .note    { font-size: 9px; fill: #000; }
+      .title   { font-size: 14px; font-weight: bold; fill: #000; }
+      .titletext { font-size: 11px; fill: #000; }
+      .arrow   { fill: #000; stroke: none; }
+      .hatching { fill: none; stroke: #000; stroke-width: 0.3; }
+      .thinline { fill: none; stroke: #000; stroke-width: 0.5; }
+    </style>
+    <!-- Arrowhead marker -->
+    <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" class="arrow"/>
+    </marker>
+    <marker id="ah-rev" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+      <polygon points="8,0 0,3 8,6" class="arrow"/>
+    </marker>
+  </defs>
+
+  <!-- ============================================================ -->
+  <!-- SCALE: 3.5 px/mm                                            -->
+  <!-- Part: 148W x 10D x 84H mm = 518 x 35 x 294 px              -->
+  <!-- Hole centers: X=54,94mm  Z=28,56mm  (relative to part)      -->
+  <!-- Hole dia: 7mm (24.5px dia, 12.25px r)                       -->
+  <!-- Counterbore: 11mm dia (38.5px dia, 19.25px r), ~2mm deep    -->
+  <!-- ============================================================ -->
+
+  <!-- ======================= TOP VIEW ============================ -->
+  <!-- Position: (100, 60). Size: 518 x 35 px.                     -->
+  <!-- Looking down along -Z. Horizontal=X(width), Vertical=Y(depth) -->
+  <text x="359" y="50" class="label">TOP VIEW</text>
+
+  <!-- Wall outline -->
+  <rect x="100" y="60" width="518" height="35" class="outline"/>
+
+  <!-- Tube holes as hidden rectangles (holes run along Y, looking along Z we see their X extent) -->
+  <!-- H1: X=54mm -> px=100+189=289. Hole 7mm wide -> 24.5px. rect from 289-12.25 to 289+12.25 -->
+  <rect x="276.75" y="60" width="24.5" height="35" class="hidden-thin"/>
+  <!-- H2: X=94mm -> px=100+329=429 -->
+  <rect x="416.75" y="60" width="24.5" height="35" class="hidden-thin"/>
+  <!-- H3: same X as H1 -->
+  <!-- H3 and H4 overlap H1 and H2 in top view (same X positions) — already drawn -->
+
+  <!-- Counterbore pockets (11mm dia = 38.5px) on rear face (top of view = Y=0, rear face) -->
+  <!-- Counterbore depth ~2mm from rear face. Show as hidden lines -->
+  <!-- CB at H1 X -->
+  <rect x="269.75" y="60" width="38.5" height="7" class="hidden-thin"/>
+  <!-- CB at H2 X -->
+  <rect x="409.75" y="60" width="38.5" height="7" class="hidden-thin"/>
+
+  <!-- Pogo pin mount area: X_rel=40-100mm -> px 100+140=240 to 100+350=450, full depth -->
+  <!-- Shown as phantom/dashed rect on top surface -->
+  <rect x="240" y="60" width="210" height="35" class="center" stroke-dasharray="8,3,2,3"/>
+  <text x="345" y="82" class="note" text-anchor="middle" font-style="italic">POGO MOUNT AREA (REF)</text>
+
+  <!-- Centerlines for holes -->
+  <line x1="289" y1="55" x2="289" y2="100" class="center"/>
+  <line x1="429" y1="55" x2="429" y2="100" class="center"/>
+
+  <!-- Dimension: overall width 148mm -->
+  <line x1="100" y1="105" x2="100" y2="115" class="dim"/>
+  <line x1="618" y1="105" x2="618" y2="115" class="dim"/>
+  <line x1="100" y1="112" x2="618" y2="112" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="359" y="124" class="dimtext">148</text>
+
+  <!-- Dimension: depth 10mm -->
+  <line x1="625" y1="60" x2="650" y2="60" class="dim"/>
+  <line x1="625" y1="95" x2="650" y2="95" class="dim"/>
+  <line x1="645" y1="60" x2="645" y2="95" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="662" y="81" class="dimtext">10</text>
+
+  <!-- ====================== FRONT VIEW =========================== -->
+  <!-- Position: (100, 160). Size: 518 x 294 px.                    -->
+  <!-- Looking along -Y. Horizontal=X(width), Vertical=Z(height)    -->
+  <!-- SVG Y increases downward, so Z=84 (top) is at SVG y=160      -->
+  <!-- Z=0 (bottom) is at SVG y=160+294=454                         -->
+  <text x="359" y="150" class="label">FRONT VIEW</text>
+
+  <!-- Wall outline -->
+  <rect x="100" y="160" width="518" height="294" class="outline"/>
+
+  <!-- Tube through-holes as circles (looking along Y axis = cross-section) -->
+  <!-- H1 (lower-left inlet): X=54, Z=28 -> px=(289, 160+(84-28)*3.5) = (289, 160+196) = (289, 356) -->
+  <circle cx="289" cy="356" r="12.25" class="outline"/>
+  <!-- H2 (lower-right inlet): X=94 -> px=(429, 356) -->
+  <circle cx="429" cy="356" r="12.25" class="outline"/>
+  <!-- H3 (upper-left outlet): X=54, Z=56 -> px=(289, 160+(84-56)*3.5) = (289, 160+98) = (289, 258) -->
+  <circle cx="289" cy="258" r="12.25" class="outline"/>
+  <!-- H4 (upper-right outlet): X=94, Z=56 -> px=(429, 258) -->
+  <circle cx="429" cy="258" r="12.25" class="outline"/>
+
+  <!-- Counterbore pockets (11mm dia) - hidden behind front face (on rear face) -->
+  <circle cx="289" cy="356" r="19.25" class="hidden"/>
+  <circle cx="429" cy="356" r="19.25" class="hidden"/>
+  <circle cx="289" cy="258" r="19.25" class="hidden"/>
+  <circle cx="429" cy="258" r="19.25" class="hidden"/>
+
+  <!-- Centerlines through holes -->
+  <line x1="289" y1="155" x2="289" y2="459" class="center"/>
+  <line x1="429" y1="155" x2="429" y2="459" class="center"/>
+  <!-- Vertical centerlines through hole rows -->
+  <line x1="95" y1="258" x2="623" y2="258" class="center"/>
+  <line x1="95" y1="356" x2="623" y2="356" class="center"/>
+
+  <!-- Hole labels -->
+  <text x="245" y="365" class="note" text-anchor="end">INLET</text>
+  <text x="245" y="267" class="note" text-anchor="end">OUTLET</text>
+
+  <!-- ---- DIMENSIONS: Front View ---- -->
+
+  <!-- Overall height 84mm (right side) -->
+  <line x1="625" y1="160" x2="650" y2="160" class="dim"/>
+  <line x1="625" y1="454" x2="650" y2="454" class="dim"/>
+  <line x1="645" y1="160" x2="645" y2="454" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="660" y="311" class="dimtext" transform="rotate(90,660,311)">84</text>
+
+  <!-- Hole vertical spacing 28mm -->
+  <line x1="450" y1="258" x2="480" y2="258" class="dim"/>
+  <line x1="450" y1="356" x2="480" y2="356" class="dim"/>
+  <line x1="475" y1="258" x2="475" y2="356" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="490" y="311" class="dimtext" transform="rotate(90,490,311)">28</text>
+
+  <!-- Hole horizontal spacing 40mm -->
+  <line x1="289" y1="235" x2="289" y2="220" class="dim"/>
+  <line x1="429" y1="235" x2="429" y2="220" class="dim"/>
+  <line x1="289" y1="223" x2="429" y2="223" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="359" y="218" class="dimtext">40</text>
+
+  <!-- Hole center from left edge: 54mm -->
+  <line x1="100" y1="380" x2="100" y2="400" class="dim"/>
+  <line x1="289" y1="380" x2="289" y2="400" class="dim"/>
+  <line x1="100" y1="395" x2="289" y2="395" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="194.5" y="408" class="dimtext">54</text>
+
+  <!-- Hole center from bottom edge: 28mm -->
+  <line x1="70" y1="356" x2="95" y2="356" class="dim"/>
+  <line x1="70" y1="454" x2="95" y2="454" class="dim"/>
+  <line x1="75" y1="356" x2="75" y2="454" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="62" y="409" class="dimtext" transform="rotate(90,62,409)">28</text>
+
+  <!-- Upper hole center from bottom: 56mm -->
+  <line x1="50" y1="258" x2="95" y2="258" class="dim"/>
+  <line x1="50" y1="454" x2="55" y2="454" class="dim"/>
+  <line x1="55" y1="258" x2="55" y2="454" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="42" y="360" class="dimtext" transform="rotate(90,42,360)">56</text>
+
+  <!-- Hole diameter callout (leader from H4) -->
+  <line x1="438" y1="249" x2="470" y2="220" class="dim"/>
+  <line x1="470" y1="220" x2="530" y2="220" class="dim"/>
+  <text x="530" y="217" class="note" text-anchor="start">4x &#x2300;7 THRU</text>
+  <text x="530" y="229" class="note" text-anchor="start">&#x2300;11 C'BORE x 2 DEEP</text>
+  <text x="530" y="241" class="note" text-anchor="start">(GROMMET POCKET)</text>
+
+  <!-- Right edge to hole center: 148-94=54mm -->
+  <line x1="429" y1="460" x2="429" y2="475" class="dim"/>
+  <line x1="618" y1="460" x2="618" y2="475" class="dim"/>
+  <line x1="429" y1="472" x2="618" y2="472" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="523.5" y="484" class="dimtext">54</text>
+
+  <!-- Top edge to upper hole: 84-56=28mm -->
+  <line x1="625" y1="160" x2="640" y2="160" class="dim"/>
+  <line x1="625" y1="258" x2="640" y2="258" class="dim"/>
+  <!-- These share the line with overall height dim, use offset -->
+
+  <!-- ====================== SIDE VIEW ============================ -->
+  <!-- Position: (698, 160). Size: 35 x 294 px.                     -->
+  <!-- Looking along -X. Horizontal=Y(depth), Vertical=Z(height)    -->
+  <!-- Y=0 (front face) at left, Y=10 (rear face) at right          -->
+  <text x="715" y="150" class="label">SIDE VIEW</text>
+
+  <!-- Wall outline -->
+  <rect x="698" y="160" width="35" height="294" class="outline"/>
+
+  <!-- Tube holes as hidden rectangles (7mm = 24.5px tall in Z) -->
+  <!-- Lower holes Z=28: center at 160+(84-28)*3.5=356, top=356-12.25=343.75, height=24.5 -->
+  <rect x="698" y="343.75" width="35" height="24.5" class="hidden-thin"/>
+  <!-- Upper holes Z=56: center at 258, top=258-12.25=245.75 -->
+  <rect x="698" y="245.75" width="35" height="24.5" class="hidden-thin"/>
+
+  <!-- Counterbore step on rear face (right side): 2mm deep = 7px from right edge -->
+  <!-- Lower counterbore: 11mm = 38.5px tall, center at 356 -->
+  <line x1="726" y1="336.75" x2="726" y2="375.25" class="hidden-thin"/>
+  <!-- Upper counterbore -->
+  <line x1="726" y1="238.75" x2="726" y2="277.25" class="hidden-thin"/>
+
+  <!-- Pogo mount area on top surface -->
+  <!-- Shown as a thin rectangle on top face: from Y=0 full depth, ~4mm tall (14px) recess area -->
+  <!-- Actually the mount area is just a flat surface reference, mark with annotation -->
+
+  <!-- Centerlines -->
+  <line x1="693" y1="258" x2="738" y2="258" class="center"/>
+  <line x1="693" y1="356" x2="738" y2="356" class="center"/>
+
+  <!-- Dimension: wall thickness 10mm -->
+  <line x1="698" y1="460" x2="698" y2="480" class="dim"/>
+  <line x1="733" y1="460" x2="733" y2="480" class="dim"/>
+  <line x1="698" y1="475" x2="733" y2="475" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="715" y="490" class="dimtext">10</text>
+
+  <!-- Counterbore depth 2mm from rear face -->
+  <line x1="726" y1="230" x2="726" y2="215" class="dim"/>
+  <line x1="733" y1="230" x2="733" y2="215" class="dim"/>
+  <line x1="726" y1="218" x2="733" y2="218" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="748" y="222" class="dimtext">2</text>
+
+  <!-- Labels for faces -->
+  <text x="700" y="510" class="note" text-anchor="start" font-size="8">FRONT</text>
+  <text x="722" y="510" class="note" text-anchor="start" font-size="8">REAR</text>
+
+  <!-- ===================== DETAIL INSET ========================== -->
+  <!-- Section detail of single hole with grommet, enlarged          -->
+  <!-- Position: (698, 530). Frame: 170 x 100 px                   -->
+  <rect x="698" y="530" width="170" height="125" class="outline" stroke-width="1"/>
+  <text x="783" y="525" class="label" font-size="10">DETAIL A — HOLE SECTION</text>
+  <text x="783" y="650" class="note" text-anchor="middle" font-size="8">SCALE 8:1</text>
+
+  <!-- Enlarged cross-section of one tube hole (8 px/mm for detail) -->
+  <!-- Wall 10mm = 80px. Hole 7mm = 56px centered. Counterbore 11mm=88px, 2mm=16px deep -->
+  <!-- Detail origin: x=708, y=555 (front face at left) -->
+  <!-- Wall top line -->
+  <line x1="708" y1="555" x2="858" y2="555" class="outline"/>
+  <!-- Wall bottom line -->
+  <line x1="708" y1="625" x2="858" y2="625" class="outline"/>
+  <!-- Front face -->
+  <line x1="708" y1="555" x2="708" y2="625" class="outline"/>
+  <!-- Rear face -->
+  <line x1="858" y1="555" x2="858" y2="625" class="outline"/>
+
+  <!-- Through-hole (7mm=56px, centered vertically in 70px wall section): center at y=590 -->
+  <!-- Hole top: 590-28=562, hole bottom: 590+28=618 -->
+  <line x1="708" y1="562" x2="858" y2="562" class="outline"/>
+  <line x1="708" y1="618" x2="858" y2="618" class="outline"/>
+
+  <!-- Counterbore on rear face: 11mm=88px tall, 2mm=16px deep from rear -->
+  <!-- CB top: 590-44=546 (but wall top is 555, so clip to wall) -->
+  <!-- Actually let me center the section better. Wall height in section = 70px (8.75mm section). -->
+  <!-- Let me just show a rectangular slice through the hole axis -->
+  <!-- Recompute: show wall cross section 10mm thick, hole 7mm, counterbore 11mm x 2mm -->
+  <!-- Wall: x=728 to 808 (80px = 10mm), vertical center at 590 -->
+  <!-- Clear previous and redo -->
+
+  <!-- Hatching for wall material (cross-section) -->
+  <!-- Upper wall section (above hole) -->
+  <line x1="728" y1="556" x2="808" y2="556" class="thinline"/>
+  <line x1="728" y1="568" x2="808" y2="568" class="thinline"/>
+  <line x1="728" y1="556" x2="728" y2="568" class="thinline"/>
+  <line x1="808" y1="556" x2="808" y2="568" class="thinline"/>
+  <!-- Hatch lines -->
+  <line x1="730" y1="568" x2="738" y2="556" class="hatching"/>
+  <line x1="738" y1="568" x2="746" y2="556" class="hatching"/>
+  <line x1="746" y1="568" x2="754" y2="556" class="hatching"/>
+  <line x1="754" y1="568" x2="762" y2="556" class="hatching"/>
+  <line x1="762" y1="568" x2="770" y2="556" class="hatching"/>
+  <line x1="770" y1="568" x2="778" y2="556" class="hatching"/>
+  <line x1="778" y1="568" x2="786" y2="556" class="hatching"/>
+  <line x1="786" y1="568" x2="794" y2="556" class="hatching"/>
+  <line x1="794" y1="568" x2="802" y2="556" class="hatching"/>
+  <line x1="802" y1="568" x2="808" y2="560" class="hatching"/>
+
+  <!-- Lower wall section (below hole) -->
+  <line x1="728" y1="612" x2="808" y2="612" class="thinline"/>
+  <line x1="728" y1="624" x2="808" y2="624" class="thinline"/>
+  <line x1="728" y1="612" x2="728" y2="624" class="thinline"/>
+  <line x1="808" y1="612" x2="808" y2="624" class="thinline"/>
+  <line x1="730" y1="624" x2="738" y2="612" class="hatching"/>
+  <line x1="738" y1="624" x2="746" y2="612" class="hatching"/>
+  <line x1="746" y1="624" x2="754" y2="612" class="hatching"/>
+  <line x1="754" y1="624" x2="762" y2="612" class="hatching"/>
+  <line x1="762" y1="624" x2="770" y2="612" class="hatching"/>
+  <line x1="770" y1="624" x2="778" y2="612" class="hatching"/>
+  <line x1="778" y1="624" x2="786" y2="612" class="hatching"/>
+  <line x1="786" y1="624" x2="794" y2="612" class="hatching"/>
+  <line x1="794" y1="624" x2="802" y2="612" class="hatching"/>
+  <line x1="802" y1="624" x2="808" y2="616" class="hatching"/>
+
+  <!-- Hole bore through wall -->
+  <line x1="728" y1="568" x2="728" y2="612" class="outline" stroke-width="0.75"/>
+  <!-- Counterbore step on rear face (right side) -->
+  <line x1="808" y1="556" x2="808" y2="568" class="outline" stroke-width="0.75"/>
+  <line x1="808" y1="568" x2="792" y2="568" class="outline" stroke-width="0.75"/>
+  <line x1="792" y1="568" x2="792" y2="612" class="outline" stroke-width="0.75"/>
+  <line x1="792" y1="612" x2="808" y2="612" class="outline" stroke-width="0.75"/>
+  <line x1="808" y1="612" x2="808" y2="624" class="outline" stroke-width="0.75"/>
+
+  <!-- Grommet in counterbore (shown as filled profile) -->
+  <rect x="792" y="571" width="16" height="3" fill="#888" stroke="#000" stroke-width="0.5"/>
+  <rect x="792" y="609" width="16" height="3" fill="#888" stroke="#000" stroke-width="0.5"/>
+  <rect x="795" y="571" width="3" height="41" fill="#888" stroke="#000" stroke-width="0.5"/>
+
+  <!-- Tube stub passing through -->
+  <line x1="708" y1="571.5" x2="795" y2="571.5" class="thinline" stroke-dasharray="6,2"/>
+  <line x1="708" y1="608.5" x2="795" y2="608.5" class="thinline" stroke-dasharray="6,2"/>
+  <text x="750" y="595" class="note" text-anchor="middle" font-size="7">TUBE STUB</text>
+
+  <!-- Detail dimensions -->
+  <!-- Hole dia 7mm -->
+  <line x1="718" y1="568" x2="718" y2="612" class="dim"/>
+  <text x="714" y="595" class="dimtext" font-size="8" transform="rotate(90,714,595)">&#x2300;7</text>
+  <!-- Counterbore dia 11mm (shown as width in section = (11-7)/2 = 2mm per side + 7mm center) -->
+  <!-- In section: bore top at 568, CB top at 556. Distance = 12px = 1.5mm at 8px/mm. -->
+  <!-- Actually at 8:1 scale, I need to be more careful. Let me add a dimension for CB -->
+  <line x1="810" y1="556" x2="825" y2="556" class="dim"/>
+  <line x1="810" y1="624" x2="825" y2="624" class="dim"/>
+  <line x1="822" y1="556" x2="822" y2="624" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="838" y="594" class="dimtext" font-size="8" transform="rotate(90,838,594)">&#x2300;11</text>
+
+  <!-- CB depth -->
+  <line x1="792" y1="552" x2="808" y2="552" class="dim"/>
+  <text x="800" y="549" class="dimtext" font-size="7">2</text>
+
+  <!-- ==================== NOTES SECTION ========================== -->
+  <text x="100" y="530" class="title">NOTES:</text>
+  <text x="100" y="546" class="note">1. MATERIAL: PETG (3D PRINTED)</text>
+  <text x="100" y="560" class="note">2. ALL DIMENSIONS IN MILLIMETERS</text>
+  <text x="100" y="574" class="note">3. TOLERANCES: ±0.3mm (FDM PRINTING)</text>
+  <text x="100" y="588" class="note">4. 4x TUBE PASS-THROUGH HOLES: &#x2300;7mm THRU WITH &#x2300;11mm x 2mm DEEP</text>
+  <text x="115" y="602" class="note">COUNTERBORE ON REAR FACE FOR RUBBER GROMMET (7mm ID, ~11mm OD)</text>
+  <text x="100" y="616" class="note">5. TUBE STUB SPACING: 40mm HORIZ x 28mm VERT CENTER-TO-CENTER</text>
+  <text x="100" y="630" class="note">6. HOLE PATTERN: 2 INLET (LOWER) + 2 OUTLET (UPPER)</text>
+  <text x="100" y="644" class="note">7. POGO PIN MOUNT AREA ON TOP SURFACE (Z=80-84): SEE POGO PIN MOUNT DWG</text>
+  <text x="100" y="658" class="note">8. DRAINAGE CHANNEL ON TOP SURFACE SLOPES AWAY FROM POGO PIN POCKETS</text>
+  <text x="100" y="672" class="note">9. WALL AT Y=130-140 (BEHIND FULLY-INSERTED CARTRIDGE)</text>
+  <text x="100" y="686" class="note">10. HOLE PATTERN CENTERED ON WALL FACE: LEFT/RIGHT MARGINS = 54mm</text>
+
+  <!-- =================== TITLE BLOCK ============================= -->
+  <rect x="100" y="710" width="770" height="70" class="outline"/>
+  <line x1="400" y1="710" x2="400" y2="780" class="outline"/>
+  <line x1="600" y1="710" x2="600" y2="780" class="outline"/>
+  <line x1="100" y1="740" x2="400" y2="740" class="outline"/>
+  <line x1="600" y1="740" x2="870" y2="740" class="outline"/>
+
+  <text x="120" y="730" class="title">DOCK BACK WALL</text>
+  <text x="120" y="755" class="titletext">(FITTING MOUNT WALL)</text>
+  <text x="120" y="772" class="titletext">SODA FLAVOR INJECTOR — ENCLOSURE</text>
+
+  <text x="420" y="730" class="titletext">MATERIAL: PETG</text>
+  <text x="420" y="750" class="titletext">SCALE: 3.5:1 (mm to px)</text>
+  <text x="420" y="770" class="titletext">PROJECTION: THIRD ANGLE</text>
+
+  <text x="620" y="730" class="titletext">DWG NO: SFI-ENC-003</text>
+  <text x="620" y="750" class="titletext">DATE: 2026-03-25</text>
+  <text x="620" y="770" class="titletext">SHEET: 1 OF 1</text>
+
+  <!-- Third-angle projection symbol -->
+  <g transform="translate(570, 755)">
+    <circle cx="0" cy="0" r="8" class="outline" stroke-width="0.75"/>
+    <circle cx="0" cy="0" r="4" class="outline" stroke-width="0.75"/>
+    <line x1="-12" y1="0" x2="-8" y2="0" class="outline" stroke-width="0.75"/>
+    <line x1="8" y1="0" x2="12" y2="0" class="outline" stroke-width="0.75"/>
+  </g>
+
+</svg>
