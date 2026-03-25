@@ -275,21 +275,6 @@ With width no longer constrained (full 272mm available) and height abundant (279
 - All existing cartridge research (mating face, release plate, cam lever, guide rails) remains valid without modification
 - The triangular void has room for the cartridge PLUS additional components (valves, routing) beside or above it
 
-### Potential Change: Eliminating the Cam Lever
-
-If CPC quick-disconnect fittings are used instead of John Guest (see fitting-alternatives.md), the cam lever and release plate are eliminated entirely. This simplifies the cartridge:
-
-| Feature | With John Guest + Cam | With CPC Fittings |
-|---------|----------------------|-------------------|
-| Rear face | Tube stubs + release plate + dowel pins | CPC inserts (male halves) |
-| Front face | Cam lever pivot + handle | Simple pull handle or finger grip |
-| Internal | Push rod through center | Eliminated |
-| Depth | 130mm (5mm cam housing + 115.6mm pumps + 6mm plate + 3mm travel) | ~125mm (115.6mm pumps + ~10mm CPC insert protrusion) |
-| Height | 80mm (unchanged) | 75-80mm (slightly shorter without cam pivot) |
-| Cartridge cost | ~$15-20 (fittings + release mechanism) | ~$78 (CPC fittings at $70 + handle) |
-
-In the triangular void, the 5mm depth savings from eliminating the cam lever is irrelevant (depth is unconstrained). The decision between JG and CPC is driven by UX and cost, not by geometric fit.
-
 ---
 
 ## 3. Cartridge Loading and Unloading
@@ -339,69 +324,27 @@ The cartridge slides in on guide rails integrated into the dock floor and/or sid
 
 Once inserted, the cartridge must stay put. Options:
 
-| Mechanism | Complexity | Retention Force | Release Method | Compatible with JG? | Compatible with CPC? |
-|-----------|-----------|-----------------|----------------|---------------------|---------------------|
-| **Cam lever (existing)** | High | 20-40N | Flip lever | Yes (drives release plate) | Overkill (no plate needed) |
-| **Spring latch** | Low | 5-15N | Push to release, or pull past detent | Yes (separate from fittings) | Yes |
-| **Magnetic catch** | Low | 3-10N | Pull to overcome magnets | Yes | Yes |
-| **Friction fit (O-ring on rails)** | Very low | 2-5N | Pull to overcome friction | Yes | Yes |
-| **JG collet grip alone** | None (inherent) | ~20N (4 fittings) | Requires collet release | Yes (IS the retention) | N/A |
-| **CPC latch grip alone** | None (inherent) | ~15-25N (4 CPC pairs) | Squeeze individual latches | N/A | Yes (IS the retention) |
+| Mechanism | Complexity | Retention Force | Release Method |
+|-----------|-----------|-----------------|----------------|
+| **Cam lever (chosen)** | High | 20-40N | Flip lever (drives release plate) |
+| **Spring latch** | Low | 5-15N | Push to release, or pull past detent |
+| **Magnetic catch** | Low | 3-10N | Pull to overcome magnets |
+| **Friction fit (O-ring on rails)** | Very low | 2-5N | Pull to overcome friction |
+| **JG collet grip alone** | None (inherent) | ~20N (4 fittings) | Requires collet release |
 
-**With John Guest fittings:** The collet grip on the tube stubs provides substantial retention force (~5N per fitting x 4 = 20N). The cam lever is still needed for simultaneous collet release. The lever also provides the over-center lock that prevents vibration-induced withdrawal.
-
-**With CPC fittings:** The CPC coupling latches provide positive retention. No additional mechanism needed. The cartridge is held in place by the 4 CPC connections. To remove, the user squeezes each CPC body (if accessible) or uses a pull handle that actuates all 4 simultaneously via a mechanical linkage. Alternatively, if the CPC inserts are mounted rigidly in the dock wall and the CPC bodies are on the cartridge, pulling the cartridge forward breaks all 4 connections (CPC auto-shutoff valves close on both sides).
-
-**With press-fit O-ring:** A spring latch or magnetic catch is recommended as supplemental retention because O-ring friction alone may not prevent vibration-induced creep over 18-36 months.
+The collet grip on the tube stubs provides substantial retention force (~5N per fitting x 4 = 20N). The cam lever is needed for simultaneous collet release. The lever also provides the over-center lock that prevents vibration-induced withdrawal.
 
 ---
 
 ## 4. Fluid Connections
 
-### Option A: John Guest Push-to-Connect ($8 for 4 fittings)
-
-**How it works in the triangle:** Four bulkhead-mount JG fittings are installed in the dock back wall. The cartridge's tube stubs (1/4" OD hard nylon, ~30mm protrusion) insert into the fittings as the cartridge slides in. Collets grip automatically on insertion.
+Four bulkhead-mount John Guest 1/4" push-to-connect fittings are installed in the dock back wall. The cartridge's tube stubs (1/4" OD hard nylon, ~30mm protrusion) insert into the fittings as the cartridge slides in. Collets grip automatically on insertion.
 
 **Release in this geometry:** The cam lever on the cartridge front face drives a push rod through the cartridge body to the release plate on the rear face. This mechanism is identical to the zone-based design -- the triangular void placement does not change the internal cartridge mechanics.
 
 The release plate has four stepped bores (8.0/10.5/12.5mm) that engage the JG collet rings simultaneously. When the lever is flipped, the plate pushes rearward ~3mm, depressing all four collets. The user then pulls the cartridge forward by the lever handle.
 
-**Geometry-specific concern:** In the triangular void, the dock back wall is at the rear of the cartridge slot. With 130mm cartridge depth + 35mm dock back wall = 165mm total from front panel to fitting rear. At floor level in a 292mm-deep enclosure (1L bags at 35 deg), this leaves 127mm behind the fittings for tube routing -- generous.
-
-### Option B: CPC Quick-Disconnect ($70 for 4 connections)
-
-**How it works in the triangle:** Four CPC PLC NSF panel-mount couplings are installed in the dock back wall. The cartridge carries the male inserts; the dock carries the female bodies (or vice versa). When the cartridge slides in, the inserts engage the bodies and the thumb latches click. Auto-shutoff valves on both halves close when disconnected -- zero dripping during swap.
-
-**Advantages in the triangle geometry:**
-- **Eliminates the release plate and cam lever.** The cartridge front face becomes a simple pull handle. This removes the most complex mechanism in the cartridge.
-- **No dripping during swap.** The cartridge is at the bottom of the enclosure. Any drips from JG fittings during a swap would pool on the enclosure floor and potentially reach electronics or create mold. CPC auto-shutoff eliminates this entirely.
-- **Simpler cartridge body.** Without the push rod, cam housing, and release plate, the cartridge is a box with two pumps and four CPC inserts. Easier to 3D print, assemble, and service.
-
-**Disadvantage:** The CPC body OD is ~22mm versus ~12.7mm for JG. Four CPC bodies in a 2x2 grid at minimum spacing need ~50mm x 50mm on the dock wall (versus ~33.5mm x 33.5mm for JG). This is still a small fraction of the available mating face area.
-
-**CPC panel-mount depth:** A CPC PLC panel-mount body is ~29-50mm deep. When mated, the pair is ~65-75mm long. This consumes more depth in the dock wall than JG fittings (~25mm deep), but depth is unconstrained in this layout.
-
-### Option C: Press-Fit with O-Ring ($2 for 4 connections)
-
-**How it works:** Cylindrical stubs on the cartridge push into close-tolerance bores in the dock wall. O-rings provide sealing and frictional retention.
-
-**In the triangle:** Same mechanical simplicity benefits as CPC (no release plate needed). However, no positive locking and no auto-shutoff. At the bottom of the enclosure where vibration from the pumps could cause creep, a supplemental latch is strongly recommended.
-
-**Risk assessment:** Press-fit connections are the least reliable option for a connection that must hold for 18-36 months under pump vibration. Not recommended as the primary strategy, but viable as a cost-saving measure if combined with a separate cartridge retention latch.
-
-### Recommendation
-
-**CPC is the strongest choice for the triangular void placement.** The rationale:
-
-1. The cartridge is at the bottom of the enclosure. Dripping during swaps (the JG weakness) would create the worst outcome here -- pooling water under the bags, near the floor, with no drainage path. CPC's auto-shutoff eliminates this.
-
-2. The triangular void has unconstrained depth, so the larger CPC bodies (~50mm mated length vs. ~25mm for JG) are not a problem.
-
-3. Eliminating the cam lever, push rod, and release plate simplifies the cartridge design significantly. In a consumer product replaced every 18-36 months, the simpler mechanism is more reliable.
-
-4. The $70 cost is a one-time expense (CPC bodies in the dock are permanent; only the inserts on the cartridge are replaced). Each replacement cartridge needs 4 CPC male inserts (~$6-8 each if sourced individually, or less in volume).
-
-**Fallback:** JG fittings with cam lever release plate. All existing research applies without modification. The triangle placement does not create any new problems for the JG approach.
+**Geometry-specific note:** In the triangular void, the dock back wall is at the rear of the cartridge slot. With 130mm cartridge depth + 35mm dock back wall = 165mm total from front panel to fitting rear. At floor level in a 292mm-deep enclosure (1L bags at 35 deg), this leaves 127mm behind the fittings for tube routing -- generous.
 
 ### Tube Routing: Cartridge to Bags
 
@@ -609,9 +552,9 @@ The dock back wall (holding fittings and alignment features) is currently at the
 
 ### 8b. Drip Management
 
-When the cartridge is removed (especially with JG fittings that have no auto-shutoff), the open tube stubs on the cartridge will drip residual liquid. In the zone-based layout, drips fall onto the bag zone (sealed pouches -- no harm). In the triangle placement, drips fall onto the enclosure floor.
+The firmware enforces a mandatory clean cycle before the cartridge can be unlocked. After the clean cycle, the fluid lines contain only water or air -- no flavor concentrate remains. A few drops of water during a swap are inconsequential.
 
-**Mitigation:** A shallow drip tray or channel molded into the enclosure floor, sloping toward a drain hole or absorbent pad. Alternatively, CPC auto-shutoff fittings eliminate dripping entirely.
+**Mitigation:** A shallow drip tray or channel molded into the enclosure floor, sloping toward a drain hole or absorbent pad, catches any residual water.
 
 ### 8c. Solenoid Valve Placement
 
@@ -621,22 +564,13 @@ In the zone-based layout, solenoid valves sit beside the dock on the same shelf.
 - **Behind the dock wall:** In the space between the dock back wall and the bag connectors. Keeps valves on the same tube run.
 - **On the back wall:** Mounted vertically, with tubes running from the dock rearward and then up to the bags.
 
-### 8d. CPC Simultaneous Disconnect
-
-If CPC fittings are chosen, the user must disconnect 4 couplings. Options:
-- **Individual disconnect:** User squeezes each CPC body and pulls. Four separate actions. Takes ~15 seconds.
-- **Slide-out disconnect:** If CPC inserts are rigidly fixed in the dock wall and bodies are on the cartridge, simply pulling the cartridge forward breaks all 4 connections simultaneously. The auto-shutoff valves close on both halves. This is the simplest approach and requires no release mechanism.
-- **Cam-assisted disconnect:** A reduced-force version of the JG cam lever. The cam pulls the cartridge forward, breaking CPC connections. Overkill if slide-out force is manageable (~15-25N total for 4 CPC pairs).
-
-**Slide-out disconnect is strongly recommended.** CPC connections are designed for one-handed disconnect. A firm pull on the cartridge handle (15-25N, about 3-5 lbs of force) breaks all 4 connections simultaneously. The auto-shutoff valves close instantly on both sides. No mechanism needed.
-
 ---
 
 ## Sources
 
 - cartridge-envelope.md -- pump dimensions, side-by-side arrangement, depth budget
 - mating-face.md -- tube port layout, release plate stepped bores, pogo pin placement
-- fitting-alternatives.md -- JG vs CPC vs press-fit comparison, auto-shutoff analysis
+- fitting-alternatives.md -- fitting type survey and JG selection rationale
 - diagonal-stacking-geometry.md -- angle sweep tables, corrected bag dimensions, enclosure fit analysis
 - diagonal-interleave.md (Vision 1) -- conceptual layout, spatial description
 - dock-mounting-strategies.md -- zone-based dock as structural shelf, three-zone architecture

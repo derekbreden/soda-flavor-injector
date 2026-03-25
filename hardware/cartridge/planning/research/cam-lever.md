@@ -330,8 +330,7 @@ Modern RO systems (3M, Waterdrop, GE, DuPont QuickTwist) use a dramatically simp
 #### Lessons for Our Design
 
 - **Quarter-turn bayonet is the gold standard** for under-sink filter replacement. It is proven, intuitive, and tool-free.
-- **Integrated disposable seals** eliminate a maintenance step and a failure mode.
-- **Auto-shutoff valves** are a nice-to-have -- for our design, the John Guest fittings serve a similar purpose (flow stops when tubing is disconnected).
+- **Integrated disposable seals** in commercial filters eliminate a maintenance step and a failure mode.
 - The push-up-and-twist motion works well under a sink where headroom is limited.
 - **This is the strongest prior art for our application.** The cartridge dock should feel like changing a water filter: push in, twist, done.
 

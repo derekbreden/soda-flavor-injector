@@ -174,7 +174,7 @@ Origin at interior front-bottom-left corner. All values in mm.
 |-----------|----------------|-----------------|-------------------|---------------------|-------|
 | Bag slab (2x 2L) | 41-231 | 25-292 | ~125-392 (varies diag.) | 190W x 267D x 267H bounding | Lens profile on profiled cradle; sealed end pinned to back wall |
 | Cartridge (pumps only) | 61-211 | 0-130 | 0-80 | 150W x 130D x 80H | Contains ONLY 2x Kamoer peristaltic pumps. No valves, no drivers, no electronics. Front-bottom dock. |
-| Dock back wall | 61-211 | 130-165 | 0-84 | 150W x 35D x 84H | CPC/JG fittings, pogo pins |
+| Dock back wall | 61-211 | 130-165 | 0-84 | 150W x 35D x 84H | JG fittings, pogo pins |
 | Lever / handle zone | 61-211 | 0-20 | 80-124 | 150W x 20D x 44H | Cartridge pull handle |
 | Hopper funnel | 86-186 | 0-80 | 322-392 | 100dia x 70H | Constrained to Y=0-80 for bag clearance |
 | Hopper lid zone | 86-186 | 0-80 | 392 (top surface) | 100dia x 10H | Hinged or removable |
@@ -237,7 +237,7 @@ The cartridge is a front-bottom dock module containing **only 2 Kamoer peristalt
 | Dimensions | 150W x 130D x 80H mm |
 | Contents | 2x Kamoer peristaltic pumps |
 | Electrical connection | Pogo pins on dock ceiling contact pads on cartridge top (motor power only) |
-| Fluid connections | 4x CPC or JG fittings on dock back wall (2 inlet, 2 outlet) |
+| Fluid connections | 4x JG 1/4" push-to-connect fittings on dock back wall (2 inlet, 2 outlet) |
 | Insertion | Front-bottom, slide along floor rails |
 | Replacement interval | Every 18-36 months (pump tube wear) |
 
@@ -371,24 +371,15 @@ Total dead volume (both lines, dispensing): ~27.2ml.
 2. Pull slide-out tray forward
 3. Cartridge slot is at the bottom of the front panel (Z=0 to Z=84mm, or Z=0 to Z=124mm with lever)
 
-**With CPC fittings (recommended):**
-4. Grip cartridge pull handle at front face
-5. Pull firmly forward (~15-25N force). All 4 CPC connections break simultaneously. Auto-shutoff valves close on both halves -- zero dripping.
-6. Slide old cartridge out along floor rails. Set on cabinet floor.
-7. Slide new cartridge in along floor rails until CPC connections click (audible confirmation).
-8. Pogo pins on dock ceiling make electrical contact with cartridge top pads automatically.
-9. Push tray back, close door.
-
-**With JG fittings (fallback):**
 4. Flip cam lever on cartridge front face to release position
-5. Push lever inward ~3mm to depress all 4 JG collet rings via release plate
-6. Pull cartridge forward while holding lever in release position
-7. Expect ~1-3ml of dripping from open tube stubs. Drip tray on enclosure floor catches this.
-8. Slide new cartridge in; JG collets grip automatically on tube stub insertion
-9. Flip cam lever to locked position
+5. Pull cartridge forward -- release plate depresses all 4 JG collet rings simultaneously
+6. Slide old cartridge out along floor rails. Set on cabinet floor.
+7. Slide new cartridge in along floor rails; JG collets grip automatically on tube stub insertion
+8. Flip cam lever to locked position
+9. Pogo pins on dock ceiling make electrical contact with cartridge top pads automatically.
 10. Push tray back, close door.
 
-**Tool-free.** No tools for either approach.
+**Tool-free.** The firmware enforces a clean cycle before removal, so any residual drip is water only.
 
 ### 9c. Front Face Layout (Bottom to Top)
 
@@ -495,7 +486,7 @@ Components mounted on the shelf: ESP32 dev board (~50x25mm), motor driver (~40x2
 
 ### 10e. Dock Back Wall
 
-**Purpose:** Hold fluid fittings (CPC or JG), alignment features, and pogo pin housing.
+**Purpose:** Hold JG fluid fittings, alignment features, and pogo pin housing.
 
 **Design:** A vertical wall spanning the cartridge slot width, at the rear of the slot. Contains 4 fluid fitting bores (2x2 grid) and a pogo pin housing on its upper surface.
 
@@ -504,7 +495,7 @@ Components mounted on the shelf: ESP32 dev board (~50x25mm), motor driver (~40x2
 | Wall position | Y=130-165 |
 | Wall dimensions | 150W x 35D x 84H mm |
 | Material | PP or ABS (injection molded) |
-| Fitting bores | 4x 22.4mm (CPC) or 4x 12.7mm (JG), in 2x2 grid with 30mm center spacing |
+| Fitting bores | 4x 12.7mm (JG), in 2x2 grid with 30mm center spacing |
 | Pogo pin housing | 2-pin block on top surface, Z=80-84mm (motor power only) |
 
 ### 10f. Material Summary
@@ -568,7 +559,7 @@ Solenoid valve heat is intermittent and low total energy. Not a concern.
 | ESP32 (upper-rear) | Bag slab (diagonal, nearest at back wall where bags are flat film) | ~0mm vertical at back wall but bags are sealed flat film there | Very low. Bags are sealed, permanently mounted. No splash risk. |
 | Motor drivers (upper-rear) | Same as ESP32 | Same | Same |
 | Solenoid valves (side banks) | Cartridge fittings (dock back wall) | 30-60mm | Moderate. Solenoids are IP65 rated bodies, water resistant. A drip during cartridge swap could reach them but does no damage. |
-| Pogo pins (dock ceiling) | CPC/JG fittings (dock back wall) | 30-40mm | Managed by physical separation. Pogo pins face down from ceiling; fittings face rearward from wall. Gravity pulls drips away from pins. |
+| Pogo pins (dock ceiling) | JG fittings (dock back wall) | 30-40mm | Managed by physical separation. Pogo pins face down from ceiling; fittings face rearward from wall. Gravity pulls drips away from pins. |
 
 ---
 
@@ -605,7 +596,7 @@ V1-A (1L at 300mm depth) and V1-B (2L at 350mm depth) have been collapsed into a
 
 ### 12c. Open Design Decisions
 
-1. **CPC vs JG fittings.** CPC is recommended but costs $70 vs $8. The product owner must weigh the UX benefit (zero drip, no cam lever) against the cost.
+1. **Cam lever release plate geometry.** The stepped bore dimensions and push rod routing for the JG release plate need physical prototyping to confirm reliable collet engagement.
 
 2. **One hopper funnel vs two.** Single funnel with firmware-controlled valve selection is recommended. Two physical funnels are simpler but use more space. Decision depends on firmware UI readiness.
 

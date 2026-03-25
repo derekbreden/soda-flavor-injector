@@ -245,7 +245,7 @@ A front-bottom dock, below the diagonal bags, holds the only user-replaceable mo
 | Contents | 2 Kamoer KPHM400 peristaltic pumps (one per flavor line) |
 | Envelope | ~148W x 130D x 80H mm |
 | Replacement interval | 18-36 months (pump tube wear) |
-| Fluid connections | 4 (2 inlets + 2 outlets), via CPC or John Guest fittings at the dock back wall |
+| Fluid connections | 4 (2 inlets + 2 outlets), via John Guest 1/4" push-to-connect fittings at the dock back wall |
 | Electrical connections | 3-6 pogo pins (dock ceiling) onto flat pads (cartridge top face): ground, motor A 12V, motor B 12V, optional ID and temp |
 
 The cartridge contains **no valves, no drivers, no electronics** -- only passive contact pads and the two pumps. L298N motor drivers live in the main body. The cartridge is the simplest possible replaceable module.
@@ -346,7 +346,7 @@ The PSU sits adjacent to the IEC C14 inlet on the back panel (shortest high-volt
 
 1. **Width validation:** 220mm is the target but needs physical prototyping with valve placement and bag-in-cradle lateral fit at 212mm interior.
 2. **Wall thickness:** 3mm vs 4mm -- affects interior dimensions by 2mm per axis. 3mm with ribbing is likely sufficient.
-3. **CPC vs John Guest** for cartridge fluid connections. CPC ($70 for 4 pairs) gives auto-shutoff and drip-free swap. JG ($8 for 4 fittings) is cheaper but requires a cam lever release mechanism and drips during swap.
+3. **Cam lever release plate design** for the John Guest fittings. The release plate stepped bore geometry and push rod routing need physical prototyping.
 4. **Custom cap design** for the two-port bag modification. One JG bulkhead + one barb fitting in a 28mm threaded cap. 3D-printed or machined.
 5. **Cradle profile** -- needs physical measurement of actual filled 2L bag cross-section to refine the channel shape.
 6. **Back-wall pin method** -- clamp, channel, adhesive, or bracket for holding the flat sealed end against the wall.

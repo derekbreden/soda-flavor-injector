@@ -413,12 +413,12 @@ The cartridge contains 2 pumps, each with an inlet and outlet tube stub. The val
 | P2 inlet | Tube stub from pump 2 inlet | TEE joining b2 (direct), v7 output, v10 output |
 | P2 outlet | Tube stub from pump 2 outlet | TEE splitting to v2 input and v8 input |
 
-**4 fluid connections total.** CPC quick-disconnect fittings at the dock back wall provide tool-free insertion/removal with auto-shutoff when disconnected.
+**4 fluid connections total.** John Guest 1/4" push-to-connect fittings at the dock back wall provide tool-free insertion/removal. A cam lever release plate on the cartridge disconnects all 4 fittings in a single motion.
 
 ### 7b. Cartridge Insertion Sequence
 
 1. User slides cartridge into dock
-2. CPC fittings click and engage -- fluid paths sealed
+2. JG fittings grip tube stubs automatically -- fluid paths sealed
 3. Pogo pins make electrical contact (pump motor connections)
 4. Firmware detects cartridge (MCP23017 input) and runs a self-test
 5. Self-test: briefly open each valve pair and run each pump to verify flow

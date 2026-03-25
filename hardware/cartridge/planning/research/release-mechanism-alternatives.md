@@ -90,46 +90,6 @@ Problem #4 is the fatal flaw. The collets must release BEFORE the tubes can move
 
 What if we abandon John Guest fittings entirely and use a different fluid coupling technology? This section surveys alternatives.
 
-#### CPC (Colder Products) Quick-Disconnect Couplings
-
-CPC is the dominant manufacturer of plastic quick-disconnect couplings for food, beverage, and medical applications. Their NSF-listed PLC and APC series are widely used in beverage dispensing.
-
-**How they work**: A two-piece coupling (body + insert) that connects with a push-and-click. Internal valves in both halves close when disconnected (no dripping). To disconnect, you push a thumb-slide or squeeze a release button on the body, then pull apart. One-handed operation is possible.
-
-**Key specs (PLC NSF series, 1/4" flow):**
-
-| Parameter | Value |
-|---|---|
-| Connection type | 1/4" hose barb |
-| Material | Acetal (body), polypropylene available |
-| Valve | Auto-shutoff in both halves (dry disconnect) |
-| NSF/ANSI 169 listed | Yes |
-| FDA materials | Yes |
-| Connection force | ~5-10N push to connect (click engagement) |
-| Disconnect force | ~5-10N (squeeze release tabs, pull apart) |
-| Price (valved insert, PLCD22004) | ~$5-6 per half |
-| Price (complete coupling, body + insert) | ~$10-15 per connection |
-| Price for 4 connections | ~$40-60 |
-
-**How this changes the design**: Instead of 4 John Guest fittings in the dock wall + a release plate, you would have 4 CPC body halves mounted in the dock and 4 CPC inserts mounted on the cartridge. Each connection disconnects independently with a squeeze-and-pull.
-
-**Pros:**
-- Eliminates the release plate entirely
-- Auto-shutoff valves prevent dripping during swap (John Guest fittings leak when tubes are pulled, though with clean-before-remove the drip is water, not concentrate)
-- Designed for repeated connect/disconnect cycles (rated for thousands)
-- Industry-standard in beverage dispensing
-- One-handed connect/disconnect per coupling
-- No collet tilt failure mode — completely different mechanism
-
-**Cons:**
-- $40-60 for 4 connections (vs ~$8-12 for 4 John Guest fittings)
-- Each coupling still disconnects individually (same 4-operation sequence as hand-disconnect John Guest)
-- Hose barb connections require zip-ties or clamps (less clean than push-to-connect)
-- Larger physical footprint per connection (~15-20mm diameter body)
-- 4 individual squeeze-and-pull operations under a sink is still awkward
-
-**Could CPC couplings be ganged for simultaneous release?** CPC makes panel-mount versions where the body mounts through a panel (the dock wall). The release tabs are on the cable/tube side (the cartridge side). In principle, a plate could be designed to squeeze all 4 release tabs simultaneously, but CPC couplings use radial squeeze (inward from sides), not axial push (like John Guest collets). A gang-release plate for radial squeeze would be significantly more complex than for axial push.
-
 #### Dry-Break Quick-Disconnect Couplings (Hansen, Parker, etc.)
 
 Dry-break couplings are used in applications where zero spillage during disconnect is critical (racing fuel, medical, chemical transfer). Both halves contain spring-loaded valves that seal when disconnected.
@@ -231,15 +191,14 @@ These exist commercially (Staubli, Rectus, Parker) but are designed for high-pre
 
 ### 1c Summary Table
 
-| Fitting Type | Cost (4 connections) | Quick-Change? | Self-Sealing? | Release Plate Needed? | Viability |
-|---|---|---|---|---|---|
-| John Guest push-to-connect | $8-12 | Yes (with plate) | No (drips) | Yes | Current design |
-| John Guest (hand disconnect) | $8-12 | Slow (individual) | No | No | Viable, poor UX |
-| CPC PLC NSF (valved) | $40-60 | Slow (individual) | Yes | No | Viable, expensive |
-| Hansen dry-break | $120-240 | Slow (individual) | Yes | No | Too expensive |
-| Barb + spring clip | $2-4 | No | N/A | No | Not quick-change |
-| Custom O-ring | $1-2 | Depends on retention | No | No | Needs retention system |
-| Bayonet fluid connector | $200-800 | Yes | Yes | No | Way too expensive |
+| Fitting Type | Cost (4 connections) | Quick-Change? | Release Plate Needed? | Viability |
+|---|---|---|---|---|
+| John Guest push-to-connect | $8-12 | Yes (with plate) | Yes | Chosen design |
+| John Guest (hand disconnect) | $8-12 | Slow (individual) | No | Viable, poor UX |
+| Hansen dry-break | $120-240 | Slow (individual) | No | Too expensive |
+| Barb + spring clip | $2-4 | No | No | Not quick-change |
+| Custom O-ring | $1-2 | Depends on retention | No | Needs retention system |
+| Bayonet fluid connector | $200-800 | Yes | No | Way too expensive |
 
 **Key insight**: Every off-the-shelf alternative to John Guest fittings either costs dramatically more or still requires individual per-fitting disconnects. The release plate mechanism is the cheapest way to achieve simultaneous disconnect of 4 connections.
 
@@ -586,11 +545,11 @@ But tilting the cartridge means the tubes withdraw at an angle, not straight. O-
 | Seal reliability | Moderate | O-ring in 3D-printed bore may leak at layer lines. SLA print or machined bore needed. |
 | Insertion feel | Good | Magnets snap cartridge into alignment at close range. Satisfying. |
 | Removal effort | Poor to Moderate | Straight pull is too high; peel/tilt is manageable but risks tube binding. |
-| Drip management | Poor | No auto-shutoff. Tubes drip when pulled. O-ring bores drip. With clean-before-remove, the drip is water, reducing the concern. |
+| Drip management | Acceptable | Tubes drip when pulled, but the firmware enforces a clean cycle before removal -- the drip is water only. |
 | Retention security | Good | Magnets won't accidentally release. |
 | Prototype cost | Excellent | ~$15-20 total (magnets + O-rings + steel plate) |
 
-**Verdict**: Magnetic retention with O-ring seals is the simplest possible mechanism and works at the near-zero pressures of this system. The main weakness is removal force — magnets strong enough to feel secure are hard to pull off. The lack of auto-shutoff means tubes drip when pulled, but with clean-before-remove the drip is a few mL of water, not sticky concentrate — a minor concern. For a prototype/proof-of-concept, this is worth trying because it proves whether the O-ring seal works before investing in John Guest fittings and a release plate. If the O-ring seal works, the design could evolve to add a lever-actuated separation mechanism later.
+**Verdict**: Magnetic retention with O-ring seals is the simplest possible mechanism and works at the near-zero pressures of this system. The main weakness is removal force -- magnets strong enough to feel secure are hard to pull off. The firmware enforces a clean cycle before removal, so any drip is a few mL of water -- a minor concern. For a prototype/proof-of-concept, this is worth trying because it proves whether the O-ring seal works before investing in John Guest fittings and a release plate. If the O-ring seal works, the design could evolve to add a lever-actuated separation mechanism later.
 
 ---
 
@@ -764,18 +723,18 @@ These products demonstrate that slide-mounted systems work well in the under-sin
 
 Scoring: 1-5 (5 = best). Weights reflect the priorities for an under-sink soda flavor injector swapped monthly.
 
-| Criterion | Weight | Current Design (Cam + Plate) | Hand Disconnect (No Plate) | CPC Quick-Disconnect | Spring-Loaded Dock Plate | Magnetic + O-Ring | Captive Tube + Rails | Drawer + Any Release | Twist-Lock |
-|---|---|---|---|---|---|---|---|---|---|
-| Mechanical complexity | 4 | 3 | 5 | 4 | 3 | 5 | 4 | 2 | 2 |
-| User effort (time + force) | 5 | 5 | 2 | 2 | 4 | 3 | 4 | 4 | 3 |
-| Reliability | 4 | 4 | 4 | 5 | 3 | 3 | 4 | 4 | 3 |
-| Manufacturability (3D print) | 3 | 3 | 5 | 5 | 3 | 4 | 4 | 3 | 2 |
-| Water safety (drip mgmt) | 3 | 3 | 2 | 5 | 3 | 2 | 5 | 3 | 3 |
-| Blind operation (by feel) | 4 | 4 | 2 | 2 | 4 | 4 | 3 | 5 | 3 |
-| One-handed operation | 4 | 5 | 1 | 1 | 4 | 3 | 3 | 4 | 2 |
-| Works at cabinet depth | 3 | 4 | 3 | 3 | 4 | 4 | 4 | 5 | 4 |
-| Cost | 2 | 4 | 5 | 2 | 4 | 5 | 4 | 3 | 4 |
-| **Weighted Score** | | **126** | **97** | **95** | **110** | **109** | **118** | **115** | **84** |
+| Criterion | Weight | Current Design (Cam + Plate) | Hand Disconnect (No Plate) | Spring-Loaded Dock Plate | Magnetic + O-Ring | Captive Tube + Rails | Drawer + Any Release | Twist-Lock |
+|---|---|---|---|---|---|---|---|---|
+| Mechanical complexity | 4 | 3 | 5 | 3 | 5 | 4 | 2 | 2 |
+| User effort (time + force) | 5 | 5 | 2 | 4 | 3 | 4 | 4 | 3 |
+| Reliability | 4 | 4 | 4 | 3 | 3 | 4 | 4 | 3 |
+| Manufacturability (3D print) | 3 | 3 | 5 | 3 | 4 | 4 | 3 | 2 |
+| Water safety (drip mgmt) | 3 | 3 | 2 | 3 | 2 | 5 | 3 | 3 |
+| Blind operation (by feel) | 4 | 4 | 2 | 4 | 4 | 3 | 5 | 3 |
+| One-handed operation | 4 | 5 | 1 | 4 | 3 | 3 | 4 | 2 |
+| Works at cabinet depth | 3 | 4 | 3 | 4 | 4 | 4 | 5 | 4 |
+| Cost | 2 | 4 | 5 | 4 | 5 | 4 | 3 | 4 |
+| **Weighted Score** | | **126** | **97** | **110** | **109** | **118** | **115** | **84** |
 
 ### Ranking
 
@@ -789,11 +748,9 @@ Scoring: 1-5 (5 = best). Weights reflect the priorities for an under-sink soda f
 
 5. **Magnetic + O-Ring** — Score 109. Simplest possible mechanism. Viable at the near-zero pressures of this system. Limited by removal force. Drip management is less of a concern with clean-before-remove (residual is water, not concentrate). Best as a proof-of-concept prototype to validate the O-ring seal before committing to John Guest fittings.
 
-6. **Hand Disconnect** — Score 97. The baseline. Viable if the user is technically comfortable and swap frequency is low. Not suitable for a consumer product.
+6. **Hand Disconnect** -- Score 97. The baseline. Viable if the user is technically comfortable and swap frequency is low. Not suitable for a consumer product.
 
-7. **CPC Quick-Disconnect** — Score 95. Best water safety (auto-shutoff valves). Worst for user effort and one-handed operation (4 individual squeeze-and-pull operations). Auto-shutoff is less critical with clean-before-remove (residual is water), but still the cleanest disconnect experience.
-
-8. **Twist-Lock** — Score 84. Does not work well with John Guest push-to-connect fittings due to tube torsion. Strong prior art for water filters (O-ring seals) does not transfer to this application. Would require fundamental redesign of the fluid connection to be viable.
+7. **Twist-Lock** -- Score 84. Does not work well with John Guest push-to-connect fittings due to tube torsion. Strong prior art for water filters (O-ring seals) does not transfer to this application. Would require fundamental redesign of the fluid connection to be viable.
 
 ### Recommended Path
 
@@ -803,23 +760,15 @@ Scoring: 1-5 (5 = best). Weights reflect the priorities for an under-sink soda f
 
 2. **Keep the spring-loaded dock plate in mind** as a simplification option. If the release plate works but the cam lever feels over-engineered, a dock-side spring plate with a simple latch could provide 90% of the UX at lower per-cartridge cost (no lever or cam on the cartridge).
 
-3. **The drawer approach is orthogonal** — it can be combined with any release mechanism. If the under-sink access proves difficult during testing, adding drawer slides is a ~$15 retrofit that solves the problem.
-
-4. **CPC valved quick-disconnects are the right choice if drip prevention becomes a hard requirement.** At $40-60 for 4 connections, they are expensive but proven in commercial beverage systems.
+3. **The drawer approach is orthogonal** -- it can be combined with any release mechanism. If the under-sink access proves difficult during testing, adding drawer slides is a ~$15 retrofit that solves the problem.
 
 ---
 
 ## Sources
 
 ### Quick-Disconnect Couplings
-- [CPC (Colder Products) PLC NSF Series](https://www.cpcworldwide.com/General-Purpose/Products/Valved/PLC-NSF) — NSF-listed food/beverage quick disconnect couplings
-- [CPC NSF Connectors Product Listing](https://products.cpcworldwide.com/en_US/ProductsCat/FoodBeverage/PLCNSF/20500) — PLC NSF connector specifications
-- [CPC Quick-Disconnect Couplings — Fresh Water Systems](https://www.freshwatersystems.com/collections/colder-products) — Pricing and product range
-- [CPC PLCD22004 on Amazon](https://www.amazon.com/Colder-PLCD22004-Quick-Disconnect-Insert-Valved/dp/B0B3HPCZTX) — Valved 1/4" hose barb insert
-- [CPC NSF Series Overview — Penn Air](https://pennair.com/2021/06/01/cpcs-nsf-series/) — NSF certification details
-- [Quick Release Couplings for Food and Beverage — Tubes International](https://www.tubes-international.com/products/industrial-fittings/quick-release-couplings-for-food-and-beverage/) — Hansen Beverage dry-break couplings
-- [Beer Quick Disconnect 1/4" Barb — MoreBeer](https://www.morebeer.com/products/beer-gas-quick-connect-14-barb-female-shutoff.html) — Homebrew QD pricing reference
-- [CPC LC Series 1/4" Quick Disconnect — Great Fermentations](https://www.beveragecraft.com/cpc-quick-disconnect-1-4-socket/) — Beverage-specific CPC pricing
+- [Quick Release Couplings for Food and Beverage -- Tubes International](https://www.tubes-international.com/products/industrial-fittings/quick-release-couplings-for-food-and-beverage/) -- Hansen Beverage dry-break couplings
+- [Beer Quick Disconnect 1/4" Barb -- MoreBeer](https://www.morebeer.com/products/beer-gas-quick-connect-14-barb-female-shutoff.html) -- Homebrew QD pricing reference
 
 ### Swagelok Quick Connects
 - [Swagelok QC Series Quick Connects](https://products.swagelok.com/en/all-products/valves/quick-connects/c/206?clp=true) — Industrial quick connect overview

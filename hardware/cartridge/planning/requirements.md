@@ -30,52 +30,27 @@ A replaceable slide-in module containing 2 Kamoer peristaltic pumps (one per fla
 5. To remove: release the fluid connections (method depends on fitting choice — see below), slide the cartridge out.
 6. The cartridge is replaced every 18-36 months when pump tubes wear out. The user who does this swap may not remember the procedure — the mechanism must be self-evident or obvious from minimal labeling.
 
-## Fluid Connection Options
+## Fluid Connections
 
-The fitting choice is the single biggest design decision for the cartridge. It determines whether the cartridge needs a release mechanism, how the user disconnects it, and whether fluid drips during a swap. Two viable options:
-
-### Option A: John Guest Push-to-Connect ($8 for 4 fittings)
-
-Four JG 1/4" push-to-connect fittings mount in the dock back wall. The cartridge carries 4 tube stubs (1/4" OD hard nylon, ~30mm protrusion) that insert into the fittings as the cartridge slides in. Collets grip automatically on insertion.
+Four John Guest 1/4" push-to-connect fittings mount in the dock back wall. The cartridge carries 4 tube stubs (1/4" OD hard nylon, ~30mm protrusion) that insert into the fittings as the cartridge slides in. Collets grip automatically on insertion.
 
 **Release:** A cam lever on the cartridge front face drives a push rod through the cartridge body to a release plate on the rear face. The release plate has four stepped bores that engage all 4 JG collet rings simultaneously. Flipping the lever pushes the plate rearward ~3mm, depressing all collets. The user then pulls the cartridge out by the lever handle.
 
 | Aspect | Detail |
 |---|---|
 | Cost | ~$8 (fittings) + ~$5-10 (cam lever, push rod, release plate hardware) |
-| Auto-shutoff | No — open bore when disconnected. Drips are likely during swap. |
-| Disconnect UX | Flip lever, pull out. The lever mechanism is not self-evident to a first-time user. |
-| Cartridge complexity | Higher — requires cam lever, push rod, release plate, dowel pins |
-| Retention | JG collets provide ~20N of grip (4 fittings). Lever adds rigidity. |
+| Disconnect UX | Flip lever, pull out. Single motion disconnects all 4 fittings simultaneously. |
+| Cartridge complexity | Requires cam lever, push rod, release plate, dowel pins |
+| Retention | JG collets provide ~20N of grip (4 fittings). Lever locks in seated position. |
+| Food safety | NSF 61 (potable water) |
 
-**Trade-off:** Cheaper but more complex cartridge, worse disconnect UX, and drips during swap pool on the enclosure floor (the worst possible location for drips).
-
-### Option B: CPC Quick-Disconnect ($70 for 4 connections)
-
-Four CPC PLC NSF valved couplings mount in the dock back wall (female bodies). The cartridge carries 4 male inserts. When the cartridge slides in, inserts engage bodies and thumb latches click. Auto-shutoff valves on both halves close automatically when separated — zero dripping during swap.
-
-| Aspect | Detail |
-|---|---|
-| Cost | ~$70 (4 CPC pairs). Dock bodies are permanent; replacement cartridges need 4 male inserts (~$6-8 each). |
-| Auto-shutoff | Yes — both sides valve closed on disconnect. No drips. |
-| Disconnect UX | Squeeze-and-pull each CPC, or a pull handle that actuates all 4. Audible click confirms connection. |
-| Cartridge complexity | Lower — no cam lever, no push rod, no release plate. Just a box with pumps and CPC inserts. |
-| Retention | CPC coupling latches provide ~15-25N of positive retention. No additional mechanism needed. |
-| Food safety | NSF 169 (specifically for food equipment — strongest cert available) |
-| Body OD | ~22mm (vs ~12mm for JG) — requires more space on mating face, but space is unconstrained in this layout |
-
-**Trade-off:** More expensive up front ($70 vs $15-20), but eliminates the cam lever, release plate, and push rod entirely. The cartridge becomes dramatically simpler. Auto-shutoff prevents drips at the worst-case location (enclosure floor). CPC bodies in the dock are a one-time cost; only inserts are replaced with each cartridge.
-
-### Current Status
-
-The dock placement research recommends CPC for the front-bottom position because drips pool on the enclosure floor and auto-shutoff has high product value in this geometry. The owner prefers John Guest for cost reasons. Both remain viable — the cartridge envelope (150W x 130D x 80H) works with either fitting type. The fitting choice should be resolved before Phase 3 (sketching).
+**Why JG:** Cheap, proven in beverage applications, NSF 61 certified, ubiquitous availability. The cam lever release plate gives a single-motion disconnect for all 4 fittings.
 
 ## Key Constraints
 
 - **Valves are external.** The cartridge connects only to pump inlets and outlets. All valve routing happens in the main body. This means the cartridge's 4 fluid connections carry: hopper-or-bag-to-pump (2 inlets) and pump-to-bag-or-dispensing-line (2 outlets). The enclosure's valve assemblies switch between fill and dispense modes.
 - **Electrical contacts must be separated from fluid connections.** Fluid connections are on the rear face; electrical pads are on the top face. Moisture drips downward, away from the ceiling-mounted pogo pins.
-- **If JG fittings are used:** Collet release requires even, concentric pressure. The release plate must apply pressure evenly around each collet circumference. Commercial JG release tools achieve this with a shaped inset that cradles the collet.
-- **If CPC fittings are used:** No release mechanism needed. Each coupling is independently thumb-released, or a single pull handle can actuate all 4 via mechanical linkage.
+- **Collet release** requires even, concentric pressure. The release plate must apply pressure evenly around each collet circumference. Commercial JG release tools achieve this with a shaped inset that cradles the collet.
 
 ## Three Sub-Problems
 
@@ -83,9 +58,9 @@ The cartridge mechanism is a sequence of three things that happen during inserti
 
 1. **Guide and align** — The cartridge must find its position in the dock reliably, even with sloppy initial aim in a dark cabinet. Floor rails carry the cartridge weight and provide primary depth guidance. Side wall guides prevent lateral wobble. A 5mm chamfer on the slot entrance accepts blind insertion. The last portion of travel constrains to ~1mm tolerance so fluid connections align.
 
-2. **Seat the fluid connections** — 4 connections mate as the cartridge reaches full insertion depth. With JG: tube stubs push into fittings, collets latch automatically. With CPC: male inserts engage female bodies, thumb latches click, auto-shutoff valves open.
+2. **Seat the fluid connections** — 4 connections mate as the cartridge reaches full insertion depth. Tube stubs push into JG fittings, collets latch automatically.
 
-3. **Confirm docked state and enable release** — The user needs clear tactile or audible feedback that the cartridge is fully seated. With JG: the cam lever flips to a locked position, providing a solid docked feel; flipping it back releases all 4 collets for removal. With CPC: the audible click of 4 CPC latches confirms connection; to remove, the user squeezes the CPC bodies (or uses a pull handle) and slides the cartridge out.
+3. **Confirm docked state and enable release** — The user needs clear tactile or audible feedback that the cartridge is fully seated. The cam lever flips to a locked position, providing a solid docked feel. Flipping it back releases all 4 collets for removal.
 
 ## Physical Facts (parts in hand)
 
@@ -96,11 +71,6 @@ The cartridge mechanism is a sequence of three things that happen during inserti
   - Blue locking clips: Not present (intentionally omitted)
   - Body OD: ~12-14mm
   - Body length (union): ~38-42mm
-- **CPC fittings:** PLC NSF series, valved
-  - Body OD: ~22.4mm
-  - Mated pair length: ~65-75mm
-  - NSF 169 certified (food equipment)
-  - Auto-shutoff on both halves
 - **Count:** 4 total (2 pumps x inlet + outlet each)
 - **Tubing:** 1/4" OD (nominally 6.35mm), 1/8" ID silicone
 
@@ -132,7 +102,6 @@ The cartridge mechanism is a sequence of three things that happen during inserti
 - Tube OD (nominally 1/4" / 6.35mm)
 - Collet ring outer diameter (on the specific JG fittings in hand)
 - Inner diameter where collet meets the fitting body
-- CPC insert OD and engagement depth (if CPC fittings are ordered)
 
 ## Design Synthesis
 
@@ -160,7 +129,7 @@ Grounded in specific dimensions from parts in hand and Round 1 research:
 Research driven by the diagonal interleave enclosure layout:
 
 - [Dock Placement](../research/dock-placement.md) — Front-bottom triangular void geometry, envelope optimization, ergonomics, fluid/electrical connection analysis for the diagonal interleave layout
-- [Fitting Alternatives](../research/fitting-alternatives.md) — Comprehensive comparison of JG, CPC, barb, Luer, bayonet, magnetic, and press-fit options. Recommends CPC for auto-shutoff and simplicity; JG as fallback.
+- [Fitting Alternatives](../research/fitting-alternatives.md) — Comprehensive comparison of JG, barb, Luer, bayonet, magnetic, and press-fit options. Concludes JG push-to-connect is the best choice for cost, certification, and availability.
 
 ## Design Approach (4 Phases)
 

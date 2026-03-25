@@ -73,49 +73,24 @@ See `research/dock-placement.md` for the full triangle geometry analysis, ergono
 
 ---
 
-## 3. Fluid Connections (Decision Open)
+## 3. Fluid Connections — John Guest Push-to-Connect
 
-Four fluid connections mate at the dock back wall: 2 pump inlets and 2 pump outlets. These connect the cartridge pumps to the enclosure's valve-routed fluid paths. The valve assemblies are in the main body; the cartridge carries only the pump side.
+Four JG 1/4" push-to-connect fittings mount in the dock back wall. The cartridge carries four tube stubs (1/4" OD hard nylon, ~30mm protrusion) that insert into the fittings as the cartridge slides in. Collets grip automatically on insertion — no user action needed to connect.
 
-The fitting choice is the single biggest remaining design decision for the cartridge. It determines whether the cartridge needs a release mechanism, how the user disconnects, and whether fluid drips during a swap.
-
-### Path A: John Guest Push-to-Connect -- $8 for 4 fittings
-
-Four JG 1/4" push-to-connect fittings mount in the dock back wall. The cartridge carries four tube stubs (1/4" OD hard nylon, ~30mm protrusion) that insert into the fittings as the cartridge slides in. Collets grip automatically.
-
-**Release mechanism required.** A cam lever on the cartridge front face drives a push rod through the cartridge body to a release plate on the rear face. The release plate has four stepped bores (8.0/10.5/12.5mm) that engage all four JG collet rings simultaneously. Flipping the lever pushes the plate rearward ~3mm, depressing all collets, and the user pulls the cartridge out by the lever handle.
+**Disconnect uses a single-motion release mechanism.** A cam lever on the cartridge front face drives a push rod through the cartridge body to a release plate on the rear face. The release plate has four stepped bores (8.0/10.5/12.5mm) that engage all four JG collet rings simultaneously. The user flips the lever, all four collets release at once, and the user pulls the cartridge out by the lever handle. One motion to unlock, one motion to remove.
 
 | Aspect | Detail |
 |--------|--------|
-| Cost | ~$8 (fittings) + ~$5-10 (cam lever, push rod, release plate) |
-| Auto-shutoff | No -- open bore when disconnected, drips during swap |
-| Disconnect UX | Flip lever, pull out. Not self-evident after a 2-year gap. |
-| Cartridge complexity | Higher -- cam lever, push rod, release plate, dowel pins |
-| Retention | JG collets provide ~20N grip (4 fittings). Lever adds rigidity. |
+| Fittings | 4x JG 1/4" push-to-connect unions, ~$8 total |
+| Release mechanism | Cam lever + push rod + release plate, ~$5-10 in hardware |
+| Connect UX | Slide in — collets grip automatically |
+| Disconnect UX | Flip lever, pull out |
+| Retention | JG collets provide ~20N grip (4 fittings). Lever locks in seated position. |
+| Food safety | NSF 61 (potable water) |
+
+**Why drips are not a concern:** The firmware enforces a mandatory clean cycle before the cartridge can be unlocked. After the clean cycle, the fluid lines contain only water or air -- no flavor concentrate remains in the cartridge or dock fittings. A few drops of water on the enclosure floor during a swap is inconsequential.
 
 Research: `research/collet-release.md`, `research/cam-lever.md`, `research/release-plate.md`, `research/release-mechanism-alternatives.md`
-
-### Path B: CPC Quick-Disconnect -- $70 for 4 pairs
-
-Four CPC PLC NSF valved couplings mount in the dock back wall (female bodies, permanent). The cartridge carries four male inserts. Inserts engage bodies on insertion; thumb latches click. Auto-shutoff valves on both halves close when separated.
-
-| Aspect | Detail |
-|--------|--------|
-| Cost | ~$70 (4 CPC pairs). Dock bodies permanent; replacement cartridges need 4 male inserts (~$6-8 each). |
-| Auto-shutoff | Yes -- both sides valve closed on disconnect. Zero drips. |
-| Disconnect UX | Squeeze-and-pull each CPC, or a pull handle that actuates all 4. Audible click confirms connection. |
-| Cartridge complexity | Dramatically lower -- no cam lever, no push rod, no release plate. Just a box with pumps and CPC inserts. |
-| Retention | CPC coupling latches provide ~15-25N positive retention. No additional mechanism needed. |
-| Food safety | NSF 169 (food equipment -- strongest cert available) |
-| Body OD | ~22mm (vs ~12mm for JG). Space is unconstrained in this layout. |
-
-Research: `research/fitting-alternatives.md`
-
-### Owner's Position
-
-The owner prefers JG for cost. However, CPC eliminates the entire release mechanism (cam lever, push rod, release plate, dowel pins), prevents drips at the worst possible location (enclosure floor, under the bags), and simplifies the cartridge to a box with two pumps. The dock-placement research recommends CPC for the front-bottom position specifically because drips pool on the enclosure floor and auto-shutoff has high product value in this geometry.
-
-Both paths are viable. The cartridge envelope (148W x 130D x 80H) works with either fitting type. This decision should be resolved before Phase 3 (sketching).
 
 ---
 
@@ -149,7 +124,7 @@ A three-stage alignment strategy gets the cartridge from blind insertion in a da
 
 **Stage 2 -- Floor rails and side guides (guided travel).** Two parallel floor rails (2mm tall, 3mm wide, full slot depth) carry the cartridge weight and provide primary depth guidance. Side wall guides (1.5mm wide rails, 0.3-0.5mm clearance per side) prevent lateral wobble. The cartridge slides ~130mm along these rails.
 
-**Stage 3 -- Last-stage precision.** The final 10-15mm of travel constrains to ~1mm tolerance so fluid connections align. With JG fittings, tapered alignment pins at the mating face correct the last 1-2mm. With CPC fittings, the coupling geometry self-centers during engagement.
+**Stage 3 -- Last-stage precision.** The final 10-15mm of travel constrains to ~1mm tolerance so the four JG fittings align. Tapered alignment pins at the mating face correct the last 1-2mm of lateral error.
 
 Material: PETG for all sliding surfaces (lower friction than PLA, better layer adhesion, adequate stiffness). Rail clearance: 0.3-0.5mm per side for FDM.
 
@@ -165,20 +140,16 @@ See `research/guide-alignment.md` for the full mechanism family survey, toleranc
 2. User rests the cartridge on the cabinet floor, roughly aimed at the slot.
 3. The chamfered entrance captures the cartridge and funnels it onto the floor rails.
 4. The cartridge slides ~130mm along the rails. Side guides prevent lateral wobble.
-5. At full insertion depth, the four fluid connections engage:
-   - **JG path:** Tube stubs push into collet fittings, collets grip automatically.
-   - **CPC path:** Male inserts engage female bodies, thumb latches click, auto-shutoff valves open.
+5. At full insertion depth, the four tube stubs push into the JG collet fittings. Collets grip automatically — no user action needed.
 6. Pogo pins on the dock ceiling make contact with pads on the cartridge top face. Wipe action cleans the contact surfaces.
-7. The user feels a clear "seated" state:
-   - **JG path:** Cam lever flips to locked position.
-   - **CPC path:** Audible click of 4 CPC latches.
+7. The user flips the cam lever to the locked position. Clear tactile "seated" state.
 
 ### Removal
 
-1. User releases the fluid connections:
-   - **JG path:** Flip cam lever to release all 4 collets simultaneously via the release plate.
-   - **CPC path:** Squeeze-and-pull each CPC coupling (or use a pull handle for all 4). Auto-shutoff valves close on both halves -- zero drips.
-2. User slides the cartridge forward along the rails and out of the slot.
+**Prerequisite:** Firmware enforces a mandatory clean cycle before the cartridge lock disengages. After the clean cycle, all fluid lines contain only water or air.
+
+1. User flips the cam lever to the release position. The release plate pushes all 4 JG collets simultaneously — all connections free in one motion.
+2. User pulls the cartridge forward by the lever handle, sliding it along the rails and out of the slot.
 3. Pogo pins retract into the dock ceiling as the cartridge withdraws.
 4. New cartridge slides in (reverse of above).
 
@@ -200,12 +171,11 @@ Pump mounting uses the Kamoer bracket (2-4x M3 holes, exact pattern to be measur
 
 ## 8. Open Questions
 
-1. **JG vs CPC fittings** -- the biggest decision. Determines whether the cartridge needs the cam lever/release plate mechanism or becomes a simple box. Affects cost ($15-20 vs $70), UX, and drip behavior.
-2. **Exact pump mounting hole pattern** -- must be measured from the physical KPHM400 pumps with calipers. The Kamoer datasheet drawing was not parseable; the KK series manual gives proportional reference only.
-3. **Cartridge shell material and print strategy** -- PETG is recommended but wall thickness, infill density, and print orientation need prototyping.
-4. **Cartridge ID pin** -- whether firmware will support identifying cartridge type/revision via a resistor divider on a 4th pogo contact. Not needed for MVP.
-5. **CPC panel-mount vs inline** -- if CPC is chosen, the exact CPC model (panel-mount body vs inline with hose barb) determines dock wall design.
-6. **Vibration isolation** -- rigid mount first; add rubber grommets if noise is objectionable in practice.
+1. **Exact pump mounting hole pattern** -- must be measured from the physical KPHM400 pumps with calipers. The Kamoer datasheet drawing was not parseable; the KK series manual gives proportional reference only.
+2. **Cartridge shell material and print strategy** -- PETG is recommended but wall thickness, infill density, and print orientation need prototyping.
+3. **Cartridge ID pin** -- whether firmware will support identifying cartridge type/revision via a resistor divider on a 4th pogo contact. Not needed for MVP.
+4. **Vibration isolation** -- rigid mount first; add rubber grommets if noise is objectionable in practice.
+5. **Release plate tolerances** -- the stepped bore dimensions (8.0/10.5/12.5mm) need validation on the first print against the actual JG fittings in hand.
 
 ---
 
@@ -217,7 +187,7 @@ Pump mounting uses the Kamoer bracket (2-4x M3 holes, exact pattern to be measur
 | `research/collet-release.md` | JG collet behavior, release force, stepped bore geometry. Only relevant if JG fittings are chosen. |
 | `research/dock-placement.md` | Front-bottom triangular void geometry, envelope optimization, ergonomics, tube routing for the diagonal interleave layout. |
 | `research/electrical-mating.md` | Pogo pins vs blade vs edge connector vs magnetic -- full technology survey. Recommends pogo pins + flat pads. |
-| `research/fitting-alternatives.md` | Comprehensive comparison of JG, CPC, barb, Luer, bayonet, magnetic, and press-fit options. Recommends CPC; JG as fallback. |
+| `research/fitting-alternatives.md` | Survey of JG, barb, Luer, bayonet, magnetic, and press-fit fitting options. JG push-to-connect is the chosen approach. |
 | `research/guide-alignment.md` | Rail, dovetail, funnel, tapered pin, and kinematic coupling survey. Recommends three-stage: chamfer + rails + fine alignment. |
 | `research/pump-mounting.md` | Kamoer pump mounting features, vibration isolation, screw boss design for 3D printing, tray + shell construction, tube strain relief, wire routing. |
 | `research/release-mechanism-alternatives.md` | Alternative release strategies beyond the cam lever. Only relevant if JG fittings are chosen. |
