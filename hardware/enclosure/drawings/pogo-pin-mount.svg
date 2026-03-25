@@ -1,0 +1,418 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1150 950" width="1150" height="950" font-family="Arial, Helvetica, sans-serif">
+
+  <style>
+    .outline { stroke: #000; stroke-width: 1.5; fill: none; }
+    .hidden { stroke: #000; stroke-width: 0.8; fill: none; stroke-dasharray: 4,3; }
+    .center { stroke: #000; stroke-width: 0.4; fill: none; stroke-dasharray: 12,3,2,3; }
+    .dim { stroke: #333; stroke-width: 0.6; fill: none; }
+    .dim-text { font-size: 11px; fill: #333; text-anchor: middle; }
+    .label { font-size: 14px; font-weight: bold; fill: #000; text-anchor: middle; }
+    .note-text { font-size: 10px; fill: #000; }
+    .title-text { font-size: 14px; fill: #000; font-weight: bold; }
+    .title-sub { font-size: 11px; fill: #000; }
+    .thin { stroke: #000; stroke-width: 0.5; fill: none; }
+    .arrow { fill: #333; stroke: none; }
+  </style>
+
+  <!-- ============================================================ -->
+  <!-- TITLE BLOCK                                                   -->
+  <!-- ============================================================ -->
+  <rect x="750" y="800" width="380" height="130" stroke="#000" stroke-width="1.5" fill="none"/>
+  <line x1="750" y1="825" x2="1130" y2="825" stroke="#000" stroke-width="0.8"/>
+  <line x1="750" y1="850" x2="1130" y2="850" stroke="#000" stroke-width="0.8"/>
+  <line x1="750" y1="875" x2="1130" y2="875" stroke="#000" stroke-width="0.8"/>
+  <line x1="750" y1="900" x2="1130" y2="900" stroke="#000" stroke-width="0.8"/>
+  <line x1="870" y1="800" x2="870" y2="930" stroke="#000" stroke-width="0.8"/>
+  <text x="810" y="818" class="title-sub" text-anchor="middle">TITLE</text>
+  <text x="1000" y="818" class="title-text" text-anchor="middle">POGO PIN MOUNT</text>
+  <text x="810" y="843" class="title-sub" text-anchor="middle">MATERIAL</text>
+  <text x="1000" y="843" class="title-sub" text-anchor="middle">PETG bracket + FR4 PCB</text>
+  <text x="810" y="868" class="title-sub" text-anchor="middle">SCALE</text>
+  <text x="1000" y="868" class="title-sub" text-anchor="middle">6:1 (6 px/mm)</text>
+  <text x="810" y="893" class="title-sub" text-anchor="middle">UNITS</text>
+  <text x="1000" y="893" class="title-sub" text-anchor="middle">mm</text>
+  <text x="810" y="918" class="title-sub" text-anchor="middle">PROJECTION</text>
+  <text x="1000" y="918" class="title-sub" text-anchor="middle">Third-angle</text>
+  <text x="810" y="928" class="title-sub" text-anchor="middle">QTY</text>
+  <text x="1000" y="928" class="title-sub" text-anchor="middle">1</text>
+
+  <!-- ============================================================ -->
+  <!-- TOP VIEW  (looking along -Z)                                  -->
+  <!-- Horizontal = X (width 60mm = 360px)                           -->
+  <!-- Vertical = Y (depth 30mm = 180px)  Y=0 at top (front edge)   -->
+  <!-- Origin: (100, 80)                                             -->
+  <!-- ============================================================ -->
+  <text x="280" y="65" class="label">TOP VIEW</text>
+
+  <!-- Outer rectangle: 360 x 180 -->
+  <rect x="100" y="80" width="360" height="180" class="outline"/>
+
+  <!-- Wire routing channel (back edge): Y=25-30mm -> pixel Y=150-180 from top of part -->
+  <!-- Channel is 5mm wide (30px), full width, on back edge -->
+  <!-- In top view looking down: channel is a recessed slot, shown with inner lines -->
+  <rect x="100" y="230" width="360" height="30" class="outline"/>
+  <!-- The channel bottom is recessed 4mm — shown as thin lines slightly inset -->
+
+  <!-- 6 Pogo pin holes (axis=Z, so CIRCLES in top view) -->
+  <!-- Pin X positions: 5,15,25,35,45,55 mm = 30,90,150,210,270,330 px from origin -->
+  <!-- Pin Y position: centered at Y=15mm = 90px from origin (but offset from wire channel, say Y=12mm = 72px) -->
+  <!-- Actually, pins centered on depth excluding wire channel: usable depth = 25mm, center at 12.5mm -->
+  <!-- Pin Y center: 12.5mm = 75px from origin -->
+  <!-- Pin radius: 1.25mm = 7.5px -->
+  <circle cx="130" cy="155" r="7.5" class="outline"/>
+  <circle cx="190" cy="155" r="7.5" class="outline"/>
+  <circle cx="250" cy="155" r="7.5" class="outline"/>
+  <circle cx="310" cy="155" r="7.5" class="outline"/>
+  <circle cx="370" cy="155" r="7.5" class="outline"/>
+  <circle cx="430" cy="155" r="7.5" class="outline"/>
+
+  <!-- Center marks on pin holes (top view) -->
+  <g class="center">
+    <line x1="130" y1="145" x2="130" y2="165"/>
+    <line x1="125" y1="155" x2="135" y2="155"/>
+    <line x1="190" y1="145" x2="190" y2="165"/>
+    <line x1="185" y1="155" x2="195" y2="155"/>
+    <line x1="250" y1="145" x2="250" y2="165"/>
+    <line x1="245" y1="155" x2="255" y2="155"/>
+    <line x1="310" y1="145" x2="310" y2="165"/>
+    <line x1="305" y1="155" x2="315" y2="155"/>
+    <line x1="370" y1="145" x2="370" y2="165"/>
+    <line x1="365" y1="155" x2="375" y2="155"/>
+    <line x1="430" y1="145" x2="430" y2="165"/>
+    <line x1="425" y1="155" x2="435" y2="155"/>
+  </g>
+
+  <!-- M3 mounting screw holes (axis=Z, CIRCLES in top view) -->
+  <!-- Positions: (5,5), (55,5), (5,22), (55,22) mm -->
+  <!-- Pixels: X=5mm->30px+100=130, X=55mm->330px+100=430 -->
+  <!-- Y=5mm->30px+80=110, Y=22mm->132px+80=212 -->
+  <!-- M3 clearance hole: 3.2mm dia = radius 9.6px -->
+  <circle cx="130" cy="110" r="9.6" class="outline"/>
+  <circle cx="430" cy="110" r="9.6" class="outline"/>
+  <circle cx="130" cy="212" r="9.6" class="outline"/>
+  <circle cx="430" cy="212" r="9.6" class="outline"/>
+
+  <!-- Center marks on screw holes -->
+  <g class="center">
+    <line x1="130" y1="98" x2="130" y2="122"/>
+    <line x1="118" y1="110" x2="142" y2="110"/>
+    <line x1="430" y1="98" x2="430" y2="122"/>
+    <line x1="418" y1="110" x2="442" y2="110"/>
+    <line x1="130" y1="200" x2="130" y2="224"/>
+    <line x1="118" y1="212" x2="142" y2="212"/>
+    <line x1="430" y1="200" x2="430" y2="224"/>
+    <line x1="418" y1="212" x2="442" y2="212"/>
+  </g>
+
+  <!-- Drainage channels: two grooves flanking pin row, at Y=8mm and Y=17mm -->
+  <!-- Y=8mm = 48px, Y=17mm = 102px from origin (80+48=128, 80+102=182) -->
+  <!-- Grooves are 2mm wide (12px), run full width minus screw clearance -->
+  <line x1="148" y1="133" x2="412" y2="133" class="thin"/>
+  <line x1="148" y1="141" x2="412" y2="141" class="thin"/>
+  <line x1="148" y1="169" x2="412" y2="169" class="thin"/>
+  <line x1="148" y1="177" x2="412" y2="177" class="thin"/>
+
+  <!-- ============================================================ -->
+  <!-- FRONT VIEW  (looking along -Y)                                -->
+  <!-- Horizontal = X (width 60mm = 360px)                           -->
+  <!-- Vertical = Z (height 10mm = 60px)  Z=0 at bottom              -->
+  <!-- Origin: (100, 350) = top-left of front view                   -->
+  <!-- Bottom of part at Y=410 in SVG, top at Y=350                  -->
+  <!-- ============================================================ -->
+  <text x="280" y="335" class="label">FRONT VIEW</text>
+
+  <!-- Outer rectangle -->
+  <rect x="100" y="350" width="360" height="60" class="outline"/>
+
+  <!-- Pogo pin holes (axis=Z): in front view, show as RECTANGLES (vertical parallel lines) -->
+  <!-- Each pin: 2.5mm dia = 15px wide, runs through 10mm height = 60px tall -->
+  <!-- Pin X positions same as top view: 130, 190, 250, 310, 370, 430 -->
+  <!-- Hidden lines (holes go through but are behind front surface — actually they're through-holes, so dashed) -->
+  <g class="hidden">
+    <line x1="122.5" y1="350" x2="122.5" y2="410"/>
+    <line x1="137.5" y1="350" x2="137.5" y2="410"/>
+    <line x1="182.5" y1="350" x2="182.5" y2="410"/>
+    <line x1="197.5" y1="350" x2="197.5" y2="410"/>
+    <line x1="242.5" y1="350" x2="242.5" y2="410"/>
+    <line x1="257.5" y1="350" x2="257.5" y2="410"/>
+    <line x1="302.5" y1="350" x2="302.5" y2="410"/>
+    <line x1="317.5" y1="350" x2="317.5" y2="410"/>
+    <line x1="362.5" y1="350" x2="362.5" y2="410"/>
+    <line x1="377.5" y1="350" x2="377.5" y2="410"/>
+    <line x1="422.5" y1="350" x2="422.5" y2="410"/>
+    <line x1="437.5" y1="350" x2="437.5" y2="410"/>
+  </g>
+
+  <!-- M3 screw holes (axis=Z): in front view, RECTANGLES (vertical hidden lines) -->
+  <!-- Only front two screws visible: at X=5mm, X=55mm -> px 130, 430 -->
+  <!-- M3 clearance: 3.2mm = 19.2px wide -->
+  <g class="hidden">
+    <line x1="120.4" y1="350" x2="120.4" y2="410"/>
+    <line x1="139.6" y1="350" x2="139.6" y2="410"/>
+    <line x1="420.4" y1="350" x2="420.4" y2="410"/>
+    <line x1="439.6" y1="350" x2="439.6" y2="410"/>
+  </g>
+
+  <!-- Wire channel visible on top edge at back — in front view, the channel is behind, so hidden -->
+  <!-- Channel is at top, 4mm deep = 24px, full width -->
+  <!-- This shows as a dashed horizontal line 24px from top -->
+  <line x1="100" y1="374" x2="460" y2="374" class="hidden"/>
+
+  <!-- Drainage grooves on top face: run along X at Y=8.8mm and Y=16.2mm -->
+  <!-- In front view (along -Y), grooves are behind front surface = hidden dashed lines -->
+  <!-- They appear as horizontal dashed lines 1.5mm (9px) below top edge -->
+  <line x1="148" y1="359" x2="412" y2="359" class="hidden"/>
+
+  <!-- ============================================================ -->
+  <!-- SIDE VIEW  (looking along -X, from right side)                -->
+  <!-- Horizontal = Y (depth 30mm = 180px)  Y=0 at left (front)     -->
+  <!-- Vertical = Z (height 10mm = 60px)  Z=0 at bottom              -->
+  <!-- Origin: (580, 350) = top-left                                 -->
+  <!-- ============================================================ -->
+  <text x="670" y="335" class="label">RIGHT SIDE VIEW</text>
+
+  <!-- Side view outline with wire channel notch cut from top-right corner -->
+  <!-- Bottom edge -->
+  <line x1="580" y1="410" x2="760" y2="410" class="outline"/>
+  <!-- Left edge -->
+  <line x1="580" y1="350" x2="580" y2="410" class="outline"/>
+  <!-- Right edge -->
+  <line x1="760" y1="374" x2="760" y2="410" class="outline"/>
+  <!-- Top edge (stops at channel) -->
+  <line x1="580" y1="350" x2="730" y2="350" class="outline"/>
+  <!-- Wire channel notch: vertical wall then floor -->
+  <line x1="730" y1="350" x2="730" y2="374" class="outline"/>
+  <line x1="730" y1="374" x2="760" y2="374" class="outline"/>
+
+  <!-- Pogo pin holes (axis=Z): in side view looking along X, -->
+  <!-- All 6 pins are at same Y=12.5mm. Side view shows them overlapping as one rectangle -->
+  <!-- Y=12.5mm = 75px from origin left edge -> SVG x = 580+75 = 655 -->
+  <!-- 2.5mm dia = 15px wide, full height -->
+  <g class="hidden">
+    <line x1="647.5" y1="350" x2="647.5" y2="410"/>
+    <line x1="662.5" y1="350" x2="662.5" y2="410"/>
+  </g>
+
+  <!-- M3 screws: two depths Y=5mm and Y=22mm -->
+  <!-- Y=5mm: 580+30=610, Y=22mm: 580+132=712 -->
+  <!-- 3.2mm = 19.2px wide -->
+  <g class="hidden">
+    <line x1="600.4" y1="350" x2="600.4" y2="410"/>
+    <line x1="619.6" y1="350" x2="619.6" y2="410"/>
+    <line x1="702.4" y1="350" x2="702.4" y2="410"/>
+    <line x1="721.6" y1="350" x2="721.6" y2="410"/>
+  </g>
+
+  <!-- Drainage grooves: on top surface at Y=8mm and Y=17mm -->
+  <!-- Y=8mm=48px -> x=628, Y=17mm=102px -> x=682 -->
+  <!-- 2mm wide = 12px, 1.5mm deep = 9px -->
+  <!-- Visible notches on top edge -->
+  <line x1="625" y1="350" x2="625" y2="359" class="outline"/>
+  <line x1="625" y1="359" x2="637" y2="359" class="outline"/>
+  <line x1="637" y1="359" x2="637" y2="350" class="outline"/>
+  <line x1="679" y1="350" x2="679" y2="359" class="outline"/>
+  <line x1="679" y1="359" x2="691" y2="359" class="outline"/>
+  <line x1="691" y1="359" x2="691" y2="350" class="outline"/>
+
+  <!-- ============================================================ -->
+  <!-- DIMENSIONS — TOP VIEW                                         -->
+  <!-- ============================================================ -->
+
+  <!-- Overall width: 60mm -->
+  <!-- Extension lines from left and right edges, dimension line above -->
+  <line x1="100" y1="70" x2="100" y2="80" class="dim"/>
+  <line x1="460" y1="70" x2="460" y2="80" class="dim"/>
+  <line x1="100" y1="73" x2="460" y2="73" class="dim"/>
+  <polygon points="100,73 107,70 107,76" class="arrow"/>
+  <polygon points="460,73 453,70 453,76" class="arrow"/>
+  <text x="280" y="68" class="dim-text">60</text>
+
+  <!-- Overall depth: 30mm (right side of top view) -->
+  <line x1="465" y1="80" x2="475" y2="80" class="dim"/>
+  <line x1="465" y1="260" x2="475" y2="260" class="dim"/>
+  <line x1="472" y1="80" x2="472" y2="260" class="dim"/>
+  <polygon points="472,80 469,87 475,87" class="arrow"/>
+  <polygon points="472,260 469,253 475,253" class="arrow"/>
+  <text x="490" y="174" class="dim-text" text-anchor="start">30</text>
+
+  <!-- Pin spacing: 10mm between first two pins -->
+  <line x1="130" y1="168" x2="130" y2="185" class="dim"/>
+  <line x1="190" y1="168" x2="190" y2="185" class="dim"/>
+  <line x1="130" y1="180" x2="190" y2="180" class="dim"/>
+  <polygon points="130,180 137,177 137,183" class="arrow"/>
+  <polygon points="190,180 183,177 183,183" class="arrow"/>
+  <text x="160" y="195" class="dim-text">10 TYP</text>
+
+  <!-- First pin center from edge: 5mm -->
+  <line x1="100" y1="185" x2="100" y2="205" class="dim"/>
+  <line x1="130" y1="185" x2="130" y2="205" class="dim"/>
+  <line x1="100" y1="200" x2="130" y2="200" class="dim"/>
+  <polygon points="100,200 107,197 107,203" class="arrow"/>
+  <polygon points="130,200 123,197 123,203" class="arrow"/>
+  <text x="115" y="215" class="dim-text">5</text>
+
+  <!-- Pin hole diameter callout (leader to first pin) -->
+  <line x1="137" y1="148" x2="155" y2="130" class="dim"/>
+  <line x1="155" y1="130" x2="195" y2="130" class="dim"/>
+  <text x="175" y="126" class="dim-text">&#x2300;2.5 THRU x6</text>
+
+  <!-- M3 screw hole callout (leader to top-left screw) -->
+  <line x1="138" y1="103" x2="160" y2="90" class="dim"/>
+  <line x1="160" y1="90" x2="220" y2="90" class="dim"/>
+  <text x="190" y="86" class="dim-text">&#x2300;3.2 THRU x4 (M3 CLR)</text>
+
+  <!-- Screw inset from edge: 5mm -->
+  <line x1="95" y1="80" x2="95" y2="115" class="dim"/>
+  <line x1="130" y1="105" x2="95" y2="105" class="dim"/>
+  <text x="85" y="100" class="dim-text" text-anchor="end">5</text>
+
+  <!-- Wire channel width: 5mm -->
+  <line x1="465" y1="230" x2="475" y2="230" class="dim"/>
+  <line x1="465" y1="260" x2="475" y2="260" class="dim"/>
+  <line x1="505" y1="230" x2="505" y2="260" class="dim"/>
+  <line x1="475" y1="230" x2="505" y2="230" class="dim"/>
+  <line x1="475" y1="260" x2="505" y2="260" class="dim"/>
+  <polygon points="505,230 502,237 508,237" class="arrow"/>
+  <polygon points="505,260 502,253 508,253" class="arrow"/>
+  <text x="520" y="249" class="dim-text" text-anchor="start">5</text>
+
+  <!-- Pin center Y from front edge: 12.5mm -->
+  <line x1="90" y1="80" x2="90" y2="155" class="dim"/>
+  <line x1="85" y1="80" x2="95" y2="80" class="dim"/>
+  <line x1="85" y1="155" x2="100" y2="155" class="dim"/>
+  <polygon points="90,80 87,87 93,87" class="arrow"/>
+  <polygon points="90,155 87,148 93,148" class="arrow"/>
+  <text x="75" y="120" class="dim-text" text-anchor="end">12.5</text>
+
+  <!-- ============================================================ -->
+  <!-- DIMENSIONS — FRONT VIEW                                       -->
+  <!-- ============================================================ -->
+
+  <!-- Overall height: 10mm -->
+  <line x1="465" y1="350" x2="480" y2="350" class="dim"/>
+  <line x1="465" y1="410" x2="480" y2="410" class="dim"/>
+  <line x1="475" y1="350" x2="475" y2="410" class="dim"/>
+  <polygon points="475,350 472,357 478,357" class="arrow"/>
+  <polygon points="475,410 472,403 478,403" class="arrow"/>
+  <text x="490" y="384" class="dim-text" text-anchor="start">10</text>
+
+  <!-- Wire channel depth: 4mm from top -->
+  <line x1="465" y1="350" x2="500" y2="350" class="dim"/>
+  <line x1="465" y1="374" x2="500" y2="374" class="dim"/>
+  <line x1="495" y1="350" x2="495" y2="374" class="dim"/>
+  <polygon points="495,350 492,357 498,357" class="arrow"/>
+  <polygon points="495,374 492,367 498,367" class="arrow"/>
+  <text x="510" y="366" class="dim-text" text-anchor="start">4</text>
+
+  <!-- ============================================================ -->
+  <!-- DIMENSIONS — SIDE VIEW                                        -->
+  <!-- ============================================================ -->
+
+  <!-- Drainage groove depth: 1.5mm = 9px from top edge -->
+  <line x1="625" y1="340" x2="625" y2="350" class="dim"/>
+  <line x1="637" y1="340" x2="637" y2="350" class="dim"/>
+  <line x1="625" y1="343" x2="637" y2="343" class="dim"/>
+  <text x="631" y="338" class="dim-text">2w x 1.5d</text>
+
+  <!-- Wire channel in side view: 5w x 4d -->
+  <line x1="735" y1="340" x2="760" y2="340" class="dim"/>
+  <line x1="765" y1="350" x2="765" y2="374" class="dim"/>
+  <line x1="762" y1="350" x2="770" y2="350" class="dim"/>
+  <line x1="762" y1="374" x2="770" y2="374" class="dim"/>
+  <polygon points="765,350 762,357 768,357" class="arrow"/>
+  <polygon points="765,374 762,367 768,367" class="arrow"/>
+  <text x="780" y="366" class="dim-text" text-anchor="start">4</text>
+
+  <!-- Channel width 5mm -->
+  <line x1="730" y1="415" x2="730" y2="425" class="dim"/>
+  <line x1="760" y1="415" x2="760" y2="425" class="dim"/>
+  <line x1="730" y1="422" x2="760" y2="422" class="dim"/>
+  <polygon points="730,422 737,419 737,425" class="arrow"/>
+  <polygon points="760,422 753,419 753,425" class="arrow"/>
+  <text x="745" y="436" class="dim-text">5</text>
+
+  <!-- Overall depth on side view: 30mm -->
+  <line x1="580" y1="415" x2="580" y2="430" class="dim"/>
+  <line x1="760" y1="415" x2="760" y2="430" class="dim"/>
+  <line x1="580" y1="427" x2="760" y2="427" class="dim"/>
+  <polygon points="580,427 587,424 587,430" class="arrow"/>
+  <polygon points="760,427 753,424 753,430" class="arrow"/>
+  <text x="670" y="443" class="dim-text">30</text>
+
+  <!-- Drainage groove positions from front edge -->
+  <line x1="580" y1="448" x2="580" y2="458" class="dim"/>
+  <line x1="625" y1="448" x2="625" y2="458" class="dim"/>
+  <line x1="580" y1="455" x2="625" y2="455" class="dim"/>
+  <polygon points="580,455 587,452 587,458" class="arrow"/>
+  <polygon points="625,455 618,452 618,458" class="arrow"/>
+  <text x="602" y="468" class="dim-text">7.5</text>
+
+  <!-- ============================================================ -->
+  <!-- DETAIL INSET: Pin Cross-Section (from side, zoomed)           -->
+  <!-- Shows one pogo pin hole in the side view cross-section        -->
+  <!-- ============================================================ -->
+  <rect x="830" y="450" width="200" height="160" stroke="#000" stroke-width="1" fill="none"/>
+  <text x="930" y="445" class="label">DETAIL A: PIN HOLE (4X SCALE)</text>
+
+  <!-- Pin hole cross-section at 4x extra zoom = effective 24px/mm -->
+  <!-- 2.5mm hole in 10mm tall block -->
+  <!-- Block: 10mm = 240px at this scale, but let's show partial -->
+  <!-- Show 6mm tall section = 144px, centered in 160px box -->
+  <!-- Block left edge at x=855, right at x=1005 (150px = ~6.25mm) -->
+
+  <!-- Simplified cross section showing pin hole and counterbore -->
+  <!-- Block outline (partial) -->
+  <line x1="855" y1="470" x2="1005" y2="470" class="outline"/>
+  <line x1="855" y1="590" x2="1005" y2="590" class="outline"/>
+  <line x1="855" y1="470" x2="855" y2="590" class="outline"/>
+  <line x1="1005" y1="470" x2="1005" y2="590" class="outline"/>
+
+  <!-- Pin hole: 2.5mm dia through center -->
+  <!-- Center at x=930. 2.5mm = 60px at 24px/mm. Radius=30px -->
+  <line x1="900" y1="470" x2="900" y2="590" class="outline"/>
+  <line x1="960" y1="470" x2="960" y2="590" class="outline"/>
+
+  <!-- Dimension: 2.5mm hole -->
+  <line x1="900" y1="595" x2="900" y2="605" class="dim"/>
+  <line x1="960" y1="595" x2="960" y2="605" class="dim"/>
+  <line x1="900" y1="600" x2="960" y2="600" class="dim"/>
+  <polygon points="900,600 907,597 907,603" class="arrow"/>
+  <polygon points="960,600 953,597 953,603" class="arrow"/>
+  <text x="930" y="614" class="dim-text">&#x2300;2.5</text>
+
+  <!-- Hatch pattern for solid material -->
+  <g stroke="#888" stroke-width="0.3" fill="none">
+    <line x1="855" y1="480" x2="895" y2="470"/>
+    <line x1="855" y1="500" x2="900" y2="475"/>
+    <line x1="855" y1="520" x2="900" y2="495"/>
+    <line x1="855" y1="540" x2="900" y2="515"/>
+    <line x1="855" y1="560" x2="900" y2="535"/>
+    <line x1="855" y1="580" x2="900" y2="555"/>
+    <line x1="860" y1="590" x2="900" y2="575"/>
+    <line x1="880" y1="590" x2="900" y2="590"/>
+
+    <line x1="960" y1="475" x2="1005" y2="480"/>
+    <line x1="960" y1="495" x2="1005" y2="500"/>
+    <line x1="960" y1="515" x2="1005" y2="520"/>
+    <line x1="960" y1="535" x2="1005" y2="540"/>
+    <line x1="960" y1="555" x2="1005" y2="560"/>
+    <line x1="960" y1="575" x2="1005" y2="580"/>
+    <line x1="960" y1="590" x2="1000" y2="590"/>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- NOTES                                                         -->
+  <!-- ============================================================ -->
+  <rect x="100" y="480" width="400" height="155" stroke="#000" stroke-width="1" fill="none"/>
+  <text x="110" y="498" class="title-text">NOTES:</text>
+  <text x="110" y="516" class="note-text">1. 6 pogo pin holes (P75/P100 series), 2.5mm dia, 10mm c-t-c</text>
+  <text x="110" y="531" class="note-text">2. Pin stroke: 1-2mm, spring-loaded</text>
+  <text x="110" y="546" class="note-text">3. 4x M3 clearance holes (3.2mm) for mounting to dock ceiling</text>
+  <text x="110" y="561" class="note-text">4. Wire routing channel (5mm W x 4mm D) on back edge</text>
+  <text x="110" y="576" class="note-text">5. Drainage grooves (2mm W x 1.5mm D) flank pin row</text>
+  <text x="110" y="591" class="note-text">6. Mounts to dock ceiling at Z=80-84, X centered at 106mm</text>
+  <text x="110" y="606" class="note-text">7. Contact pads on cartridge: 8mm x 5mm, nickel-plated brass</text>
+  <text x="110" y="621" class="note-text">8. Minimum 3 pins: GND, Motor A 12V, Motor B 12V</text>
+  <text x="110" y="631" class="note-text">   Optional 3 more: cartridge ID, temp sensor, spare</text>
+
+</svg>
