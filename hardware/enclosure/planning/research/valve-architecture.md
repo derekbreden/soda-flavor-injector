@@ -1,151 +1,165 @@
-# Valve Architecture: Flow Routing for Fill and Dispense Modes
+# Valve Architecture: Flow Routing for Fill, Dispense, and Prime Modes
 
-This document defines the valve subsystem that routes fluid between the hopper, bags, pumps, and dispensing lines. Each of the 2 peristaltic pumps requires a set of valves to switch between two operating modes: filling a bag from the hopper, and dispensing flavor from a bag to the faucet. All valves are mounted in the main enclosure body. The removable pump cartridge contains only the 2 pumps.
+This document defines the valve subsystem that routes fluid between the hopper, bags, pumps, tap water inlet, dip tubes, and dispensing lines. Each of the 2 peristaltic pumps requires a set of valves to switch between operating modes: filling a bag from the hopper, dispensing flavor from a bag to the faucet, filling with tap water, and evacuating air via dip tubes. All valves are mounted in the main enclosure body. The removable pump cartridge contains only the 2 pumps.
 
-**Chosen architecture: 8 two-way normally-closed (NC) solenoid valves, 4 per pump line.** This was selected over 3-way alternatives after research confirmed that 3-way valves with a center-off (all ports closed) position are not available as standard products in the required form factor, and standard 3-way valves lack the critical "all closed" idle state this system requires.
+**Chosen architecture: 10 two-way normally-closed (NC) solenoid valves, 5 per pump line.** This was selected over 3-way alternatives after research confirmed that 3-way valves with a center-off (all ports closed) position are not available as standard products in the required form factor, and standard 3-way valves lack the critical "all closed" idle state this system requires.
 
 ---
 
 ## 1. Complete Fluid Schematic
 
-### 1a. System Overview
-
-Each flavor line has four fluid endpoints that connect through a single pump:
-
-- **Hopper funnel** (shared between both lines, selected by valve)
-- **Bag** (one per line, permanent, sealed with dip tube)
-- **Pump** (one per line, in removable cartridge)
-- **Dispensing line** (one per line, silicone tube to faucet)
-
-The pump is bidirectional (L298N H-bridge allows forward and reverse). Four 2-way NC solenoid valves per pump provide clean switching between fill and dispense modes. In idle state, all valves are closed, providing complete isolation of all fluid paths with zero power draw.
-
-### 1b. Per-Pump Valve Arrangement
-
-Each pump has an inlet and an outlet. Each side needs to connect to one of two sources/destinations. This is a 2x2 switching problem:
-
-**Pump inlet connects to:**
-- Hopper (during fill mode -- pump pulls from hopper) via inlet valve A
-- Bag (during dispense mode -- pump pulls from bag) via inlet valve B
-
-**Pump outlet connects to:**
-- Bag (during fill mode -- pump pushes into bag) via outlet valve A
-- Dispensing line (during dispense mode -- pump pushes to faucet) via outlet valve B
-
-With 2-way NC valves, each switching point needs 2 valves (one per path), giving 4 valves per pump, 8 total. The NC property means all paths are sealed when de-energized, providing a true "all off" idle state that 3-way valves cannot achieve.
-
-### 1c. Full Fluid Topology -- ASCII Schematic
+### 1a. Node Notation
 
 ```
-                    HOPPER FUNNEL
-                    (single, shared)
-                         │
-                    ┌────┴────┐
-                    │         │
-                   V1        V5
-              (hopper→P1)  (hopper→P2)
-                    │         │
-    ┌───── V2 ─────┤         ├───── V6 ─────┐
-    │  (bag1→P1)   │         │  (bag2→P2)   │
-    │              │         │              │
-   BAG 1      P1 INLET   P2 INLET      BAG 2
-    │                                       │
-    │          P1 OUTLET  P2 OUTLET         │
-    │              │         │              │
-    │   ┌── V3 ───┤         ├─── V7 ──┐    │
-    │   │(P1→disp)│         │(P2→disp)│    │
-    │   │         │         │         │    │
-    │   D1       V4        V8        D2   │
-    │  (disp   (P1→bag1) (P2→bag2)  (disp │
-    │  line 1)    │         │     line 2)  │
-    │             │         │              │
-    └─────────────┘         └──────────────┘
+b1, b2 = bag bottom outlets (main fluid port P1)
+t1, t2 = bag dip tubes (air bleed port P2, tube runs to sealed end at top of bag)
+i1, i2 = pump inlets
+o1, o2 = pump outlets
+p1, p2 = pumps (Kamoer peristaltic, in removable cartridge)
+h = hopper (shared, single funnel)
+h1, h2 = hopper branches (one per pump line)
+d1, d2 = dispenser lines (silicone tubes to faucet)
+w = tap water inlet
+w1, w2 = tap water branches
 ```
 
-### 1d. Detailed Per-Line Schematic (Flavor 1)
+### 1b. System Overview
+
+Each flavor line has fluid endpoints that connect through a single pump:
+
+- **Hopper funnel** (shared between both lines, branches to h1/h2)
+- **Bag bottom outlet** (b1/b2 -- one per line, direct connection to pump inlet)
+- **Bag dip tube** (t1/t2 -- air bleed port at top of bag, for air evacuation)
+- **Pump** (p1/p2 -- one per line, in removable cartridge)
+- **Dispensing line** (d1/d2 -- silicone tube to faucet)
+- **Tap water inlet** (w -- shared, branches to w1/w2)
+
+**CRITICAL: b1 connects directly to i1 (and b2 to i2) with NO valve.** This permanent connection is what keeps the valve count at 10 instead of 12. During dispense, v5/v7/v9/v10 are all closed, so each pump can only draw from its bag.
+
+### 1c. The 10 Valves
+
+All 10 valves are 2-way normally-closed (NC) solenoid, 12V DC.
+
+| Valve | Position | Function |
+|-------|----------|----------|
+| v1 | o1 -> d1 | Dispense line 1, keeps flavor primed to faucet |
+| v2 | o2 -> d2 | Dispense line 2 |
+| v3 | w1 -> b1 | Tap water fill into bag 1 (pressure-fed, no pump needed) |
+| v4 | w2 -> b2 | Tap water fill into bag 2 |
+| v5 | h1 -> i1 | Hopper to pump 1 inlet (flavor fill AND air fill modes) |
+| v6 | o1 -> b1 | Pump 1 outlet to bag 1 (reverse: pushing into bag) |
+| v7 | h2 -> i2 | Hopper to pump 2 inlet |
+| v8 | o2 -> b2 | Pump 2 outlet to bag 2 |
+| v9 | t1 -> i1 | Dip tube 1 to pump 1 inlet (air evacuation) |
+| v10 | t2 -> i2 | Dip tube 2 to pump 2 inlet (air evacuation) |
+
+### 1d. Full Fluid Topology -- ASCII Schematic
 
 ```
-                HOPPER
-                  │
-                 V1 (NC: normally closed) ── inlet valve A
-                  │
-                  ├─────── V2 (NC: normally closed) ── inlet valve B ── BAG 1 (via dip tube)
-                  │                                                        │
-              P1 INLET                                                     │
-                  │                                                        │
-              [ PUMP 1 ]  (in cartridge)                                   │
-                  │                                                        │
-              P1 OUTLET                                                    │
-                  │                                                        │
-                  ├─────── V4 (NC: normally closed) ── outlet valve A ─────┘
-                  │
-                 V3 (NC: normally closed) ── outlet valve B
-                  │
-            DISPENSING LINE 1
-              (to faucet)
+                TAP WATER (w)           HOPPER (h)
+                     |                      |
+                +---------+            +---------+
+                |         |            |         |
+               w1        w2          h1         h2
+                |         |            |         |
+               V3        V4          V5         V7
+          (w1->b1)  (w2->b2)   (h1->i1)   (h2->i2)
+                |         |            |         |
+               b1        b2           |         |
+    DIP TUBE   |          |   DIP TUBE |         |
+    t1----V9---+--->i1    +--->i2<---V10----t2
+               |     |         |     |
+               |   [P1]      [P2]   |
+               |     |         |     |
+               |    o1        o2     |
+               |     |         |     |
+               +<-V6-+---V1   V2---+-V8->+
+                      |         |
+                     d1        d2
+                  (faucet)  (faucet)
 ```
 
-**Fill mode (hopper → pump → bag):**
-- V1 OPEN (hopper to pump inlet)
-- V2 CLOSED (bag isolated from pump inlet)
-- V3 CLOSED (dispensing line isolated from pump outlet)
-- V4 OPEN (pump outlet to bag)
-- Pump runs forward (pulls from inlet, pushes to outlet)
+Note: b1->i1 and b2->i2 are DIRECT connections (no valve). The `+--->` notation shows these permanent paths.
 
-**Dispense mode (bag → pump → dispensing line):**
-- V1 CLOSED (hopper isolated)
-- V2 OPEN (bag to pump inlet)
-- V3 OPEN (pump outlet to dispensing line)
-- V4 CLOSED (bag isolated from pump outlet)
-- Pump runs forward
+### 1e. Operating Modes
 
-**Idle mode (all closed, zero power):**
-- V1-V4 all CLOSED (NC default)
-- Pump OFF
-- All fluid paths sealed -- no backflow, no drip, no cross-contamination
-- Flavor syrup stays primed in tubing up to the faucet without draining back
+| Mode | Open Valves | Path |
+|------|-------------|------|
+| Dispense flavor 1 | v1 | b1->i1->p1->o1->v1->d1 |
+| Dispense flavor 2 | v2 | b2->i2->p2->o2->v2->d2 |
+| Fill bag 1 from hopper | v5, v6 | h->h1->v5->i1->p1->o1->v6->b1 |
+| Fill bag 2 from hopper | v7, v8 | h->h2->v7->i2->p2->o2->v8->b2 |
+| Fill bag 1 with tap water | v3 | w->w1->v3->b1 (gravity/pressure) |
+| Fill bag 2 with tap water | v4 | w->w2->v4->b2 (gravity/pressure) |
+| Pump out bag 1 | v1 | b1->i1->p1->o1->v1->d1 (same as dispense) |
+| Fill bag 1 with air (dry cycle) | v5, v6 | h->h1->v5->i1->p1->o1->v6->b1 (hopper open to atmosphere) |
+| Evacuate air via dip tube 1 | v9, v1 | t1->v9->i1->p1->o1->v1->d1 |
+| Evacuate air via dip tube 2 | v10, v2 | t2->v10->i2->p2->o2->v2->d2 |
+| **Idle** | **none** | **All NC valves closed, everything sealed** |
 
-### 1e. Valve Truth Table
+### 1f. Valve Truth Table
 
-All valves are normally closed (NC). OPEN = energized. Pump: FWD = forward, OFF = stopped.
+All valves are normally closed (NC). O = OPEN (energized), C = CLOSED (NC default). Pump: FWD = forward, OFF = stopped.
 
-| Mode | V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8 | P1 | P2 | Notes |
-|------|----|----|----|----|----|----|----|----|----|----|-------|
-| **Idle** | C | C | C | C | C | C | C | C | OFF | OFF | All closed, no flow, zero power draw |
-| **Fill bag 1** | O | C | C | O | C | C | C | C | FWD | OFF | Hopper→P1→Bag1 |
-| **Fill bag 2** | C | C | C | C | O | C | C | O | OFF | FWD | Hopper→P2→Bag2 |
-| **Dispense flavor 1** | C | O | O | C | C | C | C | C | FWD | OFF | Bag1→P1→D1 |
-| **Dispense flavor 2** | C | C | C | C | C | O | O | C | OFF | FWD | Bag2→P2→D2 |
-| **Dispense both** | C | O | O | C | C | O | O | C | FWD | FWD | Both lines active |
-| **Flush line 1** | C | O | O | C | C | C | C | C | FWD | OFF | Same as dispense; clean water pre-loaded in bag |
-| **Flush line 2** | C | C | C | C | C | O | O | C | OFF | FWD | Same as dispense; clean water pre-loaded in bag |
+| Mode | v1 | v2 | v3 | v4 | v5 | v6 | v7 | v8 | v9 | v10 | P1 | P2 | Notes |
+|------|----|----|----|----|----|----|----|----|----|----|----|----|-------|
+| **Idle** | C | C | C | C | C | C | C | C | C | C | OFF | OFF | All closed, zero power |
+| **Dispense flavor 1** | O | C | C | C | C | C | C | C | C | C | FWD | OFF | b1->p1->d1 |
+| **Dispense flavor 2** | C | O | C | C | C | C | C | C | C | C | OFF | FWD | b2->p2->d2 |
+| **Dispense both** | O | O | C | C | C | C | C | C | C | C | FWD | FWD | Both lines active |
+| **Fill bag 1 (hopper)** | C | C | C | C | O | O | C | C | C | C | FWD | OFF | h->p1->b1 |
+| **Fill bag 2 (hopper)** | C | C | C | C | C | C | O | O | C | C | OFF | FWD | h->p2->b2 |
+| **Fill bag 1 (tap water)** | C | C | O | C | C | C | C | C | C | C | OFF | OFF | Pressure-fed, no pump |
+| **Fill bag 2 (tap water)** | C | C | C | O | C | C | C | C | C | C | OFF | OFF | Pressure-fed, no pump |
+| **Evacuate air tube 1** | O | C | C | C | C | C | C | C | O | C | FWD | OFF | t1->p1->d1 |
+| **Evacuate air tube 2** | C | O | C | C | C | C | C | C | C | O | OFF | FWD | t2->p2->d2 |
 
 **Key observations:**
 - Idle draws zero power (all valves NC, all pumps off). This is the safe default state.
-- Fill and dispense modes never overlap: you never fill and dispense the same line simultaneously.
-- During any active mode, exactly 2 valves are energized per active pump.
-- Maximum simultaneous valve load: 4 valves (dispense both).
+- During dispense, only 1 valve is energized per active pump (v1 or v2). All other valves stay closed, so the pump can only draw from the direct b->i connection.
+- During hopper fill, exactly 2 valves are energized per active pump (v5+v6 or v7+v8).
+- Tap water fill requires only 1 valve and no pump (pressure-fed from house water line).
+- Air evacuation via dip tube requires 2 valves per line (v9+v1 or v10+v2).
+- Maximum simultaneous valve load: 2 valves (dispense both uses v1+v2; other modes use 1-2 valves).
 - The "all closed" idle state is the fundamental advantage of 2-way NC valves -- it prevents backflow, keeps fluid primed at the faucet, and handles power loss, firmware crash, or error states safely.
+
+### 1g. Dip Tube Air Evacuation (v9/v10)
+
+Each bag has two ports: the bottom outlet (b1/b2) for liquid, and a dip tube (t1/t2) that runs from a port on the bag fitting up to the sealed top end of the bag. After filling, trapped air collects at the top of the bag above the liquid level. The dip tube reaches this air pocket.
+
+v9 and v10 connect each dip tube to its corresponding pump inlet. During air evacuation:
+1. Open v9 (or v10) and v1 (or v2)
+2. Run the pump forward
+3. The pump draws air from the top of the bag through the dip tube and pushes it out through the dispense line
+4. Once liquid reaches the dip tube (detected by FDC1004 capacitive sensor or flow change), close v9/v10 and stop
+
+This primes the entire system: liquid fills the bag, the dispense line is primed with flavor, and trapped air is removed. Without v9/v10, air would remain trapped and cause sputtering during initial dispenses.
+
+### 1h. Reverse-Fill Short Circuit Note
+
+During hopper fill (v5+v6 open for line 1), the path is h->v5->i1->p1->o1->v6->b1, pushing liquid into the bag. But b1 connects directly to i1 (no valve), creating a potential recirculation path: liquid pushed into b1 could flow back through the direct b1->i1 connection to the pump inlet.
+
+In practice, the peristaltic pump is positive-displacement -- each roller sweep moves a fixed volume -- and the bag expands to accept it, so net flow goes into the bag. This may reduce fill efficiency slightly but does not prevent filling. Not worth adding 2 more valves to eliminate.
 
 ---
 
-## 2. Why 8 Two-Way NC Valves (Not Fewer)
+## 2. Why 10 Two-Way NC Valves (Not Fewer, Not 3-Way)
 
 ### 2a. The "All Closed" Requirement
 
-The system needs three distinct valve states:
-1. **Fill mode:** hopper→pump→bag path open, dispense path closed
-2. **Dispense mode:** bag→pump→faucet path open, fill path closed
-3. **Idle/off:** ALL paths closed -- no flow in any direction
-
-State 3 is critical. It prevents:
+The system needs a true idle state where ALL paths are closed -- no flow in any direction. This prevents:
 - Gravity-driven backflow from bags through idle pumps
 - Syrup draining away from the dispensing line (losing the primed state)
 - Cross-contamination between hopper and bag lines during idle
 - Uncontrolled flow during firmware crashes, power loss, or error conditions
 
-A 3-way valve toggles between port A and port B but has no "off" position. De-energized, it connects to port A. Energized, it connects to port B. There is always an open path. This means a 3-way valve architecture has no true idle state -- one fluid path is always connected, even when the pump is off.
+A 3-way valve toggles between port A and port B but has no "off" position. De-energized, it connects to port A. Energized, it connects to port B. There is always an open path. This means a 3-way valve architecture has no true idle state.
 
-### 2b. 3-Way Valve Analysis (Considered and Rejected)
+### 2b. Why 2-Way NC Not 3-Way
+
+3-way valves toggle between ports A and B but have NO "off" position. The all-closed idle state is essential for preventing backflow, keeping dispense lines primed to the faucet, and handling error/fault states. Research confirmed that 3-way valves with center-off position don't exist in the required form factor (12V DC, 1/4", food-safe, Amazon Prime).
+
+### 2c. 3-Way Valve Analysis (Considered and Rejected)
 
 A 3-way solenoid valve has one common port and two selectable ports. De-energized, the common port connects to port A. Energized, the common port connects to port B. Each pump junction needs to select between two paths, so a 3-way valve at each junction could theoretically replace a pair of 2-way valves:
 
@@ -156,7 +170,7 @@ A 3-way solenoid valve has one common port and two selectable ports. De-energize
 | P2 inlet | 3W-3 | Bag 2 (dispense mode) | Hopper (fill mode) |
 | P2 outlet | 3W-4 | Dispensing line 2 (dispense mode) | Bag 2 (fill mode) |
 
-This would reduce valve count from 8 to 4, with the de-energized state being "dispense ready" (bag→pump→faucet always connected when power is off).
+This would reduce valve count but loses the critical "all closed" idle state (bag-to-faucet path always connected when power is off).
 
 **Why this was rejected:**
 
@@ -168,9 +182,7 @@ This would reduce valve count from 8 to 4, with the de-energized state being "di
 
 4. **Error state safety.** During error conditions (sensor fault, firmware watchdog, unexpected state), the safest position is "everything closed, nothing flows." With 2-way NC valves, killing power achieves this instantly. With 3-way valves, killing power leaves the dispense path open.
 
-5. **Single-port bag problem.** Each bag has one fluid connection (the dip tube). With 3-way valves, the bag connects to both the inlet valve (port A, for dispense pull) and the outlet valve (port B, for fill push). This requires a TEE at the bag connector, adding dead volume (~9ml per line) and a potential stale-fluid zone that does not exist with the 2-way architecture where each valve has its own independent connection.
-
-### 2c. 3-Way Valves with Center-Off: Do They Exist?
+### 2d. 3-Way Valves with Center-Off: Do They Exist?
 
 A 3-way valve with a center-off position (all three ports closed when de-energized) would solve the idle-state problem. This would give: position A (fill path), position B (dispense path), and center position (all closed).
 
@@ -186,11 +198,11 @@ A 3-way valve with a center-off position (all three ports closed when de-energiz
 
 **Conclusion:** A cheap, compact, food-safe, 1/4" barb, 12V DC, 3-way valve with center-off position that is available overnight on Amazon Prime does not exist. The 2-way NC valve is the only architecture that provides the required "all closed" idle state using readily available, inexpensive, food-compatible components.
 
-### 2d. Architecture Comparison Summary
+### 2e. Architecture Comparison Summary
 
 | Configuration | Valve Count | Idle State | Dispense Power | Fill Power | Cost (total) | Availability |
 |---------------|-------------|------------|----------------|------------|-------------|--------------|
-| **8x 2-way NC (chosen)** | **8** | **All closed (zero power)** | **2 valves (~10W)** | **2 valves (~10W)** | **$48-80** | **Amazon Prime, overnight** |
+| **10x 2-way NC (chosen)** | **10** | **All closed (zero power)** | **1 valve (~5W)** | **2 valves (~10W)** | **~$90** | **Amazon Prime, overnight** |
 | 4x 3-way 2-position | 4 | Dispense path open (no off) | 0 valves (0W) | 2 valves (~8W) | $32-60 | Available but wrong behavior |
 | 4x 3-way 3-position center-off | 4 | All closed (requires dual solenoid) | Complex | Complex | Not available in required form | Does not exist as standard product |
 | 4x 4-way 3-pos center-closed (pneumatic) | 4 | All closed | Dual solenoid per valve | Dual solenoid | $120-220 | Available but wrong form factor |
@@ -201,7 +213,7 @@ A 3-way valve with a center-off position (all three ports closed when de-energiz
 
 ### 3a. Requirements
 
-All 8 valves must meet:
+All 10 valves must meet:
 - 12V DC operation (system runs on 12V rail)
 - Normally closed (NC) -- closed when de-energized
 - 2-way (single inlet, single outlet)
@@ -232,7 +244,7 @@ The RO (reverse osmosis) water purification market produces exactly the type of 
 - ASIN: B076KFCPGM
 - Same specs as above but rated for 0-0.05 MPa working pressure
 - Specifically designed for applications with no inlet water pressure
-- This variant may be better suited for the pump-inlet valves (V2, V6) where the pump creates suction rather than the water supply providing pressure
+- This variant may be better suited for pump-inlet valves where the pump creates suction rather than the water supply providing pressure
 
 **Candidate 3: SENSTREE (formerly ZAOJIAO) DC 12V 1/4" Solenoid Valve**
 - ASIN: B0743CSRFF
@@ -256,7 +268,7 @@ The RO (reverse osmosis) water purification market produces exactly the type of 
 - Weight: ~100g
 - Materials: Metal and plastic, designed for RO systems
 - Rating: 4.2/5 stars (143 ratings)
-- Price: ~$6-9 (check current listing)
+- Price: ~$8.99 (check current listing)
 - Prime eligible: Yes
 - Notes: Beduan is a well-known valve brand on Amazon with a wide product line.
 
@@ -283,7 +295,7 @@ All candidates above are designed for potable water contact in RO systems. Sugar
 
 ### 3d. Valve Heating Consideration
 
-These solenoid valves draw 4.8-5.5W continuously while energized. The coils will get warm (up to 60C per manufacturer specs). During dispense, 2 valves are energized for the duration of the pour (typically 5-15 seconds). During fill, 2 valves are energized for 3-5 minutes. Neither duty cycle is a thermal concern. The valves spend the vast majority of their time de-energized (idle/NC state) at zero power draw.
+These solenoid valves draw 4.8-5.5W continuously while energized. The coils will get warm (up to 60C per manufacturer specs). During dispense, only 1 valve is energized for the duration of the pour (typically 5-15 seconds). During fill, 2 valves are energized for 3-5 minutes. During air evacuation, 2 valves are energized briefly. Neither duty cycle is a thermal concern. The valves spend the vast majority of their time de-energized (idle/NC state) at zero power draw.
 
 ### 3e. Quick-Connect Fitting Compatibility
 
@@ -307,11 +319,11 @@ The system uses 1/4" ID silicone tubing (approximately 6.35mm OD with thin-wall 
 | Food safety | Excellent -- no fluid contact with valve internals |
 | 3-way available? | No. Pinch valves are inherently 2-way |
 
-**Verdict:** Pinch valves would work with the 8-valve architecture and have excellent food safety (no fluid contact). However, they are less common in 12V DC form, harder to source on Amazon Prime, and the tubing at the pinch point can fatigue over many cycles. They remain a viable alternative if the RO-style solenoid valves prove problematic with sugar syrup.
+**Verdict:** Pinch valves would work with the 10-valve architecture and have excellent food safety (no fluid contact). However, they are less common in 12V DC form, harder to source on Amazon Prime, and the tubing at the pinch point can fatigue over many cycles. They remain a viable alternative if the RO-style solenoid valves prove problematic with sugar syrup.
 
 ### 4b. 3-Way Solenoid Diaphragm Valves
 
-Available from Burkert, Parker, Beduan, and generic Amazon/AliExpress vendors. Typically $8-20 each ($15-35 for food-grade models). Would reduce valve count to 4 but lack the center-off idle state (see Section 2b-2c for detailed rejection rationale).
+Available from Burkert, Parker, Beduan, and generic Amazon/AliExpress vendors. Typically $8-20 each ($15-35 for food-grade models). Would reduce valve count but lack the center-off idle state (see Section 2b-2d for detailed rejection rationale).
 
 ### 4c. Solenoid Ball Valves (2-way and 3-way)
 
@@ -331,67 +343,60 @@ $20-50 per valve. Zero holding power (permanent magnet holds position, brief pul
 
 ### 5a. Enclosure Space Budget
 
-Interior: 272W x 292D x 392H mm (V1-A compact layout).
+At the 220mm width target, valves cannot be arranged in side banks flanking the cartridge -- there is not enough lateral space. Instead, the 10 valves are placed behind and/or above the cartridge dock area.
 
-The 8-valve design requires more physical space than 4 valves but the valves are individually small. Typical RO solenoid valve dimensions are approximately 50-55mm long x 30-35mm diameter (cylindrical body with quick-connect ports on each end).
+Typical RO solenoid valve dimensions are approximately 50-55mm long x 30-35mm diameter (cylindrical body with quick-connect ports on each end).
 
-### 5b. Fitting 8 Two-Way Valves
+### 5b. Fitting 10 Two-Way Valves
 
-**Option A: Four per side of cartridge (4 left for P1, 4 right for P2)**
+**Option A: Behind cartridge, two rows of 5**
 
-- Left group (P1 valves V1-V4): X=0-60, Y=100-165, Z=0-60. Four valves in a 2x2 grid at ~30mm pitch each = 60x60mm footprint, ~55mm tall.
-- Right group (P2 valves V5-V8): X=212-272, Y=100-165, Z=0-60. Same arrangement.
-- These zones are adjacent to the cartridge dock and accessible when the cartridge is removed.
+- Two rows of 5 valves along the dock back wall, spanning the full enclosure width.
+- 5 valves x ~35mm pitch = ~175mm per row, fits within the 220mm width.
+- Two rows at ~35mm depth = ~70mm total depth behind the cartridge.
+- All valves in one serviceable zone, accessible when cartridge is removed.
 
-**Option B: All eight in two rows along the dock back wall**
+**Option B: Above cartridge, single layer**
 
-- Two rows of 4, spanning Y=130-165, Z=0-60, X=30-230 (4 valves x 50mm pitch = 200mm per row).
-- Places all valves in one serviceable zone behind the cartridge.
+- 10 valves arranged in a 5x2 grid above the cartridge dock area.
+- Requires vertical space but preserves depth for bags.
+- Valves can be mounted upside-down with ports facing down for clean tube routing.
 
-**Option C: Two groups of 4, stacked vertically**
+**Option C: Mixed behind and above**
 
-- Each group has 4 valves stacked in a 2x2 arrangement, one group per side.
-- Minimizes floor footprint at the cost of height.
+- v1-v8 behind the cartridge (these connect to pump inlet/outlet), v9-v10 above or beside (dip tube connections route differently).
+- Keeps the most-used valves in the tightest integration zone near the pump fittings.
 
-**Recommendation for prototyping: Option A (four per side).** Groups each pump's valves together for clear tube routing. Individual valves are easy to replace during development.
+**Recommendation for prototyping: Option A (behind cartridge).** Groups all valves in one zone for clear tube routing and easy access. The 220mm width constraint rules out side-bank layouts used in wider enclosure designs.
 
 ### 5c. Valve Mounting
 
-RO solenoid valves typically have bracket clips or can be zip-tied/cable-clamped to a mounting surface. For prototyping, use 3D-printed valve cradles screwed to the enclosure floor. Orient valves with quick-connect ports facing toward their respective tube connections (bags rearward, hopper upward, dispensing line forward).
+RO solenoid valves typically have bracket clips or can be zip-tied/cable-clamped to a mounting surface. For prototyping, use 3D-printed valve cradles screwed to the enclosure floor or back wall. Orient valves with quick-connect ports facing toward their respective tube connections (bags rearward, hopper upward, dispensing line forward).
 
 ---
 
 ## 6. Tube Routing
 
-### 6a. Tube Segment Map (Per Flavor Line)
+### 6a. Tube Segment Map
 
-With 2-way NC valves, each valve has 2 ports (in and out). Each fluid path gets its own dedicated valve and tube run. No TEE junctions are needed at the bag connector -- the bag's single dip tube connects to a short manifold or splits to two separate valve ports via individual tubes.
+With the 10-valve topology and direct b->i connections, tube routing is simpler than the previous 8-valve design -- no TEE junctions are needed at the pump inlet. The bag bottom outlet connects directly to the pump inlet with a single tube.
 
-**Flavor Line 1 (P1):**
+**Key tube segments per line (Line 1 shown):**
 
-| Seg | From | To | Length (est.) | Tube ID |
-|-----|------|----|---------------|---------|
-| T1 | Hopper funnel outlet | V1 inlet (hopper→pump valve) | ~350mm | 4.5mm |
-| T2 | V1 outlet | P1 inlet (dock fitting) | ~75mm | 6.35mm |
-| T3 | Bag 1 dip tube connector | V2 inlet (bag→pump valve) | ~150mm | 6.35mm |
-| T4 | V2 outlet | P1 inlet (dock fitting, via TEE with T2) | ~80mm | 6.35mm |
-| T5 | P1 outlet (dock fitting) | V3 inlet (pump→dispense valve) | ~75mm | 6.35mm |
-| T6 | V3 outlet | Dispensing line exit (to faucet) | ~160mm | 6.35mm |
-| T7 | P1 outlet (dock fitting, via TEE with T5) | V4 inlet (pump→bag valve) | ~80mm | 6.35mm |
-| T8 | V4 outlet | Bag 1 dip tube connector (via TEE with T3) | ~150mm | 6.35mm |
+| Seg | From | To | Notes |
+|-----|------|----|-------|
+| b1->i1 | Bag 1 bottom outlet | Pump 1 inlet | DIRECT, no valve, always connected |
+| v5 path | Hopper branch h1 | Pump 1 inlet (via v5) | Joins at i1 with TEE |
+| v9 path | Dip tube t1 | Pump 1 inlet (via v9) | Joins at i1 with TEE |
+| v1 path | Pump 1 outlet o1 | Dispense line d1 (via v1) | To faucet |
+| v6 path | Pump 1 outlet o1 | Bag 1 bottom b1 (via v6) | Reverse fill into bag |
+| v3 path | Tap water w1 | Bag 1 bottom b1 (via v3) | Pressure-fed water fill |
 
-**Note on pump-side TEEs:** The pump has a single inlet tube and single outlet tube. Two valves connect to each side. This requires a TEE or Y-connector at the pump inlet (joining V1 output and V2 output) and another at the pump outlet (splitting to V3 input and V4 input). Because only one valve on each side is ever open at a time, there is no flow conflict. Similarly, the bag has a single dip tube connection, so bag-side valves V2 (inlet from bag) and V4 (outlet to bag) share a TEE at the bag connector.
+**Note on pump-inlet TEE:** The pump inlet (i1) has three possible sources: b1 (direct), v5 (hopper), and v9 (dip tube). These join at a TEE or manifold at i1. Because only one source path is ever open at a time (or none, during dispense where only the direct b1 path is active with all other valves closed), there is no flow conflict.
 
-**Flavor Line 2 (P2): Mirror image on the right side of the enclosure, using V5-V8.**
+**Note on pump-outlet split:** The pump outlet (o1) connects to v1 (dispense) and v6 (reverse fill to bag). These split at a TEE at o1. Only one is ever open at a time.
 
-### 6b. Dead Volume Estimate
-
-| Per Line | Approximate Dead Volume |
-|----------|------------------------|
-| Dispensing path (bag→V2→TEE→pump→TEE→V3→faucet) | ~15-18ml |
-| Fill path (hopper→V1→TEE→pump→TEE→V4→bag) | ~16-20ml |
-
-Dead volume is comparable to the 3-way valve topology since both architectures require TEEs at the pump connections. The 2-way architecture adds valve internal volume (small) but eliminates the bag-side TEE that the 3-way design requires.
+**Flavor Line 2: Mirror image using v2, v4, v7, v8, v10, b2, i2, o2, t2, d2.**
 
 ---
 
@@ -403,10 +408,10 @@ The cartridge contains 2 pumps, each with an inlet and outlet tube stub. The val
 
 | Connection | Cartridge Side | Enclosure Side |
 |------------|---------------|----------------|
-| P1 inlet | Tube stub from pump 1 inlet | TEE joining V1 and V2 outputs |
-| P1 outlet | Tube stub from pump 1 outlet | TEE splitting to V3 and V4 inputs |
-| P2 inlet | Tube stub from pump 2 inlet | TEE joining V5 and V6 outputs |
-| P2 outlet | Tube stub from pump 2 outlet | TEE splitting to V7 and V8 inputs |
+| P1 inlet | Tube stub from pump 1 inlet | TEE joining b1 (direct), v5 output, v9 output |
+| P1 outlet | Tube stub from pump 1 outlet | TEE splitting to v1 input and v6 input |
+| P2 inlet | Tube stub from pump 2 inlet | TEE joining b2 (direct), v7 output, v10 output |
+| P2 outlet | Tube stub from pump 2 outlet | TEE splitting to v2 input and v8 input |
 
 **4 fluid connections total.** CPC quick-disconnect fittings at the dock back wall provide tool-free insertion/removal with auto-shutoff when disconnected.
 
@@ -428,21 +433,21 @@ With 2-way NC valves, a failure means either the valve is stuck closed (fails to
 
 | Failure | Impact During Dispense | Impact During Fill | Impact During Idle | Severity |
 |---------|----------------------|-------------------|-------------------|----------|
-| V1 stuck closed | None (V1 not used in dispense) | Fill fails: no hopper→pump path | None (NC is the idle state) | Medium |
-| V1 stuck open | Hopper connected to pump inlet during dispense; air ingestion if hopper empty | Fill works normally | Hopper path not sealed; potential slow drain | High |
-| V2 stuck closed | Dispense fails: no bag→pump path | None (V2 not used in fill) | None | High |
-| V2 stuck open | Dispense works but bag path is always open | Bag not isolated during fill; recirculation risk | Bag path not sealed; potential backflow | High |
-| V3 stuck closed | Dispense fails: no pump→faucet path | None (V3 not used in fill) | None | High |
-| V3 stuck open | Dispense works but faucet path always open | Pump output leaks to faucet during fill | Faucet path not sealed; drip risk | High |
-| V4 stuck closed | None (V4 not used in dispense) | Fill fails: no pump→bag path | None | Medium |
-| V4 stuck open | Pump output leaks to bag during dispense | Fill works normally | Bag path not sealed | Medium |
+| v1 stuck closed | Dispense line 1 fails | None (v1 not used in fill) | None (NC is idle state) | High |
+| v1 stuck open | Dispense works but faucet path always open | Pump output leaks to faucet during fill | Faucet path not sealed; drip risk | High |
+| v5 stuck closed | None (v5 not used in dispense) | Hopper fill fails for line 1 | None | Medium |
+| v5 stuck open | Hopper connected to pump inlet; air ingestion if hopper empty | Fill works normally | Hopper path not sealed | High |
+| v6 stuck closed | None (v6 not used in dispense) | Reverse fill into bag 1 fails | None | Medium |
+| v6 stuck open | Pump output leaks to bag during dispense | Fill works normally | Bag path not sealed | Medium |
+| v9 stuck closed | None (v9 not used in dispense) | None | Air evacuation fails for line 1 | Medium |
+| v9 stuck open | Dip tube connected to pump inlet; air ingestion | None | Dip tube path not sealed | High |
 
 ### 8b. Safe Default State
 
-All 8 valves de-energize to closed (NC). If power fails or firmware crashes:
+All 10 valves de-energize to closed (NC). If power fails or firmware crashes:
 - All valves close (spring return to NC)
 - Pumps stop (no power = no flow)
-- All fluid paths sealed
+- All fluid paths sealed (except the direct b->i connections, which are harmless with pump stopped)
 - No unintended flow possible
 
 This is the safest possible default state. The only way to get unintended flow is if a valve physically fails open AND a pump somehow continues running -- requiring both a valve hardware fault AND a driver fault simultaneously.
@@ -467,25 +472,27 @@ This is the safest possible default state. The only way to get unintended flow i
 
 ### 9a. Valve Power Draw
 
+Peak theoretical: 10 valves x 4.8W = 48W. But all 10 are never open simultaneously. Maximum concurrent valves is 2-3, so real peak valve power is ~15W.
+
 | Mode | Valves Energized | Valve Power | Pump Power | Total System |
 |------|-----------------|-------------|------------|-------------|
 | Idle | 0 | 0W | 0W | ~1W (ESP32 + displays) |
-| Dispense 1 line | 2 (V2+V3 or V6+V7) | ~10W | ~5W | ~16W |
-| Dispense both | 4 (V2+V3+V6+V7) | ~20W | ~10W | ~31W |
-| Fill 1 line | 2 (V1+V4 or V5+V8) | ~10W | ~5W | ~16W |
+| Dispense 1 line | 1 (v1 or v2) | ~5W | ~5W | ~11W |
+| Dispense both | 2 (v1+v2) | ~10W | ~10W | ~21W |
+| Fill 1 line (hopper) | 2 (v5+v6 or v7+v8) | ~10W | ~5W | ~16W |
+| Fill 1 line (tap water) | 1 (v3 or v4) | ~5W | 0W | ~6W |
+| Air evacuation | 2 (v9+v1 or v10+v2) | ~10W | ~5W | ~16W |
 
 ### 9b. PSU Sizing
 
-Peak draw is during dual dispense: ~31W. A 12V/3A (36W) power supply handles all modes with headroom. If a 12V/2A (24W) supply is preferred, simultaneous dual-line dispense would need to be software-limited (dispense one line at a time, or stagger slightly).
-
-**Comparison to 3-way architecture:** The 3-way design draws 0W valve power during dispense (a clear advantage), but the 2-way architecture's dispense power draw of 10-20W is manageable for the short duration of a pour (5-15 seconds). The valves are only energized during active pump operation, not continuously.
+Peak draw is during dual dispense: ~21W, or during fill + pump: ~16W. Real peak with pumps is approximately 25W. A 12V/3A (36W) power supply handles all modes with generous headroom. A 12V/2A (24W) supply also works for all normal modes.
 
 ### 9c. Annual Energy Cost
 
 Assuming 10 dispenses/day at 10 seconds each, plus 1 fill/week at 5 minutes:
-- Dispense valve energy: 10W x 10s x 10/day x 365 = 0.10 kWh/year
+- Dispense valve energy: 5W x 10s x 10/day x 365 = 0.05 kWh/year
 - Fill valve energy: 10W x 300s x 52/week = 0.04 kWh/year
-- Total valve energy: ~0.14 kWh/year (negligible)
+- Total valve energy: ~0.09 kWh/year (negligible)
 
 ---
 
@@ -493,68 +500,74 @@ Assuming 10 dispenses/day at 10 seconds each, plus 1 fill/week at 5 minutes:
 
 ### 10a. MCP23017 I2C Expander Control
 
-Each 2-way NC solenoid valve needs 1 GPIO output (energize/de-energize) and 1 MOSFET driver circuit. The 8 valves are controlled via MCP23017 I2C I/O expander connected to the ESP32.
+Each 2-way NC solenoid valve needs 1 GPIO output (energize/de-energize) and 1 MOSFET driver circuit. The 10 valves are controlled via MCP23017 I2C I/O expander connected to the ESP32.
 
 | Resource | Count | Source |
 |----------|-------|--------|
-| GPIO outputs | 8 | MCP23017 (GPB0-GPB7) |
-| MOSFET drivers | 8 | IRLZ44N + 10k gate resistor + 100k pulldown + 1N4007 flyback diode, per valve |
-| 12V switched power | 8 channels | From 12V rail through MOSFETs |
+| GPIO outputs | 10 | MCP23017 (GPB0-GPB7 = v1-v8, GPA0-GPA1 = v9-v10) |
+| MOSFET drivers | 10 | IRLZ44N + 10k gate resistor + 100k pulldown + 1N4007 flyback diode, per valve |
+| 12V switched power | 10 channels | From 12V rail through MOSFETs |
 
-The MCP23017 has 16 GPIO pins in two 8-bit ports (GPA0-7, GPB0-7). Using all 8 GPB pins for valve control. GPA pins handle other functions (cartridge detection, status LEDs, etc.).
+The MCP23017 has 16 GPIO pins in two 8-bit ports (GPA0-7, GPB0-7). GPB0-GPB7 control v1-v8. GPA0-GPA1 control v9-v10. Remaining GPA pins handle other functions.
 
 ### 10b. Updated MCP23017 Pin Plan
 
 | MCP Pin | Direction | Function | Priority |
 |---------|-----------|----------|----------|
-| GPA0 | Output | Status LED green | Medium |
-| GPA1 | Output | Status LED amber | Medium |
+| GPA0 | Output | V9: dip tube 1 air evacuation (t1->i1) | High |
+| GPA1 | Output | V10: dip tube 2 air evacuation (t2->i2) | High |
 | GPA2 | Input | Cartridge detection switch | High |
 | GPA3 | Input | Lever position sensor | Medium |
-| GPA4 | -- | Unassigned | -- |
-| GPA5 | -- | Unassigned | -- |
+| GPA4 | Output | Status LED green | Medium |
+| GPA5 | Output | Status LED amber | Medium |
 | GPA6 | -- | Unassigned | -- |
 | GPA7 | -- | Unassigned | -- |
-| GPB0 | Output | V1: P1 inlet valve A (hopper→pump) | High |
-| GPB1 | Output | V2: P1 inlet valve B (bag→pump) | High |
-| GPB2 | Output | V3: P1 outlet valve B (pump→dispense) | High |
-| GPB3 | Output | V4: P1 outlet valve A (pump→bag) | High |
-| GPB4 | Output | V5: P2 inlet valve A (hopper→pump) | High |
-| GPB5 | Output | V6: P2 inlet valve B (bag→pump) | High |
-| GPB6 | Output | V7: P2 outlet valve B (pump→dispense) | High |
-| GPB7 | Output | V8: P2 outlet valve A (pump→bag) | High |
+| GPB0 | Output | V1: dispense line 1 (o1->d1) | High |
+| GPB1 | Output | V2: dispense line 2 (o2->d2) | High |
+| GPB2 | Output | V3: tap water fill bag 1 (w1->b1) | High |
+| GPB3 | Output | V4: tap water fill bag 2 (w2->b2) | High |
+| GPB4 | Output | V5: hopper to pump 1 inlet (h1->i1) | High |
+| GPB5 | Output | V6: pump 1 outlet to bag 1 (o1->b1) | High |
+| GPB6 | Output | V7: hopper to pump 2 inlet (h2->i2) | High |
+| GPB7 | Output | V8: pump 2 outlet to bag 2 (o2->b2) | High |
 
-**Assigned: 12 of 16 pins. Free: 4 pins (GPA4-7).**
+**Assigned: 14 of 16 pins. Free: 2 pins (GPA6-7).**
 
 ### 10c. Firmware Valve Control
 
-Valve control via MCP23017 is straightforward:
-- I2C write to GPB register sets all 8 valve states simultaneously
-- Mode changes are atomic: write one byte to switch from idle→dispense or idle→fill
+Valve control via MCP23017 uses two registers -- GPIOA for v9/v10 and GPIOB for v1-v8:
+
+- I2C write to GPB register sets v1-v8 states simultaneously
+- I2C write to GPA register sets v9-v10 states (along with other GPA functions)
+- Mode changes are atomic per port
 - MCP23017 I2C address: 0x20 (A0=A1=A2=GND)
 - I2C bus: shared with FDC1004 capacitive sensor and any other I2C peripherals
-- Valve state byte examples:
+
+GPB valve state byte examples:
   - Idle: `0b00000000` (all closed)
-  - Dispense line 1: `0b00000110` (V2+V3 open)
-  - Dispense line 2: `0b01100000` (V6+V7 open)
-  - Dispense both: `0b01100110` (V2+V3+V6+V7 open)
-  - Fill line 1: `0b00001001` (V1+V4 open)
-  - Fill line 2: `0b10010000` (V5+V8 open)
+  - Dispense line 1: `0b00000001` (v1 open)
+  - Dispense line 2: `0b00000010` (v2 open)
+  - Dispense both: `0b00000011` (v1+v2 open)
+  - Fill bag 1 (hopper): `0b00110000` (v5+v6 open)
+  - Fill bag 2 (hopper): `0b11000000` (v7+v8 open)
+  - Fill bag 1 (tap water): `0b00000100` (v3 open)
+  - Fill bag 2 (tap water): `0b00001000` (v4 open)
+
+GPA valve bits (low 2 bits):
+  - Air evacuate line 1: GPA0=1 (v9 open), combined with GPB v1 open
+  - Air evacuate line 2: GPA1=1 (v10 open), combined with GPB v2 open
 
 ---
 
-## 11. Clean Water Integration
+## 11. BOM Summary (Valves Only)
 
-### 11a. Cleaning Path
-
-The previous topology had dedicated clean solenoids for injecting tap water into bags. With the 8-valve architecture, clean water can enter through the hopper path:
-
-1. Pour clean water into the hopper funnel
-2. Run fill mode (V1+V4 open for line 1, or V5+V8 for line 2)
-3. Pump pushes clean water from hopper through pump into bag
-4. Switch to dispense mode (V2+V3 or V6+V7) and run pump to flush the dispense line
-
-Alternatively, a dedicated clean solenoid can be added on the hopper feed line (controlled by a spare GPA pin) to connect tap water directly without pouring into the hopper. This uses the same fill-mode valve configuration.
+| Item | Qty | Unit Price | Total | Source |
+|------|-----|-----------|-------|--------|
+| Beduan 12V 1/4" NC Solenoid Valve (B07NWCQJK9) | 10 | ~$8.99 | ~$90 | Amazon Prime |
+| IRLZ44N MOSFET (driver) | 10 | ~$0.50 | ~$5 | Amazon/Mouser |
+| 1N4007 flyback diode | 10 | ~$0.10 | ~$1 | Amazon/Mouser |
+| 10k + 100k resistors (per driver) | 20 | ~$0.05 | ~$1 | Amazon/Mouser |
+| **Valve subsystem total** | | | **~$97** | |
 
 ---
 
@@ -564,22 +577,23 @@ Alternatively, a dedicated clean solenoid can be added on the hopper feed line (
 
 | Decision | Resolution | Rationale |
 |----------|-----------|-----------|
-| Valve architecture | 8 two-way NC solenoid valves (4 per pump) | Only architecture providing "all closed" idle state with cheap, available components |
+| Valve architecture | 10 two-way NC solenoid valves (5 per pump) | Only architecture providing "all closed" idle state with cheap, available components; direct b->i connection saves 2 valves |
 | 3-way valves | Rejected | No center-off position; always leaves one path open; 3-position variants don't exist in required form |
-| Valve type | 2-way NC solenoid, RO water style, 12V DC, 1/4" quick-connect | Food-grade, $6-8 each, Amazon Prime overnight, proven in water systems |
-| Primary candidate | DIGITEN B016MP1HX0 or Beduan B07NWCQJK9 | Both ~$7, food quality, 12V DC, 1/4" QC, widely available |
-| GPIO control | MCP23017 I2C expander, GPB0-GPB7 | All 8 valves on one port, single-byte state changes, preserves ESP32 native GPIOs |
+| Valve type | 2-way NC solenoid, RO water style, 12V DC, 1/4" quick-connect | Food-grade, ~$9 each, Amazon Prime overnight, proven in water systems |
+| Primary candidate | Beduan B07NWCQJK9 | ~$8.99, food quality, 12V DC, 1/4" QC, widely available |
+| GPIO control | MCP23017 I2C expander, GPB0-GPB7 = v1-v8, GPA0-GPA1 = v9-v10 | All 10 valves on one expander, preserves ESP32 native GPIOs |
 | Safe default | All valves NC (closed), all pumps off | Power loss = everything sealed, no flow possible |
+| Physical placement | Behind/above cartridge (not side banks) | 220mm width target too narrow for side-mounted valve banks |
 
 ### 12b. Open Questions
 
 | Question | Impact | Next Step |
 |----------|--------|-----------|
-| Sugar syrup compatibility | Valve seal longevity with sticky residue | Order DIGITEN + Beduan, run 30-day soak test with actual syrup |
+| Sugar syrup compatibility | Valve seal longevity with sticky residue | Order Beduan + DIGITEN, run 30-day soak test with actual syrup |
 | Zero-pressure variant needed? | Pump-inlet valves see suction, not pressure | Test both standard (B016MP1HX0) and zero-pressure (B076KFCPGM) DIGITEN variants |
 | Quick-connect vs. barb fitting | Tubing OD compatibility | Verify 1/4" silicone tubing OD fits push-connect; order barb adapters as backup |
-| PSU sizing for dual dispense | 31W peak may exceed 24W supply | Size PSU at 36W (12V/3A) or limit to single-line dispense in firmware |
-| Valve mounting in enclosure | Physical layout of 8 valves (vs. previous 4-valve plan) | Update master spatial layout to accommodate 4 valves per side |
+| PSU sizing | ~25W peak is well within 36W supply | Size PSU at 36W (12V/3A) for comfortable headroom |
+| Valve mounting in enclosure | Physical layout of 10 valves behind cartridge at 220mm width | Update master spatial layout for behind-cartridge valve zone |
 
 ---
 
