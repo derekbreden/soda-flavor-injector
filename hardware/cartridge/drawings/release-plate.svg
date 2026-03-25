@@ -233,17 +233,14 @@
   <!-- Right ear -->
   <path d="M550,155 L610,155 L610,187 L550,187" fill="none" stroke="#000" stroke-width="2"/>
 
-  <!-- Guide pin slots in top view - elongated along Y (vertical in this view) -->
+  <!-- Guide pin slots in top view - through-slots along travel axis (Y direction) -->
+  <!-- These are through-slots in the ear tabs, shown as open rectangles -->
   <!-- Left slot at X=-5.5: px=110+(-5.5)*8=66. Slot 3.3mm wide in X: half-width=1.65*8=13.2 -->
-  <!-- px: 66-13.2=52.8 to 66+13.2=79.2 -->
-  <rect x="52.8" y="145" width="26.4" height="52" fill="white" stroke="none"/>
-  <line x1="52.8" y1="147" x2="52.8" y2="195" fill="none" stroke="#000" stroke-width="1.5"/>
-  <line x1="79.2" y1="147" x2="79.2" y2="195" fill="none" stroke="#000" stroke-width="1.5"/>
+  <!-- px: 66-13.2=52.8 to 66+13.2=79.2, full ear depth -->
+  <rect x="52.8" y="155" width="26.4" height="32" fill="none" stroke="#000" stroke-width="1.5"/>
 
   <!-- Right slot at X=60.5: px=110+60.5*8=594. px: 594-13.2=580.8 to 594+13.2=607.2 -->
-  <rect x="580.8" y="145" width="26.4" height="52" fill="white" stroke="none"/>
-  <line x1="580.8" y1="147" x2="580.8" y2="195" fill="none" stroke="#000" stroke-width="1.5"/>
-  <line x1="607.2" y1="147" x2="607.2" y2="195" fill="none" stroke="#000" stroke-width="1.5"/>
+  <rect x="580.8" y="155" width="26.4" height="32" fill="none" stroke="#000" stroke-width="1.5"/>
 
   <!-- Bore positions as hidden lines (tube clearance 8mm dia) -->
   <!-- Bore column at X=7.5: tube hole edges at X=3.5 and X=11.5 -->
