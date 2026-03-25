@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 850" width="1100" height="850" font-family="Arial, Helvetica, sans-serif">
   <defs>
-    <!-- Arrowhead for dimension lines -->
     <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
       <path d="M0,0 L8,3 L0,6 Z" fill="#333"/>
     </marker>
@@ -13,124 +12,171 @@
   <rect width="1100" height="850" fill="white"/>
 
   <!-- ============================================================ -->
-  <!-- FRONT VIEW (top-left) — looking from front, X-Z plane        -->
-  <!-- Scale 2:1 — 1mm = 2px                                        -->
-  <!-- Rack: 186W x 120H mm → 372 x 240 px                          -->
-  <!-- Origin at (80, 60)                                            -->
+  <!-- FRONT VIEW (top-left) - looking along Y axis, X-Z plane     -->
+  <!-- Scale 2:1: 1mm = 2px                                        -->
+  <!-- Rack: 186W x 120H mm = 372 x 240 px                         -->
+  <!-- Origin: x0=80, y0=60                                        -->
+  <!-- SVG y=60 = Z=120mm (top), y=300 = Z=0 (bottom)              -->
+  <!-- X: left=80 (X=0mm), right=452 (X=186mm)                     -->
   <!-- ============================================================ -->
 
   <text x="266" y="30" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">FRONT VIEW</text>
-  <text x="266" y="46" text-anchor="middle" font-size="10" fill="#666">(looking toward cartridge dock)</text>
+  <text x="266" y="46" text-anchor="middle" font-size="10" fill="#666">(looking toward rear)</text>
 
-  <!-- Front view origin: x0=80, y0=60 -->
   <!-- Rack outline -->
   <rect x="80" y="60" width="372" height="240" fill="none" stroke="#222" stroke-width="2"/>
 
-  <!-- Row 1 (bottom): Z=0 to 58.4mm → y from 300 to 300-116.8=183.2 (SVG y inverted) -->
-  <!-- Actually: rack top = y=60, rack bottom = y=300 -->
-  <!-- Row 2 (top): Z=62 to 120.4 → SVG y = 300 - 120.4*2 = 59.2 to 300 - 62*2 = 176 -->
-  <!-- Row 1 (bottom): Z=0 to 58.4 → SVG y = 300 - 58.4*2 = 183.2 to 300 -->
+  <!-- ===== VALVE BODIES (phantom/hidden) ===== -->
+  <!-- 5 columns at 38mm pitch, starting 17mm from left edge -->
+  <!-- Column centers (mm): 17, 55, 93, 131, 169 -->
+  <!-- Valve body: 34mm wide = 68px -->
+  <!-- Column pixel centers: 80+34=114, 80+110=190, 80+186=266, 80+262=342, 80+338=418 -->
+  <!-- Valve left edges (px): 80, 156, 232, 308, 384 -->
 
-  <!-- Valve positions: 5 valves at 38mm pitch -->
-  <!-- Valve 1 center X: 17mm from left edge (34/2) → px: 80 + 34 = 114 -->
-  <!-- Valve n center X: 17 + (n-1)*38 mm -->
+  <!-- Row 2 (top): Z=62mm to Z=120mm -> y=60 to y=60+(120-62)*2=60+116=176 -->
+  <!-- Row 1 (bottom): Z=0mm to Z=58mm -> y=300-58*2=184 to y=300 -->
 
-  <!-- Row 2 (top row) - valves 6-10 -->
-  <!-- Z from 61.6 to 120mm (58.4mm body + starts at 61.6 = 3.2mm gap) -->
-  <!-- Let's use spec: Row 2 Z=62 to Z=120.4, but rack is 120mm so Z=61.6 to 120 -->
-  <!-- Actually spec says: Row 1 Z=0-58, Row 2 Z=62-120, 4mm gap -->
-  <!-- Row 2 top SVG: y=60, bottom SVG: y=60 + (120-62)*2 = 60+116=176 -->
-  <!-- Wait, need to map correctly. Z=0 is bottom of rack, Z=120 is top -->
-  <!-- SVG y=60 is top of rack (Z=120), y=300 is bottom (Z=0) -->
-  <!-- Row 1 bottom: Z=0→y=300, Z=58.4→y=300-116.8=183.2 -->
-  <!-- Row 2 bottom: Z=62→y=300-124=176, Z=120→y=300-240=60 -->
-  <!-- But 62+58.4=120.4 exceeds 120mm rack. Spec says Row2 Z=62-120. So valve body 58mm shown. -->
-
-  <!-- Row 2 (top) valve outlines - dashed (phantom) -->
-  <!-- Valve 1: x = 80+0 to 80+68, y = 60 to 176 -->
+  <!-- Top row valves (dashed) -->
   <rect x="80" y="60" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
   <rect x="156" y="60" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
   <rect x="232" y="60" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
   <rect x="308" y="60" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
   <rect x="384" y="60" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
 
-  <!-- Row 1 (bottom) valve outlines - dashed -->
+  <!-- Bottom row valves (dashed) -->
   <rect x="80" y="184" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
   <rect x="156" y="184" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
   <rect x="232" y="184" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
   <rect x="308" y="184" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
   <rect x="384" y="184" width="68" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
 
-  <!-- Retention clips (snap-over arms) - small tabs on valve sides, 2 per valve -->
-  <!-- Show as small rectangles on left and right of each valve body -->
-  <!-- Top row clips -->
+  <!-- ===== RETENTION CLIPS (front view) ===== -->
+  <!-- Small snap-over arms on left/right of each valve at ~1/3 and 2/3 height -->
+  <!-- These are small triangular tabs gripping the valve body -->
   <g stroke="#555" stroke-width="1.2" fill="none">
-    <!-- Row 2 clips (top row) - at ~1/3 and 2/3 of valve height -->
-    <!-- Valve 1 -->
-    <path d="M78,90 L80,86 L80,94 L78,90"/>
-    <path d="M150,90 L148,86 L148,94 L150,90"/>
-    <path d="M78,146 L80,142 L80,150 L78,146"/>
-    <path d="M150,146 L148,142 L148,150 L150,146"/>
-    <!-- Valve 2 -->
-    <path d="M154,90 L156,86 L156,94 L154,90"/>
-    <path d="M226,90 L224,86 L224,94 L226,90"/>
-    <path d="M154,146 L156,142 L156,150 L154,146"/>
-    <path d="M226,146 L224,142 L224,150 L226,146"/>
-    <!-- Valve 3 -->
-    <path d="M230,90 L232,86 L232,94 L230,90"/>
-    <path d="M302,90 L300,86 L300,94 L302,90"/>
-    <path d="M230,146 L232,142 L232,150 L230,146"/>
-    <path d="M302,146 L300,142 L300,150 L302,146"/>
-    <!-- Valve 4 -->
-    <path d="M306,90 L308,86 L308,94 L306,90"/>
-    <path d="M378,90 L376,86 L376,94 L378,90"/>
-    <path d="M306,146 L308,142 L308,150 L306,146"/>
-    <path d="M378,146 L376,142 L376,150 L378,146"/>
-    <!-- Valve 5 -->
-    <path d="M382,90 L384,86 L384,94 L382,90"/>
-    <path d="M454,90 L452,86 L452,94 L454,90"/>
-    <path d="M382,146 L384,142 L384,150 L382,146"/>
-    <path d="M454,146 L452,142 L452,150 L454,146"/>
+    <!-- Top row clips: valve height 116px, 1/3=~39px, 2/3=~77px from top of valve -->
+    <!-- Row 2 top y=60, so clip heights at y=99 and y=137 -->
 
-    <!-- Row 1 clips (bottom row) -->
+    <!-- Valve 1 (x=80 to 148) -->
+    <path d="M78,95 L80,91 L80,99 L78,95"/>
+    <path d="M150,95 L148,91 L148,99 L150,95"/>
+    <path d="M78,133 L80,129 L80,137 L78,133"/>
+    <path d="M150,133 L148,129 L148,137 L150,133"/>
+    <!-- Valve 2 (x=156 to 224) -->
+    <path d="M154,95 L156,91 L156,99 L154,95"/>
+    <path d="M226,95 L224,91 L224,99 L226,95"/>
+    <path d="M154,133 L156,129 L156,137 L154,133"/>
+    <path d="M226,133 L224,129 L224,137 L226,133"/>
+    <!-- Valve 3 (x=232 to 300) -->
+    <path d="M230,95 L232,91 L232,99 L230,95"/>
+    <path d="M302,95 L300,91 L300,99 L302,95"/>
+    <path d="M230,133 L232,129 L232,137 L230,133"/>
+    <path d="M302,133 L300,129 L300,137 L302,133"/>
+    <!-- Valve 4 (x=308 to 376) -->
+    <path d="M306,95 L308,91 L308,99 L306,95"/>
+    <path d="M378,95 L376,91 L376,99 L378,95"/>
+    <path d="M306,133 L308,129 L308,137 L306,133"/>
+    <path d="M378,133 L376,129 L376,137 L378,133"/>
+    <!-- Valve 5 (x=384 to 452) -->
+    <path d="M382,95 L384,91 L384,99 L382,95"/>
+    <path d="M454,95 L452,91 L452,99 L454,95"/>
+    <path d="M382,133 L384,129 L384,137 L382,133"/>
+    <path d="M454,133 L452,129 L452,137 L454,133"/>
+
+    <!-- Bottom row clips: valve top at y=184, 1/3=y=223, 2/3=y=261 -->
     <!-- Valve 1 -->
-    <path d="M78,214 L80,210 L80,218 L78,214"/>
-    <path d="M150,214 L148,210 L148,218 L150,214"/>
-    <path d="M78,270 L80,266 L80,274 L78,270"/>
-    <path d="M150,270 L148,266 L148,274 L150,270"/>
+    <path d="M78,219 L80,215 L80,223 L78,219"/>
+    <path d="M150,219 L148,215 L148,223 L150,219"/>
+    <path d="M78,257 L80,253 L80,261 L78,257"/>
+    <path d="M150,257 L148,253 L148,261 L150,257"/>
     <!-- Valve 2 -->
-    <path d="M154,214 L156,210 L156,218 L154,214"/>
-    <path d="M226,214 L224,210 L224,218 L226,214"/>
-    <path d="M154,270 L156,266 L156,274 L154,270"/>
-    <path d="M226,270 L224,266 L224,274 L226,270"/>
+    <path d="M154,219 L156,215 L156,223 L154,219"/>
+    <path d="M226,219 L224,215 L224,223 L226,219"/>
+    <path d="M154,257 L156,253 L156,261 L154,257"/>
+    <path d="M226,257 L224,253 L224,261 L226,257"/>
     <!-- Valve 3 -->
-    <path d="M230,214 L232,210 L232,218 L230,214"/>
-    <path d="M302,214 L300,210 L300,218 L302,214"/>
-    <path d="M230,270 L232,266 L232,274 L230,270"/>
-    <path d="M302,270 L300,266 L300,274 L302,270"/>
+    <path d="M230,219 L232,215 L232,223 L230,219"/>
+    <path d="M302,219 L300,215 L300,223 L302,219"/>
+    <path d="M230,257 L232,253 L232,261 L230,257"/>
+    <path d="M302,257 L300,253 L300,261 L302,257"/>
     <!-- Valve 4 -->
-    <path d="M306,214 L308,210 L308,218 L306,214"/>
-    <path d="M378,214 L376,210 L376,218 L378,214"/>
-    <path d="M306,270 L308,266 L308,274 L306,270"/>
-    <path d="M378,270 L376,266 L376,274 L378,270"/>
+    <path d="M306,219 L308,215 L308,223 L306,219"/>
+    <path d="M378,219 L376,215 L376,223 L378,219"/>
+    <path d="M306,257 L308,253 L308,261 L306,257"/>
+    <path d="M378,257 L376,253 L376,261 L378,257"/>
     <!-- Valve 5 -->
-    <path d="M382,214 L384,210 L384,218 L382,214"/>
-    <path d="M454,214 L452,210 L452,218 L454,214"/>
-    <path d="M382,270 L384,266 L384,274 L382,270"/>
-    <path d="M454,270 L452,266 L452,274 L454,270"/>
+    <path d="M382,219 L384,215 L384,223 L382,219"/>
+    <path d="M454,219 L452,215 L452,223 L454,219"/>
+    <path d="M382,257 L384,253 L384,261 L382,257"/>
+    <path d="M454,257 L452,253 L452,261 L454,257"/>
   </g>
 
-  <!-- Mounting tabs - 4 tabs at corners, small rectangles extending from rack -->
-  <rect x="80" y="300" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="92" cy="306" r="3" fill="none" stroke="#222" stroke-width="1"/>
-  <rect x="428" y="300" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="440" cy="306" r="3" fill="none" stroke="#222" stroke-width="1"/>
-  <rect x="80" y="48" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="92" cy="54" r="3" fill="none" stroke="#222" stroke-width="1"/>
-  <rect x="428" y="48" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="440" cy="54" r="3" fill="none" stroke="#222" stroke-width="1"/>
+  <!-- ===== QC FITTINGS (front view) ===== -->
+  <!-- Fittings run along X axis (per spec: circles in side view = looking along X). -->
+  <!-- From front (looking along Y), we see fittings perpendicular to their axis. -->
+  <!-- They appear as small rectangular protrusions on left/right of each valve. -->
 
-  <!-- FRONT VIEW DIMENSIONS -->
+  <!-- Top row QC fittings - rectangles (perpendicular to fitting X axis) -->
+  <g fill="none" stroke="#555" stroke-width="1">
+    <!-- Top row: valve center Z at (62+120)/2 = 91mm -> y = 300-91*2 = 118 -->
+    <!-- Left side fittings (protruding left from valve body) -->
+    <rect x="72" y="115" width="8" height="6"/>
+    <rect x="148" y="115" width="8" height="6"/>
+    <rect x="224" y="115" width="8" height="6"/>
+    <rect x="300" y="115" width="8" height="6"/>
+    <rect x="376" y="115" width="8" height="6"/>
+    <!-- Right side fittings (protruding right from valve body) -->
+    <rect x="148" y="115" width="8" height="6"/>
+    <rect x="224" y="115" width="8" height="6"/>
+    <rect x="300" y="115" width="8" height="6"/>
+    <rect x="376" y="115" width="8" height="6"/>
+    <rect x="452" y="115" width="8" height="6"/>
+    <!-- Bottom row: valve center Z at (0+58)/2 = 29mm -> y = 300-29*2 = 242 -->
+    <!-- Left side fittings -->
+    <rect x="72" y="239" width="8" height="6"/>
+    <rect x="148" y="239" width="8" height="6"/>
+    <rect x="224" y="239" width="8" height="6"/>
+    <rect x="300" y="239" width="8" height="6"/>
+    <rect x="376" y="239" width="8" height="6"/>
+    <!-- Right side fittings -->
+    <rect x="148" y="239" width="8" height="6"/>
+    <rect x="224" y="239" width="8" height="6"/>
+    <rect x="300" y="239" width="8" height="6"/>
+    <rect x="376" y="239" width="8" height="6"/>
+    <rect x="452" y="239" width="8" height="6"/>
+  </g>
+
+  <!-- ===== MOUNTING TABS (front view) ===== -->
+  <!-- 4 tabs at corners, extending outward (up/down beyond rack). -->
+  <!-- Tabs are rectangular, with holes passing through in Y direction. -->
+  <!-- From front view: tabs are visible as rectangles; holes are hidden lines -->
+  <!-- (two parallel dashed horizontal lines representing the hole bore). -->
+
+  <!-- Tab dimensions: ~12mm wide x 6mm tall = 24px x 12px -->
+  <!-- Bottom-left tab -->
+  <rect x="80" y="300" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
+  <!-- Mounting hole as hidden lines (Y-direction hole) -->
+  <line x1="87" y1="303" x2="99" y2="303" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <line x1="87" y1="309" x2="99" y2="309" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <!-- Bottom-right tab -->
+  <rect x="428" y="300" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
+  <line x1="435" y1="303" x2="447" y2="303" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <line x1="435" y1="309" x2="447" y2="309" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <!-- Top-left tab -->
+  <rect x="80" y="48" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
+  <line x1="87" y1="51" x2="99" y2="51" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <line x1="87" y1="57" x2="99" y2="57" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <!-- Top-right tab -->
+  <rect x="428" y="48" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
+  <line x1="435" y1="51" x2="447" y2="51" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <line x1="435" y1="57" x2="447" y2="57" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+
+  <!-- Row divider line (4mm gap between rows) - rack horizontal member -->
+  <line x1="80" y1="176" x2="452" y2="176" stroke="#222" stroke-width="1.5"/>
+  <line x1="80" y1="184" x2="452" y2="184" stroke="#222" stroke-width="1.5"/>
+
+  <!-- ===== FRONT VIEW DIMENSIONS ===== -->
+
   <!-- Overall width: 186mm -->
   <line x1="80" y1="340" x2="80" y2="325" stroke="#333" stroke-width="0.5"/>
   <line x1="452" y1="340" x2="452" y2="325" stroke="#333" stroke-width="0.5"/>
@@ -143,201 +189,260 @@
   <line x1="480" y1="60" x2="480" y2="300" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
   <text x="495" y="184" text-anchor="start" font-size="11" fill="#333">120</text>
 
-  <!-- Valve pitch horizontal: 38mm -->
+  <!-- Valve pitch: 38mm -->
   <line x1="114" y1="370" x2="114" y2="358" stroke="#333" stroke-width="0.5"/>
   <line x1="190" y1="370" x2="190" y2="358" stroke="#333" stroke-width="0.5"/>
   <line x1="114" y1="365" x2="190" y2="365" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
   <text x="152" y="380" text-anchor="middle" font-size="10" fill="#333">38</text>
 
-  <!-- Valve width: 34mm (first valve) -->
+  <!-- Valve width: 34mm -->
   <line x1="80" y1="395" x2="80" y2="385" stroke="#333" stroke-width="0.5"/>
   <line x1="148" y1="395" x2="148" y2="385" stroke="#333" stroke-width="0.5"/>
   <line x1="80" y1="390" x2="148" y2="390" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
   <text x="114" y="405" text-anchor="middle" font-size="10" fill="#333">34</text>
 
-  <!-- Row height: 58.4mm (58mm shown) -->
-  <line x1="520" y1="184" x2="535" y2="184" stroke="#333" stroke-width="0.5"/>
-  <line x1="520" y1="300" x2="535" y2="300" stroke="#333" stroke-width="0.5"/>
-  <line x1="530" y1="184" x2="530" y2="300" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
-  <text x="545" y="246" text-anchor="start" font-size="10" fill="#333">58</text>
+  <!-- Row heights and gap (right side, stacked) -->
+  <!-- Bottom row: 58mm -->
+  <line x1="510" y1="184" x2="525" y2="184" stroke="#333" stroke-width="0.5"/>
+  <line x1="510" y1="300" x2="525" y2="300" stroke="#333" stroke-width="0.5"/>
+  <line x1="520" y1="184" x2="520" y2="300" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
+  <text x="535" y="246" text-anchor="start" font-size="10" fill="#333">58</text>
 
-  <!-- Row gap: 4mm -->
-  <line x1="520" y1="176" x2="535" y2="176" stroke="#333" stroke-width="0.5"/>
-  <line x1="530" y1="176" x2="530" y2="184" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
-  <text x="545" y="183" text-anchor="start" font-size="9" fill="#333">4</text>
+  <!-- Gap: 4mm -->
+  <line x1="510" y1="176" x2="525" y2="176" stroke="#333" stroke-width="0.5"/>
+  <line x1="520" y1="176" x2="520" y2="184" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
+  <text x="535" y="183" text-anchor="start" font-size="9" fill="#333">4</text>
 
-  <!-- Top row height: 58mm -->
-  <line x1="520" y1="60" x2="535" y2="60" stroke="#333" stroke-width="0.5"/>
-  <line x1="530" y1="60" x2="530" y2="176" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
-  <text x="545" y="122" text-anchor="start" font-size="10" fill="#333">58</text>
+  <!-- Top row: 58mm -->
+  <line x1="510" y1="60" x2="525" y2="60" stroke="#333" stroke-width="0.5"/>
+  <line x1="520" y1="60" x2="520" y2="176" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
+  <text x="535" y="122" text-anchor="start" font-size="10" fill="#333">58</text>
 
   <!-- ============================================================ -->
-  <!-- SIDE VIEW (top-right) — looking from right side, Y-Z plane   -->
-  <!-- Rack: 64D x 120H mm → 128 x 240 px                          -->
-  <!-- Origin at (620, 60), aligned vertically with front view      -->
+  <!-- SIDE VIEW (top-right) - looking along X axis, Y-Z plane     -->
+  <!-- Rack: 64D x 120H mm = 128 x 240 px                          -->
+  <!-- Origin: x0=590, y0=60  (shares Z axis y-range with front)   -->
+  <!-- Y=0 (front) at x=590, Y=64 (rear) at x=718                  -->
   <!-- ============================================================ -->
 
-  <text x="684" y="30" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">SIDE VIEW</text>
-  <text x="684" y="46" text-anchor="middle" font-size="10" fill="#666">(looking from right)</text>
+  <text x="654" y="30" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">SIDE VIEW</text>
+  <text x="654" y="46" text-anchor="middle" font-size="10" fill="#666">(looking from right)</text>
 
   <!-- Rack outline -->
-  <rect x="620" y="60" width="128" height="240" fill="none" stroke="#222" stroke-width="2"/>
+  <rect x="590" y="60" width="128" height="240" fill="none" stroke="#222" stroke-width="2"/>
+
+  <!-- Row divider -->
+  <line x1="590" y1="176" x2="718" y2="176" stroke="#222" stroke-width="1.5"/>
+  <line x1="590" y1="184" x2="718" y2="184" stroke="#222" stroke-width="1.5"/>
 
   <!-- Valve cross-sections (side profile) - dashed -->
-  <!-- Each valve: 63.5mm deep x 58.4mm tall -->
-  <!-- Valve depth fits rack depth (64mm), centered: offset = (64-63.5)/2 = 0.25mm ≈ 0.5px -->
-  <!-- Top row valve -->
-  <rect x="621" y="60" width="127" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
-  <!-- Bottom row valve -->
-  <rect x="621" y="184" width="127" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
+  <!-- Each valve: 63.5mm deep x 58mm tall = 127px x 116px -->
+  <!-- Centered in 64mm depth: offset = (64-63.5)/2 = 0.25mm = 0.5px -->
+  <!-- Top row valve silhouette -->
+  <rect x="591" y="60" width="127" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
+  <!-- Bottom row valve silhouette -->
+  <rect x="591" y="184" width="127" height="116" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
 
-  <!-- Saddle profile - curved cradle at bottom of each valve position -->
-  <!-- Top row saddle -->
-  <path d="M625,176 Q630,172 640,170 Q660,167 684,166 Q708,167 728,170 Q738,172 743,176" fill="none" stroke="#555" stroke-width="1.5"/>
-  <!-- Bottom row saddle -->
-  <path d="M625,300 Q630,296 640,294 Q660,291 684,290 Q708,291 728,294 Q738,296 743,300" fill="none" stroke="#555" stroke-width="1.5"/>
+  <!-- ===== SADDLE PROFILES (side view) ===== -->
+  <!-- Curved cradles at bottom of each valve pocket -->
+  <!-- Top row saddle (at Z=62mm boundary = y=176) -->
+  <path d="M595,176 Q605,172 620,169 Q640,166 654,165 Q668,166 688,169 Q703,172 713,176" fill="none" stroke="#555" stroke-width="1.5"/>
+  <!-- Bottom row saddle (at Z=0mm boundary = y=300) -->
+  <path d="M595,300 Q605,296 620,293 Q640,290 654,289 Q668,290 688,293 Q703,296 713,300" fill="none" stroke="#555" stroke-width="1.5"/>
 
-  <!-- Retention clips (side view - small bumps at top of valve) -->
-  <path d="M640,60 L640,56 L644,56 L644,60" fill="none" stroke="#555" stroke-width="1.2"/>
-  <path d="M724,60 L724,56 L728,56 L728,60" fill="none" stroke="#555" stroke-width="1.2"/>
-  <path d="M640,184 L640,180 L644,180 L644,184" fill="none" stroke="#555" stroke-width="1.2"/>
-  <path d="M724,184 L724,180 L728,180 L728,184" fill="none" stroke="#555" stroke-width="1.2"/>
+  <!-- ===== RETENTION CLIPS (side view) ===== -->
+  <!-- From side view, clips appear as small bracket-shaped bumps at the top of each valve pocket -->
+  <!-- These are on the left/right walls which we see edge-on from the side -->
+  <!-- Show as small protrusions from the top rail of each row -->
+  <g stroke="#555" stroke-width="1.2" fill="none">
+    <!-- Top row clips visible from side (at 1/3 and 2/3 depth) -->
+    <path d="M625,60 L625,56 L629,56 L629,60" />
+    <path d="M693,60 L693,56 L697,56 L697,60" />
+    <!-- Bottom row clips -->
+    <path d="M625,184 L625,180 L629,180 L629,184" />
+    <path d="M693,184 L693,180 L697,180 L697,184" />
+  </g>
 
-  <!-- QC fittings (front and rear of valve) shown as small circles -->
-  <!-- Top row - front fitting -->
-  <circle cx="624" cy="118" r="5" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="3,2"/>
-  <!-- Top row - rear fitting -->
-  <circle cx="744" cy="118" r="5" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="3,2"/>
-  <!-- Bottom row - front fitting -->
-  <circle cx="624" cy="242" r="5" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="3,2"/>
-  <!-- Bottom row - rear fitting -->
-  <circle cx="744" cy="242" r="5" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="3,2"/>
+  <!-- ===== QC FITTINGS (side view) ===== -->
+  <!-- Fittings run along X axis. Side view looks along X = along fitting axis. -->
+  <!-- So we see the circular cross-section. One circle per row (all 5 valves -->
+  <!-- in a row overlap when projected). Shown at mid-valve-height. -->
 
-  <!-- Mounting brackets (side view) -->
-  <rect x="620" y="300" width="12" height="12" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="626" cy="306" r="3" fill="none" stroke="#222" stroke-width="1"/>
-  <rect x="620" y="48" width="12" height="12" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="626" cy="54" r="3" fill="none" stroke="#222" stroke-width="1"/>
+  <!-- Top row fitting (circle, looking along X) at Z=91mm -> y=118 -->
+  <circle cx="654" cy="118" r="5" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="3,2"/>
+  <!-- Bottom row fitting at Z=29mm -> y=242 -->
+  <circle cx="654" cy="242" r="5" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="3,2"/>
 
-  <!-- SIDE VIEW DIMENSIONS -->
+  <!-- ===== MOUNTING TABS (side view) ===== -->
+  <!-- 4 corner tabs: from side view we see 2 overlapping pairs (front+rear). -->
+  <!-- Each pair appears as a small tab at the front and rear Y positions. -->
+  <!-- Holes per spec: circles in side view (hole axis along Y or X). -->
+  <!-- Per spec: circles here, hidden lines in front/top views. -->
+
+  <!-- Bottom-front tab -->
+  <rect x="590" y="300" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
+  <circle cx="602" cy="306" r="3" fill="none" stroke="#222" stroke-width="1"/>
+  <!-- Bottom-rear tab -->
+  <rect x="694" y="300" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
+  <circle cx="706" cy="306" r="3" fill="none" stroke="#222" stroke-width="1"/>
+  <!-- Top-front tab -->
+  <rect x="590" y="48" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
+  <circle cx="602" cy="54" r="3" fill="none" stroke="#222" stroke-width="1"/>
+  <!-- Top-rear tab -->
+  <rect x="694" y="48" width="24" height="12" fill="none" stroke="#222" stroke-width="2"/>
+  <circle cx="706" cy="54" r="3" fill="none" stroke="#222" stroke-width="1"/>
+
+  <!-- ===== TUBE ROUTING CHANNELS (side view) ===== -->
+  <!-- Shallow channels along front and rear edges visible as notches -->
+  <rect x="590" y="295" width="8" height="5" fill="none" stroke="#555" stroke-width="0.8"/>
+  <rect x="710" y="295" width="8" height="5" fill="none" stroke="#555" stroke-width="0.8"/>
+
+  <!-- Front/Rear labels -->
+  <text x="590" y="325" text-anchor="middle" font-size="9" fill="#666">Front</text>
+  <text x="718" y="325" text-anchor="middle" font-size="9" fill="#666">Rear</text>
+
+  <!-- ===== SIDE VIEW DIMENSIONS ===== -->
+
   <!-- Depth: 64mm -->
-  <line x1="620" y1="340" x2="620" y2="325" stroke="#333" stroke-width="0.5"/>
-  <line x1="748" y1="340" x2="748" y2="325" stroke="#333" stroke-width="0.5"/>
-  <line x1="620" y1="335" x2="748" y2="335" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
-  <text x="684" y="350" text-anchor="middle" font-size="11" fill="#333">64</text>
+  <line x1="590" y1="340" x2="590" y2="330" stroke="#333" stroke-width="0.5"/>
+  <line x1="718" y1="340" x2="718" y2="330" stroke="#333" stroke-width="0.5"/>
+  <line x1="590" y1="335" x2="718" y2="335" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
+  <text x="654" y="350" text-anchor="middle" font-size="11" fill="#333">64</text>
 
   <!-- Valve depth: 63.5mm -->
-  <line x1="621" y1="370" x2="621" y2="358" stroke="#333" stroke-width="0.5"/>
-  <line x1="748" y1="370" x2="748" y2="358" stroke="#333" stroke-width="0.5"/>
-  <line x1="621" y1="365" x2="748" y2="365" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
-  <text x="684" y="380" text-anchor="middle" font-size="10" fill="#333">63.5</text>
-
-  <!-- Height shared with front view (already dimensioned) -->
-
-  <!-- Front/rear labels -->
-  <text x="620" y="400" text-anchor="middle" font-size="9" fill="#666">Front</text>
-  <text x="748" y="400" text-anchor="middle" font-size="9" fill="#666">Rear</text>
+  <line x1="591" y1="370" x2="591" y2="358" stroke="#333" stroke-width="0.5"/>
+  <line x1="718" y1="370" x2="718" y2="358" stroke="#333" stroke-width="0.5"/>
+  <line x1="591" y1="365" x2="718" y2="365" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
+  <text x="654" y="380" text-anchor="middle" font-size="10" fill="#333">63.5</text>
 
   <!-- ============================================================ -->
-  <!-- TOP VIEW (bottom-left) — looking down, X-Y plane             -->
-  <!-- Rack: 186W x 64D mm → 372 x 128 px                          -->
-  <!-- Origin at (80, 460), aligned horizontally with front view    -->
+  <!-- TOP VIEW (bottom-left) - looking down along Z, X-Y plane    -->
+  <!-- Rack: 186W x 64D mm = 372 x 128 px                          -->
+  <!-- Origin: x0=80, y0=460 (shares X axis range with front view) -->
+  <!-- Front at y=460, Rear at y=588                                -->
   <!-- ============================================================ -->
 
-  <text x="266" y="445" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">TOP VIEW</text>
-  <text x="266" y="458" text-anchor="middle" font-size="10" fill="#666">(looking down)</text>
+  <text x="266" y="440" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">TOP VIEW</text>
+  <text x="266" y="453" text-anchor="middle" font-size="10" fill="#666">(looking down)</text>
 
   <!-- Rack outline -->
-  <rect x="80" y="470" width="372" height="128" fill="none" stroke="#222" stroke-width="2"/>
+  <rect x="80" y="460" width="372" height="128" fill="none" stroke="#222" stroke-width="2"/>
 
-  <!-- 10 valve positions from above - cylindrical solenoid bodies as ovals -->
-  <!-- Each valve: 34W x 63.5D → 68px x 127px at 2:1 -->
-  <!-- Valve centers: X = 80 + 34 + (n-1)*76, Y = 470 + 64 = 534 -->
-
-  <!-- Row of 10 valves (top view shows both rows overlapping since we look down) -->
-  <!-- Actually top view shows depth (Y axis) with both rows at same depth -->
-  <!-- The two rows are stacked in Z (height), so from top view they overlap -->
-  <!-- Show as 5 valve positions, with note about 2 rows -->
-
-  <!-- 5 valve positions as rounded rectangles (top view of cylindrical body) -->
+  <!-- ===== VALVE BODIES (top view) ===== -->
+  <!-- Looking down, both rows overlap (stacked in Z). Show 5 valve positions. -->
+  <!-- Each valve: 34W x 63.5D mm = 68 x 127 px -->
+  <!-- Valve tops are rounded (cylindrical body) - show as rounded rects -->
   <g fill="none" stroke="#888" stroke-width="1" stroke-dasharray="6,3">
-    <rect x="82" y="471" width="64" height="126" rx="20" ry="20"/>
-    <rect x="158" y="471" width="64" height="126" rx="20" ry="20"/>
-    <rect x="234" y="471" width="64" height="126" rx="20" ry="20"/>
-    <rect x="310" y="471" width="64" height="126" rx="20" ry="20"/>
-    <rect x="386" y="471" width="64" height="126" rx="20" ry="20"/>
+    <rect x="80" y="461" width="68" height="127" rx="20" ry="20"/>
+    <rect x="156" y="461" width="68" height="127" rx="20" ry="20"/>
+    <rect x="232" y="461" width="68" height="127" rx="20" ry="20"/>
+    <rect x="308" y="461" width="68" height="127" rx="20" ry="20"/>
+    <rect x="384" y="461" width="68" height="127" rx="20" ry="20"/>
   </g>
 
-  <!-- QC fitting stubs (front) - small circles at front edge -->
-  <g fill="none" stroke="#888" stroke-width="1" stroke-dasharray="3,2">
-    <circle cx="114" cy="474" r="4"/>
-    <circle cx="190" cy="474" r="4"/>
-    <circle cx="266" cy="474" r="4"/>
-    <circle cx="342" cy="474" r="4"/>
-    <circle cx="418" cy="474" r="4"/>
+  <!-- Note about overlapping rows -->
+  <text x="266" y="530" text-anchor="middle" font-size="9" fill="#999" font-style="italic">2 rows (5 per row) overlap in top view</text>
+
+  <!-- ===== QC FITTINGS (top view) ===== -->
+  <!-- Fittings run along X axis (per spec: circles in side view). -->
+  <!-- From top view (looking down along Z), fittings along X appear as -->
+  <!-- small rectangular protrusions on left/right sides of each valve column. -->
+
+  <g fill="none" stroke="#555" stroke-width="1">
+    <!-- Left side fittings (protruding left) -->
+    <rect x="72" y="520" width="8" height="6"/>
+    <rect x="148" y="520" width="8" height="6"/>
+    <rect x="224" y="520" width="8" height="6"/>
+    <rect x="300" y="520" width="8" height="6"/>
+    <rect x="376" y="520" width="8" height="6"/>
+    <!-- Right side fittings (protruding right) -->
+    <rect x="148" y="520" width="8" height="6"/>
+    <rect x="224" y="520" width="8" height="6"/>
+    <rect x="300" y="520" width="8" height="6"/>
+    <rect x="376" y="520" width="8" height="6"/>
+    <rect x="452" y="520" width="8" height="6"/>
   </g>
 
-  <!-- QC fitting stubs (rear) -->
-  <g fill="none" stroke="#888" stroke-width="1" stroke-dasharray="3,2">
-    <circle cx="114" cy="594" r="4"/>
-    <circle cx="190" cy="594" r="4"/>
-    <circle cx="266" cy="594" r="4"/>
-    <circle cx="342" cy="594" r="4"/>
-    <circle cx="418" cy="594" r="4"/>
-  </g>
+  <!-- ===== MOUNTING TABS (top view) ===== -->
+  <!-- Tabs at corners, extending from rack. Holes run in Y direction (per spec). -->
+  <!-- From top (looking down along Z), Y runs vertically. Y-direction holes -->
+  <!-- would appear as hidden lines (two parallel vertical dashes). -->
+  <!-- But spec says holes pass through in Y direction and show as circles in side view. -->
+  <!-- Actually spec says "they appear as circles in the side view" and -->
+  <!-- "parallel hidden lines in the front and top views". -->
+  <!-- So: top view = hidden lines for holes. Good. -->
 
-  <!-- Tube routing channels - thin lines along front and rear edges -->
-  <rect x="80" y="470" width="372" height="8" fill="none" stroke="#555" stroke-width="1" stroke-dasharray="2,2"/>
-  <text x="266" y="467" text-anchor="middle" font-size="8" fill="#666">tube routing channel (front)</text>
+  <!-- Bottom-left tab (front-left) -->
+  <rect x="80" y="588" width="24" height="10" fill="none" stroke="#222" stroke-width="2"/>
+  <line x1="89" y1="589" x2="89" y2="597" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <line x1="95" y1="589" x2="95" y2="597" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <!-- Bottom-right tab (front-right) -->
+  <rect x="428" y="588" width="24" height="10" fill="none" stroke="#222" stroke-width="2"/>
+  <line x1="437" y1="589" x2="437" y2="597" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <line x1="443" y1="589" x2="443" y2="597" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <!-- Top-left tab (rear-left) -->
+  <rect x="80" y="450" width="24" height="10" fill="none" stroke="#222" stroke-width="2"/>
+  <line x1="89" y1="451" x2="89" y2="459" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <line x1="95" y1="451" x2="95" y2="459" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <!-- Top-right tab (rear-right) -->
+  <rect x="428" y="450" width="24" height="10" fill="none" stroke="#222" stroke-width="2"/>
+  <line x1="437" y1="451" x2="437" y2="459" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
+  <line x1="443" y1="451" x2="443" y2="459" stroke="#888" stroke-width="0.8" stroke-dasharray="4,2"/>
 
-  <rect x="80" y="590" width="372" height="8" fill="none" stroke="#555" stroke-width="1" stroke-dasharray="2,2"/>
-  <text x="266" y="612" text-anchor="middle" font-size="8" fill="#666">tube routing channel (rear)</text>
+  <!-- ===== TUBE ROUTING CHANNELS (top view) ===== -->
+  <!-- Shallow channels along front edge, rear edge, and right side -->
+  <rect x="80" y="460" width="372" height="6" fill="none" stroke="#555" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <text x="266" y="457" text-anchor="middle" font-size="8" fill="#666">tube routing channel (front)</text>
 
-  <!-- Wire routing channel - along right side -->
-  <rect x="444" y="470" width="8" height="128" fill="none" stroke="#555" stroke-width="1" stroke-dasharray="2,2"/>
-  <text x="460" y="534" text-anchor="start" font-size="8" fill="#666" transform="rotate(90,460,534)">wire channel</text>
+  <rect x="80" y="582" width="372" height="6" fill="none" stroke="#555" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <text x="266" y="602" text-anchor="middle" font-size="8" fill="#666">tube routing channel (rear)</text>
 
-  <!-- Mounting tabs from top view -->
-  <rect x="80" y="598" width="24" height="8" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="92" cy="602" r="3" fill="none" stroke="#222" stroke-width="1"/>
-  <rect x="428" y="598" width="24" height="8" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="440" cy="602" r="3" fill="none" stroke="#222" stroke-width="1"/>
-  <rect x="80" y="462" width="24" height="8" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="92" cy="466" r="3" fill="none" stroke="#222" stroke-width="1"/>
-  <rect x="428" y="462" width="24" height="8" fill="none" stroke="#222" stroke-width="2"/>
-  <circle cx="440" cy="466" r="3" fill="none" stroke="#222" stroke-width="1"/>
+  <!-- Wire routing channel along right side -->
+  <rect x="446" y="460" width="6" height="128" fill="none" stroke="#555" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <text x="460" y="528" text-anchor="start" font-size="8" fill="#666" transform="rotate(90,460,528)">wire channel</text>
 
-  <!-- TOP VIEW DIMENSIONS -->
-  <!-- Width: 186mm (shared with front view, extension lines down) -->
-  <line x1="80" y1="630" x2="80" y2="618" stroke="#333" stroke-width="0.5"/>
-  <line x1="452" y1="630" x2="452" y2="618" stroke="#333" stroke-width="0.5"/>
-  <line x1="80" y1="625" x2="452" y2="625" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
-  <text x="266" y="640" text-anchor="middle" font-size="11" fill="#333">186</text>
+  <!-- Front/Rear labels for top view -->
+  <text x="55" y="464" text-anchor="end" font-size="9" fill="#666">Rear</text>
+  <text x="55" y="592" text-anchor="end" font-size="9" fill="#666">Front</text>
+
+  <!-- ===== TOP VIEW DIMENSIONS ===== -->
+
+  <!-- Width: 186mm -->
+  <line x1="80" y1="620" x2="80" y2="610" stroke="#333" stroke-width="0.5"/>
+  <line x1="452" y1="620" x2="452" y2="610" stroke="#333" stroke-width="0.5"/>
+  <line x1="80" y1="615" x2="452" y2="615" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
+  <text x="266" y="630" text-anchor="middle" font-size="11" fill="#333">186</text>
 
   <!-- Depth: 64mm -->
-  <line x1="50" y1="470" x2="65" y2="470" stroke="#333" stroke-width="0.5"/>
-  <line x1="50" y1="598" x2="65" y2="598" stroke="#333" stroke-width="0.5"/>
-  <line x1="60" y1="470" x2="60" y2="598" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
-  <text x="47" y="538" text-anchor="end" font-size="11" fill="#333">64</text>
+  <line x1="50" y1="460" x2="65" y2="460" stroke="#333" stroke-width="0.5"/>
+  <line x1="50" y1="588" x2="65" y2="588" stroke="#333" stroke-width="0.5"/>
+  <line x1="60" y1="460" x2="60" y2="588" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
+  <text x="47" y="528" text-anchor="end" font-size="11" fill="#333">64</text>
 
   <!-- Valve pitch (top view) -->
-  <line x1="114" y1="655" x2="114" y2="645" stroke="#333" stroke-width="0.5"/>
-  <line x1="190" y1="655" x2="190" y2="645" stroke="#333" stroke-width="0.5"/>
-  <line x1="114" y1="650" x2="190" y2="650" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
-  <text x="152" y="665" text-anchor="middle" font-size="10" fill="#333">38 pitch</text>
-
-  <!-- Note about 2 rows overlapping -->
-  <text x="266" y="540" text-anchor="middle" font-size="9" fill="#999" font-style="italic">2 rows (5 per row) overlap in top view</text>
-
-  <!-- Front/rear labels for top view -->
-  <text x="266" y="690" text-anchor="middle" font-size="9" fill="#666">Front (toward dock)</text>
-  <text x="50" y="470" text-anchor="end" font-size="9" fill="#666" transform="translate(-20,0)"/>
+  <line x1="114" y1="645" x2="114" y2="635" stroke="#333" stroke-width="0.5"/>
+  <line x1="190" y1="645" x2="190" y2="635" stroke="#333" stroke-width="0.5"/>
+  <line x1="114" y1="640" x2="190" y2="640" stroke="#333" stroke-width="0.7" marker-start="url(#arrow-rev)" marker-end="url(#arrow)"/>
+  <text x="152" y="655" text-anchor="middle" font-size="10" fill="#333">38 pitch</text>
 
   <!-- ============================================================ -->
-  <!-- TITLE BLOCK (bottom-right)                                    -->
+  <!-- LEGEND                                                       -->
   <!-- ============================================================ -->
 
-  <rect x="700" y="700" width="360" height="120" fill="none" stroke="#222" stroke-width="2"/>
+  <rect x="700" y="460" width="270" height="76" fill="none" stroke="#222" stroke-width="1"/>
+  <text x="710" y="476" font-size="11" font-weight="bold" fill="#333">Legend</text>
+  <line x1="710" y1="492" x2="740" y2="492" stroke="#222" stroke-width="2"/>
+  <text x="745" y="496" font-size="9" fill="#555">Visible edge (rack frame)</text>
+  <line x1="710" y1="508" x2="740" y2="508" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="745" y="512" font-size="9" fill="#555">Phantom / hidden line (valve body, holes)</text>
+  <line x1="710" y1="524" x2="740" y2="524" stroke="#555" stroke-width="1.2"/>
+  <text x="745" y="528" font-size="9" fill="#555">Secondary feature (clips, saddles, fittings)</text>
+
+  <!-- ============================================================ -->
+  <!-- TITLE BLOCK (bottom-right)                                   -->
+  <!-- ============================================================ -->
+
+  <rect x="700" y="700" width="360" height="130" fill="none" stroke="#222" stroke-width="2"/>
   <line x1="700" y1="730" x2="1060" y2="730" stroke="#222" stroke-width="1"/>
   <line x1="700" y1="755" x2="1060" y2="755" stroke="#222" stroke-width="1"/>
   <line x1="700" y1="780" x2="1060" y2="780" stroke="#222" stroke-width="1"/>
@@ -346,17 +451,17 @@
   <text x="880" y="720" text-anchor="middle" font-size="16" font-weight="bold" fill="#222">VALVE RACK FRAME</text>
 
   <text x="710" y="748" font-size="10" fill="#555">Material:</text>
-  <text x="780" y="748" font-size="11" fill="#222">PETG</text>
+  <text x="790" y="748" font-size="11" fill="#222">PETG (3D printed)</text>
   <text x="930" y="748" font-size="10" fill="#555">All dimensions in mm</text>
 
   <text x="710" y="773" font-size="10" fill="#555">Envelope:</text>
-  <text x="780" y="773" font-size="11" fill="#222">186W x 64D x 120H mm</text>
+  <text x="790" y="773" font-size="11" fill="#222">186W x 64D x 120H mm</text>
 
   <text x="710" y="795" font-size="10" fill="#555">Scale:</text>
-  <text x="780" y="795" font-size="11" fill="#222">2:1</text>
+  <text x="790" y="795" font-size="11" fill="#222">2:1 (1mm = 2px)</text>
 
   <text x="710" y="815" font-size="10" fill="#555">Qty:</text>
-  <text x="780" y="815" font-size="11" fill="#222">1</text>
+  <text x="790" y="815" font-size="11" fill="#222">1</text>
 
   <text x="900" y="795" font-size="10" fill="#555">Grid:</text>
   <text x="940" y="795" font-size="11" fill="#222">5W x 2H (10 valves)</text>
@@ -364,11 +469,6 @@
   <text x="900" y="815" font-size="10" fill="#555">Valve:</text>
   <text x="940" y="815" font-size="11" fill="#222">34.0W x 63.5D x 58.4H mm</text>
 
-  <!-- Legend -->
-  <rect x="700" y="650" width="200" height="40" fill="none" stroke="#222" stroke-width="1"/>
-  <text x="710" y="665" font-size="10" font-weight="bold" fill="#333">Legend</text>
-  <line x1="710" y1="680" x2="740" y2="680" stroke="#222" stroke-width="2"/>
-  <text x="745" y="684" font-size="9" fill="#555">Visible edge</text>
-  <line x1="790" y1="680" x2="820" y2="680" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
-  <text x="825" y="684" font-size="9" fill="#555">Valve body (phantom)</text>
+  <text x="710" y="825" font-size="10" fill="#555">Pitch:</text>
+  <text x="790" y="825" font-size="11" fill="#222">38mm center-to-center</text>
 </svg>
