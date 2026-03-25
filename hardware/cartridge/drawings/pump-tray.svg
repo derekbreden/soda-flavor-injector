@@ -1,0 +1,362 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1270" height="950" viewBox="0 0 1270 950">
+  <style>
+    text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; fill: #000; }
+    .title-text { font-size: 14px; font-weight: bold; }
+    .dim-text { font-size: 10px; }
+    .note-text { font-size: 9px; }
+    .view-label { font-size: 13px; font-weight: bold; }
+    .part-outline { stroke: #000; stroke-width: 2; fill: none; }
+    .hidden-line { stroke: #000; stroke-width: 1; fill: none; stroke-dasharray: 6,3; }
+    .thin-line { stroke: #000; stroke-width: 0.5; fill: none; }
+    .dim-line { stroke: #000; stroke-width: 0.5; fill: none; }
+    .center-line { stroke: #000; stroke-width: 0.4; fill: none; stroke-dasharray: 12,3,3,3; }
+    .boss-fill { fill: #d0d0d0; stroke: #000; stroke-width: 1; }
+    .channel-fill { fill: #f0f0f0; stroke: #000; stroke-width: 1; }
+    .pump-footprint { stroke: #000; stroke-width: 1; fill: none; stroke-dasharray: 8,4; }
+    .clip-outline { stroke: #000; stroke-width: 1; fill: none; }
+    .arrowhead { fill: #000; stroke: none; }
+  </style>
+
+  <rect width="1200" height="950" fill="white"/>
+
+  <!-- ================================================================ -->
+  <!--                          TOP VIEW                                -->
+  <!-- ================================================================ -->
+  <!-- Scale: 4px/mm. Tray 138W x 120D = 552 x 480 px                  -->
+  <!-- Origin (top-left of tray outline): (80, 50)                      -->
+
+  <text x="356" y="38" class="view-label" text-anchor="middle">TOP VIEW</text>
+
+  <!-- Tray outline -->
+  <rect x="80" y="50" width="552" height="480" class="part-outline"/>
+
+  <!-- Orientation labels -->
+  <text x="356" y="47" class="note-text" text-anchor="middle">REAR (fitting side / wire channel)</text>
+  <text x="356" y="543" class="note-text" text-anchor="middle">FRONT (pump tube exit side)</text>
+
+  <!-- Locating tabs: 2 per long side, 2mm protrusion (8px), 10mm tall (40px) -->
+  <!-- At 1/4 and 3/4 depth -->
+  <rect x="72" y="160" width="8" height="40" class="part-outline"/>
+  <rect x="72" y="400" width="8" height="40" class="part-outline"/>
+  <rect x="632" y="160" width="8" height="40" class="part-outline"/>
+  <rect x="632" y="400" width="8" height="40" class="part-outline"/>
+  <text x="56" y="183" class="note-text" text-anchor="end">TAB</text>
+  <text x="56" y="423" class="note-text" text-anchor="end">TAB</text>
+  <text x="654" y="183" class="note-text">TAB</text>
+  <text x="654" y="423" class="note-text">TAB</text>
+
+  <!-- Wire routing channel: rear edge, 5mm wide (20px), full tray width -->
+  <rect x="80" y="50" width="552" height="20" class="channel-fill"/>
+  <text x="356" y="64" class="note-text" text-anchor="middle">WIRE ROUTING CHANNEL (5W x 3D mm)</text>
+
+  <!-- 4x corner M3 through-holes, 3.4mm dia (r=7px), inset 8mm (32px) from each edge -->
+  <!-- Top-left: (80+32, 50+32) = (112, 82) -->
+  <circle cx="112" cy="82" r="7" class="thin-line"/>
+  <line x1="105" y1="82" x2="119" y2="82" class="center-line"/>
+  <line x1="112" y1="75" x2="112" y2="89" class="center-line"/>
+  <!-- Top-right: (632-32, 82) = (600, 82) -->
+  <circle cx="600" cy="82" r="7" class="thin-line"/>
+  <line x1="593" y1="82" x2="607" y2="82" class="center-line"/>
+  <line x1="600" y1="75" x2="600" y2="89" class="center-line"/>
+  <!-- Bottom-left: (112, 530-32) = (112, 498) -->
+  <circle cx="112" cy="498" r="7" class="thin-line"/>
+  <line x1="105" y1="498" x2="119" y2="498" class="center-line"/>
+  <line x1="112" y1="491" x2="112" y2="505" class="center-line"/>
+  <!-- Bottom-right: (600, 498) -->
+  <circle cx="600" cy="498" r="7" class="thin-line"/>
+  <line x1="593" y1="498" x2="607" y2="498" class="center-line"/>
+  <line x1="600" y1="491" x2="600" y2="505" class="center-line"/>
+
+  <!-- Corner hole callout (one label, TYP) -->
+  <line x1="119" y1="76" x2="145" y2="60" class="dim-line"/>
+  <text x="147" y="58" class="note-text">M3 THRU (3.4 CLR) 4x</text>
+
+  <!-- Pump footprints (dashed): 68.6W x 115.6D each = 274.4W x 462.4D px -->
+  <!-- Two pumps side by side. Tray=138mm, 2x68.6=137.2mm, gap=0.8mm (3.2px) -->
+  <!-- Center pair: left pump X=80, right pump X=80+274+4=358 -->
+  <!-- Pumps centered front-to-back: (120-115.6)/2=2.2mm=8.8px from each edge -->
+  <rect x="80" y="59" width="274" height="462" class="pump-footprint"/>
+  <rect x="358" y="59" width="274" height="462" class="pump-footprint"/>
+
+  <!-- Pump labels -->
+  <text x="217" y="265" class="note-text" text-anchor="middle">PUMP 1 FOOTPRINT</text>
+  <text x="217" y="277" class="note-text" text-anchor="middle">(KPHM400)</text>
+  <text x="217" y="289" class="note-text" text-anchor="middle">68.6 x 115.6</text>
+  <text x="495" y="265" class="note-text" text-anchor="middle">PUMP 2 FOOTPRINT</text>
+  <text x="495" y="277" class="note-text" text-anchor="middle">(KPHM400)</text>
+  <text x="495" y="289" class="note-text" text-anchor="middle">68.6 x 115.6</text>
+
+  <!-- TBD mounting annotation -->
+  <text x="217" y="315" class="note-text" text-anchor="middle" font-style="italic">MOUNTING HOLE PATTERN TBD</text>
+  <text x="217" y="327" class="note-text" text-anchor="middle" font-style="italic">MEASURE FROM PHYSICAL PUMP</text>
+  <text x="495" y="315" class="note-text" text-anchor="middle" font-style="italic">MOUNTING HOLE PATTERN TBD</text>
+  <text x="495" y="327" class="note-text" text-anchor="middle" font-style="italic">MEASURE FROM PHYSICAL PUMP</text>
+
+  <!-- Heat-set insert boss positions (approx, dashed circles, 8mm OD = r=16px) -->
+  <!-- 4 per pump, estimated ~55x40mm pattern centered on each pump -->
+  <!-- Pump 1 center: X=217, Y=290. Pattern corners at +/-110px X, +/-80px Y -->
+  <circle cx="167" cy="200" r="16" class="hidden-line"/>
+  <circle cx="267" cy="200" r="16" class="hidden-line"/>
+  <circle cx="167" cy="380" r="16" class="hidden-line"/>
+  <circle cx="267" cy="380" r="16" class="hidden-line"/>
+  <!-- Pump 2 -->
+  <circle cx="445" cy="200" r="16" class="hidden-line"/>
+  <circle cx="545" cy="200" r="16" class="hidden-line"/>
+  <circle cx="445" cy="380" r="16" class="hidden-line"/>
+  <circle cx="545" cy="380" r="16" class="hidden-line"/>
+
+  <!-- Boss callout -->
+  <line x1="183" y1="195" x2="210" y2="170" class="dim-line"/>
+  <text x="212" y="168" class="note-text">M3 HEAT-SET BOSS</text>
+  <text x="212" y="179" class="note-text">(8mm OD, 4.0 PILOT) TYP</text>
+
+  <!-- C-clips for BPT tubing: near front edge (bottom of top view), 2 per pump -->
+  <!-- Semicircle open downward = tube snap-in from front -->
+  <g transform="translate(170,488)">
+    <path d="M-10,0 A10,10 0 1,1 10,0" class="clip-outline"/>
+    <text x="0" y="-4" class="note-text" text-anchor="middle">BPT</text>
+  </g>
+  <g transform="translate(264,488)">
+    <path d="M-10,0 A10,10 0 1,1 10,0" class="clip-outline"/>
+    <text x="0" y="-4" class="note-text" text-anchor="middle">BPT</text>
+  </g>
+  <g transform="translate(448,488)">
+    <path d="M-10,0 A10,10 0 1,1 10,0" class="clip-outline"/>
+    <text x="0" y="-4" class="note-text" text-anchor="middle">BPT</text>
+  </g>
+  <g transform="translate(542,488)">
+    <path d="M-10,0 A10,10 0 1,1 10,0" class="clip-outline"/>
+    <text x="0" y="-4" class="note-text" text-anchor="middle">BPT</text>
+  </g>
+
+  <!-- C-clips for 1/4" hard tubing: just below wire channel, near rear edge -->
+  <g transform="translate(170,105)">
+    <path d="M-8,0 A8,8 0 1,0 8,0" class="clip-outline"/>
+    <text x="0" y="14" class="note-text" text-anchor="middle">1/4"</text>
+  </g>
+  <g transform="translate(264,105)">
+    <path d="M-8,0 A8,8 0 1,0 8,0" class="clip-outline"/>
+    <text x="0" y="14" class="note-text" text-anchor="middle">1/4"</text>
+  </g>
+  <g transform="translate(448,105)">
+    <path d="M-8,0 A8,8 0 1,0 8,0" class="clip-outline"/>
+    <text x="0" y="14" class="note-text" text-anchor="middle">1/4"</text>
+  </g>
+  <g transform="translate(542,105)">
+    <path d="M-8,0 A8,8 0 1,0 8,0" class="clip-outline"/>
+    <text x="0" y="14" class="note-text" text-anchor="middle">1/4"</text>
+  </g>
+
+  <!-- ===== TOP VIEW DIMENSIONS ===== -->
+
+  <!-- Width 138mm (below tray) -->
+  <line x1="80" y1="548" x2="80" y2="568" class="dim-line"/>
+  <line x1="632" y1="548" x2="632" y2="568" class="dim-line"/>
+  <line x1="80" y1="563" x2="632" y2="563" class="dim-line"/>
+  <polygon points="80,563 88,560 88,566" class="arrowhead"/>
+  <polygon points="632,563 624,560 624,566" class="arrowhead"/>
+  <text x="356" y="560" class="dim-text" text-anchor="middle">138</text>
+
+  <!-- Depth 120mm (right of tray) -->
+  <line x1="648" y1="50" x2="673" y2="50" class="dim-line"/>
+  <line x1="648" y1="530" x2="673" y2="530" class="dim-line"/>
+  <line x1="665" y1="50" x2="665" y2="530" class="dim-line"/>
+  <polygon points="665,50 662,58 668,58" class="arrowhead"/>
+  <polygon points="665,530 662,522 668,522" class="arrowhead"/>
+  <text x="670" y="294" class="dim-text" text-anchor="start" transform="rotate(90,670,294)">120</text>
+
+  <!-- Corner hole inset 8mm from rear edge -->
+  <line x1="80" y1="82" x2="99" y2="82" class="dim-line" stroke-dasharray="2,2"/>
+  <line x1="80" y1="68" x2="80" y2="72" class="dim-line"/>
+  <line x1="112" y1="68" x2="112" y2="72" class="dim-line"/>
+  <line x1="80" y1="70" x2="112" y2="70" class="dim-line"/>
+  <polygon points="80,70 86,68 86,72" class="arrowhead"/>
+  <polygon points="112,70 106,68 106,72" class="arrowhead"/>
+  <text x="96" y="67" class="dim-text" text-anchor="middle">8</text>
+
+  <!-- Wire channel width 5mm -->
+  <line x1="638" y1="50" x2="643" y2="50" class="dim-line"/>
+  <line x1="638" y1="70" x2="643" y2="70" class="dim-line"/>
+  <line x1="641" y1="50" x2="641" y2="70" class="dim-line"/>
+  <text x="647" y="63" class="dim-text">5</text>
+
+  <!-- ================================================================ -->
+  <!--                         FRONT VIEW                               -->
+  <!-- ================================================================ -->
+  <!-- Below top view, shares X axis (80..632 = 552px = 138mm)          -->
+  <!-- Tray profile: 6mm tall max = 24px at 4:1                        -->
+  <!-- Base plate ~3mm (12px), bosses rise 3mm more (12px) to 6mm total -->
+
+  <text x="356" y="605" class="view-label" text-anchor="middle">FRONT VIEW</text>
+
+  <!-- Base plate: 3mm thick = 12px. Top at Y=630, bottom at Y=642 -->
+  <rect x="80" y="630" width="552" height="12" class="part-outline" fill="#e8e8e8"/>
+
+  <!-- Bosses protruding above base: 3mm more = 12px. Top at Y=618 -->
+  <!-- Show front-row bosses (at the depth row closest to front, visible from front) -->
+  <!-- Pump 1 bosses at X positions 167 and 267 (from top view) -->
+  <rect x="151" y="618" width="32" height="12" class="boss-fill"/>
+  <rect x="251" y="618" width="32" height="12" class="boss-fill"/>
+  <!-- Pump 2 bosses at X=445 and X=545 -->
+  <rect x="429" y="618" width="32" height="12" class="boss-fill"/>
+  <rect x="529" y="618" width="32" height="12" class="boss-fill"/>
+
+  <!-- Rear-row bosses shown as hidden (behind front row) -->
+  <line x1="151" y1="618" x2="183" y2="618" class="hidden-line"/>
+  <line x1="251" y1="618" x2="283" y2="618" class="hidden-line"/>
+  <line x1="429" y1="618" x2="461" y2="618" class="hidden-line"/>
+  <line x1="529" y1="618" x2="561" y2="618" class="hidden-line"/>
+
+  <!-- Locating tabs (visible from front, protruding left/right) -->
+  <rect x="72" y="630" width="8" height="12" class="part-outline" fill="#e8e8e8"/>
+  <rect x="632" y="630" width="8" height="12" class="part-outline" fill="#e8e8e8"/>
+
+  <!-- Front view dimensions -->
+  <!-- Width 138mm -->
+  <line x1="80" y1="648" x2="80" y2="665" class="dim-line"/>
+  <line x1="632" y1="648" x2="632" y2="665" class="dim-line"/>
+  <line x1="80" y1="660" x2="632" y2="660" class="dim-line"/>
+  <polygon points="80,660 88,657 88,663" class="arrowhead"/>
+  <polygon points="632,660 624,657 624,663" class="arrowhead"/>
+  <text x="356" y="657" class="dim-text" text-anchor="middle">138</text>
+
+  <!-- Total height 6mm -->
+  <line x1="50" y1="618" x2="68" y2="618" class="dim-line"/>
+  <line x1="50" y1="642" x2="68" y2="642" class="dim-line"/>
+  <line x1="58" y1="618" x2="58" y2="642" class="dim-line"/>
+  <polygon points="58,618 55,624 61,624" class="arrowhead"/>
+  <polygon points="58,642 55,636 61,636" class="arrowhead"/>
+  <text x="46" y="633" class="dim-text" text-anchor="end">6</text>
+
+  <!-- Base thickness 3mm -->
+  <line x1="30" y1="630" x2="48" y2="630" class="dim-line"/>
+  <line x1="30" y1="642" x2="48" y2="642" class="dim-line"/>
+  <line x1="38" y1="630" x2="38" y2="642" class="dim-line"/>
+  <polygon points="38,630 35,635 41,635" class="arrowhead"/>
+  <polygon points="38,642 35,637 41,637" class="arrowhead"/>
+  <text x="26" y="639" class="dim-text" text-anchor="end">3</text>
+
+  <!-- Boss height callout -->
+  <line x1="183" y1="618" x2="200" y2="618" class="dim-line"/>
+  <line x1="183" y1="630" x2="200" y2="630" class="dim-line"/>
+  <line x1="195" y1="618" x2="195" y2="630" class="dim-line"/>
+  <polygon points="195,618 192,622 198,622" class="arrowhead"/>
+  <polygon points="195,630 192,626 198,626" class="arrowhead"/>
+  <text x="202" y="627" class="dim-text">3</text>
+  <text x="202" y="618" class="note-text">BOSS</text>
+
+  <!-- Boss OD dimension -->
+  <line x1="151" y1="613" x2="183" y2="613" class="dim-line"/>
+  <polygon points="151,613 157,610 157,616" class="arrowhead"/>
+  <polygon points="183,613 177,610 177,616" class="arrowhead"/>
+  <text x="167" y="610" class="dim-text" text-anchor="middle">8 (BOSS OD) TYP</text>
+
+  <!-- Tab protrusion 2mm -->
+  <line x1="72" y1="648" x2="80" y2="648" class="dim-line"/>
+  <polygon points="72,648 75,646 75,650" class="arrowhead"/>
+  <polygon points="80,648 77,646 77,650" class="arrowhead"/>
+  <text x="76" y="656" class="dim-text" text-anchor="middle">2</text>
+
+  <!-- ================================================================ -->
+  <!--                       RIGHT SIDE VIEW                            -->
+  <!-- ================================================================ -->
+  <!-- To the right of front view, shares Y axis (height alignment)     -->
+  <!-- Depth: 120mm = 480px. X origin at 740                            -->
+  <!-- Rear at left (X=740), Front at right (X=1220)                    -->
+
+  <text x="980" y="605" class="view-label" text-anchor="middle">RIGHT SIDE VIEW</text>
+
+  <!-- Base plate -->
+  <rect x="740" y="630" width="480" height="12" class="part-outline" fill="#e8e8e8"/>
+
+  <!-- Bosses visible from side (at depth positions matching top view Y) -->
+  <!-- From top view: bosses at Y offsets ~37.5mm and ~82.5mm from rear -->
+  <!-- In side view: X = 740 + offset*4 -->
+  <!-- Rear row: 740 + 37.5*4 = 890. Front row: 740 + 82.5*4 = 1070 -->
+  <rect x="874" y="618" width="32" height="12" class="boss-fill"/>
+  <rect x="1054" y="618" width="32" height="12" class="boss-fill"/>
+
+  <!-- Wire channel at rear edge: 5mm wide (20px) x 3mm deep (12px) cut into top surface -->
+  <!-- Channel occupies the top 3mm of the 3mm base at the rear 5mm -->
+  <!-- This means from Y=630 (base top) upward 12px to Y=618... no, channel is 3mm deep into the 6mm tray -->
+  <!-- Actually the base is 3mm. The channel is 3mm deep. So the channel cuts through the full base at the rear edge. -->
+  <!-- Show as a notch: rear 20px of base is removed from top, leaving nothing (or show reduced height) -->
+  <!-- More realistically: channel is 5mm wide x 3mm deep U-channel. In the 3mm base, this is a full-depth slot. -->
+  <!-- Show it as a gap in the base at the rear end -->
+  <rect x="740" y="630" width="20" height="12" fill="white" stroke="none"/>
+  <line x1="740" y1="630" x2="740" y2="642" class="part-outline"/>
+  <line x1="740" y1="642" x2="760" y2="642" class="part-outline"/>
+  <line x1="760" y1="630" x2="760" y2="642" class="part-outline"/>
+  <text x="750" y="628" class="note-text" text-anchor="middle">WIRE CH.</text>
+
+  <!-- Channel depth dimension -->
+  <line x1="725" y1="630" x2="738" y2="630" class="dim-line"/>
+  <line x1="725" y1="642" x2="738" y2="642" class="dim-line"/>
+  <line x1="730" y1="630" x2="730" y2="642" class="dim-line"/>
+  <polygon points="730,630 727,634 733,634" class="arrowhead"/>
+  <polygon points="730,642 727,638 733,638" class="arrowhead"/>
+  <text x="718" y="639" class="dim-text" text-anchor="end">3</text>
+
+  <!-- Side view dimensions -->
+  <!-- Depth 120mm -->
+  <line x1="740" y1="648" x2="740" y2="665" class="dim-line"/>
+  <line x1="1220" y1="648" x2="1220" y2="665" class="dim-line"/>
+  <line x1="740" y1="660" x2="1220" y2="660" class="dim-line"/>
+  <polygon points="740,660 748,657 748,663" class="arrowhead"/>
+  <polygon points="1220,660 1212,657 1212,663" class="arrowhead"/>
+  <text x="980" y="657" class="dim-text" text-anchor="middle">120</text>
+
+  <!-- Height 6mm -->
+  <line x1="1225" y1="618" x2="1240" y2="618" class="dim-line"/>
+  <line x1="1225" y1="642" x2="1240" y2="642" class="dim-line"/>
+  <line x1="1232" y1="618" x2="1232" y2="642" class="dim-line"/>
+  <polygon points="1232,618 1229,624 1235,624" class="arrowhead"/>
+  <polygon points="1232,642 1229,636 1235,636" class="arrowhead"/>
+  <text x="1245" y="633" class="dim-text">6</text>
+
+  <!-- Orientation labels -->
+  <text x="740" y="674" class="note-text" text-anchor="middle">REAR</text>
+  <text x="1220" y="674" class="note-text" text-anchor="middle">FRONT</text>
+
+  <!-- ================================================================ -->
+  <!--                           NOTES                                  -->
+  <!-- ================================================================ -->
+  <text x="80" y="710" class="note-text" font-weight="bold">NOTES:</text>
+  <text x="80" y="724" class="note-text">1. ALL DIMENSIONS IN MILLIMETERS.</text>
+  <text x="80" y="738" class="note-text">2. 4x CORNER M3 THROUGH-HOLES (3.4mm CLR) FOR MOUNTING TRAY TO OUTER SHELL LEDGES.</text>
+  <text x="80" y="752" class="note-text">3. HEAT-SET INSERT BOSSES: 8mm OD, 6mm TOTAL HEIGHT (3mm ABOVE BASE), 4.0mm PILOT HOLE FOR M3 x 5mm BRASS INSERT.</text>
+  <text x="80" y="766" class="note-text">4. PUMP MOUNTING HOLE PATTERN TBD -- MEASURE FROM PHYSICAL KPHM400 BRACKET OR OBTAIN STEP MODEL FROM GRABCAD.</text>
+  <text x="80" y="780" class="note-text">5. 4x BPT C-CLIPS (NEAR FRONT EDGE): 8.3mm ID FOR 8.0mm OD BPT TUBE, 6.5mm SNAP-IN OPENING.</text>
+  <text x="80" y="794" class="note-text">6. 4x 1/4" C-CLIPS (NEAR REAR EDGE): 6.65mm ID FOR 6.35mm OD HARD TUBE, 4.85mm SNAP-IN OPENING.</text>
+  <text x="80" y="808" class="note-text">7. LOCATING TABS: 2mm PROTRUSION FROM EACH LONG EDGE, KEY INTO OUTER SHELL WALL SLOTS FOR LATERAL ALIGNMENT.</text>
+  <text x="80" y="822" class="note-text">8. WIRE ROUTING CHANNEL: 5mm WIDE x 3mm DEEP U-CHANNEL ALONG REAR EDGE, FULL TRAY WIDTH.</text>
+  <text x="80" y="836" class="note-text">9. PRINT ORIENTATION: FLAT (HORIZONTALLY) FOR MAXIMUM SCREW BOSS STRENGTH.</text>
+  <text x="80" y="850" class="note-text">10. DASHED CIRCLES INDICATE APPROXIMATE BOSS POSITIONS PENDING PUMP BRACKET MEASUREMENT.</text>
+
+  <!-- ================================================================ -->
+  <!--                         TITLE BLOCK                              -->
+  <!-- ================================================================ -->
+  <rect x="880" y="870" width="300" height="70" stroke="#000" stroke-width="1.5" fill="white"/>
+  <line x1="880" y1="888" x2="1180" y2="888" stroke="#000" stroke-width="0.5"/>
+  <line x1="880" y1="906" x2="1180" y2="906" stroke="#000" stroke-width="0.5"/>
+  <line x1="880" y1="924" x2="1180" y2="924" stroke="#000" stroke-width="0.5"/>
+  <line x1="980" y1="888" x2="980" y2="940" stroke="#000" stroke-width="0.5"/>
+
+  <text x="1030" y="884" class="title-text" text-anchor="middle">PUMP TRAY</text>
+  <text x="930" y="902" class="dim-text" text-anchor="middle">MATERIAL</text>
+  <text x="1080" y="902" class="dim-text" text-anchor="middle">PETG (3D PRINTED)</text>
+  <text x="930" y="920" class="dim-text" text-anchor="middle">ENVELOPE</text>
+  <text x="1080" y="920" class="dim-text" text-anchor="middle">138 x 120 x 6 mm</text>
+  <text x="930" y="936" class="dim-text" text-anchor="middle">SCALE</text>
+  <text x="1080" y="936" class="dim-text" text-anchor="middle">4:1</text>
+
+  <!-- Third angle projection symbol -->
+  <g transform="translate(855, 910)">
+    <circle cx="0" cy="0" r="10" stroke="#000" stroke-width="1" fill="none"/>
+    <circle cx="0" cy="0" r="4" stroke="#000" stroke-width="1" fill="none"/>
+    <line x1="10" y1="0" x2="18" y2="0" stroke="#000" stroke-width="1"/>
+    <circle cx="23" cy="0" r="5" stroke="#000" stroke-width="1" fill="none"/>
+    <line x1="20" y1="0" x2="26" y2="0" stroke="#000" stroke-width="0.5"/>
+    <line x1="23" y1="-3" x2="23" y2="3" stroke="#000" stroke-width="0.5"/>
+  </g>
+</svg>
