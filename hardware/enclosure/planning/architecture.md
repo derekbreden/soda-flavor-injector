@@ -22,7 +22,7 @@ The 400mm height fits typical under-sink clearance (380-420mm below the sink bow
 
 Wall thickness is not yet decided. 3mm and 4mm are both viable. 3mm walls with internal ribbing are standard for ABS enclosures of this size, gain 2mm of interior per axis, and reduce weight. 4mm walls provide more rigidity without ribbing. The dimensional analysis in this document uses 4mm (worst case for interior space).
 
-See `research/enclosure-width-reduction.md` for the full width feasibility study.
+See `research/archive/enclosure-width-reduction.md` for the original width feasibility study (280mm-era, archived).
 
 ---
 
@@ -204,7 +204,7 @@ GPIO via MCP23017 I2C expander. 10 valve outputs use GPB0-GPB7 (8 pins) plus GPA
 
 At 220mm width (212mm interior), side-bank valve placement beside the cartridge does not work -- only 31mm per side, too narrow for a 35mm-diameter valve. The valves relocate to a rack behind the cartridge dock, using the depth dimension. Two rows of 5 valves stacked vertically (Z=0-35 and Z=40-75), centered in width, occupying Y=165-240. This zone has generous clearance to the bags above.
 
-See `research/enclosure-width-reduction.md` for the valve relocation analysis.
+See `research/archive/enclosure-width-reduction.md` for the original valve relocation analysis (280mm-era, archived).
 
 ---
 
@@ -372,8 +372,8 @@ Every file in `research/` with a summary of what it covers.
 | `dip-tube-analysis.md` | Two-port cap architecture, fluid operations, air management, priming cycles, JG fitting analysis |
 | `dip-tube-tip-design.md` | 3D-printed air collection bar: ship-in-a-bottle assembly, cross-section, air channels, materials |
 | `display-and-front-panel.md` | Retractable cat6 spool geometry, spring mechanism, locking, cat6 pinout for power + UART |
-| `enclosure-width-reduction.md` | Feasibility study for shrinking from 280mm to 220mm width, valve relocation options |
+| `archive/enclosure-width-reduction.md` | **(Archived)** Feasibility study for shrinking from 280mm to 220mm width, valve relocation options |
 | `hopper-integration.md` | Hopper funnel integration with back-wall-mounted bags at 35 degrees |
-| `master-spatial-layout.md` | Synthesized component coordinates and cross-sections for the full diagonal interleave layout |
+| `archive/master-spatial-layout.md` | **(Archived)** Synthesized component coordinates for 280mm/8-valve layout (superseded by `spatial-layout.md`) |
 | `under-sink-constraints.md` | Real cabinet dimensions across US and international markets |
 | `valve-architecture.md` | Flow routing topology, valve truth table, 2-way NC vs 3-way analysis, specific valve candidates |
