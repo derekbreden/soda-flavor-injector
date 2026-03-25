@@ -82,8 +82,8 @@ Components share vertical and depth space rather than stacking in horizontal zon
 ## Displays
 
 - **2 round displays** mounted on the front face of the enclosure
-  - One driven by ESP32-S3
-  - One driven by RP2040
+  - Config display: ESP32-S3 (240x240 touchscreen + rotary encoder, config changes, BLE bridge to iOS app)
+  - Flavor display: RP2040 (128x115 round LCD, shows active flavor logo)
 - **Detachable** — each display connects via a **retracting cat6 cable (1 meter length)**
 - The displays can be pulled out from under the sink and placed on a countertop, mounted to a cabinet face, or attached magnetically to a fridge — wherever the user wants visual feedback
 - When retracted, displays sit flush or near-flush on the enclosure front face
@@ -111,8 +111,9 @@ All external fluid and electrical connections enter/exit through the back of the
 
 ## Electronics
 
-- ESP32-S3: main controller, drives one display, controls valves and pumps
-- RP2040: drives the second display
+- **ESP32: main controller.** Reads flow meter, drives pumps and valves, manages pump state machine, stores config in LittleFS, coordinates displays over UART (TinyProto HDLC). The system works without either display connected.
+- ESP32-S3: config display + BLE bridge to iOS app. Detachable peripheral.
+- RP2040: flavor display. Detachable peripheral.
 - L298N motor drivers: pump control at 12V via PWM (in the main body, not the cartridge)
 - Solenoid drivers for 10 valves via MCP23017 I2C GPIO expander
 - Flow meter signal input

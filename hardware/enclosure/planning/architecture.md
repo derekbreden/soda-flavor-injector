@@ -284,8 +284,8 @@ Two round displays, detachable via retractable flat cat6 cable (1m).
 | Form factor | ~50mm magnetic pucks with kickstand |
 | Tether | Flat cat6 cable on retractable spool (~55mm dia, ~22mm deep per reel) |
 | Protocol | UART (already in firmware), trivial over 1m cat6 |
-| Display 1 | Driven by ESP32-S3 (Serial1) |
-| Display 2 | Driven by RP2040 (Serial2) |
+| Config display | ESP32-S3: 240x240 touchscreen + rotary encoder. Config changes, BLE bridge to iOS app. Connected to ESP32 via UART (Serial1). |
+| Flavor display | RP2040: 128x115 round LCD. Shows active flavor logo. Connected to ESP32 via UART (Serial2). |
 | Docked position | Flush on front panel, reels retracted |
 | Extended position | Countertop, fridge (magnetic), cabinet door -- wherever the user wants |
 
@@ -328,12 +328,15 @@ All electronics occupy the top-back corner of the enclosure, above and behind th
 
 | Component | Function |
 |-----------|----------|
-| ESP32-S3 | Main controller, drives display 1, controls valves + pumps |
-| RP2040 | Drives display 2 |
+| ESP32 | **Main controller.** Reads flow meter, drives pumps and valves via L298N + MCP23017, manages pump state machine, stores config in LittleFS, coordinates the other boards over UART (TinyProto HDLC). The system works without either display connected. |
+| ESP32-S3 | Config display. 240x240 round touchscreen + rotary encoder for changing flavor images and ratios at runtime. Also acts as BLE bridge between iOS app and ESP32. Communicates with ESP32 over UART (Serial1). **Detachable — the system operates without it.** |
+| RP2040 | Flavor display. 128x115 round LCD showing the active flavor logo. Reads the flavor toggle switch for instant visual feedback. Communicates with ESP32 over UART (Serial2). **Detachable — the system operates without it.** |
 | MCP23017 | I2C GPIO expander, 10 valve outputs (GPB0-GPB7 + GPA0-GPA1) |
-| L298N motor drivers | 12V PWM for pumps (in main body, not cartridge) |
+| L298N motor drivers | 12V PWM for pumps (in main body, not cartridge). Currently also drive valves via ENB pins. |
 | DIGITEN flow meter | Pulse input for soda water volume |
 | PSU | 120V AC → 12V DC (pumps, valves) + 5V/3.3V (logic) |
+
+**Critical architecture principle:** The ESP32 is the brain. Both displays are peripherals connected over UART. If the user rips out either display, the device continues to dispense flavoring normally. The displays provide user-facing configuration and visual feedback only.
 
 The PSU sits adjacent to the IEC C14 inlet on the back panel (shortest high-voltage wire run). The 12V rail powers valves (via MOSFET drivers gated by MCP23017 outputs) and pumps (via L298N H-bridge for bidirectional control and PWM speed regulation). The 5V/3.3V rail powers the microcontrollers and display tethers.
 
