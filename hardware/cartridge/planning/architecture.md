@@ -75,20 +75,21 @@ See `research/dock-placement.md` for the full triangle geometry analysis, ergono
 
 ## 3. Fluid Connections — John Guest Push-to-Connect
 
-Four JG 1/4" push-to-connect fittings mount in the dock back wall. The cartridge carries four tube stubs (1/4" OD hard nylon, ~30mm protrusion) that insert into the fittings as the cartridge slides in. Collets grip automatically on insertion — no user action needed to connect.
+Four JG PP0408W 1/4" push-to-connect union fittings mount in the cartridge rear wall in a 2x2 grid (40mm horizontal x 28mm vertical center-to-center). The dock carries four bare 1/4" OD hard nylon tube stubs (~30mm protrusion) that the cartridge slides onto during insertion. Collets grip automatically on insertion — no user action needed to connect. The cartridge is the fitting-bearing side; the dock is passive.
 
-**Disconnect uses a single-motion release mechanism.** A cam lever on the cartridge front face drives a push rod through the cartridge body to a release plate on the rear face. The release plate has four stepped bores (8.0/10.5/12.5mm) that engage all four JG collet rings simultaneously. The user flips the lever, all four collets release at once, and the user pulls the cartridge out by the lever handle. One motion to unlock, one motion to remove.
+**Disconnect uses a single-motion release mechanism.** A cam lever on the cartridge front face drives a push rod through the cartridge body to a release plate on the rear face. The release plate has four stepped bores (8.0/10.5/12.5mm) that engage all four JG collet rings simultaneously. The user flips the lever, all four collets release at once, and the user pulls the cartridge out by the lever handle. One motion to unlock, one motion to remove. Compression springs on the guide pins return the release plate to the locked position.
 
 | Aspect | Detail |
 |--------|--------|
-| Fittings | 4x JG 1/4" push-to-connect unions, ~$8 total |
-| Release mechanism | Cam lever + push rod + release plate, ~$5-10 in hardware |
-| Connect UX | Slide in — collets grip automatically |
+| Fittings | 4x JG PP0408W 1/4" push-to-connect unions, cartridge-mounted, ~$8 total |
+| Fitting grid | 2x2, 40mm horizontal x 28mm vertical center-to-center |
+| Release mechanism | Cam lever + push rod + release plate + return springs, ~$5-10 in hardware |
+| Connect UX | Slide in — cartridge fittings grip dock tube stubs automatically |
 | Disconnect UX | Flip lever, pull out |
 | Retention | JG collets provide ~20N grip (4 fittings). Lever locks in seated position. |
 | Food safety | NSF 61 (potable water) |
 
-**Why drips are not a concern:** The firmware enforces a mandatory clean cycle before the cartridge can be unlocked. After the clean cycle, the fluid lines contain only water or air -- no flavor concentrate remains in the cartridge or dock fittings. A few drops of water on the enclosure floor during a swap is inconsequential.
+**Why drips are not a concern:** The firmware enforces a mandatory clean cycle before the cartridge can be unlocked. After the clean cycle, the fluid lines contain only water or air — no flavor concentrate remains in the cartridge or dock fittings. A few drops of water on the enclosure floor during a swap is inconsequential.
 
 Research: `research/collet-release.md`, `research/cam-lever.md`, `research/release-plate.md`, `research/release-mechanism-alternatives.md`
 
@@ -140,7 +141,7 @@ See `research/guide-alignment.md` for the full mechanism family survey, toleranc
 2. User rests the cartridge on the cabinet floor, roughly aimed at the slot.
 3. The chamfered entrance captures the cartridge and funnels it onto the floor rails.
 4. The cartridge slides ~130mm along the rails. Side guides prevent lateral wobble.
-5. At full insertion depth, the four tube stubs push into the JG collet fittings. Collets grip automatically — no user action needed.
+5. At full insertion depth, the cartridge's four JG fittings slide onto the dock's bare tube stubs. Collets grip automatically — no user action needed.
 6. Pogo pins on the dock ceiling make contact with pads on the cartridge top face. Wipe action cleans the contact surfaces.
 7. The user flips the cam lever to the locked position. Clear tactile "seated" state.
 
@@ -161,9 +162,9 @@ Total swap time target: under 60 seconds, one-handed, in a dark cabinet.
 
 The recommended construction is a tray + shell assembly (from `research/pump-mounting.md`):
 
-- **Pump tray:** Flat PETG plate (~140 x 120 x 6mm) with heat-set M3 insert bosses for the two pump brackets. Includes printed C-clips for tubing strain relief and a wire routing channel. Prints flat for maximum screw boss strength.
-- **Outer shell:** Rectangular PETG box with slide rails on the exterior, fitting pockets on the rear wall, and a recess for the pogo target PCB on the top face. The tray drops in and screws to the shell floor.
-- **Lid:** Flat plate closing the open side, secured with screws or snap clips. Provides assembly access.
+- **Pump tray:** Flat PETG plate (138 x 120 x 6mm) with heat-set M3 insert bosses for the two pump brackets. Includes printed C-clips for tubing strain relief and a wire routing channel. Prints flat for maximum screw boss strength.
+- **Outer shell:** Rectangular PETG box (148 x 130 x 80mm exterior, 4mm solid walls, 140 x 122 x 72mm interior) with slide rails on the exterior, JG fitting pockets on the rear wall, and a recess for the pogo target PCB on the top face. The tray drops in and screws to the shell ledges.
+- **Lid:** Flat plate closing the open top, secured with screws or snap clips. Provides assembly access.
 
 Pump mounting uses the Kamoer bracket (2-4x M3 holes, exact pattern to be measured from the physical pumps). Optional rubber grommet isolators on mount screws reduce vibration transmission. Internal tubing transitions from BPT pump tubes (4.8mm ID x 8.0mm OD) to 1/4" OD hard tubing via brass barb fittings.
 
@@ -171,11 +172,11 @@ Pump mounting uses the Kamoer bracket (2-4x M3 holes, exact pattern to be measur
 
 ## 8. Open Questions
 
-1. **Exact pump mounting hole pattern** -- must be measured from the physical KPHM400 pumps with calipers. The Kamoer datasheet drawing was not parseable; the KK series manual gives proportional reference only.
-2. **Cartridge shell material and print strategy** -- PETG is recommended but wall thickness, infill density, and print orientation need prototyping.
-3. **Cartridge ID pin** -- whether firmware will support identifying cartridge type/revision via a resistor divider on a 4th pogo contact. Not needed for MVP.
-4. **Vibration isolation** -- rigid mount first; add rubber grommets if noise is objectionable in practice.
-5. **Release plate tolerances** -- the stepped bore dimensions (8.0/10.5/12.5mm) need validation on the first print against the actual JG fittings in hand.
+1. **Exact pump mounting hole pattern** — must be measured from the physical KPHM400 pumps with calipers, or obtained from a GrabCAD STEP model.
+2. **Print orientation strategy** — shell and tray print orientation need prototyping (wall thickness is 4mm solid, no ribs).
+3. **Cartridge ID pin** — whether firmware will support identifying cartridge type/revision via a resistor divider on a 4th pogo contact. Not needed for MVP.
+4. **Vibration isolation** — rigid mount first; add rubber grommets if noise is objectionable in practice.
+5. **Release plate tolerances** — the stepped bore dimensions (8.0/10.5/12.5mm) need validation on the first print against the actual JG PP0408W fittings in hand. Collet ring OD may be ~12.7mm (larger than initially estimated), which could require increasing the outer bore.
 
 ---
 

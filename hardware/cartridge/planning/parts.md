@@ -1,6 +1,8 @@
 # Pump Cartridge Parts Catalog
 
-Structured parts list for the replaceable pump cartridge module. Every dimension is either a verified measurement, an estimate (marked with ~), or TBD. Coordinate convention: front = pull handle / cam lever face (low-Y), rear = fluid fittings face (high-Y), top = pogo pad face (high-Z).
+Structured parts list for the replaceable pump cartridge module. Every dimension is either a verified measurement, a best-available estimate (marked with ~, pending caliper verification), or TBD.
+
+**Coordinate system:** Origin at the exterior front-bottom-left corner of the outer shell. X = width (positive right), Y = depth (positive toward rear/fittings), Z = height (positive up). Front face (Y=0) is the cam lever / pull handle side. Rear face (Y=130) carries the JG fittings. Top face (Z=80) carries the pogo pads.
 
 See `architecture.md` for design rationale and `research/` for detailed trade-off analyses.
 
@@ -11,60 +13,61 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 ### Part: Outer Shell
 - **Type:** 3D printed
 - **Material:** PETG
-- **Envelope:** 148W x 130D x 80H mm (exterior)
+- **Exterior envelope:** 148W x 130D x 80H mm
+- **Wall thickness:** 4mm solid (all sides, no ribs)
+- **Interior volume:** 140W x 122D x 72H mm
 - **Features:**
   - Rectangular box, open on top (lid closes it)
-  - Wall thickness: ~3-4mm (all sides)
   - Exterior slide rails on bottom face: 2x parallel rails, 2mm tall x 3mm wide, full 130mm depth, spaced to match dock floor rails
   - Exterior side guide contact surfaces: 1.5mm wide rail features on left/right walls, 0.3-0.5mm clearance per side to dock guides
-  - Rear wall: 4x fitting pockets for JG union bodies in 2x2 grid, 15mm center-to-center, pocket bore ~13mm diameter (clears ~12.7mm fitting body OD), through-holes for tube stubs
-  - Rear wall: release plate travel cavity behind fitting pockets, 6mm deep x ~40mm wide x ~40mm tall
-  - Rear wall: 2x guide pin holes for release plate dowel pins (3.2mm diameter, ~10mm deep)
-  - Front wall: cam lever pivot hole (~5mm diameter for pivot pin), push rod through-hole (~4-5mm diameter, centered on release plate)
-  - Top face: recessed pocket for pogo target PCB, ~15W x 30L x 1.5D mm
+  - Rear wall (Y=126 to Y=130, 4mm thick): 4x fitting pockets for JG PP0408W union bodies in 2x2 grid, 40mm horizontal x 28mm vertical center-to-center. Pocket bore 13.0mm diameter (clears 12.7mm fitting body OD). Through-holes for tube passage. Fitting pocket centers at X=54, X=94, Z=26, Z=54 (centered on rear wall)
+  - Rear wall: release plate travel cavity behind fitting pockets, 6mm deep x 54mm wide x 42mm tall (clears plate with 2mm margin per side)
+  - Rear wall: 2x guide pin holes for release plate dowel pins (3.0mm diameter press-fit, 10mm deep), positioned at X=37, Z=40 and X=111, Z=40 (symmetric, outside the bore pattern)
+  - Front wall (Y=0 to Y=4, 4mm thick): cam lever pivot hole (5mm diameter, at X=74, Z=40) for pivot pin; push rod through-hole (5mm diameter, at X=74, Z=40 — coaxial with pivot, push rod passes below pivot pin)
+  - Top face: recessed pocket for pogo target PCB, 15W x 30L x 1.5D mm
   - Top face: wire entry slot from interior to pogo PCB pocket
-  - Interior ledges for pump tray: 2x shelves on left/right interior walls, ~2mm wide, positioned to support tray at correct Z height
+  - Interior ledges for pump tray: 2x shelves on left/right interior walls, 2mm wide, at Z=4 (supports tray 4mm above shell floor)
   - Interior: tray locating tabs or slots on walls for lateral tray alignment
   - Chamfered front edges: 5mm x 45-degree chamfer on all four leading edges (aids dock entry)
 - **Interfaces:**
-  - Tray screws to shell floor or ledges via 4x M3 heat-set inserts
+  - Tray screws to shell ledges via 4x M3 heat-set inserts
   - Lid attaches to top via screws or snap clips
-  - JG fittings press into rear wall pockets
+  - JG fittings press into rear wall pockets (cartridge carries the fittings; dock has bare tube stubs)
   - Release plate rides on 2x steel dowel pins mounted in rear wall
   - Cam lever pivots on pin through front wall
   - Pogo target PCB sits in top-face recess
   - Exterior rails and guides mate with dock floor rails and side guides
 - **Quantity:** 1
-- **Open:** Exact wall thickness (3mm vs 4mm) needs prototyping. Interior ledge Z-height depends on final pump tray thickness. Print orientation strategy (upside-down to get clean top-face recess vs right-side-up for rail quality) TBD.
+- **Open:** Interior ledge Z-height depends on final pump tray thickness. Print orientation strategy (upside-down for clean top-face recess vs right-side-up for rail quality) TBD.
 
 ---
 
 ### Part: Pump Tray
 - **Type:** 3D printed
 - **Material:** PETG
-- **Envelope:** ~140W x 120D x 6H mm
+- **Envelope:** 138W x 120D x 6H mm (fits inside 140mm interior with 1mm clearance per side)
 - **Features:**
   - Flat plate, prints horizontally for maximum screw boss strength
   - 4-8x M3 heat-set insert bosses for pump bracket mounting (boss OD: 8mm, boss height: 6mm, pilot hole: 4.0mm)
-  - Exact mounting hole pattern: TBD -- must be measured from physical KPHM400 bracket with calipers. Expected: 2x or 4x M3 per pump, spacing estimated ~55-65mm x ~40-50mm per pump (scaled from KK series)
+  - Exact mounting hole pattern: TBD — must be measured from physical KPHM400 bracket with calipers or from a GrabCAD STEP model. Expected: 2x or 4x M3 per pump, spacing estimated ~55-65mm x ~40-50mm per pump (scaled from KK series)
   - 4x printed C-clips for BPT tubing strain relief (clip ID: 8.3mm for 8.0mm OD BPT tube, clip opening: 6.5mm for snap-in)
   - 4x printed C-clips for 1/4" hard tubing strain relief (clip ID: 6.65mm for 6.35mm OD tube, clip opening: 4.85mm for snap-in)
-  - Wire routing channel along one edge: ~5mm wide x 3mm deep U-channel
+  - Wire routing channel along one edge: 5mm wide x 3mm deep U-channel
   - 4x M3 through-holes at corners for mounting tray to shell (clearance holes: 3.4mm)
   - Tray edge locating tabs that key into shell wall slots
 - **Interfaces:**
   - Pump brackets bolt to tray via M3 screws into heat-set inserts
-  - Tray bolts to shell floor/ledges via 4x M3 screws
+  - Tray bolts to shell ledges via 4x M3 screws
   - Locating tabs engage shell wall slots for lateral alignment
 - **Quantity:** 1
-- **Open:** Exact pump mounting hole pattern (critical -- must measure physical pumps). Number of mounting holes per pump (2 or 4). Whether rubber grommet isolators are needed (try rigid mount first).
+- **Open:** Exact pump mounting hole pattern (critical — must measure physical pumps or obtain STEP model). Number of mounting holes per pump (2 or 4). Whether rubber grommet isolators are needed (try rigid mount first).
 
 ---
 
 ### Part: Lid
 - **Type:** 3D printed
 - **Material:** PETG
-- **Envelope:** ~148W x 130D x ~2-3H mm
+- **Envelope:** 148W x 130D x 3H mm
 - **Features:**
   - Flat plate closing the open top of the outer shell
   - 4-6x M3 screw clearance holes or snap-clip features around perimeter
@@ -80,82 +83,78 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 ### Part: Release Plate
 - **Type:** 3D printed
 - **Material:** PETG
-- **Envelope:** ~40W x 40H x 6D mm (2x2 grid arrangement)
+- **Envelope:** 50W x 36H x 6D mm
 - **Features:**
-  - 4x stepped bores in 2x2 grid, 15mm center-to-center:
+  - 4x stepped bores in 2x2 grid, 40mm horizontal x 28mm vertical center-to-center (matches JG fitting spacing):
+    - Bore centers at: (5, 4), (45, 4), (5, 32), (45, 32) relative to plate bottom-left corner
     - Tube clearance hole: 8.0mm diameter, through full thickness (+0.5/-0 mm tolerance)
     - Inner lip (collet pusher): 10.5mm diameter, 2.0mm depth (+/-0.25mm tolerance)
     - Outer bore (collet cradle): 12.5mm diameter, 2.0mm depth (+/-0.5mm tolerance)
     - 0.2mm chamfer at tube hole entry edge
     - 0.3mm x 45-degree lead-in chamfer at outer bore entry
   - Axial depth stack: 2.0mm outer bore + 2.0mm inner lip + 2.0mm structural back = 6.0mm total
-  - Inner lip annular width: (10.5 - 8.0) / 2 = 1.25mm (critical -- minimum viable for FDM)
-  - 2x guide pin slots: 3.3mm wide x 7.3mm long (oriented along travel axis), positioned symmetrically outside the bore pattern
-  - Push rod contact point: centered boss or flat on the back face for cam push rod engagement
-  - Bore arrangement (pump pairing):
-    ```
-    Pump 1 IN    Pump 2 IN
-        O            O
-    Pump 1 OUT   Pump 2 OUT
-        O            O
-    ```
+  - Inner lip annular width: (10.5 - 8.0) / 2 = 1.25mm (critical — minimum viable for FDM)
+  - 2x guide pin slots: 3.3mm wide x 7.3mm long (oriented along travel axis), positioned at X=(-8, 18) and X=(58, 18) relative to plate bottom-left — symmetric outside the bore pattern
+  - Push rod contact point: centered boss on back face at (25, 18) relative to plate bottom-left, 8mm diameter x 1mm proud
 - **Interfaces:**
   - Slides on 2x 3mm steel dowel pins mounted in outer shell rear wall
   - Stroke: 3.0mm (min 2.5mm)
   - Receives axial push from cam lever push rod on back face
   - Stepped bores engage JG collet rings on fitting face side
-  - Must maintain <0.3mm parallelism deviation across 33.5mm plate during full stroke
+  - Return spring: 2x small compression springs (one per guide pin, ~5mm OD x 10mm free length, ~0.5 N/mm rate) ride on the dowel pins between the plate and the shell rear wall, returning the plate to the retracted (locked) position when the cam lever is released. Initial design values, subject to iteration after printing.
+  - Must maintain <0.3mm parallelism deviation across 50mm plate width during full stroke
 - **Quantity:** 1
-- **Open:** Inner lip bore diameter (10.5mm) must be validated against actual JG fittings in hand. Outer bore (12.5mm) must clear actual collet ring OD (~11.4mm, needs physical verification). Print orientation: bore axis should be perpendicular to build plate (Z-axis) for best circularity.
+- **Open:** Inner lip bore diameter (10.5mm) must be validated against actual JG fittings in hand. Outer bore (12.5mm) must clear actual collet ring OD (~12.7mm — may need to increase to 13.0mm after physical verification). Print orientation: bore axis perpendicular to build plate (Z-axis) for best circularity.
 
 ---
 
 ### Part: Cam Lever
 - **Type:** 3D printed
 - **Material:** PETG
-- **Envelope:** ~100L x ~20W x ~15H mm (handle length x width x cam body)
+- **Envelope:** 90L x 18W x 14H mm (handle length x width x cam body diameter)
 - **Features:**
-  - Handle: ~80-100mm long, ergonomic grip cross-section (~15W x 10H mm)
+  - Handle: 76mm long from pivot center, ergonomic grip cross-section (18W x 10H mm, rounded edges)
   - Eccentric cam lobe at pivot end: 1.5mm eccentricity (produces 3mm stroke over 180-degree rotation)
-  - Cam OD: ~10-15mm (estimated)
-  - Pivot bore: ~5mm diameter for pivot pin
-  - Over-center geometry: cam profile allows lever to pass ~2-3 degrees past maximum displacement for self-locking
-  - Optional: small detent bump on cam track for tactile click at locked position
-  - Push rod contact surface on cam face (flat or slightly convex)
+  - Cam OD: 14mm
+  - Pivot bore: 5mm diameter for pivot pin
+  - Over-center geometry: cam profile allows lever to pass 2 degrees past maximum displacement for self-locking
+  - Small detent bump (0.3mm) on cam track for tactile click at locked position
+  - Push rod contact surface on cam face: slightly convex (1mm crown over 10mm), hardened by contact area
 - **Interfaces:**
   - Pivots on 5mm steel pin through outer shell front wall
   - Cam face pushes against push rod, which transmits force to release plate
   - Handle serves as pull grip for cartridge removal
   - Over-center position locks lever against shell front face
 - **Quantity:** 1
-- **Open:** Exact cam lobe diameter. Whether an external or internal cam is more practical for 3D printing. Lever handle shape (straight vs curved). Detent geometry for click feel.
+- **Note:** Initial design values, subject to iteration after printing.
+- **Open:** Lever handle shape (straight vs curved). Whether an external or internal cam is more practical for 3D printing — start with external.
 
 ---
 
 ### Part: Push Rod
-- **Type:** 3D printed or steel rod
-- **Material:** PETG or 4-5mm steel rod
-- **Envelope:** ~4-5mm diameter x ~120mm long (spans front wall to release plate)
+- **Type:** Steel rod
+- **Material:** 5mm steel rod (smooth ground)
+- **Envelope:** 5mm diameter x 118mm long (spans front wall inner face to release plate back face: 122mm interior depth minus 4mm clearance)
 - **Features:**
   - Straight rod connecting cam lever to release plate
-  - Front end: contact surface for cam lobe (flat or cupped)
-  - Rear end: contact surface for release plate back face (flat)
-  - Must slide freely through front wall hole with ~0.3mm clearance
+  - Front end: flat, receives contact from cam lobe
+  - Rear end: flat, contacts release plate push rod boss
+  - Slides freely through front wall hole with 0.25mm diametral clearance (5.0mm rod in 5.5mm hole)
 - **Interfaces:**
   - Receives force from cam lever cam lobe at front end
   - Transmits axial force to release plate at rear end
-  - Passes through outer shell front wall (4-5mm through-hole)
+  - Passes through outer shell front wall (5.5mm through-hole)
 - **Quantity:** 1
-- **Open:** Whether a single centered rod is sufficient or if two rods are needed for even force distribution across the 2x2 plate. Steel vs printed (steel is stiffer but requires hardware).
+- **Note:** Initial design values, subject to iteration after printing. A single centered rod is the starting design; add a second rod only if parallelism testing shows the plate cocking under load.
 
 ---
 
-## Purchased Parts -- Mechanical
+## Purchased Parts — Mechanical
 
 ### Part: Kamoer KPHM400-SW3B25 Peristaltic Pump
 - **Type:** Purchased
 - **Material:** Various (motor housing, pump head, BPT tubing)
-- **Envelope:** 68.6W x 115.6D x 62.7H mm (verified, per pump)
+- **Envelope:** 68.6W x 115.6D x 62.7H mm (confirmed from datasheet)
 - **Features:**
   - 12V DC brushed motor, 10W, ~0.83A typical draw
   - 3-roller pump head
@@ -164,52 +163,55 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - Tube stub protrusion from pump head: ~30-50mm (estimated)
   - Motor leads exit from rear of motor housing
   - Mounting bracket (straight plate): metal, 2x or 4x M3 through-holes
-  - Bracket mounting hole pattern: TBD (must measure)
-  - Weight: ~306g per pump (verified)
-  - Noise: <=65 dB (verified)
-  - Flow rate: 400 ml/min (verified)
+  - Bracket mounting hole pattern: TBD (blocked datasheet drawing; will measure with calipers or obtain STEP model from GrabCAD)
+  - Weight: 306g per pump (confirmed)
+  - Noise: <=65 dB (confirmed)
+  - Flow rate: 400 ml/min (confirmed)
 - **Interfaces:**
   - Bracket bolts to pump tray via M3 screws
   - BPT tube stubs connect to brass barb fittings for transition to 1/4" hard tubing
   - Motor leads route through wire channel to pogo target PCB
 - **Quantity:** 2
+- **Status:** Best available dimensions, pending caliper verification of mounting hole pattern and tube exit positions.
 - **Open:** Exact mounting hole pattern (center-to-center spacing). Bracket overall dimensions. Tube exit positions relative to mounting face. Motor lead length. Motor protrusion beyond bracket (determines tray-to-lid clearance).
 
 ---
 
-### Part: John Guest 1/4" Push-to-Connect Union
-- **Type:** Purchased (e.g., PI0408S or PP0408W)
+### Part: John Guest PP0408W 1/4" Push-to-Connect Union
+- **Type:** Purchased
 - **Material:** Acetal copolymer body, stainless steel gripper teeth, nitrile/EPDM O-ring
-- **Envelope:** ~12.7mm body OD x ~38-42mm body length (union, accepts tube from both ends)
+- **Envelope:** 12.7mm body OD x 38.1mm overall length (1/2" x 1-1/2")
 - **Features:**
   - Accepts 1/4" OD (6.35mm) tubing from each end
-  - Insertion depth to tube stop: ~15-18mm per side
-  - Collet ring OD: ~11.4mm (measured/inferred)
+  - Tube insertion depth to tube stop: ~16mm per side (industry convention, unverified)
+  - Collet ring OD: ~12.7mm (approximately same as body OD)
   - Collet ring protrusion from body face: ~2-3mm
-  - Collet travel (inward, for release): ~1.5-2.0mm
+  - Collet travel (inward, for release): TBD (needs physical measurement)
   - Release force per fitting: ~3-5N
   - Grip force per fitting: ~20N (4 fittings total ~80N retention)
-  - Max working pressure: 150 PSI at 70F (verified)
+  - Max working pressure: 150 PSI at 70F (confirmed)
   - NSF 61 certified for potable water
+  - Weight: ~45g per fitting
 - **Interfaces:**
   - Press into rear wall pockets of outer shell (13mm bore accommodates 12.7mm body)
-  - Dock side: accepts hard tube stubs from cartridge (~30mm protrusion)
+  - Cartridge carries all 4 fittings in its rear wall (union style — accepts tubes from both ends)
+  - Dock side: bare 1/4" OD tube stubs protrude from dock back wall (~30mm). Cartridge slides onto these stubs during insertion.
   - Cartridge interior side: accepts hard tube stubs from pump tubing transition
   - Collet rings engage release plate stepped bores during disconnect
-  - 2x2 grid arrangement, 15mm center-to-center
+  - 2x2 grid arrangement, 40mm horizontal x 28mm vertical center-to-center, centered on rear wall
 - **Quantity:** 4
-- **Open:** Exact body OD (verify ~12.7mm with calipers). Exact collet ring OD (verify ~11.4mm). Whether union style (tube from both ends) or elbow/stem variant is better for this mounting approach.
+- **Status:** Best available dimensions, pending caliper verification of body OD, collet ring OD, and collet travel.
 
 ---
 
 ### Part: 1/4" OD Hard Nylon Tubing (Tube Stubs)
 - **Type:** Purchased
 - **Material:** Nylon or polyethylene, 1/4" OD (6.35mm)
-- **Envelope:** 6.35mm OD, cut to ~45-50mm length per stub (15-18mm insertion depth + ~30mm protrusion)
+- **Envelope:** 6.35mm OD, cut to ~46mm length per stub (~16mm insertion depth + ~30mm protrusion)
 - **Features:**
   - Rigid enough to push into JG fittings without buckling
   - Food-grade compatible
-  - 4 stubs on dock side (protrude from dock back wall into cartridge rear fittings during insertion)
+  - 4 stubs on dock side (protrude from dock back wall; cartridge slides onto these during insertion)
   - 4 stubs inside cartridge (connect BPT-to-hard-tube transition to interior side of JG fittings)
 - **Interfaces:**
   - Inserts into JG push-to-connect fittings (gripped by collet)
@@ -242,15 +244,34 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 - **Envelope:** Fits ~8mm OD tubing (BPT tube OD)
 - **Features:**
   - Secures BPT pump tube onto brass barb fitting
-  - Worm-drive or spring-clip style
+  - Spring-clip style preferred (easier in tight space)
 - **Interfaces:**
   - Clamps around BPT tube at barb connection point
 - **Quantity:** 4 (one per barb fitting)
-- **Open:** Spring clip vs worm drive preference. Exact clamp size.
+- **Open:** Exact clamp size.
 
 ---
 
-## Purchased Parts -- Electrical
+### Part: Compression Spring (Release Plate Return)
+- **Type:** Purchased
+- **Material:** Stainless steel
+- **Envelope:** ~5mm OD x 10mm free length, 3.2mm ID (rides on 3mm dowel pin)
+- **Features:**
+  - Spring rate: ~0.5 N/mm
+  - Compressed length at plate retracted (locked) position: ~7mm
+  - Compressed length at plate extended (released) position: ~4mm
+  - Preload at retracted position: ~1.5N per spring (3N total)
+  - Max load at extended position: ~3N per spring (6N total)
+  - Returns release plate to retracted position when cam lever is released
+- **Interfaces:**
+  - Rides on 3mm dowel pin between shell rear wall inner face and release plate back face
+  - One spring per guide pin
+- **Quantity:** 2
+- **Note:** Initial design values, subject to iteration after printing.
+
+---
+
+## Purchased Parts — Electrical
 
 ### Part: Pogo Target PCB
 - **Type:** Purchased (custom PCB from JLCPCB/PCBWay) or fabricated from brass strip
@@ -276,30 +297,31 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 ### Part: Steel Dowel Pin (Release Plate Guide)
 - **Type:** Purchased
 - **Material:** Steel
-- **Envelope:** 3mm diameter x ~15mm long
+- **Envelope:** 3mm diameter x 20mm long
 - **Features:**
   - Smooth cylindrical surface for plate sliding
   - Provides linear guidance for release plate travel
+  - Also serves as guide shaft for return compression springs
 - **Interfaces:**
-  - Press-fit or epoxied into 3.0mm holes in outer shell rear wall
+  - Press-fit or epoxied into 3.0mm holes in outer shell rear wall (10mm engagement depth)
+  - 10mm of pin protrudes into cavity for plate travel + spring
   - Release plate slides on pins via 3.3mm wide slots (0.15mm clearance per side)
+  - Compression spring rides on each pin between wall and plate
 - **Quantity:** 2
-- **Open:** Exact length depends on shell wall depth + plate travel + retention depth. 3mm vs 4mm diameter (3mm is adequate for the 12-20N load).
 
 ---
 
 ### Part: Pivot Pin (Cam Lever)
 - **Type:** Purchased
 - **Material:** Steel
-- **Envelope:** ~5mm diameter x ~25-30mm long (spans shell front wall + lever pivot bore)
+- **Envelope:** 5mm diameter x 26mm long (4mm shell wall + 18mm lever width + 4mm retention)
 - **Features:**
   - Smooth cylindrical pin
   - Cam lever rotates on this pin
 - **Interfaces:**
   - Passes through cam lever pivot bore and outer shell front wall hole
-  - Retained by press-fit, E-clip, or cotter pin at ends
+  - Retained by E-clip on exterior end
 - **Quantity:** 1
-- **Open:** Retention method. Exact length depends on shell wall thickness + lever width.
 
 ---
 
@@ -320,7 +342,7 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 ### Part: M3 x 5mm Brass Heat-Set Insert
 - **Type:** Purchased
 - **Material:** Brass, knurled exterior
-- **Envelope:** ~4.0mm pilot hole, ~5mm length, M3 internal thread
+- **Envelope:** ~4.0mm pilot hole, 5mm length, M3 internal thread
 - **Features:**
   - Installed into PETG with soldering iron at 245C
   - Knurled exterior grips plastic after cooling
@@ -330,7 +352,18 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - Press-set into pump tray bosses (4.0mm pilot holes)
   - Press-set into shell interior bosses for tray mounting
 - **Quantity:** 8-12 (matching screw count)
-- **Open:** 4mm vs 5mm insert length.
+
+---
+
+### Part: E-Clip (Pivot Pin Retention)
+- **Type:** Purchased
+- **Material:** Spring steel
+- **Envelope:** 5mm shaft size
+- **Features:**
+  - Snaps into groove on pivot pin to prevent axial withdrawal
+- **Interfaces:**
+  - Clips onto pivot pin on exterior side of shell front wall
+- **Quantity:** 1
 
 ---
 
@@ -346,19 +379,21 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - M3 screw passes through grommet center hole
   - Grommet sits in counterbore on tray or between bracket and tray surface
 - **Quantity:** 4-8 (one per pump mounting screw)
-- **Open:** Not needed for MVP -- try rigid mount first. Add if vibration/noise is objectionable.
+- **Open:** Not needed for MVP — try rigid mount first. Add if vibration/noise is objectionable.
 
 ---
 
 ## Sub-Assembly: Release Mechanism
 
-Composed of: cam lever + pivot pin + push rod + release plate + 2x dowel pins.
+Composed of: cam lever + pivot pin + E-clip + push rod + release plate + 2x dowel pins + 2x compression springs.
 
-- **Function:** Single lever flip releases all 4 JG collets simultaneously.
+- **Function:** Single lever flip releases all 4 JG collets simultaneously. Springs return the plate when the lever is released.
 - **Actuation:** 180-degree lever rotation produces 3mm axial plate travel via 1.5mm eccentric cam.
-- **Force path:** Hand -> lever handle (80-100mm arm) -> eccentric cam (1.5mm offset) -> push rod -> release plate -> 4x collet rings.
-- **Mechanical advantage:** ~10:1 or higher (lever arm / cam radius).
+- **Force path:** Hand -> lever handle (76mm arm) -> eccentric cam (1.5mm offset) -> push rod (118mm, 5mm steel) -> release plate (50x36x6mm) -> 4x collet rings.
+- **Return path:** 2x compression springs on dowel pins push plate back to retracted position, which pushes push rod back, which rotates cam lever back past over-center detent.
+- **Mechanical advantage:** ~10:1 (76mm lever arm / 7mm cam effective radius).
 - **Total required force at collets:** 12-20N (4 fittings x 3-5N each).
-- **Required hand force:** ~1.2-2.0N (comfortable one-handed).
-- **Self-locking:** Over-center cam position holds lever in both locked and released states.
-- **Parallelism requirement:** Release plate must stay within 0.3mm deviation across its 33.5mm face during full 3mm stroke.
+- **Spring return force (retracted position):** ~3N total (must be overcome by hand when flipping lever to release).
+- **Required hand force:** ~2-3N (comfortable one-handed, including spring preload).
+- **Self-locking:** Over-center cam position (2 degrees past peak) holds lever in both locked and released states.
+- **Parallelism requirement:** Release plate must stay within 0.3mm deviation across its 50mm width during full 3mm stroke.
