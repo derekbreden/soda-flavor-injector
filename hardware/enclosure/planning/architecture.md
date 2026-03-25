@@ -9,9 +9,9 @@ The enclosure is the main body of a commercial under-sink flavor injection syste
 | Parameter | Value |
 |-----------|-------|
 | Exterior | **220W x 300D x 400H mm** |
-| Interior (4mm walls) | 212W x 292D x 392H mm |
-| Interior (3mm walls) | 214W x 294D x 394H mm |
-| Interior volume | ~24.3 liters (at 4mm walls) |
+| Wall thickness | 4mm solid (no ribs) |
+| Interior | 212W x 292D x 392H mm |
+| Interior volume | ~24.3 liters |
 | Footprint | 660 cm2 |
 
 The 220mm width matches the companion Lilium carbonator. It is driven by product-line aesthetics, not internal need. The 190mm bags plus a 200mm cradle fit within 212mm interior with 6mm clearance per side to the enclosure wall.
@@ -19,8 +19,6 @@ The 220mm width matches the companion Lilium carbonator. It is driven by product
 The 300mm depth is an intentional constraint. Under-sink cabinets offer 480-510mm of depth, so this leaves the unit well within available space. 2L bags fit at 35 degrees with corrected lens-shaped geometry (see Section 2).
 
 The 400mm height fits typical under-sink clearance (380-420mm below the sink bowl).
-
-Wall thickness is not yet decided. 3mm and 4mm are both viable. 3mm walls with internal ribbing are standard for ABS enclosures of this size, gain 2mm of interior per axis, and reduce weight. 4mm walls provide more rigidity without ribbing. The dimensional analysis in this document uses 4mm (worst case for interior space).
 
 See `research/archive/enclosure-width-reduction.md` for the original width feasibility study (280mm-era, archived).
 
@@ -196,13 +194,13 @@ All 2-way normally-closed solenoid, 12V DC.
 
 ### 3f. Valve Hardware
 
-Beduan 12V NC solenoid, 1/4" quick-connect (Amazon B07NWCQJK9), approximately $9 each, approximately $90 for 10. Cylindrical body, ~30-35mm diameter x 50-55mm long. Designed for RO water systems -- food-grade, mass-produced, Amazon Prime eligible.
+Beduan 12V NC solenoid, 1/4" quick-connect (Amazon B07NWCQJK9), approximately $9 each, approximately $90 for 10. Body: 34.0W x 63.5D (port-to-port) x 58.4H mm, 113g each. No built-in mounting bracket. Designed for RO water systems -- food-grade, mass-produced, Amazon Prime eligible. Dimensions are best available, pending caliper verification.
 
 GPIO via MCP23017 I2C expander. 10 valve outputs use GPB0-GPB7 (8 pins) plus GPA0-GPA1 (2 pins).
 
 ### 3g. Valve Physical Placement
 
-At 220mm width (212mm interior), side-bank valve placement beside the cartridge does not work -- only 31mm per side, too narrow for a 35mm-diameter valve. The valves relocate to a rack behind the cartridge dock, using the depth dimension. Two rows of 5 valves stacked vertically (Z=0-35 and Z=40-75), centered in width, occupying Y=165-240. This zone has generous clearance to the bags above.
+At 220mm width (212mm interior), side-bank valve placement beside the cartridge does not work -- only 31mm per side, too narrow for a 34mm-wide valve. The valves relocate to a rack behind the cartridge dock, using the depth dimension. Two rows of 5 valves stacked vertically at 38mm pitch (34mm body + 4mm gap). Row 1: Z=0-58, Row 2: Z=62-120. Rack width: 186mm (13mm margin per side in 212mm interior). Rack depth: Y=140-204 (64mm, port-to-port valve length). Total rack height: 120mm.
 
 See `research/archive/enclosure-width-reduction.md` for the original valve relocation analysis (280mm-era, archived).
 
@@ -345,14 +343,11 @@ The PSU sits adjacent to the IEC C14 inlet on the back panel (shortest high-volt
 ## 10. Open Questions
 
 1. **Width validation:** 220mm is the target but needs physical prototyping with valve placement and bag-in-cradle lateral fit at 212mm interior.
-2. **Wall thickness:** 3mm vs 4mm -- affects interior dimensions by 2mm per axis. 3mm with ribbing is likely sufficient.
-3. **Cam lever release plate design** for the John Guest fittings. The release plate stepped bore geometry and push rod routing need physical prototyping.
-4. **Custom cap design** for the two-port bag modification. One JG bulkhead + one barb fitting in a 28mm threaded cap. 3D-printed or machined.
-5. **Cradle profile** -- needs physical measurement of actual filled 2L bag cross-section to refine the channel shape.
-6. **Back-wall pin method** -- clamp, channel, adhesive, or bracket for holding the flat sealed end against the wall.
-7. **Tip piece material** -- FDM PETG vs SLS nylon vs SLA resin for the one food-contact 3D-printed part.
-8. **Display reel mechanism** -- retractable flat cat6 spool sizing at 220mm width. Side-by-side vs vertical stacking.
-9. **Valve physical placement** -- at 220mm width, side banks do not work. The behind-cartridge rack (Y=165-240, Z=0-75) is the plan but needs prototyping for tube routing density.
+2. **Cam lever release plate design** for the John Guest fittings. The release plate stepped bore geometry and push rod routing need physical prototyping.
+3. **Custom cap design** for the two-port bag modification. One JG bulkhead + one barb fitting in a 28mm threaded cap. 3D-printed or machined.
+4. **Cradle profile** -- needs physical measurement of actual filled 2L bag cross-section to refine the channel shape.
+5. **Tip piece material** -- FDM PETG vs SLS nylon vs SLA resin for the one food-contact 3D-printed part. Low priority (tip piece may be scrapped).
+6. **Valve rack height:** at 120mm (due to actual 58.4mm valve height), the rack extends above the 84mm cartridge slot. Verify no interference with dock back wall and pogo pin mount.
 
 ---
 

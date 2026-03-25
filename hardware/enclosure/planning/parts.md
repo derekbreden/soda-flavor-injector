@@ -1,6 +1,10 @@
 # Enclosure Parts Catalog
 
-Structured parts list for the under-sink flavor injection enclosure. Every dimension and interface is stated explicitly for downstream CAD geometry generation. Coordinate system: origin at interior front-bottom-left corner, X = width (positive rightward), Y = depth (positive rearward), Z = height (positive upward). Exterior dimensions: 220W x 300D x 400H mm.
+Structured parts list for the under-sink flavor injection enclosure. Every dimension and interface is stated explicitly for downstream CAD geometry generation.
+
+**Coordinate system:** Origin at exterior front-bottom-left corner. X = width (positive rightward, 0-220mm). Y = depth (positive rearward, 0-300mm). Z = height (positive upward, 0-400mm). Exterior dimensions: 220W x 300D x 400H mm. Wall thickness: 4mm solid (no ribs). Interior dimensions: 212W x 292D x 392H mm.
+
+All dimensions are initial design values, subject to iteration during prototyping unless marked "verified."
 
 ---
 
@@ -12,25 +16,21 @@ Structured parts list for the under-sink flavor injection enclosure. Every dimen
 - **Material:** ABS or ASA
 - **Envelope:** 220W x 300D x 400H mm (exterior)
 - **Features:**
-  - Wall thickness: 3-4mm (TBD -- 4mm used for worst-case interior calculations, 3mm with ribbing is likely final)
-  - Interior volume at 4mm walls: 212W x 292D x 392H mm
-  - Interior volume at 3mm walls: 214W x 294D x 394H mm
-  - Front panel opening for cartridge slot: 148W x 84H mm, centered in width (X=32-180 at 4mm walls), bottom edge at Z=0
-  - Front panel opening for hopper access: 100mm diameter circle, centered at X=106, Z=361 (estimated)
-  - Front panel display dock recesses: two 50mm diameter circular pockets, ~5mm deep, at X=55 Z=275 and X=157 Z=275 (estimated, from display-and-front-panel.md zones)
+  - Wall thickness: 4mm solid, no ribs
+  - Interior: 212W x 292D x 392H mm
+  - Interior volume: ~24.3 liters
+  - Front panel opening for cartridge slot: 148W x 84H mm, centered in width (X=36-184), bottom edge at Z=0
+  - Front panel display dock recesses: two 50mm diameter circular pockets, ~5mm deep, at X=55 Z=275 and X=157 Z=275
   - Front panel cable exit holes: two ~8mm holes centered in each display dock recess for flat cat6 cable
   - Back panel cutouts: see Back Panel section
-  - Internal ribs: TBD pattern if 3mm walls are chosen (typical 2mm wide x 6mm tall ribs at 40-50mm spacing)
 - **Interfaces:**
   - Back panel: integral or removable (fastened with M3 screws into heat-set inserts)
   - Top panel: removable or hinged for hopper access
-  - Bottom: flat base, may include printed floor rails for cartridge dock
+  - Bottom: flat base with printed floor rails for cartridge dock
   - Internal mounting bosses for electronics shelf, cradle brackets, valve rack, reel housings
 - **Quantity:** 1 (may be printed as 2-4 sub-pieces and bonded)
 - **Open:**
-  - Wall thickness: 3mm vs 4mm (affects all interior dims by 2mm per axis)
   - Print orientation and split line locations
-  - Rib pattern for 3mm walls
 
 ### Part: Top Panel
 
@@ -58,10 +58,9 @@ Structured parts list for the under-sink flavor injection enclosure. Every dimen
 - **Features:**
   - Cartridge slot opening: 148W x 84H mm, centered in width, bottom at Z=0
   - Chamfered slot entrance: 5mm chamfer on all edges of cartridge opening for blind insertion
-  - Two display dock recesses: 50mm diameter x 5mm deep, centered at approximately X=55 Z=275 and X=157 Z=275
+  - Two display dock recesses: 50mm diameter x 5mm deep, centered at X=55 Z=275 and X=157 Z=275
   - Cable exit holes in dock recesses: ~8mm diameter for flat cat6
-  - Hopper access opening at top: 100mm diameter, centered at X=110, Z=~361
-  - Status LED window: TBD (small, near cartridge slot)
+  - Status LED window: small, near cartridge slot (position TBD)
 - **Interfaces:**
   - Attaches to main body front edge
   - Display dock recesses accept magnetic display pucks (magnets in recess surround)
@@ -69,7 +68,6 @@ Structured parts list for the under-sink flavor injection enclosure. Every dimen
 - **Quantity:** 1
 - **Open:**
   - Whether front panel is integral to main body or separate/removable
-  - Exact display dock positions (estimated from 280mm-width research, need recalculation for 220mm)
 
 ---
 
@@ -104,24 +102,23 @@ Structured parts list for the under-sink flavor injection enclosure. Every dimen
 
 - **Type:** 3D printed
 - **Material:** PETG
-- **Envelope:** ~100W x ~20D x ~30H mm (estimated)
+- **Envelope:** ~100W x ~20D x ~30H mm
 - **Features:**
   - Holds the flat sealed end of each bag pinned against the back wall at the highest point
   - Accommodates two bags stacked (total ~2mm thick at sealed end)
-  - Clamp, channel, adhesive pad, or bracket (mechanism TBD)
+  - Spring-loaded clamp with M3 screw adjustment for clamping pressure. Initial design value, subject to iteration.
 - **Interfaces:**
   - Mounts to interior back wall surface near Z=380-392, Y=288-292
   - Bag sealed end sits between clamp and wall
-- **Quantity:** 1-2 (one per bag or one shared)
+- **Quantity:** 1 (shared for both bags)
 - **Open:**
-  - Pin/clamp mechanism not yet designed
   - Exact mounting position depends on bag placement during prototyping
 
 ---
 
 ## 3. Cartridge Dock
 
-The dock is the enclosure-side structure that receives the removable pump cartridge. Interface dimensions must match the cartridge (see cartridge architecture.md -- envelope 148W x 130D x 80H mm).
+The dock is the enclosure-side structure that receives the removable pump cartridge. Interface dimensions must match the cartridge (see cartridge planning -- envelope 148W x 130D x 80H mm).
 
 ### Part: Dock Floor Rails
 
@@ -133,7 +130,7 @@ The dock is the enclosure-side structure that receives the removable pump cartri
   - Rail width: 3mm
   - Rail height: 2mm
   - Rail length: full cartridge travel depth, ~130mm
-  - Spacing: matched to cartridge base groove pattern -- inside edge to inside edge = cartridge width minus shell wall margins (~142mm center-to-center, TBD)
+  - Spacing: matched to cartridge base groove pattern -- inside edge to inside edge ~142mm center-to-center
   - Surface: smooth printed top face for low-friction sliding
 - **Interfaces:**
   - Cartridge base has mating grooves (3mm wide x 2.5mm deep) that ride on these rails
@@ -164,30 +161,29 @@ The dock is the enclosure-side structure that receives the removable pump cartri
 
 - **Type:** 3D printed
 - **Material:** PETG
-- **Envelope:** ~148W x ~35D x ~84H mm
+- **Envelope:** ~148W x ~10D x ~84H mm
 - **Features:**
-  - Structural wall at Y=130-165 (behind fully-inserted cartridge)
-  - Four 15.9mm (5/8") through-holes for John Guest PP1208W 1/4" push-to-connect bulkhead fittings
-  - Hole pattern: 2 inlet fittings (lower) + 2 outlet fittings (upper), arranged in a rectangle
-  - Hole center-to-center spacing: ~40mm horizontal (estimated), ~20mm vertical (estimated)
-  - Wall thickness at fitting holes: 6-8mm (to accommodate JG bulkhead nut + body)
+  - Structural wall at Y=130-140 (behind fully-inserted cartridge)
+  - Four 7mm through-holes for 1/4" OD (6.35mm) tube stub pass-throughs with 0.65mm clearance
+  - Tube stub spacing: ~40mm horizontal x ~28mm vertical center-to-center (matching cartridge JG fitting positions)
+  - Hole pattern: 2 inlet tubes (lower) + 2 outlet tubes (upper), arranged in a rectangle
+  - Each hole sealed with a rubber grommet (7mm ID, ~11mm OD, compression fit into countersunk pocket). Alternative: O-ring groove or adhesive seal. Initial design: grommet.
+  - Wall thickness at tube holes: 6-8mm (structural, accommodates grommet counterbore)
   - Pogo pin mount area on ceiling face (top surface at Z=80-84): see Pogo Pin Mount
   - Drainage channel molded into ceiling surface sloping away from pogo pin pockets
 - **Interfaces:**
-  - JG fittings face rearward (valve rack side) and forward (cartridge tube stubs insert from front)
-  - Cartridge tube stubs: 4x 1/4" OD hard nylon, ~30mm protrusion, insert into JG fittings on dock-in
+  - Tube stubs protrude from the dock rear face into the valve rack zone, and from the dock front face into the cartridge cavity
+  - Cartridge JG fittings slide onto the front-facing tube stubs during dock-in (JG fittings are in the cartridge, not the dock)
   - Pogo pins mount to ceiling face, press down onto cartridge top pads
-  - Release plate bore alignment: four 8.0/10.5/12.5mm stepped bores in release plate (separate part, cartridge side) must align with JG collet rings
 - **Quantity:** 1
 - **Open:**
-  - Exact JG fitting hole pattern -- needs physical JG fitting measurement for center-to-center
-  - Release plate stepped bore geometry needs validation on first print
+  - Grommet vs O-ring vs adhesive seal -- prototype all three
 
 ### Part: Pogo Pin Mount
 
 - **Type:** 3D printed bracket or small PCB mount
 - **Material:** PETG bracket + FR4 PCB (if using PCB-mounted pogo pins)
-- **Envelope:** ~60W x ~30D x ~10H mm (estimated)
+- **Envelope:** ~60W x ~30D x ~10H mm
 - **Features:**
   - Mounts to dock ceiling (underside of dock back wall top face or separate bracket at Z=80-84)
   - Holds 3-6 spring-loaded pogo pins (P75 or P100 series)
@@ -197,6 +193,7 @@ The dock is the enclosure-side structure that receives the removable pump cartri
   - Minimum 3 pins: GND, Motor A 12V, Motor B 12V
   - Optional 3 more: cartridge ID, temp sensor, spare
   - Conformal coating on PCB traces; contact surfaces bare metal
+  - X-position: centered at X=106 (centered on cartridge width within 212mm interior)
   - Drainage channel in surrounding dock ceiling slopes away from pin pockets
 - **Interfaces:**
   - Pins press onto cartridge top face pads (8mm x 5mm each, nickel-plated brass, 10mm c-t-c)
@@ -232,26 +229,28 @@ Ten solenoid valves mounted behind the cartridge dock, using the depth dimension
 
 - **Type:** 3D printed
 - **Material:** PETG or ABS
-- **Envelope:** ~185W x ~75D x ~75H mm
+- **Envelope:** ~186W x ~64D x ~75H mm
 - **Features:**
   - Holds 10 solenoid valves in a 5-wide x 2-high grid
-  - Valve orientation: cylindrical axis along Y (depth), quick-connect ports facing front and rear
-  - Row 1 (bottom): Z=0-35, 5 valves across width
-  - Row 2 (top): Z=40-75, 5 valves across width
-  - Each valve cradle: 35mm diameter semicircular saddle with retention clip or strap
-  - Valve pitch (center-to-center in X): ~37mm (35mm valve body + 2mm gap)
-  - 5 valves at 37mm pitch = 185mm total span, centered in 212mm interior (13.5mm margin per side)
-  - Depth consumed: Y=165-240 (75mm, one valve body length with QC fittings)
-  - Cable routing channels for solenoid wires (12V + GND per valve, 20 wires total)
+  - Valve orientation: long axis (port-to-port, 63.5mm) along Y (depth), coil housing at top
+  - Valve body dimensions: 34.0W x 63.5D (port-to-port) x 58.4H mm per valve
+  - Valve pitch (center-to-center in X): 38mm (34mm body + 4mm gap between bodies)
+  - 5 valves at 38mm pitch: span = 4 x 38 + 34 = 186mm, centered in 212mm interior (13mm margin per side)
+  - Row 1 (bottom): Z=0 to Z=58, 5 valves across width
+  - Row 2 (top): Z=62 to Z=120, 5 valves across width (4mm gap between rows)
+  - Note: rack height is 120mm, taller than previous 75mm estimate due to actual valve height (58.4mm vs estimated 35mm)
+  - Each valve cradle: contoured saddle matching valve body profile with printed retention clips (snap-over arms, 2 per valve, spaced ~30mm apart along valve length). Initial design value, subject to iteration.
+  - Depth consumed: Y=140 to Y=204 (64mm, port-to-port valve length)
+  - Cable routing channels for solenoid wires (12V + GND per valve, 20 wires total) along rack sides
 - **Interfaces:**
-  - Position: directly behind dock back wall (Y=165-240, X=13.5-198.5, Z=0-75)
-  - Valve QC fittings face forward (toward dock, short tube runs ~35mm to dock fittings) and rearward (toward bags/back panel)
+  - Position: directly behind dock back wall (Y=140-204, X=13-199, Z=0-120)
+  - Valve QC fittings face forward (toward dock, short tube runs to dock back wall tube stubs) and rearward (toward bags/back panel)
   - Mounts to enclosure floor and/or walls via M3 screws into heat-set inserts
-  - Clearance to bags above: at Y=240, bag cradle underside is at Z~356 -- gap of ~281mm
+  - Clearance to bags above: generous (bag cradle underside at this Y is well above Z=120)
 - **Quantity:** 1
 - **Open:**
-  - Exact valve body dimensions -- need caliper measurement of purchased Beduan valves (spec: ~30-35mm dia x 50-55mm body, ~75mm with QC fittings)
-  - Valve retention method (clip, strap, zip-tie channel, or friction saddle)
+  - Valve body dimensions are best available, pending caliper verification of purchased Beduan units
+  - Rack height (120mm) means valve rack extends above the cartridge slot (84mm) -- verify no interference with dock back wall / pogo mount
 
 ---
 
@@ -261,24 +260,24 @@ Ten solenoid valves mounted behind the cartridge dock, using the depth dimension
 
 - **Type:** 3D printed
 - **Material:** PETG (structural, does not contact food -- silicone insert does)
-- **Envelope:** ~100mm diameter x ~70H mm (cone/funnel shape)
+- **Envelope:** ~100mm top opening diameter x ~70H mm
 - **Features:**
   - Top opening: ~100mm diameter
   - Bottom outlet: ~10mm diameter (connects to 1/4" barb fitting)
   - Funnel capacity: ~200-300ml
+  - Curved/asymmetric funnel profile: shallow at front (near Y=0), deeper toward back, pushed as far forward as possible. The funnel profile follows the void above the lens-shaped bag profile, which is thinnest at the sealed end (top-front). Not a straight cone.
   - Interior surface: smooth for silicone insert seating
   - Mounting flange at top rim for attachment to enclosure top panel
   - Drain fitting boss at bottom center: 1/4" barb or push-connect
 - **Interfaces:**
   - Seats into 100mm hole in top panel from below
-  - Flange rests on panel underside, secured with screws or snap-fit
+  - Flange rests on panel underside, secured with M3 screws into heat-set inserts (3 points, 120 degrees apart). Initial design value, subject to iteration.
   - Position: top-front of enclosure, centered at approximately X=106, Y=~40, Z=322-392
   - Bottom outlet connects to hopper feed tube, routed to valve v5/v7
   - Silicone insert drops in from above
 - **Quantity:** 1
 - **Open:**
-  - Exact funnel profile (straight cone vs curved)
-  - Mounting flange geometry
+  - Exact funnel curvature -- depends on physical bag profile at 35 degrees
 
 ### Part: Hopper Silicone Insert
 
@@ -286,7 +285,7 @@ Ten solenoid valves mounted behind the cartridge dock, using the depth dimension
 - **Material:** Platinum-cured food-grade silicone (FDA compliant)
 - **Envelope:** ~98mm top diameter x ~65H mm (fits inside funnel body)
 - **Features:**
-  - Flexible funnel shape matching the PETG funnel body interior
+  - Flexible funnel shape matching the PETG funnel body interior (curved/asymmetric)
   - Removable for dishwasher cleaning
   - Bottom opening: ~8mm diameter, mates to funnel body outlet
   - Lip at top rim to prevent insert from falling through
@@ -296,7 +295,7 @@ Ten solenoid valves mounted behind the cartridge dock, using the depth dimension
 - **Quantity:** 1 (spare recommended)
 - **Open:**
   - Source: custom mold vs off-the-shelf silicone funnel trimmed to fit
-  - Wall thickness: ~2mm (estimated)
+  - Wall thickness: ~2mm
 
 ---
 
@@ -308,7 +307,7 @@ One set per bag, two sets total.
 
 - **Type:** 3D printed or machined
 - **Material:** PETG, nylon, or machined Delrin (food-safe, threaded)
-- **Envelope:** 28mm thread diameter x ~25H mm (estimated)
+- **Envelope:** 28mm thread diameter x ~25H mm
 - **Features:**
   - 28mm thread to match Platypus bag opening (standard 28mm PCO-1881 or equivalent)
   - Two through-holes for fittings:
@@ -348,6 +347,8 @@ One set per bag, two sets total.
 
 ### Part: Dip Tube Tip Piece (Air Collection Bar)
 
+Low priority -- may be scrapped if air management works adequately without it.
+
 - **Type:** 3D printed
 - **Material:** PETG (FDM), nylon (SLS), or resin (SLA) -- food-safe, only fluid-contact 3D-printed part
 - **Envelope:** 185L x 22W x 14H mm
@@ -381,11 +382,11 @@ One set per bag, two sets total.
 
 - **Type:** 3D printed
 - **Material:** ABS or PETG
-- **Envelope:** ~55mm diameter x ~22mm deep (per reel, using flat cat6 cable)
+- **Envelope:** ~70mm diameter x ~22mm deep (per reel)
 - **Features:**
   - Spool hub: 24mm diameter (12mm radius)
-  - Winding width (axial): 14mm
-  - Full spool outer diameter: ~54mm (with 1m of flat cat6 wound)
+  - Winding width (axial): 10mm (cable width 7mm + 3mm margin)
+  - Full spool outer diameter: 70mm (calculated: 1m of flat cat6, 3mm effective thickness per layer, hub radius 12mm. Each layer wraps at increasing radius: 12, 15, 18, 21, 24, 27, 30mm. Cumulative circumference through 7 full layers = 924mm. Remaining ~76mm wraps partway through layer 8 at r=33mm. OD = 2 x 34.2mm, rounded up to 70mm with housing wall.)
   - Spring housing: integrated, adds ~8mm to spool depth (total ~22mm)
   - Constant-force (clock) spring or spiral torsion spring, 0.3-0.5N retraction force
   - Pull-to-lock, pull-to-release mechanism (adds ~5mm to depth)
@@ -393,15 +394,14 @@ One set per bag, two sets total.
   - Cable exit hole: ~8mm (for flat cat6, ~7mm wide x 3mm thick)
 - **Interfaces:**
   - Mounts behind front panel, cable exits through panel hole
-  - Two reels side-by-side: 110mm total width (fits within 212mm interior with ~51mm per side)
+  - Two reels side-by-side: 140mm total width (70mm each), fits within 212mm interior with 36mm per side
   - Reel depth: Y=0-22mm (behind front panel)
-  - Approximate positions: reel 1 centered at X=55, reel 2 centered at X=157 (at 212mm interior)
+  - Approximate positions: reel 1 centered at X=71, reel 2 centered at X=141 (at 212mm interior)
   - Cable connects to RJ45 jack internally and to display module externally
 - **Quantity:** 2
 - **Open:**
   - Spring type and specification (constant-force vs torsion)
   - Lock mechanism detailed design
-  - Whether reels are side-by-side (110mm wide, 22mm deep) or vertically stacked (55mm wide, 44mm deep)
 
 ### Part: Display Puck Shell
 
@@ -440,17 +440,17 @@ One set per bag, two sets total.
   - Two-row fitting arrangement for 212mm width:
   - **Upper zone (Z=340-380):**
     - IEC C14 panel-mount inlet: rectangular cutout 27.4W x 19.8H mm, two M3 mounting holes at 40mm horizontal c-t-c pitch
-    - Position: X=~165, Z=~370 (upper-right, above electronics)
+    - Position: X=165, Z=370 (upper-right, above electronics)
     - 25mm interior clearance for terminal tabs
   - **Lower zone (Z=30-70):**
-    - Tap water inlet: 15.9mm (5/8") hole for JG PP1208W bulkhead, at X=~30, Z=~50
-    - Soda water inlet: 15.9mm hole for JG PP1208W bulkhead, at X=~80, Z=~50
-    - Soda water outlet: 15.9mm hole for JG PP1208W bulkhead, at X=~130, Z=~50
+    - Tap water inlet: 15.9mm (5/8") hole for JG PP1208W bulkhead, at X=30, Z=50
+    - Soda water inlet: 15.9mm hole for JG PP1208W bulkhead, at X=80, Z=50
+    - Soda water outlet: 15.9mm hole for JG PP1208W bulkhead, at X=130, Z=50
     - All three with exterior 90-degree elbows (JG PP0308W)
     - 30mm interior clearance per fitting
   - **Mid zone (Z=180-220):**
-    - Flavor line 1 exit: 12.5mm hole for PG7 cable gland, at X=~50, Z=~200
-    - Flavor line 2 exit: 12.5mm hole for PG7 cable gland, at X=~170, Z=~200
+    - Flavor line 1 exit: 12.5mm hole for PG7 cable gland, at X=50, Z=200
+    - Flavor line 2 exit: 12.5mm hole for PG7 cable gland, at X=170, Z=200
     - 15mm interior clearance per gland
   - Color-coding rings and embossed labels at each fitting position
 - **Interfaces:**
@@ -460,7 +460,6 @@ One set per bag, two sets total.
   - Flow meter mounts on interior behind soda water fittings
 - **Quantity:** 1
 - **Open:**
-  - Exact fitting positions need recalculation from 280mm-width research to 220mm width (positions above are estimated proportional scaling)
   - Whether back panel is integral or removable
 
 ### Part: Flow Meter Mount
@@ -477,8 +476,7 @@ One set per bag, two sets total.
   - Signal cable (3-wire: VCC, GND, signal) routes up back wall interior to electronics zone
   - 1/4" hard tube: ~80mm from soda inlet bulkhead to flow meter inlet; ~80mm from flow meter outlet to soda outlet bulkhead
 - **Quantity:** 1
-- **Open:**
-  - Exact position adjusted for 220mm width back panel
+- **Open:** None
 
 ---
 
@@ -519,23 +517,24 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
 ### Part: Solenoid Valve (2-Way NC)
 
 - **Type:** Purchased
+- **Source:** Beduan B07NWCQJK9 (~$9 each, ~$90 for 10). Best available, pending caliper verification.
 - **Material:** Food-grade plastic and elastomer (RO-rated)
-- **Envelope:** ~30-35mm diameter x 50-55mm body length; ~75-80mm with 1/4" QC fittings on both ends
+- **Envelope:** 34.0W x 63.5D (port-to-port) x 58.4H mm (body only). Approximately 34.0W x 80D x 58.4H mm with 1/4" QC fittings on both ends.
+- **Weight:** 113g each
 - **Features:**
   - 2-way normally-closed, 12V DC solenoid
   - 1/4" quick-connect fittings (push-fit, standard RO tubing compatible)
   - Power draw: 4.8-5.5W per valve (energized only during active modes)
   - Working pressure: 0-0.8 MPa
   - Working temperature: 0-70C
-  - Weight: ~100g each
+  - No built-in mounting bracket -- needs designed cradle/clamp in valve rack
 - **Interfaces:**
-  - Mount in valve rack frame (35mm diameter saddle)
+  - Mount in valve rack frame (contoured saddle + snap-over retention clips)
   - QC fittings accept 1/4" OD (6.35mm) PE or silicone tubing
   - Solenoid wire leads connect to MCP23017-gated MOSFET driver circuit
 - **Quantity:** 10
 - **Open:**
-  - Final vendor selection: Beduan B07NWCQJK9 (~$9 each) or DIGITEN B016MP1HX0 (~$7-8 each)
-  - Exact body dimensions need caliper measurement of purchased units
+  - All dimensions are best available, pending caliper verification of purchased units
   - Zero-pressure variant (DIGITEN B076KFCPGM) may be needed for pump-inlet valves (suction side)
 
 ### Part: John Guest PP1208W Bulkhead Union (1/4" Push-to-Connect)
@@ -550,11 +549,55 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
   - Collet release: press ring to disconnect tube
   - ~20N grip force per fitting
 - **Interfaces:**
-  - Dock back wall: 4x (2 inlet + 2 outlet for cartridge fluid connections)
   - Back panel: 3x (tap water inlet, soda inlet, soda outlet)
   - Custom two-port cap: 1x per cap (P1 main fluid port)
-- **Quantity:** 9 total (4 dock + 3 back panel + 2 caps)
+- **Quantity:** 5 total (3 back panel + 2 caps)
 - **Open:** None -- well-specified
+
+### Part: John Guest PP0408W 1/4" Union (Cartridge Fluid Connection)
+
+- **Type:** Purchased
+- **Material:** Acetal copolymer body, stainless steel gripper teeth, nitrile/EPDM O-ring
+- **Envelope:** 12.7mm body OD x 38.1mm overall length
+- **Features:**
+  - Accepts 1/4" OD (6.35mm) tubing from each end
+  - Insertion depth to tube stop: ~15-18mm per side
+  - Collet ring OD: ~11.4mm (needs physical verification)
+  - Collet ring protrusion from body face: ~2-3mm
+  - Collet travel (inward, for release): ~1.5-2.0mm
+  - Release force per fitting: ~3-5N
+  - Grip force per fitting: ~20N (4 fittings total ~80N retention)
+  - Max working pressure: 150 PSI at 70F
+  - NSF 61 certified for potable water
+- **Interfaces:**
+  - Mounted inside cartridge rear wall (JG fittings are cartridge-mounted, not dock-mounted)
+  - Cartridge slides onto bare 1/4" OD tube stubs protruding from dock back wall
+  - Cartridge interior side: accepts hard tube stubs from pump tubing transition
+  - Collet rings engage release plate stepped bores during disconnect
+  - 2x2 grid arrangement in cartridge, ~40mm horizontal x ~28mm vertical center-to-center
+- **Quantity:** 4 (in cartridge -- listed here for dock interface reference)
+- **Open:**
+  - Exact collet ring OD (verify ~11.4mm with calipers)
+
+### Part: 1/4" OD Hard Nylon Tubing (Dock Tube Stubs)
+
+- **Type:** Purchased
+- **Material:** Nylon or polyethylene, 1/4" OD (6.35mm)
+- **Envelope:** 6.35mm OD, cut to ~60-80mm length per stub (passes through dock back wall, protrudes on both sides)
+- **Features:**
+  - Rigid enough to push into JG fittings without buckling
+  - Food-grade compatible
+  - 4 stubs pass through dock back wall 7mm grommeted holes
+  - Front side protrusion: ~30mm (cartridge JG fittings slide onto these)
+  - Rear side protrusion: connects to valve rack tubing
+- **Interfaces:**
+  - Pass through dock back wall via 7mm grommeted holes
+  - Front side: cartridge JG fittings grip these stubs on dock-in
+  - Rear side: connect to valve rack tubing via JG or barb fittings
+  - Spacing: ~40mm horizontal x ~28mm vertical center-to-center (matches cartridge fitting positions)
+- **Quantity:** 4 (dock tube stubs only)
+- **Open:**
+  - Exact stub length depends on dock back wall thickness + required protrusion on each side
 
 ### Part: John Guest PP0308W 90-Degree Elbow (1/4" Push-to-Connect)
 
@@ -580,7 +623,7 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
   - Integrated fuse holder (3A slow-blow recommended)
   - Quick-connect or solder tabs on interior
 - **Interfaces:**
-  - Mounts in back panel upper zone (X=~165, Z=~370)
+  - Mounts in back panel upper zone (X=165, Z=370)
   - Interior tabs wire to PSU input
   - Accepts standard IEC C13 power cord
 - **Quantity:** 1
@@ -626,15 +669,16 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
 
 - **Type:** Purchased (inside cartridge, not in enclosure -- listed for interface reference)
 - **Material:** Various (motor, PPS pump head, BPT pump tube)
-- **Envelope:** 68.6W x 115.6D x 62.7H mm (single pump)
+- **Envelope:** 115.6W x 68.6D x 62.7H mm (single pump, verified)
+- **Weight:** 306g each (verified)
 - **Features:**
   - 12V DC brushed motor
   - 400ml/min flow rate
   - BPT pump tube: 4.8mm ID x 8.0mm OD
-  - Weight: 306g each
   - Mounting bracket: 2-4x M3 holes (exact pattern TBD, measure from physical pump)
+  - Noise: <=65 dB
 - **Interfaces:**
-  - Two pumps side-by-side in cartridge: ~137.2mm combined width
+  - Two pumps side-by-side in cartridge: ~137.2mm combined width (at 68.6mm each)
   - Motor power via pogo pin interface: GND + 12V per motor
   - Pump tube transitions to 1/4" OD hard tubing via brass barb fittings inside cartridge
   - Current: ~0.85A typical, ~3A stall transient per motor
@@ -653,7 +697,7 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
   - Current rating: adequate for 3A transient
   - Solder-tail for PCB mounting
 - **Interfaces:**
-  - Mount in dock ceiling PCB or bracket
+  - Mount in dock ceiling PCB or bracket at X=106 (centered on cartridge)
   - Press onto cartridge top face contact pads
   - 10mm center-to-center spacing
 - **Quantity:** 3-6
@@ -735,7 +779,7 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
   - 8 conductors in 4 twisted pairs
   - Pinout: pins 1-2 (UART TX/RX), pin 3 (RESET), pins 4-5 (VCC +5V doubled), pin 6 (backlight PWM), pins 7-8 (GND doubled)
   - Flat profile for compact spool winding
-  - Spool compatible: 3mm thickness allows ~55mm spool OD for 1m length
+  - Spool compatible: 3mm thickness, ~70mm spool OD for 1m length (see reel housing calculation)
   - UTP (unshielded) -- shielding not needed for UART at 115200 baud over 1m
 - **Interfaces:**
   - Display end: RJ45 plug into display puck RJ45 jack
@@ -887,3 +931,4 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
 | Neodymium magnet | 6mm dia x 2mm thick | 6 | Display puck magnets (3 per puck) |
 | Pogo pin | P75/P100, 2-3mm dia | 3-6 | Dock ceiling electrical interface |
 | Constant-force spring | 0.3-0.5N, ~12mm hub | 2 | Display reel retraction |
+| Rubber grommet | 7mm ID, ~11mm OD | 4 | Dock back wall tube stub pass-throughs |
