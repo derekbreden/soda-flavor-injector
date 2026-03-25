@@ -1,13 +1,29 @@
 # Vision 1: Diagonal Bag Placement and Enclosure Dimensions
 
-This document analyzes the diagonal interleave layout where bags stretch from the top-front corner to the bottom-back corner of the enclosure, and other components occupy the triangular voids created by that diagonal slab. The cartridge sits in the front-bottom triangular void. Electronics occupy the top-back void.
+This document analyzes the diagonal interleave layout where bags stretch from the top-back wall to the bottom-front area of the enclosure, and other components occupy the triangular voids created by that diagonal slab. The cartridge sits in the front-bottom triangular void. Electronics occupy the top-back void.
 
 **Critical design facts held throughout this analysis:**
 - Bags are permanent fixtures, installed at manufacturing. The user never touches them. Refilling is via hopper/funnel at top.
 - The cartridge goes in the front-bottom triangle, not above the bags.
 - Depth is unconstrained. Under-sink cabinets have 480-510mm of usable depth. 300mm or 350mm costs nothing in compatibility.
-- Corrected bag dimensions: Platy 1L = 280mm long x 152mm wide, 25mm thick per bag, 50mm stacked. Platy 2L = 350mm long x 190mm wide, 40mm thick per bag, 80mm stacked.
+- Corrected bag dimensions: Platy 1L = 280mm long x 152mm wide, 25mm thick per bag, 50mm stacked. Platy 2L = 350mm long x 190mm wide, 40mm thick per bag, 80mm stacked (at center -- less at ends).
 - Cartridge envelope: 150W x 130D x 80H mm (standard orientation). Rotated: 80W x 150D x 130H mm.
+
+**Critical correction: bag shape is lens-shaped, not rectangular.**
+
+Real Platypus bags are not constant-thickness rectangles. They are lens-shaped / teardrop-shaped pouches. The thickness varies along the length:
+
+| Position along bag | 1L per bag | 1L stacked | 2L per bag | 2L stacked |
+|-------------------|-----------|-----------|-----------|-----------|
+| Sealed end (top, 0%) | ~1mm | ~2mm | ~1mm | ~2mm |
+| 25% along length | ~8mm | ~16mm | ~15mm | ~30mm |
+| Center (50%) | ~25mm | ~50mm | ~40mm | ~80mm |
+| 75% along length | ~15mm | ~30mm | ~25mm | ~50mm |
+| Cap/connector end (100%) | ~10mm | ~20mm | ~15mm | ~30mm |
+
+The sealed end is flat heat-sealed film -- essentially 1mm thick. The center bulge is where the maximum thickness occurs. The bag has NONE of the four corners that a rigid rectangle would have. The rigid-body rectangle formula `L cos(theta) + T sin(theta)` overstates depth significantly because it treats the bag as a constant-thickness slab across the entire length.
+
+For the detailed depth derivation with actual bag shape, see `2l-bags-at-300mm-depth.md`. For the visual comparison of rigid-body vs actual bag envelope, see `2l-rigid-body-geometry.svg`.
 
 ---
 
@@ -19,99 +35,107 @@ This document analyzes the diagonal interleave layout where bags stretch from th
     FRONT WALL                          BACK WALL
     (depth=0)                           (depth=D)
 
-    height=H ┌──────────────────────────────┐
-              │  *  sealed end              │
-              │   \  (top-front)            │
-              │    \                        │
-              │     \  BAG SLAB             │
-              │      \  (angle theta)       │
-              │       \                     │
-              │        \                    │
-              │         \                   │
-              │          \                  │
-              │           *  connector end  │
-    height=0  └──────────────────────────────┘
+    height=H +------------------------------+
+              |  *  sealed end              |
+              |   \  (top-back)             |
+              |    \                        |
+              |     \  BAG SLAB             |
+              |      \  (angle theta)       |
+              |       \                     |
+              |        \                    |
+              |         \                   |
+              |          \                  |
+              |           *  connector end  |
+    height=0  +------------------------------+
               depth=0                  depth=D
 ```
 
-Bags stretch from the **top-front** corner (sealed end, high) to the **bottom-back** corner (connector end, low). The angle theta is measured from horizontal. The connector is at the lowest point, so gravity pulls liquid toward the outlet.
+Bags stretch from the **top-back** corner (sealed end pinned to back wall, high) to the **bottom-front** area (connector end, low). The angle theta is measured from horizontal. The connector is at the lowest point, so gravity pulls liquid toward the outlet.
 
 ### 1b. Bounding Box Formulas
 
-For two stacked bags at angle theta from horizontal:
+**Rigid-body model (rectangular cross-section):**
+
+For two stacked bags modeled as a constant-thickness rectangle at angle theta from horizontal:
 
 - **Depth consumed** = L x cos(theta) + T_stack x sin(theta)
 - **Height consumed** = L x sin(theta) + T_stack x cos(theta)
 
-Where L = bag length, T_stack = combined thickness of two bags.
+Where L = bag length, T_stack = combined maximum thickness of two bags.
+
+**Actual bag shape model (lens-shaped cross-section):**
+
+Real bags are lens-shaped. The sealed end is flat film (~2mm stacked) and the thickness varies continuously, reaching maximum only at the center. When tilted, the actual depth envelope is significantly less than the rigid-body prediction because:
+
+1. The sealed end contributes almost zero thickness projection (it is flat film pinned to the wall).
+2. The thickness at any point along the bag is much less than the center maximum.
+3. The bag has no "corners" -- the envelope is a smooth curve, not a rectangle.
+
+The rigid-body model overstates depth by approximately 37mm at 35 degrees for 2L bags. The actual depth must be computed by integrating the lens-shaped profile along the bag length. See `2l-bags-at-300mm-depth.md` for the full derivation.
 
 ### 1c. Front-Bottom Triangle Geometry
 
-The front-bottom triangular void is bounded by the front wall, the floor, and the lower surface of the bottom bag. The bag slab is positioned so its connector end (lower-back corner) sits at the floor near the back of the enclosure.
+The front-bottom triangular void is bounded by the front wall, the floor, and the lower surface of the bottom bag. The bag slab is positioned so its connector end (lower-front corner) sits near the floor toward the front of the enclosure.
 
 The lower surface of the bag slab forms a line from:
-- **Back-bottom**: (depth = interior_D, height = 0) -- connector end on the floor at the back
-- **Front-upper**: (depth = interior_D - L x cos(theta), height = L x sin(theta)) -- sealed end, elevated at the front
+- **Back-top**: (depth = interior_D, height = H_bag) -- sealed end pinned to back wall
+- **Front-lower**: near the floor toward the front -- connector end
 
-At any depth d from the front wall, the height of the lower bag surface is:
-
-    h(d) = L x sin(theta) x (interior_D - d) / (L x cos(theta))
-         = tan(theta) x (interior_D - d)
-
-This means the available height in the front-bottom void at depth d is:
-
-    h_available(d) = tan(theta) x (interior_D - d)    for d >= front_gap
-    h_available(d) = interior_H                         for d < front_gap
-
-Where front_gap = interior_D - bag_bounding_box_depth = the clear space between the front wall and the front face of the bag slab. In this gap, the full enclosure height is available because the bag hasn't started yet.
-
-**This is critical.** When the enclosure is deeper than the bag's bounding box, there is a gap between the front wall and the bag. The cartridge can sit entirely within this gap, requiring zero intrusion into the triangle -- it just sits on the floor in front of the bag slab with full height clearance.
+At any depth d from the front wall, the available height in the front-bottom void follows from the bag's lower surface geometry. When the enclosure is deeper than the bag's bounding box, there is a gap between the back wall and the bag's sealed end (or between the front wall and the connector end, depending on mounting), providing additional clearance for component placement.
 
 ### 1d. Angle Sweep: Platy 1L (L=280mm, T_stack=50mm)
 
-| Angle | Depth Consumed | Height Consumed | Triangle Max Depth | Triangle Max Height |
-|-------|---------------|-----------------|--------------------|--------------------|
-| 15    | 283           | 121             | 270                | 72                 |
-| 20    | 280           | 143             | 263                | 96                 |
-| 25    | 275           | 164             | 254                | 118                |
-| 30    | 267           | 183             | 242                | 140                |
-| 35    | 258           | 202             | 229                | 161                |
-| 40    | 247           | 218             | 214                | 180                |
-| 45    | 233           | 233             | 198                | 198                |
-| 50    | 218           | 247             | 180                | 214                |
-| 55    | 202           | 258             | 161                | 229                |
-| 60    | 183           | 267             | 140                | 242                |
-| 65    | 164           | 275             | 118                | 254                |
-| 70    | 143           | 280             | 96                 | 263                |
-| 75    | 121           | 283             | 72                 | 270                |
+1L bags are also lens-shaped, but the effect is less dramatic since they are thinner (25mm per bag vs 40mm). The rigid-body overstatement is smaller but still present.
 
-All values in mm. "Triangle Max Depth" = L x cos(theta), the depth of the triangle at floor level. "Triangle Max Height" = L x sin(theta), the height of the triangle at the front wall.
+| Angle | Rigid-Body Depth | Actual Shape Depth (est.) | Rigid-Body Height | Actual Shape Height (est.) |
+|-------|-----------------|--------------------------|-------------------|---------------------------|
+| 15    | 283             | ~270                     | 121               | ~118                      |
+| 20    | 280             | ~266                     | 143               | ~139                      |
+| 25    | 275             | ~260                     | 164               | ~159                      |
+| 30    | 267             | ~252                     | 183               | ~177                      |
+| 35    | 258             | ~243                     | 202               | ~195                      |
+| 40    | 247             | ~232                     | 218               | ~211                      |
+| 45    | 233             | ~219                     | 233               | ~225                      |
+| 50    | 218             | ~205                     | 247               | ~239                      |
+| 55    | 202             | ~190                     | 258               | ~250                      |
+| 60    | 183             | ~173                     | 267               | ~260                      |
+| 65    | 164             | ~156                     | 275               | ~269                      |
+| 70    | 143             | ~137                     | 280               | ~275                      |
+| 75    | 121             | ~117                     | 283               | ~279                      |
+
+All values in mm. The "Actual Shape Depth" estimates account for the lens-shaped profile but are approximate for 1L -- the correction is smaller (~10-15mm) than for 2L bags because 1L bags are thinner.
 
 ### 1e. Angle Sweep: Platy 2L (L=350mm, T_stack=80mm)
 
-| Angle | Depth Consumed | Height Consumed | Triangle Max Depth | Triangle Max Height |
-|-------|---------------|-----------------|--------------------|--------------------|
-| 15    | 359           | 168             | 338                | 91                 |
-| 20    | 356           | 195             | 329                | 120                |
-| 25    | 351           | 220             | 317                | 148                |
-| 30    | 343           | 244             | 303                | 175                |
-| 35    | 333           | 266             | 287                | 201                |
-| 40    | 320           | 286             | 268                | 225                |
-| 45    | 304           | 304             | 247                | 247                |
-| 50    | 286           | 320             | 225                | 268                |
-| 55    | 266           | 333             | 201                | 287                |
-| 60    | 244           | 343             | 175                | 303                |
-| 65    | 220           | 351             | 148                | 317                |
-| 70    | 195           | 356             | 120                | 329                |
-| 75    | 168           | 359             | 91                 | 338                |
+| Angle | Rigid-Body Depth | Actual Shape Depth | Rigid-Body Height | Actual Shape Height |
+|-------|-----------------|-------------------|-------------------|---------------------|
+| 15    | 359             | ~325              | 168               | ~158                |
+| 20    | 356             | ~320              | 195               | ~183                |
+| 25    | 351             | ~314              | 220               | ~207                |
+| 30    | 343             | ~306              | 244               | ~230                |
+| 35    | 333             | ~296              | 266               | ~252                |
+| 40    | 320             | ~285              | 286               | ~272                |
+| 45    | 304             | ~272              | 304               | ~290                |
+| 50    | 286             | ~257              | 320               | ~307                |
+| 55    | 266             | ~241              | 333               | ~322                |
+| 60    | 244             | ~223              | 343               | ~335                |
+| 65    | 220             | ~205              | 351               | ~345                |
+| 70    | 195             | ~185              | 356               | ~352                |
+| 75    | 168             | ~163              | 359               | ~357                |
+
+The rigid-body model overstates depth by ~37mm at 35 degrees. The corrected actual-shape depth of ~296mm at 35 degrees is only 4mm over the 292mm interior of the 300mm-deep enclosure -- and with back-wall mounting (see Section 3), the effective depth drops further to ~267mm.
 
 ### 1f. Key Geometric Observations
 
 1. **Depth and height are symmetric at 45 degrees.** Below 45 degrees, bags consume more depth than height. Above 45 degrees, vice versa. Since depth is cheap and height is expensive, angles below 45 degrees are generally preferred.
 
-2. **The front-bottom triangle grows taller as the angle increases.** At 35 degrees, the 1L triangle is 161mm tall at the front wall -- enough for the cartridge (80mm) plus its lever (40mm). At 35 degrees for 2L, the triangle is 201mm tall -- even more generous.
+2. **The front-bottom triangle grows taller as the angle increases.** At 35 degrees, the 1L triangle is ~155mm tall at the front wall (actual shape) -- enough for the cartridge (80mm) plus its lever (40mm). At 35 degrees for 2L, the triangle is ~195mm tall -- even more generous.
 
-3. **The T_stack penalty.** Stacking two bags adds T_stack x sin(theta) to depth and T_stack x cos(theta) to height. At shallow angles (15-25 degrees), the height penalty is nearly the full T_stack (cos is near 1). At steep angles, the depth penalty approaches T_stack. This means stacking hurts less in the scarce dimension (height) at steeper angles.
+3. **The rigid-body model significantly overstates depth for 2L bags.** The ~37mm overstatement at 35 degrees is the difference between "doesn't fit" and "fits with margin." The actual lens-shaped profile must be used for depth-critical decisions.
+
+4. **1L bags are also lens-shaped but the correction is smaller.** At ~10-15mm overstatement, the rigid-body model is conservative but not dangerously wrong for 1L bags. The 1L bags fit easily in the 300mm enclosure regardless of which model is used.
+
+5. **The T_stack penalty.** Stacking two bags adds T_stack x sin(theta) to depth and T_stack x cos(theta) to height in the rigid-body model. In reality, the stacking penalty is less because the bags nest together somewhat -- the lens shapes interlock rather than stacking as rigid blocks. The actual penalty is ~60-70% of the rigid-body prediction.
 
 ---
 
@@ -119,41 +143,50 @@ All values in mm. "Triangle Max Depth" = L x cos(theta), the depth of the triang
 
 Interior dimensions = exterior - 8mm per axis (4mm walls on each side).
 
-### 2a. Enclosure A: 280W x 300D x 400H (Corrected Standard)
+### 2a. Enclosure A: 280W x 300D x 400H (Standard)
 
 **Interior: 272W x 292D x 392H**
 
 #### 1L Bags (L=280, T_stack=50)
 
-All 13 angles (15-75 degrees) fit in both depth and height. The 1L bags never exceed 283mm depth or 283mm height, both well within the 292D x 392H interior.
+All 13 angles (15-75 degrees) fit in both depth and height using either the rigid-body or actual-shape model. The 1L bags never exceed 283mm rigid-body depth (or ~270mm actual), both well within the 292D interior.
 
-| Angle | Bag Depth | Bag Height | Front Gap | Bag Lower at Front (mm) | Cartridge Fits (130D x 80H) | Top-Back Void Height |
-|-------|-----------|-----------|-----------|--------------------------|------------------------------|---------------------|
-| 25    | 275       | 164       | 17        | 118                      | No (76mm clearance at d=130) | 228                 |
-| 30    | 267       | 183       | 25        | 140                      | Yes (94mm clearance)         | 209                 |
-| 35    | 258       | 202       | 34        | 161                      | Yes (113mm clearance)        | 190                 |
-| 40    | 247       | 218       | 45        | 180                      | Yes (136mm clearance)        | 174                 |
-| 45    | 233       | 233       | 59        | 198                      | Yes (162mm clearance)        | 159                 |
-| 50    | 218       | 247       | 74        | 214                      | Yes (193mm clearance)        | 145                 |
+| Angle | Rigid-Body Depth | Actual Depth (est.) | Depth Margin | Bag Height (actual) | Top-Back Void Height |
+|-------|-----------------|--------------------|--------------|--------------------|---------------------|
+| 25    | 275             | ~260               | ~32          | ~159               | ~233                |
+| 30    | 267             | ~252               | ~40          | ~177               | ~215                |
+| 35    | 258             | ~243               | ~49          | ~195               | ~197                |
+| 40    | 247             | ~232               | ~60          | ~211               | ~181                |
+| 45    | 233             | ~219               | ~73          | ~225               | ~167                |
+| 50    | 218             | ~205               | ~87          | ~239               | ~153                |
 
-"Front Gap" = distance from front wall to front face of the bag slab. The cartridge (130mm deep) extends past this gap into the triangle at shallow angles. At 55 degrees and above, the front gap exceeds 90mm and the cartridge barely intrudes under the bags at all.
-
-**Sweet spot: 30-40 degrees.** The cartridge fits comfortably in the front-bottom zone. The top-back void has 174-209mm of height for electronics (only ~40mm needed). Every angle from 30 to 75 degrees works, but 30-40 degrees maximize the front-bottom triangle depth (useful for plumbing behind the cartridge) while keeping height consumption moderate.
-
-At 25 degrees, the cartridge (80mm tall) has only 76mm of clearance where it extends under the bag -- it doesn't fit. At 30 degrees, clearance jumps to 94mm (14mm margin above the cartridge). This is the threshold angle for the cartridge in this enclosure.
+**Sweet spot: 30-40 degrees.** The cartridge fits comfortably in the front-bottom zone. The top-back void has 181-215mm of height for electronics (only ~40mm needed). Every angle from 25 to 75 degrees works with the actual bag shape, with generous margins throughout.
 
 #### 2L Bags (L=350, T_stack=80)
 
-2L bags consume 333-359mm of depth at angles 15-35 degrees, exceeding the 292mm interior. They only fit at 50 degrees and above.
+**2L bags fit in this enclosure with the corrected bag shape model and back-wall mounting.**
 
-| Angle | Bag Depth | Bag Height | Front Gap | Cartridge Fits | Top-Back Void Height |
-|-------|-----------|-----------|-----------|---------------|---------------------|
-| 50    | 286       | 320       | 6         | Yes (193mm)   | 72                  |
-| 55    | 266       | 333       | 26        | Yes (231mm)   | 59                  |
+The rigid-body model predicted 333mm depth at 35 degrees, exceeding the 292mm interior by 41mm. This led to the incorrect conclusion that 2L bags could not work. However:
 
-**2L bags do not work in this enclosure at the target angles (35-45 degrees).** They only fit at 50+ degrees, which consumes 320+ mm of height, leaving only 59-72mm for electronics in the top-back void. This is tight but possibly workable (ESP32 + driver board can fit in ~50mm height if laid flat). However, the 6mm front gap at 50 degrees means the cartridge is almost directly under the bag -- no room for error.
+- The actual-shape depth at 35 degrees is ~296mm (only 4mm over the 292mm interior).
+- With back-wall mounting (sealed end pinned flat to back wall), the effective depth drops to ~267mm, leaving **25mm margin** in the 292mm interior.
 
-**Verdict: This enclosure is 1L-only territory.**
+See Section 3 for the back-wall mounting approach.
+
+| Angle | Rigid-Body Depth | Actual Shape Depth | Back-Wall Mounted Depth | Depth Margin (292mm) | Bag Height (actual) | Top-Back Void Height |
+|-------|-----------------|-------------------|------------------------|---------------------|--------------------|--------------------|
+| 30    | 343             | ~306              | ~279                   | ~13                 | ~230               | ~162               |
+| 35    | 333             | ~296              | ~267                   | ~25                 | ~252               | ~140               |
+| 40    | 320             | ~285              | ~256                   | ~36                 | ~272               | ~120               |
+| 45    | 304             | ~272              | ~246                   | ~46                 | ~290               | ~102               |
+
+**At 35 degrees with back-wall mounting: effective depth ~267mm, margin ~25mm.** This is a comfortable fit. The top-back void at ~140mm provides ample room for electronics.
+
+**At 30 degrees: margin is only ~13mm.** Tight but potentially workable with careful tolerancing.
+
+**At 40-45 degrees: depth margins are generous (36-46mm) but height consumption increases**, reducing the top-back void to 102-120mm. Still adequate for electronics.
+
+**Recommended: 35 degrees for 2L bags in this enclosure.** Best balance of depth margin and height economy.
 
 ### 2b. Enclosure B: 280W x 350D x 400H (2L Optimized)
 
@@ -161,41 +194,32 @@ At 25 degrees, the cartridge (80mm tall) has only 76mm of clearance where it ext
 
 #### 1L Bags
 
-All angles fit easily. The 50mm extra depth over Enclosure A creates enormous front gaps.
+All angles fit easily. The 50mm extra depth over Enclosure A creates enormous front gaps and margins.
 
-| Angle | Bag Depth | Front Gap | Cartridge Fits | Top-Back Void Height |
-|-------|-----------|-----------|---------------|---------------------|
-| 25    | 275       | 67        | Yes (99mm)    | 228                 |
-| 30    | 267       | 75        | Yes (122mm)   | 209                 |
-| 35    | 258       | 84        | Yes (148mm)   | 190                 |
-| 40    | 247       | 95        | Yes (178mm)   | 174                 |
-| 45    | 233       | 109       | Yes (full H)  | 159                 |
+| Angle | Actual Depth (est.) | Depth Margin | Top-Back Void Height |
+|-------|--------------------|--------------|--------------------|
+| 25    | ~260               | ~82          | ~233               |
+| 30    | ~252               | ~90          | ~215               |
+| 35    | ~243               | ~99          | ~197               |
+| 40    | ~232               | ~110         | ~181               |
+| 45    | ~219               | ~123         | ~167               |
 
-At 25 degrees, the front gap is 67mm. The cartridge at 130mm depth extends 63mm past the front gap into the triangle, where it has 99mm of height clearance (19mm above the 80mm cartridge). This works.
-
-At 45 degrees, the front gap is 109mm -- the cartridge barely extends past the front of the bag slab (only 21mm of the 130mm cartridge depth is under the bag). The cartridge essentially sits in open space in front of the bags.
-
-**Sweet spot: 25-35 degrees.** Shallower angles are viable here because the deeper enclosure provides more room. This preserves the most height for the top-back electronics zone (190-228mm).
+**Sweet spot: 25-35 degrees.** Shallower angles are viable here because the deeper enclosure provides ample room.
 
 #### 2L Bags
 
-This is the enclosure designed for 2L bags. The 342mm interior depth accommodates 2L bags starting at 35 degrees.
+With the actual bag shape (and without even needing back-wall mounting), 2L bags fit starting at 35 degrees with generous margins.
 
-| Angle | Bag Depth | Bag Height | Front Gap | Cartridge Clearance | Top-Back Height |
-|-------|-----------|-----------|-----------|--------------------|--------------------|
-| 35    | 333       | 266       | 9         | 148mm              | 126                |
-| 40    | 320       | 286       | 22        | 178mm              | 106                |
-| 45    | 304       | 304       | 38        | 212mm              | 88                 |
-| 50    | 286       | 320       | 56        | 253mm              | 72                 |
-| 55    | 266       | 333       | 76        | full H             | 59                 |
+| Angle | Rigid-Body Depth | Actual Shape Depth | Depth Margin (342mm) | Bag Height (actual) | Top-Back Void Height |
+|-------|-----------------|-------------------|---------------------|--------------------|--------------------|
+| 30    | 343             | ~306              | ~36                 | ~230               | ~162               |
+| 35    | 333             | ~296              | ~46                 | ~252               | ~140               |
+| 40    | 320             | ~285              | ~57                 | ~272               | ~120               |
+| 45    | 304             | ~272              | ~70                 | ~290               | ~102               |
 
-**At 35 degrees: depth = 333mm, fits with 9mm margin.** This is tight -- 9mm of margin means manufacturing tolerances and bag deformation could eat it up. The bag height is 266mm, leaving 126mm in the top-back void for electronics. The cartridge has 148mm of clearance in the front-bottom zone -- very generous.
+With back-wall mounting, margins increase by an additional ~29mm. This enclosure provides enormous margin for 2L bags.
 
-**At 40 degrees: depth = 320mm, fits with 22mm margin.** More comfortable. Bag height = 286mm, top-back void = 106mm. The cartridge has 178mm clearance. This is probably the practical minimum margin for 2L bags in this enclosure.
-
-**At 45 degrees: depth = 304mm, fits with 38mm margin.** Good margin. But bag height = 304mm, leaving only 88mm above for electronics. Still workable.
-
-**Sweet spot: 40-45 degrees for 2L bags.** Balances depth margin against height consumption. At 35 degrees, the 9mm depth margin is a concern, but it's worth prototyping.
+**Sweet spot: 35-40 degrees.** At 35 degrees, depth margin is 46mm (or ~75mm with back-wall mounting). The top-back void is 140mm. This is a very comfortable fit.
 
 ### 2c. Enclosure C: 280W x 300D x 380H (Shorter for Deep-Sink Compatibility)
 
@@ -205,28 +229,34 @@ This is the enclosure designed for 2L bags. The 342mm interior depth accommodate
 
 Same depth fit as Enclosure A (292mm interior). The reduced height (372mm vs 392mm) cuts 20mm from the top-back void.
 
-| Angle | Bag Height | Cartridge Fits | Top-Back Void Height |
-|-------|-----------|---------------|---------------------|
-| 30    | 183       | Yes (94mm)    | 189                 |
-| 35    | 202       | Yes (113mm)   | 170                 |
-| 40    | 218       | Yes (136mm)   | 154                 |
-| 45    | 233       | Yes (162mm)   | 139                 |
+| Angle | Bag Height (actual) | Top-Back Void Height |
+|-------|--------------------|---------------------|
+| 30    | ~177               | ~195                |
+| 35    | ~195               | ~177                |
+| 40    | ~211               | ~161                |
+| 45    | ~225               | ~147                |
 
-Still very comfortable for 1L bags. The top-back void is 139-189mm -- far more than the ~40-50mm needed for electronics.
+Still very comfortable for 1L bags. The top-back void is 147-195mm -- far more than the ~40-50mm needed for electronics.
 
 **Verdict: This enclosure works well for 1L bags, giving up 20mm of headroom for better compatibility with deep sinks.** Angles 30-45 degrees all work.
 
 #### 2L Bags
 
-Same as Enclosure A: 2L bags only fit at 50+ degrees. At 50 degrees, the top-back void is only 52mm. At 55 degrees, it's 39mm.
+With back-wall mounting and corrected bag shape, 2L bags can fit here too, though margins are tighter than Enclosure A due to the reduced height.
 
-**Verdict: Marginal for 2L bags. The 39-52mm top-back void is barely enough for electronics, and the front gaps are tiny (6-26mm).**
+| Angle | Back-Wall Mounted Depth | Depth Margin | Bag Height (actual) | Top-Back Void Height |
+|-------|------------------------|--------------|--------------------|--------------------|
+| 35    | ~267                   | ~25          | ~252               | ~120               |
+| 40    | ~256                   | ~36          | ~272               | ~100               |
+| 45    | ~246                   | ~46          | ~290               | ~82                |
+
+**At 35 degrees: fits with 25mm depth margin and 120mm top-back void.** Workable but the reduced height leaves less room for electronics compared to the 400H enclosures.
 
 ### 2d. Enclosure D: 300W x 350D x 400H (Wider for 2L Side Clearance)
 
 **Interior: 292W x 342D x 392H**
 
-The extra 20mm of width (292mm vs 272mm) helps with 2L bag clearance and potentially allows the cartridge beside the bags.
+The extra 20mm of width (292mm vs 272mm) helps with 2L bag clearance and tubing routing.
 
 #### 1L Bags
 
@@ -239,45 +269,80 @@ Same depth/height performance as Enclosure B. The width picture changes:
 - 2L bag (190mm) + cartridge standard (150mm) = 340mm -- doesn't fit beside (340 > 292)
 - 2L bag (190mm) + cartridge rotated (80mm) = 270mm -- fits beside (270 < 292, 22mm spare)
 
-With the cartridge in the front-bottom zone (different depth from the bags), width is not shared, so the 292mm width easily accommodates either component alone.
-
 **The extra width provides 102mm beside the 2L bags (292 - 190 = 102mm).** This is useful for tubing routing along the side walls. In the 272mm enclosure, there's only 82mm beside 2L bags -- tighter but still workable.
 
 **Verdict: The extra 20mm of width is a comfort margin, not a necessity. It helps with tubing routing and assembly access but doesn't unlock any configurations that Enclosure B can't handle.**
 
 ### 2e. Summary Matrix
 
-Viable angles where bags fit AND the cartridge (130D x 80H) fits in the front-bottom zone:
+Viable angles where bags fit AND the cartridge (130D x 80H) fits in the front-bottom zone. Uses actual bag shape model; back-wall mounting noted where applicable.
 
 | Enclosure | 1L Viable Angles | 1L Best Angle | 2L Viable Angles | 2L Best Angle |
 |-----------|-----------------|---------------|------------------|---------------|
-| 280x300x400 | 30-75          | 30-40         | 50-55 (tight)    | Not recommended |
-| 280x350x400 | 25-75          | 25-35         | 35-55            | 40-45         |
-| 280x300x380 | 30-75          | 30-40         | 50-55 (marginal) | Not recommended |
-| 300x350x400 | 25-75          | 25-35         | 35-55            | 40-45         |
+| 280x300x400 | 25-75          | 30-40         | 30-45 (back-wall mounted) | 35 |
+| 280x350x400 | 25-75          | 25-35         | 30-50            | 35-40         |
+| 280x300x380 | 25-75          | 30-40         | 35-45 (back-wall mounted) | 35 |
+| 300x350x400 | 25-75          | 25-35         | 30-50            | 35-40         |
 
 ---
 
-## 3. Bag Mounting in Diagonal Orientation
+## 3. Back-Wall Mounting and Profiled Cradle
 
-### 3a. Mounting Philosophy
+### 3a. Back-Wall Mounting Principle
+
+The sealed end of a Platypus bag is flat heat-sealed film -- essentially 1-2mm thick even when stacked. When the sealed end is pinned flat against the back wall of the enclosure, it contributes almost zero depth projection. The cap/connector end, at the front-bottom position, is pulled forward by gravity and the weight of the liquid.
+
+This mounting approach exploits the lens-shaped bag profile:
+
+- **Back wall (sealed end):** Pinned flat. The bag lies flush against the wall at the top. Zero depth contribution from the sealed end's "thickness."
+- **Mid-length:** The bag bulges outward from the wall as the thickness increases. The maximum bulge (~80mm stacked for 2L) occurs at the center of the bag.
+- **Front (connector end):** The bag tapers back down to ~30mm stacked at the cap, then the connector hardware itself.
+
+Gravity and liquid weight position the bag naturally -- the heavy center sags into the cradle, the flat sealed end stays against the wall, and the connector end hangs at the lowest point.
+
+### 3b. Effective Depth with Back-Wall Mounting
+
+With back-wall mounting at 35 degrees for 2L bags:
+
+- The sealed end adds ~0mm to depth (it is flat against the back wall).
+- The center bulge projects forward, but because the bulge is smooth and tapered (not a sudden rectangular step), the actual depth envelope follows a gentle curve.
+- Effective depth: ~267mm, compared to ~296mm for the free-standing actual shape or ~333mm for the rigid-body model.
+- In a 292mm interior, this leaves **~25mm margin**.
+
+The depth savings from back-wall mounting come from eliminating the thickness projection at the sealed end and reducing it near the sealed end where the bag is thin.
+
+### 3c. Profiled Cradle Design
+
+A 3D-printed profiled cradle supports the bag pair from underneath for the full diagonal length. The cradle is contoured to match the lens-shaped bag cross-section at each point along its length:
+
+- **Near sealed end:** Cradle channel is nearly flat (2-5mm deep). The bags are thin here.
+- **At 25% length:** Channel depth ~15mm. The bags begin to bulge.
+- **At center (50%):** Channel depth ~40mm. Maximum bag thickness. The cradle is deepest here.
+- **At 75% length:** Channel depth ~25mm. Bags taper toward the connector.
+- **Near connector end:** Channel depth ~15mm. Constrained by cap diameter.
+
+The cradle provides continuous support along the entire bag length, preventing sag and ensuring the bags maintain their predicted envelope. It also acts as a positioning fixture during manufacturing -- the bags drop into the profiled channel and are held at the correct angle and position.
+
+The cradle can be printed as a single piece (for bags up to ~280mm) or as two interlocking halves (for 350mm 2L bags that exceed typical print bed dimensions).
+
+### 3d. Mounting Philosophy
 
 Because bags are permanent fixtures installed during manufacturing, mounting can be robust and non-user-serviceable. There are no constraints around user replacement, tool-free access, or bag swapping. The mounting system can use screws, adhesive, welded brackets, permanent clips -- whatever provides the best support.
 
-### 3b. Mount Points
+### 3e. Mount Points
 
-**Top mount (sealed end, front-upper position):**
+**Top mount (sealed end, back-upper position):**
 - The sealed end of the bag is a heat-sealed seam, typically 10-15mm wide.
-- Mount to the front wall or to a bracket attached to the front wall, near the top of the enclosure.
-- The mount must hold the bag at the correct height and prevent the sealed end from sagging forward.
+- Pinned flat against the back wall, near the top of the enclosure.
+- The flat film is clamped or adhesive-bonded to the wall surface. Since the sealed end is just flat film, it conforms naturally to the wall.
 
-**Bottom mount (connector end, back-lower position):**
+**Bottom mount (connector end, front-lower position):**
 - The connector end has a 28mm threaded cap where the dip tube attaches.
-- Mount to the back wall or floor, near the back-bottom corner.
+- Positioned near the floor toward the front of the enclosure.
 - The connector must be secured firmly because the fluid line connects here. Any movement risks disconnecting tubing.
 - This is the low point -- gravity pulls all liquid here, so the full weight of a loaded bag hangs from this mount.
 
-### 3c. Weight Analysis
+### 3f. Weight Analysis
 
 A full 2L bag weighs approximately 2.0-2.2 kg (concentrate is slightly denser than water). A 1L bag weighs about 1.0-1.1 kg. Two stacked full bags = 2.0-2.2 kg for 1L, 4.0-4.4 kg for 2L.
 
@@ -285,68 +350,23 @@ At a 35-degree angle, the force components on the lower mount point are:
 - Along the bag (tension): F_parallel = m x g x sin(35) = 2.2 x 9.8 x 0.574 = 12.4 N (for one 2L bag)
 - Perpendicular to bag (sag force): F_perp = m x g x cos(35) = 2.2 x 9.8 x 0.819 = 17.7 N
 
-The sag force (17.7 N, about 1.8 kg) acts to push the bag downward between the mount points. This must be resisted by the mounting system or by intermediate supports.
+The profiled cradle absorbs the perpendicular sag force entirely, distributing it across the full bag length rather than concentrating it at the mount points. The tension component is handled by the end mounts.
 
-### 3d. Mounting Options
+### 3g. Mounting for Two Stacked Bags
 
-**Option 1: Angled Rails (Recommended for Prototyping)**
+Two bags stack perpendicular to the incline surface within the profiled cradle. The lower bag rests in the cradle channel. The upper bag rests on top of the lower bag. A thin separator (1-2mm PETG sheet) between the bags prevents them from sticking or interfering with each other's collapse.
 
-Two parallel rails run diagonally from the front-upper area to the back-lower area, spaced to match the bag width. Each rail is a 3D-printed PETG channel (U-profile, ~15mm wide x 10mm deep) screwed to the side walls of the enclosure. The bag sits in the channel, with the edges of the bag resting in the U-profile. Mounting clips at each end secure the bag.
+The cradle channel depth accommodates both bags at each cross-section point. At the center (deepest point), the channel is ~40mm deep -- enough for one bag's maximum thickness. The second bag sits above, adding another ~40mm. The total stack at center is ~80mm, tapering to ~2mm at the sealed end.
 
-Advantages: Simple to print, easy to position bags during assembly, provides continuous support along the bag length (prevents mid-span sag).
-
-Disadvantages: The rails consume ~30mm of width (15mm per side), reducing the available width for bags from 272mm to 242mm. This is fine for 1L bags (152mm wide, 90mm spare) but tight for 2L bags (190mm wide, 52mm spare in 272mm enclosure).
-
-**Option 2: Cradle Shelf**
-
-A single 3D-printed shelf at the bag angle, spanning the full width. The shelf has a shallow lip (5mm) along the edges to prevent bags from sliding off. Bags rest on the shelf surface. The shelf is screwed to the side walls at each end.
-
-Advantages: Full-width support, bags cannot sag. Manufacturing is one piece per shelf.
-
-Disadvantages: The shelf blocks airflow around the bags. For two stacked bags, you need two shelves, consuming ~20mm of vertical space (10mm per shelf including structure). The shelf must handle the bending load of full bags (2.2 kg for 1L pair, 4.4 kg for 2L pair) across a 150-190mm span, which requires 4-6mm PETG thickness.
-
-**Option 3: End Clips Only (Two-Point Stretch)**
-
-Clips at each end of the bag only, no intermediate support. The sealed end clips to a bracket on the front wall. The connector end clips to a bracket on the back wall/floor. The bag hangs freely between the two points.
-
-Advantages: Simplest, cheapest, no width consumed. Allows full airflow around bags.
-
-Disadvantages: The bag sags between mount points. For a 1L bag at 35 degrees, the sag at mid-span is approximately:
-
-    sag = (w x L^2) / (8 x T)
-
-Where w = weight per unit length = 1.1 kg / 0.28m = 3.93 kg/m, L = span = 0.28m, T = tension in the bag.
-
-At 35 degrees with mild pre-tension (~2 N), the sag is roughly 15-20mm. This pushes the bag downward into the front-bottom triangle, potentially interfering with the cartridge. For 2L bags (heavier, longer), sag could reach 30-40mm.
-
-**Verdict: Two-point stretch alone is risky for 2L bags.** The sag is significant enough to intrude into the cartridge zone. Angled rails or a cradle shelf are safer choices. For 1L bags, two-point stretch with moderate pre-tension may work, but rails are still preferred for reliability.
-
-**Option 4: Angled Rails with End Clips (Recommended)**
-
-Combine options 1 and 3. Rails provide continuous support along the bag length. Clips at each end prevent longitudinal sliding. The rails are the primary structural element; the clips just hold position.
-
-This is the recommended approach for both 1L and 2L bags. The rails eliminate sag, the clips prevent sliding, and the combination is robust enough for permanent installation.
-
-### 3e. Bag Flexibility and Deformation
+### 3h. Bag Flexibility and Deformation
 
 Platypus bags are flexible pouches. When full, they're relatively rigid due to internal liquid pressure. As they drain, the bag collapses from the sealed end (high) toward the connector end (low). On a diagonal mount:
 
-- **Full bag:** Essentially rigid, conforms to the rail/shelf shape. No deformation concern.
+- **Full bag:** Essentially rigid, conforms to the cradle shape. No deformation concern.
 - **Half-full bag:** The upper half collapses flat against the lower half. The lower half remains pressurized by the remaining liquid. The bag shortens along the incline but the weight concentrates at the lower mount.
 - **Nearly empty bag:** The bag is mostly collapsed flat. Only a small puddle remains at the connector end. Minimal weight, minimal sag.
 
-The worst-case sag occurs at full capacity. As the bag drains, sag decreases. The mounting system only needs to handle full-bag loading.
-
-### 3f. Mounting for Two Stacked Bags
-
-Two bags stack perpendicular to the incline surface. The lower bag rests on the rails/shelf. The upper bag rests on top of the lower bag. A thin separator (1-2mm PETG sheet) between the bags prevents them from sticking or interfering with each other's collapse.
-
-The upper bag's weight adds to the lower bag's load. For 2L bags, the lower bag supports its own weight (2.2 kg) plus the upper bag (2.2 kg) = 4.4 kg total. The rails/shelf must handle this combined load.
-
-At 40 degrees, the perpendicular component of 4.4 kg on the lower shelf/rail:
-- F_perp = 4.4 x 9.8 x cos(40) = 33.0 N (about 3.4 kg)
-
-This is easily handled by 4mm PETG rails screwed to the enclosure walls at 100mm intervals.
+The worst-case sag occurs at full capacity. As the bag drains, sag decreases. The profiled cradle ensures that even at full capacity, the bags maintain their predicted depth envelope.
 
 ---
 
@@ -354,7 +374,7 @@ This is easily handled by 4mm PETG rails screwed to the enclosure walls at 100mm
 
 ### 4a. Gravity Drainage by Angle
 
-The connector end is at the bottom-back corner (low point). Gravity pulls liquid toward the connector along the incline with force F = m x g x sin(theta).
+The connector end is at the bottom-front area (low point). Gravity pulls liquid toward the connector along the incline with force F = m x g x sin(theta).
 
 | Angle | sin(theta) | Gravity Component (fraction of g) | Qualitative Drainage |
 |-------|-----------|-----------------------------------|---------------------|
@@ -376,7 +396,7 @@ Above 30 degrees, gravity reliably moves liquid toward the connector. The bag co
 The Platypus Drink Tube Kit creates a sealed path from the connector into the bag interior. The dip tube (1/4" ID, ~6.35mm OD) extends from the 28mm threaded cap into the bag.
 
 In the diagonal orientation:
-- The dip tube enters at the connector (back-bottom corner, lowest point).
+- The dip tube enters at the connector (front-bottom area, lowest point).
 - It extends upward along the incline toward the sealed end.
 - The tube opening sits 100-150mm up the incline from the connector.
 
@@ -420,9 +440,7 @@ Beyond 45 degrees, residual volume improvements are marginal. The dip tube and p
 
 ### 5a. The Key Insight: Depth Separation
 
-In Vision 1, the cartridge and bags occupy **different depth zones**. The cartridge sits in the front-bottom void (depth 0 to ~130mm from the front wall). The bags span from roughly (interior_D - bag_depth) to interior_D. At most angles, the bag slab's front face is 17-109mm behind the front wall (see front gap values in Section 2).
-
-Because they're at different depths, the cartridge and bags do not compete for width. The full enclosure width is available for each component independently at its respective depth.
+In Vision 1, the cartridge and bags occupy **different depth zones**. The cartridge sits in the front-bottom void (depth 0 to ~130mm from the front wall). The bags span diagonally from near the back wall to toward the front. Because they're at different depths, the cartridge and bags do not compete for width. The full enclosure width is available for each component independently at its respective depth.
 
 This resolves the width conflict identified in previous research, which assumed the cartridge would be beside the bags at the same depth.
 
@@ -476,105 +494,95 @@ Side-by-side only works with the rotated cartridge (80mm wide), and is extremely
 | Enclosure exterior | 280W x 300D x 400H mm |
 | Enclosure interior | 272W x 292D x 392H mm |
 | Bag angle | 35 degrees |
-| Bag bounding box | 258D x 202H mm |
-| Front gap (bag to front wall) | 34mm |
-| Cartridge zone | 0-130mm depth, 0-80mm height (113mm clearance to bag) |
-| Lever clearance above cartridge | 80-120mm height (40mm) |
-| Top-back electronics void | 190mm height x 258mm depth |
+| Bag depth (actual shape) | ~243mm |
+| Depth margin | ~49mm |
+| Top-back electronics void | ~197mm height |
 | Enclosure volume | 33.6 liters |
 
-**Why 35 degrees:** Balances depth usage (258mm of 292mm, 34mm margin) against height (202mm of 392mm, 190mm above for electronics). The 34mm front gap means 96mm of the cartridge's 130mm depth extends under the bag, with 113mm of clearance -- plenty of room for the cartridge plus its lever mechanism.
-
-**Trade-offs:** Compared to 30 degrees, 35 degrees gives a taller front-bottom triangle (161mm vs 140mm at the front wall) at the cost of 13mm more height consumption. Compared to 40 degrees, 35 degrees preserves 16mm more height in the top-back void while the cartridge still fits comfortably.
+**Why 35 degrees:** With the actual bag shape, depth is only ~243mm of 292mm, leaving 49mm margin. Height consumption is ~195mm of 392mm, leaving ~197mm above for electronics. The front-bottom triangle provides ample room for the cartridge plus its lever mechanism.
 
 **Drainage:** sin(35) = 0.57. Good gravity drainage. Estimated residual: 40-50ml (4-5%). Acceptable.
 
-### 6b. Configuration 2: 2L Bags at 40 degrees in 280W x 350D x 400H
+### 6b. Configuration 2: 2L Bags at 35 degrees in 280W x 300D x 400H
 
-**The high-capacity option.**
-
-| Parameter | Value |
-|-----------|-------|
-| Enclosure exterior | 280W x 350D x 400H mm |
-| Enclosure interior | 272W x 342D x 392H mm |
-| Bag angle | 40 degrees |
-| Bag bounding box | 320D x 286H mm |
-| Front gap (bag to front wall) | 22mm |
-| Cartridge zone | 0-130mm depth, 0-80mm height (178mm clearance to bag) |
-| Lever clearance above cartridge | 80-120mm height |
-| Top-back electronics void | 106mm height x 320mm depth |
-| Enclosure volume | 39.2 liters |
-
-**Why 40 degrees:** At 35 degrees, depth margin is only 9mm (333mm bag in 342mm interior) -- too tight for manufacturing tolerances and bag deformation. At 40 degrees, margin grows to 22mm, which is workable. The top-back void at 106mm is adequate for electronics (ESP32, drivers, fuse block can fit in ~50mm height if mounted horizontally).
-
-**Why not 45 degrees:** At 45 degrees, bag height = 304mm, leaving only 88mm in the top-back void. This is technically sufficient but leaves no margin. 40 degrees provides 18mm more breathing room.
-
-**Trade-offs:** The enclosure is 16.7% larger in volume (39.2L vs 33.6L) than the 1L configuration. It's 50mm deeper. But it holds twice the concentrate (2L per flavor vs 1L), doubling the refill interval.
-
-**Drainage:** sin(40) = 0.64. Very good gravity drainage. Estimated residual: 70-80ml (3.5-4%). The larger bag volume means the 4% residual is a larger absolute volume, but the percentage is acceptable.
-
-### 6c. Configuration 3: 2L Bags at 35 degrees in 280W x 350D x 400H (Aggressive)
-
-**The maximum-capacity option, pushing tolerances.**
+**The high-capacity option in the compact enclosure.**
 
 | Parameter | Value |
 |-----------|-------|
+| Enclosure exterior | 280W x 300D x 400H mm |
+| Enclosure interior | 272W x 292D x 392H mm |
 | Bag angle | 35 degrees |
-| Bag bounding box | 333D x 266H mm |
-| Front gap | 9mm |
-| Depth margin | 9mm (tight) |
-| Top-back electronics void | 126mm height (generous) |
-| Cartridge clearance | 148mm (generous) |
+| Bag depth (actual shape, back-wall mounted) | ~267mm |
+| Depth margin | ~25mm |
+| Top-back electronics void | ~140mm height |
+| Enclosure volume | 33.6 liters |
 
-**Why consider this:** At 35 degrees, the top-back void is 126mm -- 20mm more than at 40 degrees. The cartridge clearance is ample. The only problem is the 9mm depth margin. If bag deformation under full load adds 5-10mm to the effective bounding box, the bag could press against the back wall.
+**Why this works:** The corrected lens-shaped bag profile and back-wall mounting bring the effective depth to ~267mm, fitting within the 292mm interior with 25mm margin. The rigid-body model incorrectly predicted 333mm depth, leading to the earlier (wrong) conclusion that 2L bags required a 350mm-deep enclosure.
 
-**Mitigation:** The back wall can incorporate a slight recess or the bag connector mount can be positioned 5mm inward from the back wall, creating an effective 14mm margin. Alternatively, slight bag compression (reducing T_stack from 80mm to 75mm) reduces depth consumption to 328mm (14mm margin). A 5mm thickness reduction across two bags is easily achievable with modest compression in the cradle.
+**Why 35 degrees:** Best balance of depth margin (~25mm) and height economy (~140mm top-back void). At 30 degrees, margin drops to ~13mm (tight). At 40 degrees, margin grows to ~36mm but height consumption increases, reducing the electronics void to ~120mm.
 
-**Verdict: Worth prototyping alongside Configuration 2.** If the 9mm margin proves workable in physical testing, this is the superior layout because it maximizes the top-back void (easier electronics packaging) and provides the shallowest practical angle for 2L bags (better height economy).
+**Back-wall mounting is required.** Without it, the free-standing actual-shape depth is ~296mm, which is 4mm over the 292mm interior. Back-wall mounting eliminates the sealed-end thickness projection, saving ~29mm of depth.
+
+**Drainage:** sin(35) = 0.57. Good gravity drainage. Estimated residual: 80-100ml (4-5%).
+
+### 6c. Configuration 3: 2L Bags at 35-40 degrees in 280W x 350D x 400H
+
+**The maximum-margin option.**
+
+| Parameter | Value (at 35 deg) | Value (at 40 deg) |
+|-----------|-------------------|-------------------|
+| Enclosure exterior | 280W x 350D x 400H mm | 280W x 350D x 400H mm |
+| Enclosure interior | 272W x 342D x 392H mm | 272W x 342D x 392H mm |
+| Bag depth (actual shape) | ~296mm | ~285mm |
+| Depth margin (no back-wall mount) | ~46mm | ~57mm |
+| Depth margin (with back-wall mount) | ~75mm | ~86mm |
+| Top-back electronics void | ~140mm | ~120mm |
+| Enclosure volume | 39.2 liters | 39.2 liters |
+
+**Why consider this:** If 25mm margin in the 300mm enclosure proves too tight in practice (bag deformation, manufacturing tolerances), the 350mm enclosure provides 46-86mm margin depending on angle and mounting approach. Back-wall mounting is optional here -- the bags fit even without it.
+
+**Trade-offs:** The enclosure is 16.7% larger in volume (39.2L vs 33.6L) and 50mm deeper. For a product that can fit 2L bags in the 300mm-deep enclosure, the 350mm depth is unnecessary extra bulk.
 
 ### 6d. Configuration Comparison
 
-| Parameter | Config 1 (1L/35/300D) | Config 2 (2L/40/350D) | Config 3 (2L/35/350D) |
+| Parameter | Config 1 (1L/35/300D) | Config 2 (2L/35/300D) | Config 3 (2L/35/350D) |
 |-----------|----------------------|----------------------|----------------------|
 | Bag capacity | 2 x 1L | 2 x 2L | 2 x 2L |
-| Enclosure (ext) | 280x300x400 | 280x350x400 | 280x350x400 |
-| Volume | 33.6L | 39.2L | 39.2L |
-| Depth margin | 34mm | 22mm | 9mm |
-| Top-back void H | 190mm | 106mm | 126mm |
-| Cartridge clearance | 113mm | 178mm | 148mm |
-| Drainage quality | Good (sin 35=0.57) | Very good (sin 40=0.64) | Good (sin 35=0.57) |
-| Residual | ~45ml (4.5%) | ~75ml (3.8%) | ~90ml (4.5%) |
-| Risk | Low | Low | Medium (tight margin) |
+| Enclosure (ext) | 280x300x400 | 280x300x400 | 280x350x400 |
+| Volume | 33.6L | 33.6L | 39.2L |
+| Depth margin | ~49mm | ~25mm (back-wall) | ~46mm (free) / ~75mm (back-wall) |
+| Top-back void H | ~197mm | ~140mm | ~140mm |
+| Drainage quality | Good (sin 35=0.57) | Good (sin 35=0.57) | Good (sin 35=0.57) |
+| Residual | ~45ml (4.5%) | ~90ml (4.5%) | ~90ml (4.5%) |
+| Risk | Low | Low-Medium | Low |
+| Back-wall mount | Optional | Required | Optional |
 
 ### 6e. Product Variant Strategy
 
-The 1L and 2L configurations share the same width (280mm) and height (400mm). Only the depth differs (300mm vs 350mm). This suggests a two-variant product line:
+With the corrected bag shape analysis, **a single 280 x 300 x 400 enclosure can serve both 1L and 2L bags.** This is a significant simplification over the previous two-variant approach.
 
-**Variant A: Standard (280 x 300 x 400)** -- 1L bags, 35 degrees. Compact, fits in tighter under-sink spaces. Biweekly refill for moderate use.
+**Single enclosure (280 x 300 x 400):**
+- 1L bags at 35 degrees: 49mm depth margin, very comfortable.
+- 2L bags at 35 degrees with back-wall mounting: 25mm depth margin, workable.
+- Same cartridge, electronics, front panel, hopper, and plumbing for both.
+- Only the bag mounting cradle differs (profiled for 1L or 2L bag shapes).
 
-**Variant B: Extended (280 x 350 x 400)** -- 2L bags, 40 degrees. 50mm deeper, holds twice the concentrate. Monthly refill for moderate use.
-
-Both variants can share:
-- Same cartridge design (150W x 130D x 80H)
-- Same electronics (ESP32, drivers, fuse block)
-- Same front panel and user interface
-- Same hopper/funnel design
-- Same plumbing topology
-
-Only the enclosure shell, bag mounting rails, and bags themselves differ. This minimizes the engineering effort for offering two variants.
-
-Alternatively, a single enclosure (280 x 350 x 400) could serve both markets. 1L bags at 25-35 degrees would have enormous margins in this larger enclosure, though it wastes 50mm of depth for 1L users.
+**If a two-variant approach is still desired:**
+- Standard (280 x 300 x 400): Works for both 1L and 2L.
+- Extended (280 x 350 x 400): 2L with maximum margin, no back-wall mounting required. For customers who want the extra safety margin.
 
 ### 6f. Open Questions for Physical Testing
 
-1. **Bag deformation under load:** Do full 2L bags expand beyond the 80mm stack thickness when mounted at 35-40 degrees? If so, by how much? This determines whether Configuration 3's 9mm margin is viable.
+1. **Back-wall mounting verification:** Does the sealed end actually pin flat against the back wall as predicted? Measure the actual depth envelope of a back-wall-mounted bag pair at 35 degrees.
 
-2. **Sag between rails:** With rails at the bag edges, how much does the bag center sag? If more than 10mm, a center support rail may be needed.
+2. **Profiled cradle effectiveness:** Does the 3D-printed cradle maintain the predicted bag envelope? Measure bag bulge at center with full 2L load in the cradle vs free-standing.
 
-3. **Dip tube behavior at 35-40 degrees:** Does the dip tube stay submerged as the bag drains? At what fill level does air first reach the tube opening?
+3. **25mm margin adequacy:** With 2L bags at 35 degrees and back-wall mounting, is 25mm margin sufficient for manufacturing tolerances, bag deformation, and thermal expansion?
 
-4. **Refilling at 35-40 degrees:** Can the pump push concentrate uphill through the dip tube into a bag that's angled at 35-40 degrees? The hydrostatic head is L x sin(theta) x density x g, which at 40 degrees for a 2L bag is 350 x 0.64 x 1.05 x 9.8 / 1000 = 2.3 kPa (0.33 PSI). The Kamoer pump can handle this easily.
+4. **Dip tube behavior at 35 degrees:** Does the dip tube stay submerged as the bag drains? At what fill level does air first reach the tube opening?
 
-5. **Bag collapse pattern:** Does the bag collapse cleanly from the sealed end toward the connector, or do random folds form that trap liquid? This is critical for residual volume estimates.
+5. **Refilling at 35 degrees:** Can the pump push concentrate uphill through the dip tube into a bag that's angled at 35 degrees? The hydrostatic head is L x sin(theta) x density x g, which at 35 degrees for a 2L bag is 350 x 0.574 x 1.05 x 9.8 / 1000 = 2.1 kPa (0.30 PSI). The Kamoer pump can handle this easily.
 
-6. **Front gap usability:** With only 9-34mm between the front wall and the bag slab, can plumbing and electrical connections route through this gap? Or must all connections come from the sides?
+6. **Bag collapse pattern:** Does the bag collapse cleanly from the sealed end toward the connector, or do random folds form that trap liquid? This is critical for residual volume estimates.
+
+7. **1L bag shape correction validation:** Confirm the estimated ~10-15mm depth savings for 1L bags vs rigid-body model. Less critical since 1L bags have large margins regardless.
