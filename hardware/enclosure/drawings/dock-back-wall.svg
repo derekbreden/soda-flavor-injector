@@ -115,7 +115,7 @@
   <text x="245" y="365" class="note" text-anchor="end">INLET</text>
   <text x="245" y="267" class="note" text-anchor="end">OUTLET</text>
 
-  <!-- ---- DIMENSIONS: Front View ---- -->
+  <!-- DIMENSIONS: Front View -->
 
   <!-- Overall height 84mm (right side) -->
   <line x1="625" y1="160" x2="650" y2="160" class="dim"/>

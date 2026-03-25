@@ -85,7 +85,7 @@
   <circle cx="430" cy="337.5" r="50" fill="none" stroke="#000" stroke-width="0.5" stroke-dasharray="6,3"/>
   <text x="470" y="290" class="note" style="font-weight:bold">A</text>
 
-  <!-- ---- FRONT VIEW DIMENSIONS ---- -->
+  <!-- FRONT VIEW DIMENSIONS -->
 
   <!-- Handle length 76 mm: x=50 to x=430 = 380 px; 380/5=76 -->
   <line x1="50" y1="360" x2="50" y2="382" class="ext"/>
