@@ -21,8 +21,8 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - Exterior slide rails on bottom face: 2x parallel rails, 2mm tall x 3mm wide, full 130mm depth, spaced to match dock floor rails
   - Exterior side guide contact surfaces: 1.5mm wide rail features on left/right walls, 0.3-0.5mm clearance per side to dock guides
   - Rear wall (Y=126 to Y=130, 4mm thick): 4x fitting pockets for JG PP0408W union bodies in 2x2 grid, 40mm horizontal x 28mm vertical center-to-center. Pocket bore 13.0mm diameter (clears 12.7mm fitting body OD). Through-holes for tube passage. Fitting pocket centers at X=54, X=94, Z=26, Z=54 (centered on rear wall)
-  - Rear wall: release plate travel cavity behind fitting pockets, 6mm deep x 54mm wide x 42mm tall (clears plate with 2mm margin per side)
-  - Rear wall: 2x guide pin holes for release plate dowel pins (3.0mm diameter press-fit, 10mm deep), positioned at X=37, Z=40 and X=111, Z=40 (symmetric, outside the bore pattern)
+  - Rear wall: release plate travel cavity behind fitting pockets, 6mm deep x 59mm wide x 47mm tall (clears 55x43mm plate with 2mm margin per side)
+  - Rear wall: 2x guide pin holes for release plate dowel pins (3.0mm diameter press-fit, 10mm deep), positioned at X=42, Z=40 and X=108.5, Z=40 (symmetric, outside the bore pattern, matching plate guide pin slot positions)
   - Front wall (Y=0 to Y=4, 4mm thick): cam lever pivot hole (5mm diameter, at X=74, Z=40) for pivot pin; push rod through-hole (5mm diameter, at X=74, Z=40 — coaxial with pivot, push rod passes below pivot pin)
   - Top face: recessed pocket for pogo target PCB, 15W x 30L x 1.5D mm
   - Top face: wire entry slot from interior to pogo PCB pocket
@@ -83,10 +83,10 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 ### Part: Release Plate
 - **Type:** 3D printed
 - **Material:** PETG
-- **Envelope:** 50W x 36H x 6D mm
+- **Envelope:** 55W x 43H x 6D mm
 - **Features:**
   - 4x stepped bores in 2x2 grid, 40mm horizontal x 28mm vertical center-to-center (matches JG fitting spacing):
-    - Bore centers at: (5, 4), (45, 4), (5, 32), (45, 32) relative to plate bottom-left corner
+    - Bore centers at: (7.5, 7.5), (47.5, 7.5), (7.5, 35.5), (47.5, 35.5) relative to plate bottom-left corner
     - Tube clearance hole: 8.0mm diameter, through full thickness (+0.5/-0 mm tolerance)
     - Inner lip (collet pusher): 10.5mm diameter, 2.0mm depth (+/-0.25mm tolerance)
     - Outer bore (collet cradle): 12.5mm diameter, 2.0mm depth (+/-0.5mm tolerance)
@@ -94,15 +94,16 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
     - 0.3mm x 45-degree lead-in chamfer at outer bore entry
   - Axial depth stack: 2.0mm outer bore + 2.0mm inner lip + 2.0mm structural back = 6.0mm total
   - Inner lip annular width: (10.5 - 8.0) / 2 = 1.25mm (critical — minimum viable for FDM)
-  - 2x guide pin slots: 3.3mm wide x 7.3mm long (oriented along travel axis), positioned at X=(-8, 18) and X=(58, 18) relative to plate bottom-left — symmetric outside the bore pattern
-  - Push rod contact point: centered boss on back face at (25, 18) relative to plate bottom-left, 8mm diameter x 1mm proud
+  - Edge-to-bore clearance: 7.5mm from plate edge to nearest bore center (1.25mm minimum wall around outer bore)
+  - 2x guide pin slots: 3.3mm wide x 7.3mm long (oriented along travel axis), positioned at X=(-5.5, 21.5) and X=(60.5, 21.5) relative to plate bottom-left — symmetric outside the bore pattern
+  - Push rod contact point: centered boss on back face at (27.5, 21.5) relative to plate bottom-left, 8mm diameter x 1mm proud
 - **Interfaces:**
   - Slides on 2x 3mm steel dowel pins mounted in outer shell rear wall
   - Stroke: 3.0mm (min 2.5mm)
   - Receives axial push from cam lever push rod on back face
   - Stepped bores engage JG collet rings on fitting face side
   - Return spring: 2x small compression springs (one per guide pin, ~5mm OD x 10mm free length, ~0.5 N/mm rate) ride on the dowel pins between the plate and the shell rear wall, returning the plate to the retracted (locked) position when the cam lever is released. Initial design values, subject to iteration after printing.
-  - Must maintain <0.3mm parallelism deviation across 50mm plate width during full stroke
+  - Must maintain <0.3mm parallelism deviation across 55mm plate width during full stroke
 - **Quantity:** 1
 - **Open:** Inner lip bore diameter (10.5mm) must be validated against actual JG fittings in hand. Outer bore (12.5mm) must clear actual collet ring OD (~12.7mm — may need to increase to 13.0mm after physical verification). Print orientation: bore axis perpendicular to build plate (Z-axis) for best circularity.
 
@@ -389,11 +390,11 @@ Composed of: cam lever + pivot pin + E-clip + push rod + release plate + 2x dowe
 
 - **Function:** Single lever flip releases all 4 JG collets simultaneously. Springs return the plate when the lever is released.
 - **Actuation:** 180-degree lever rotation produces 3mm axial plate travel via 1.5mm eccentric cam.
-- **Force path:** Hand -> lever handle (76mm arm) -> eccentric cam (1.5mm offset) -> push rod (118mm, 5mm steel) -> release plate (50x36x6mm) -> 4x collet rings.
+- **Force path:** Hand -> lever handle (76mm arm) -> eccentric cam (1.5mm offset) -> push rod (118mm, 5mm steel) -> release plate (55x43x6mm) -> 4x collet rings.
 - **Return path:** 2x compression springs on dowel pins push plate back to retracted position, which pushes push rod back, which rotates cam lever back past over-center detent.
 - **Mechanical advantage:** ~10:1 (76mm lever arm / 7mm cam effective radius).
 - **Total required force at collets:** 12-20N (4 fittings x 3-5N each).
 - **Spring return force (retracted position):** ~3N total (must be overcome by hand when flipping lever to release).
 - **Required hand force:** ~2-3N (comfortable one-handed, including spring preload).
 - **Self-locking:** Over-center cam position (2 degrees past peak) holds lever in both locked and released states.
-- **Parallelism requirement:** Release plate must stay within 0.3mm deviation across its 50mm width during full 3mm stroke.
+- **Parallelism requirement:** Release plate must stay within 0.3mm deviation across its 55mm width during full 3mm stroke.
