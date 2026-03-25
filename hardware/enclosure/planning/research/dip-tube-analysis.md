@@ -1,762 +1,737 @@
-# Dip Tube Analysis — Platypus Drink Tube Kit
+# Dip Tube Analysis — Two-Port Cap Architecture
 
-How the Platypus Drink Tube Kit's internal tube (dip tube) affects fluid dynamics, bag drainage, filling, air management, and system design.
+How the two-port cap design (main fluid port + dip tube air bleed port) enables filling, dispensing, and priming of the Platypus 2L bags in the soda flavor injector system. This document supersedes all previous single-tube-through-cap analysis.
 
 ---
 
 ## Table of Contents
 
-1. [Physical Specifications](#1-physical-specifications)
-2. [Cap and Seal Assembly](#2-cap-and-seal-assembly)
-3. [Dip Tube Position by Bag Orientation](#3-dip-tube-position-by-bag-orientation)
-4. [Flow Dynamics — Dispensing (Bag to Pump)](#4-flow-dynamics--dispensing-bag-to-pump)
-5. [Flow Dynamics — Filling Through the Dip Tube](#5-flow-dynamics--filling-through-the-dip-tube)
-6. [Air Management](#6-air-management)
-7. [Interaction with Bag Collapse](#7-interaction-with-bag-collapse)
-8. [Priming and First-Use Behavior](#8-priming-and-first-use-behavior)
-9. [Clean Cycle Implications](#9-clean-cycle-implications)
-10. [Corrections to Existing Documents](#10-corrections-to-existing-documents)
-11. [Compatibility and Alternatives](#11-compatibility-and-alternatives)
+1. [Two-Port Cap Design](#1-two-port-cap-design)
+2. [Fluid Operations](#2-fluid-operations)
+3. [Air Management and Priming](#3-air-management-and-priming)
+4. [Why Two Ports Are Necessary](#4-why-two-ports-are-necessary)
+5. [Dip Tube and Tip Piece](#5-dip-tube-and-tip-piece)
+6. [Bag Collapse Behavior](#6-bag-collapse-behavior)
+7. [Hydrostatic Pressure and Seal Integrity](#7-hydrostatic-pressure-and-seal-integrity)
+8. [John Guest Bulkhead Fittings](#8-john-guest-bulkhead-fittings)
+9. [Flow Dynamics](#9-flow-dynamics)
+10. [Clean Cycle](#10-clean-cycle)
+11. [Bill of Materials Impact](#11-bill-of-materials-impact)
 12. [Conclusions](#12-conclusions)
 
 ---
 
-## 1. Physical Specifications
+## 1. Two-Port Cap Design
 
-### 1a. Kit Contents (B07N1T6LNW)
+### 1a. Architecture Overview
 
-The Platypus Hoser Hydration System Drink Tube Kit contains:
-
-- Threaded closure cap (polypropylene, 28mm thread)
-- Blue polyurethane drink tube, 40 inches (102 cm) total length
-- HyFLO bite valve (silicone)
-- Lapel clip
-
-### 1b. Tube Dimensions
-
-| Parameter | Value | Notes |
-|---|---|---|
-| Material | Polyurethane (PU) | Taste-free, BPA/BPS/phthalate-free |
-| Inner diameter (ID) | 1/4" (6.35mm) | Confirmed by manufacturer spec |
-| Outer diameter (OD) | 3/8" (9.5mm) | Standard for 1/4" ID PU tubing (1/16" wall) |
-| Wall thickness | 1/16" (1.6mm) | Standard PU tubing wall for this ID |
-| Total length | 40" (102 cm) | Full tube as shipped |
-| Color | Blue | Translucent blue polyurethane |
-| Durometer | ~85-95 Shore A | Standard PU tubing, semi-rigid |
-
-### 1c. How the Kit Is Used in This System
-
-In the soda flavor injector, the Drink Tube Kit is repurposed. The bite valve is removed and discarded. The tube is cut or left at length. The threaded cap screws onto the Platypus bag's 28mm opening, and the tube extends through the cap into the bag interior — functioning as a dip tube / straw. The external end of the blue tube connects to the system's black silicone tubing (1/8" ID x 1/4" OD) via a sleeve joint secured with zip ties.
-
-### 1d. Tube-to-Silicone Interface
-
-From `docs/plumbing.md`: the blue PU tube has a slightly larger ID (1/4" = 6.35mm) than the black silicone tube's OD (1/4" = 6.35mm). The black silicone slides inside the blue tube, creating a sleeve joint:
+Each Platypus 2L bag uses a modified 28mm threaded cap that holds two 1/4" John Guest quick-connect bulkhead fittings. The two ports serve distinct functions:
 
 ```
-Blue PU tube (3/8" OD, 1/4" ID)
-  └── Black silicone tube (1/4" OD, 1/8" ID) slides inside
-       └── Zip tie compresses blue tube onto black tube
-```
+    CAP CROSS-SECTION (viewed from inside the bag):
 
-The silicone tube's OD matches the PU tube's ID for a snug interference fit. The zip tie prevents slippage and seals the joint.
-
----
-
-## 2. Cap and Seal Assembly
-
-### 2a. How the Tube Passes Through the Cap
-
-The Platypus Drink Tube Kit's threaded closure cap is a single molded polypropylene piece with a 28mm thread (matching the Platypus bottle opening) and a central hole through which the drink tube passes. The tube is a press-fit or friction-fit through the cap's central bore.
-
-```
-    CROSS-SECTION: Cap + Tube Assembly
-
-    ─────── bag interior (above) ──────
-
+              28mm threaded cap
          ┌──────────────────────┐
-         │  28mm thread body    │
-         │  ┌──┐               │
-         │  │  │ ← tube passes │
-         │  │  │   through     │
-         │  │  │   central     │
-         │  │  │   bore        │
-         │  └──┘               │
-         │       seal zone     │
+         │                      │
+         │   ┌──┐      ┌──┐    │
+         │   │P1│      │P2│    │
+         │   │  │      │  │    │
+         │   └──┘      └──┘    │
+         │  bottom    dip tube  │
+         │  port      port      │
          └──────────────────────┘
 
-    ─────── external tubing (below) ──────
+    P1 = Bottom port (main fluid line)
+    P2 = Dip tube port (air bleed line)
+
+    Both are 1/4" John Guest quick-connect bulkhead unions
+    (part number PP1208W or equivalent)
 ```
 
-The cap's central bore is sized to grip the tube's 3/8" OD. The friction fit between the polypropylene bore and the polyurethane tube creates a seal. This is NOT a hermetic/pressure-rated seal — it is designed for a hydration pack where the only pressure is the user's suck on the bite valve. Under moderate positive pressure (pump pushing fluid into the bag), some seepage around the tube-through-cap interface is possible.
+### 1b. Port Functions
 
-### 2b. Seal Integrity Assessment
-
-| Condition | Seal Adequate? | Notes |
-|---|---|---|
-| Normal dispensing (pump suction) | Yes | Pump suction is <5 PSI; friction fit holds |
-| Idle (solenoid closed, no flow) | Yes | No pressure differential, sealed system |
-| Clean cycle fill (water pushed in) | Marginal | Depends on water pressure past needle valve; if >5 PSI, may weep |
-| Hopper refill (gravity fill) | Yes | Gravity pressure is <1 PSI (see hopper-and-bag-management.md Section 2b) |
-| Bag fully inverted, connector down | Yes | Hydrostatic head of liquid in bag is <0.5 PSI |
-
-**Key finding:** The cap seal is adequate for all normal operating conditions in this system. The needle valve in the clean cycle line limits pressure to a few PSI, which the friction fit can handle. If the friction fit loosens over time (PU tube creeping), adding a small hose clamp or zip tie around the cap where the tube exits would reinforce the seal.
-
-### 2c. The Bag Is Effectively Sealed
-
-When the cap is screwed on with the tube through it, the bag interior is connected to the outside world ONLY through the tube's 1/4" ID bore. There is no secondary air path. This means:
-
-- The bag cannot breathe independently of the tube
-- Any fluid entering or leaving the bag MUST pass through the dip tube
-- The bag interior is isolated from atmosphere when the downstream solenoid valve is closed
-- The system is effectively a sealed vessel with a single port
-
----
-
-## 3. Dip Tube Position by Bag Orientation
-
-The dip tube extends from the cap (at the bag's threaded opening) into the bag interior. Its position relative to the liquid level changes dramatically with bag orientation.
-
-### 3a. Vertical — Connector at Bottom (Current Design)
-
-This is the recommended orientation from `hopper-and-bag-management.md`.
-
-```
-    SIDE VIEW: Bag hanging vertically, connector at bottom
-
-    ┌── hook/clip (ceiling of bag zone)
-    │
-    ╔══════════════════════╗  ← sealed top edge
-    ║                      ║
-    ║   AIR (as bag drains)║
-    ║                      ║
-    ║ ─ ─ ─ ─ ─ ─ ─ ─ ─  ║  ← liquid level (drops over time)
-    ║                      ║
-    ║   LIQUID             ║
-    ║          ┌───┐       ║
-    ║          │   │       ║  ← dip tube extends UPWARD
-    ║          │   │       ║     from connector into bag
-    ║          │   │       ║
-    ╚══════════╧═══╧═══════╝  ← connector end (bottom)
-               │cap│
-               └─┬─┘
-                 │ tube continues to external plumbing
-                 ↓
-    ─── to solenoid → pump → dispensing point ───
-```
-
-**Dip tube behavior:**
-- The tube extends UPWARD from the bottom connector into the bag interior
-- The tube opening (top of the dip tube inside the bag) is at some distance above the connector
-- As the bag drains, the liquid level drops from the top downward
-- The dip tube opening remains submerged in liquid until the level drops below it
-- Once the level drops below the dip tube opening, the pump pulls AIR
-
-**Critical dimension: how far does the tube extend into the bag?**
-
-The total tube length is 40" (102 cm). In the intended hydration use, most of this length runs externally (from pack to mouth). The portion inside the bag is determined by how the user (in this case, the system builder) installs it. The tube can be cut to any length.
-
-For a Platypus 2L bag (350mm tall) hanging connector-down, the optimal internal tube length is:
-- **Near bag height: ~300-330mm** — the tube tip reaches near the top of the bag (the sealed end, which is highest). This maximizes drainage: the pump can pull liquid from the very top of the liquid column, and as the bag empties, the tube tip is the LAST point to be exposed to air.
-- **Short: ~50-100mm** — the tube tip barely enters the bag. Liquid must pool near the connector. This works only if gravity keeps liquid at the bottom (connector end), but wastes the dip tube's main advantage.
-
-**Recommendation: Cut the dip tube to extend ~80-90% of the bag's hanging height into the bag interior.** For a 1L bag (~250mm tall), this means ~200-220mm of tube inside the bag. For a 2L bag (~350mm tall), ~280-310mm.
-
-### 3b. Vertical — Connector at Top (Rejected)
-
-```
-    ╔══════════╤═══╤═══════╗  ← connector end (top)
-    ║          │cap│       ║
-    ║          └───┘       ║
-    ║          │   │       ║  ← dip tube extends DOWNWARD
-    ║          │   │       ║     into the bag
-    ║          │   │       ║
-    ║          └───┘       ║  ← tube tip (near bottom)
-    ║                      ║
-    ║   LIQUID             ║  ← liquid pools at bottom
-    ║                      ║
-    ╚══════════════════════╝  ← sealed bottom edge
-```
-
-In this orientation, the dip tube reaches DOWN into the liquid — exactly like a straw in a cup. This is actually the intended hydration pack use case (bag in backpack, tube goes down to the liquid, user sucks). The tube tip stays submerged until the bag is nearly empty.
-
-However, this orientation is rejected for the soda injector because:
-- Air collects at the top (near the connector), not at the bottom
-- The pump must overcome the hydrostatic head of the full liquid column
-- When the bag is nearly empty, the dip tube tip may still be submerged, but the air pocket at the top (around the cap) means the pump path includes an air gap before reaching the tube
-
-This orientation was correctly rejected in `hopper-and-bag-management.md` Section 5c.
-
-### 3c. Inclined — Connector at Low End
-
-```
-    SIDE VIEW: Bag inclined, connector at low end, sealed end high
-
-         sealed end (high)
-        ╱══════════════════╲
-       ╱                    ╲
-      ╱   LIQUID             ╲
-     ╱          ┌───┐         ╲
-    ╱           │   │ ← tube   ╲
-   ╱            │   │   extends ╲
-  ╱             │   │   uphill   ╲
- ╱══════════════╧═══╧════════════╲
-  connector (low end)
-       │cap│
-       └─┬─┘
-         │
-         ↓ to plumbing
-```
-
-**Dip tube behavior:**
-- The tube extends from the low end (connector) uphill toward the high end (sealed edge)
-- Gravity pulls liquid to the low end, pooling around the connector
-- The tube opening is at the high end of the bag — near the LAST liquid as the bag empties
-- This orientation achieves near-100% evacuation: as the bag drains, liquid slides downhill to the connector, but the tube opening reaches the highest point where the final liquid sits
-
-**This is an excellent orientation for drainage**, potentially better than pure vertical. The incline creates a natural drainage slope, and the dip tube reaches the high point. However, it requires more horizontal space (the bag lies at an angle rather than hanging vertically).
-
-### 3d. Horizontal
-
-```
-    TOP/SIDE VIEW: Bag lying flat
-
-    ╔════════════════════════════════════════╗
-    ║                                        ║
-    ║   LIQUID (spreads across bag surface)  ║
-    ║           ────────────────             ║
-    ║           │  dip tube    │             ║
-    ║           ────────────────             ║
-    ╚═══╤═══╤═══════════════════════════════╝
-        │cap│
-        └─┬─┘
-          ↓
-```
-
-**Dip tube behavior:**
-- Tube extends horizontally into the bag
-- Liquid spreads across the full bag surface area with minimal depth
-- Tube opening may or may not be submerged depending on fill level
-- Unpredictable air pickup; no gravitational bias
-
-**Verdict:** Horizontal is the worst orientation. Rejected.
-
-### 3e. Orientation Summary
-
-| Orientation | Drainage Efficiency | Air Management | Space Required | Verdict |
+| Port | Name | Internal Geometry | External Connection | Primary Function |
 |---|---|---|---|---|
-| Vertical, connector down | High (85-95%) | Good — air at top, tube tip near top | Minimal footprint | Primary recommendation |
-| Inclined, connector low | Very high (95%+) | Excellent — tube reaches last liquid | More depth/length | Best if space allows |
-| Vertical, connector up | Low | Poor — air at connector | Minimal footprint | Rejected |
-| Horizontal | Poor | Poor | Maximum footprint | Rejected |
+| P1 (bottom) | Main fluid port | Short stub or flush with cap interior | Connects to pump inlet (dispense) or pump outlet (fill) via valve routing | Liquid in/out |
+| P2 (dip tube) | Air bleed port | 1/4" hard tube runs full length of bag to sealed end | Connects to pump for air evacuation during prime | Air removal |
+
+### 1c. Why the Bottom Port Is Flush or Short
+
+The bottom port (P1) does not need a long tube into the bag. The bag is mounted at a 35-degree diagonal with the connector end at the lowest point. Liquid naturally pools at this low point due to gravity. A short stub (5-10mm) or a flush-mounted fitting provides direct access to the deepest liquid pool.
+
+```
+    SIDE VIEW: Bag on 35-degree diagonal
+
+    back wall
+    │
+    │   sealed end (pinned to wall, highest point)
+    │  ╱═══════════════════════════╲
+    │ ╱                             ╲
+    │╱      LIQUID pools here        ╲
+    │       at the low point ──────→  ╲
+    │                                  ╲
+         ╚════════════════════╤══╤═════╝
+                              │P1│P2│  ← cap at bottom-front
+                              └──┴──┘
+                                │  │
+                           to valves/pump
+```
+
+Liquid always collects at P1. No dip tube needed on this port.
+
+### 1d. Why the Dip Tube Runs to the Top
+
+Air rises. In a bag mounted at 35 degrees, air migrates to the highest point -- the sealed end pinned to the back wall. The dip tube (P2) extends from the cap all the way up to this apex so the pump can reach and evacuate trapped air during the prime cycle.
 
 ---
 
-## 4. Flow Dynamics — Dispensing (Bag to Pump)
+## 2. Fluid Operations
 
-### 4a. Flow Path
+### 2a. Dispensing (Bag to Faucet)
 
-During normal dispensing, the pump pulls concentrate from the bag:
+During normal dispensing, the peristaltic pump pulls concentrate from the bag through the bottom port (P1) and pushes it to the faucet dispensing line. The dip tube port (P2) is isolated (its solenoid valve is closed).
 
 ```
-    FLOW PATH (dispensing):
+    DISPENSE MODE:
 
-    Dip tube opening (inside bag)
-      → down through dip tube (1/4" ID, 6.35mm)
-        → through cap
-          → blue PU tube (1/4" ID, external segment)
-            → sleeve joint (zip tie)
-              → black silicone tube (1/8" ID, 3.175mm)  ← BOTTLENECK
-                → hard tube transition
-                  → solenoid valve
-                    → peristaltic pump
-                      → dispensing point
+    Valve state:
+      P1 line: bag-to-pump valve OPEN, pump-to-faucet valve OPEN
+      P2 line: CLOSED (air bleed not needed)
+
+    Flow path:
+      Bag interior (liquid at bottom)
+        → P1 (bottom port, flush with cap)
+          → 1/4" tubing to valve manifold
+            → peristaltic pump
+              → dispensing line to faucet
+
+    Bag behavior:
+      As liquid is removed, the bag collapses.
+      Atmospheric pressure pushes the flexible bag walls inward.
+      No air enters the bag -- the system is sealed.
+      The bag behaves like a bag-in-box wine container.
 ```
 
-### 4b. Flow Restriction Analysis
+The bottom port is ideal for dispensing because liquid gravity-pools at the connector. The pump draws from the deepest point, achieving near-complete evacuation. The only liquid that cannot be dispensed is whatever thin film remains on the bag walls after collapse -- estimated at 5-15 ml on a 2L bag (~0.5% loss).
 
-The dip tube's 1/4" ID (6.35mm) is NOT the bottleneck. The bottleneck is the black silicone tubing at 1/8" ID (3.175mm):
+### 2b. Filling (Hopper to Bag)
 
-| Tube Segment | ID (mm) | Cross-Section (mm^2) | Relative Flow Capacity |
-|---|---|---|---|
-| Blue PU dip tube | 6.35 | 31.7 | 4x silicone |
-| Black silicone tube | 3.175 | 7.9 | 1x (bottleneck) |
-| Platypus bag opening | ~21 | ~346 | 44x silicone |
+During filling, the pump pulls concentrate from the hopper funnel and pushes it into the bag through the bottom port (P1). The dip tube port (P2) may be opened to vent displaced air (see Section 3).
 
-The dip tube adds length to the flow path (200-300mm inside the bag) but its larger diameter means the added resistance is modest. Using Poiseuille's law (flow resistance proportional to L/r^4):
+```
+    FILL MODE:
 
-- 300mm of 6.35mm ID tube: resistance proportional to 300 / (3.175)^4 = 2.95
-- 500mm of 3.175mm ID tube: resistance proportional to 500 / (1.588)^4 = 78.6
+    Valve state:
+      P1 line: hopper-to-pump valve OPEN, pump-to-bag valve OPEN
+      P2 line: OPEN (to vent displaced air) or CLOSED (to trap air)
 
-The dip tube contributes less than 4% of the total flow resistance. **The dip tube is not a meaningful flow restriction for dispensing.**
+    Flow path:
+      Hopper funnel
+        → hopper solenoid valve
+          → peristaltic pump (forward)
+            → 1/4" tubing
+              → P1 (bottom port)
+                → bag interior
 
-### 4c. Dead Volume
+    Inside the bag:
+      Liquid enters at the lowest point.
+      Liquid level rises from bottom to top as the bag fills.
+      Air is displaced upward (toward sealed end).
+```
 
-The dip tube adds dead volume — liquid that remains in the tube after the pump stops:
+With the bottom port as the fill entry, liquid enters at the lowest point and rises naturally. This is the optimal fill geometry -- no counter-flow problem. Air is displaced upward away from the incoming liquid rather than fighting through the same port.
 
-| Segment | Length | ID | Volume |
-|---|---|---|---|
-| Dip tube inside bag | 250mm (1L bag) | 6.35mm | 7.9 ml |
-| Blue tube external | ~100mm | 6.35mm | 3.2 ml |
-| **Total dip tube dead volume** | | | **~11 ml** |
+### 2c. Filling Air Displacement
 
-This 11 ml of dead volume is insignificant relative to bag capacity (1-2% of 1L). It does mean that after the bag is "empty," ~11 ml of concentrate remains trapped in the dip tube. During a clean cycle, this dead volume must be flushed.
+As concentrate enters through P1, air is pushed upward and collects at the sealed end (highest point). Two strategies for dealing with this air:
 
-### 4d. Pump Suction and the Dip Tube
+**Strategy A: Vent through dip tube (P2) during fill**
 
-The peristaltic pump (Kamoer, 400 ml/min) creates suction at the bag connector. This suction must:
+Open the P2 valve during filling. As air is displaced upward, it reaches the dip tube tip piece at the top of the bag and can exit through the dip tube, through the P2 valve, and out to atmosphere (or into a catch container). This allows the bag to fill completely with minimal trapped air.
 
-1. Overcome hydrostatic head of liquid in the dip tube
-2. Overcome friction losses in the dip tube
-3. Pull liquid from the bag interior through the tube opening
+```
+    AIR VENTING DURING FILL:
 
-For a vertical bag with 250mm of liquid column in the dip tube:
-- Hydrostatic pressure: 250mm x 1050 kg/m^3 x 9.81 m/s^2 = 2.57 kPa = 0.37 PSI
+    ╔════════════════════════════╗
+    ║   air ──→ tip piece ──→   ║  ← air exits through
+    ║          [═══◉═══]        ║     dip tube (P2)
+    ║            │              ║
+    ║            │ dip tube     ║
+    ║            │              ║
+    ║  LIQUID  ←─── rising ──→  ║
+    ║              level        ║
+    ║                           ║
+    ╚════╤══╤═══════════════════╝
+         │P1│P2│
+         └──┴──┘
+          ↑   ↓
+        fill  air out
+```
 
-This is trivial for the pump. The Kamoer pump can generate several PSI of suction. The dip tube adds no meaningful resistance to pump operation.
+**Strategy B: Accept trapped air, prime after fill**
+
+Fill with P2 closed. Some air remains trapped at the top. After filling, run a prime cycle (Section 3) to evacuate the remaining air. This is simpler (fewer simultaneous valve operations) but wastes a small amount of concentrate during the prime-to-waste step.
+
+**Recommended: Strategy A** -- vent through P2 during fill. This takes full advantage of the two-port architecture and minimizes post-fill priming.
 
 ---
 
-## 5. Flow Dynamics — Filling Through the Dip Tube
+## 3. Air Management and Priming
 
-### 5a. Hopper Refill Path
+### 3a. The Air Problem
 
-When refilling the bag from the hopper, concentrate flows INTO the bag through the dip tube (reverse of the dispensing direction):
+After initial bag installation (or after a fill cycle), air is trapped inside the bag. Air at the top of the bag is harmless during dispensing (the pump draws liquid from the bottom port). But air anywhere in the tubing lines between the bag and the faucet causes sputtering and inconsistent flavor dosing.
 
-```
-    FILL PATH (hopper refill):
+The prime cycle evacuates air from:
+1. The tubing between the bag and the pump
+2. The tubing between the pump and the faucet
+3. Any air pockets inside the bag that could migrate to the bottom port
 
-    Funnel/hopper
-      → hopper solenoid (OPEN)
-        → tee junction
-          → black silicone tube
-            → sleeve joint
-              → blue PU tube (external)
-                → through cap
-                  → UP through dip tube inside bag
-                    → exits dip tube opening at TOP of bag interior
-```
+### 3b. Prime Cycle — Air Evacuation Through the Dip Tube
 
-### 5b. What Happens Inside the Bag
-
-This is where the dip tube fundamentally changes the filling behavior compared to a simple bag opening. The existing analysis in `hopper-and-bag-management.md` Section 7 discusses filling through the Platypus opening but does not account for the dip tube.
-
-**Without dip tube** (simple open cap): concentrate enters at the bag connector (bottom of hanging bag) and must displace air upward through the same opening. Air and liquid compete for the same path — counter-flow.
-
-**With dip tube**: concentrate travels UP through the tube and exits at the tube opening INSIDE the bag, near the TOP of the bag interior.
+The prime cycle uses the dip tube (P2) to suck air out of the bag from the highest point:
 
 ```
-    FILLING WITH DIP TUBE (vertical bag, connector at bottom):
+    PRIME CYCLE:
 
-    ╔══════════════════════╗
-    ║                      ║
-    ║   ← air              ║  Air is at the top initially
-    ║     (being displaced)║  (collapsed bag = mostly air)
-    ║          ┌───┐       ║
-    ║          │ ↑ │       ║  Concentrate flows UP
-    ║          │ ↑ │       ║  through the dip tube
-    ║          │ ↑ │       ║
-    ║          │ ↑ │  ←────║── liquid exits tube opening
-    ║          │   │       ║   at the TOP of the bag
-    ║          │   │       ║
-    ╚══════════╧═══╧═══════╝
-               │cap│
-               └─┬─┘
-                 ↑ concentrate enters from below
+    Step 1: Evacuate air from the bag via dip tube
+
+    Valve state:
+      P2 line: dip-tube-to-pump valve OPEN
+      P1 line: CLOSED (isolate main fluid path)
+      Pump waste valve: OPEN (to drain/waste container)
+
+    Flow:
+      Pump creates suction on P2 line
+        → suction propagates through dip tube
+          → dip tube tip piece collects air at bag apex
+            → air is pulled DOWN through dip tube
+              → through pump → to waste
+
+    What exits:
+      First: air (the target)
+      Then: a small amount of concentrate (indicating air is cleared)
+
+    ╔════════════════════════════╗
+    ║   AIR pocket at top       ║
+    ║          [═══◉═══]        ║  ← tip piece collects air
+    ║            │ ↓            ║     from across bag width
+    ║            │ ↓ air pulled ║
+    ║            │ ↓ down tube  ║
+    ║                           ║
+    ║        LIQUID             ║
+    ╚════╤══╤═══════════════════╝
+         │P1│P2│
+         └──┘ │
+              ↓ air + small amount of liquid to waste
+
+
+    Step 2: Prime the dispensing line
+
+    Valve state:
+      P1 line: bag-to-pump OPEN, pump-to-faucet OPEN
+      P2 line: CLOSED
+
+    Flow:
+      Pump pulls concentrate from bag through P1
+        → pushes through dispensing line to faucet
+        → air in the dispensing line is pushed out the faucet end
+
+    After step 2, the entire fluid path from bag to faucet
+    is filled with concentrate. System is primed.
 ```
 
-**The critical problem: where does displaced air go?**
+### 3c. Why This Works
 
-As concentrate enters from the dip tube opening at the top of the bag, liquid falls downward and pools at the bottom. Air is displaced upward — but "upward" is already where the tube opening is. The air has NOWHERE TO GO because the bag's only exit path is back down through the dip tube, which is full of incoming concentrate.
+The dip tube tip piece (see [dip-tube-tip-design.md](dip-tube-tip-design.md)) spans the full width of the bag at the highest point. Its surface ribs create air channels that prevent the bag film from sealing flat against the bar. Air from anywhere across the bag width can migrate laterally along these channels to the central tube socket, where it enters the dip tube bore and gets pulled down to the pump.
 
-This is actually WORSE than filling without a dip tube:
+After the prime cycle, the air pocket at the top of the bag is reduced to a thin residual layer -- the amount that cannot be pulled past the liquid meniscus at the tip piece. This residual air is harmless: it stays at the top of the bag, never reaches the bottom port during dispensing, and slightly reduces effective bag volume by a few milliliters.
 
-| Filling Method | Air Escape Path | Counter-Flow? |
+### 3d. Air Volume Estimates
+
+| Source | Volume | Notes |
 |---|---|---|
-| No dip tube (open cap at bottom) | Air bubbles up past incoming liquid at the opening | Yes, but in a 21mm diameter opening — air and liquid can pass each other |
-| With dip tube | Air must go DOWN through 6.35mm dip tube against incoming liquid flow | Yes, in a 6.35mm tube — much harder for air and liquid to pass |
+| Air in empty bag (initial install) | ~2000 ml | Full bag volume; mostly displaced during fill |
+| Residual air after filling (P2 vented) | ~20-50 ml | Thin pocket at apex that did not reach tip piece |
+| Residual air after filling (P2 closed) | ~100-200 ml | Compressed air at apex |
+| Air in dip tube (P2, unfilled) | ~5 ml | 6.35mm bore x ~160mm active length |
+| Air in P1 tubing (unfilled) | ~4 ml | Tubing from cap to pump |
+| Air in dispensing line | ~3 ml | Tubing from pump to faucet |
+| **Total air to prime (worst case)** | **~210 ml** | New bag install, P2-closed fill |
+| **Total air to prime (best case)** | **~30 ml** | P2-vented fill, only line air |
 
-In a 21mm opening, air bubbles and liquid can coexist (slug flow). In a 6.35mm tube, the tube is small enough that liquid fills the entire cross-section, blocking air passage. Air cannot easily bubble down through a tube that is pushing liquid up.
+At 400 ml/min pump rate, priming the worst case takes ~30 seconds. Best case takes ~5 seconds. The pump is less efficient with air than liquid (peristaltic pumps compress air rather than displacing it cleanly), so actual times are roughly 2x these estimates.
 
-### 5c. Filling Rate Impact
+### 3e. Freshness and Sealed System
 
-The dip tube significantly reduces gravity-fill rate during hopper refill:
+Between uses, all valves are closed (NC solenoids de-energize to closed state). The bag interior is completely isolated from atmosphere:
 
-**Without dip tube:** The 21mm bag opening allows concurrent air escape and liquid entry. Estimated fill time: 8-15 minutes for 2L (from hopper-and-bag-management.md Section 7).
+- No air exchange through P1 (valve closed)
+- No air exchange through P2 (valve closed)
+- The bag film is impermeable (nylon/PE laminate)
+- Concentrate is never exposed to ambient oxygen
 
-**With dip tube:** The 6.35mm tube creates a liquid plug that blocks air escape. Filling proceeds in slug-flow mode: a column of liquid rises, pushes a slug of air ahead of it, the air escapes into the bag, then liquid follows. This is much slower.
-
-Estimated fill time with dip tube: **15-30 minutes for 2L** (roughly 2x the no-dip-tube estimate). For 1L bags (the active design): **8-15 minutes**.
-
-### 5d. Mitigation Strategies for Filling
-
-1. **Remove the dip tube for filling**: Unscrew the cap, pour directly into the bag opening, replace cap+tube. Simple but requires manual intervention and risks spills.
-
-2. **Accept slow fill**: The hopper system is designed for "pour and walk away" operation. Even at 15-30 minutes, the user pours into the funnel and the system handles the rest. The fill rate is slow but fully automated.
-
-3. **Use pump-assisted fill**: Running the peristaltic pump in reverse pushes concentrate through the dip tube with more force, creating higher pressure that compresses trapped air. This accelerates filling but adds firmware complexity and risks over-pressurizing the bag/joints.
-
-4. **Vent the bag**: Add a small secondary opening at the top of the bag (pin hole + adhesive patch as a one-way valve) to let air escape during filling. This is a modification to the commercial product and adds complexity.
-
-**Recommended approach: Accept slow fill.** The hopper funnel buffers the pour and gravity drains it over time. The fill rate is slow but functional, and simplicity is more valuable than speed in this use case.
+This sealed-vessel behavior preserves concentrate freshness for weeks -- comparable to bag-in-box wine or commercial syrup bag systems.
 
 ---
 
-## 6. Air Management
+## 4. Why Two Ports Are Necessary
 
-### 6a. The Sealed System
+### 4a. The Single-Port Problem
 
-The dip tube + cap creates a sealed bag with a single port. This has profound implications:
-
-```
-    SEALED SYSTEM DIAGRAM:
-
-    ┌──── atmosphere ──────────────────────────────┐
-    │                                               │
-    │  [solenoid valve] ← CLOSED = sealed system   │
-    │       │                                       │
-    │  black silicone tube                          │
-    │       │                                       │
-    │  blue PU tube                                 │
-    │       │                                       │
-    │  ┌────┴────┐                                  │
-    │  │   cap   │ ← friction seal                  │
-    │  └────┬────┘                                  │
-    │       │ dip tube                              │
-    │  ╔════╧════════╗                              │
-    │  ║ BAG INTERIOR║ ← sealed volume              │
-    │  ║  (liquid +  ║    no air exchange with      │
-    │  ║   trapped   ║    atmosphere when valve      │
-    │  ║   air)      ║    is closed                  │
-    │  ╚═════════════╝                              │
-    └───────────────────────────────────────────────┘
-```
-
-When the dispensing solenoid is CLOSED:
-- The bag interior is completely isolated from atmosphere
-- No air can enter the bag (freshness preserved)
-- No liquid can leak out (no path of least resistance)
-- The bag sits at whatever internal pressure it had when the valve closed
-
-When the dispensing solenoid is OPEN and the pump runs:
-- The pump creates suction, pulling liquid through the dip tube
-- As liquid leaves, the bag must collapse to fill the void (atmospheric pressure pushes the bag walls inward)
-- No air enters through the dip tube — the tube is full of liquid
-- The bag collapses under atmospheric pressure, like squeezing a sealed juice box with a straw
-
-### 6b. Freshness Implications
-
-The sealed system is excellent for freshness:
-
-- Concentrate is never exposed to ambient air (no oxidation, no contamination)
-- The bag is sealed except during active dispensing
-- Even during dispensing, the pump pulls concentrate OUT — no air is introduced IN
-- Between uses (solenoid closed), the system is hermetically sealed
-
-This is superior to an open bag, open jug, or any container with a vent. The sealed bag + dip tube behaves like a bag-in-box wine system — the concentrate stays fresh for weeks.
-
-### 6c. Trapped Air Inside the Bag
-
-After initial filling or a clean cycle, some air will be trapped inside the bag above the liquid. This trapped air:
-
-- Does not affect dispensing (air is at the top, dip tube pulls from the bottom or wherever the tube opening is)
-- Does not cause freshness problems (it is sealed with the concentrate, not continuously exchanged)
-- Gets pulled through the dip tube only when the liquid level drops below the tube opening
-- Acts as a compressible cushion — it slightly reduces effective bag volume but is otherwise harmless
-
-### 6d. Priming Air Management
-
-When a new bag is installed, the dip tube and connecting tubing are full of air. This air must be purged (primed) before dispensing. The dip tube affects priming:
-
-**Air volume to prime:**
-
-| Segment | Volume |
-|---|---|
-| Dip tube inside bag (250mm x 6.35mm ID) | 7.9 ml |
-| Blue tube external (100mm x 6.35mm ID) | 3.2 ml |
-| Black silicone (500mm x 3.175mm ID) | 4.0 ml |
-| Hard tube + fittings | ~2 ml |
-| **Total air to purge** | **~17 ml** |
-
-The pump must pull ~17 ml of air through the system before concentrate reaches the dispensing point. At 400 ml/min, this takes about 2.5 seconds. However, air is compressible and peristaltic pumps are less efficient with air than liquid, so actual prime time is longer — estimate **5-10 seconds** of continuous pumping.
-
-The dip tube adds ~11 ml of dead volume to the prime path. Without the dip tube, priming would be ~6 ml faster (about 1 second shorter). This is not significant.
-
----
-
-## 7. Interaction with Bag Collapse
-
-### 7a. Does the Dip Tube Provide Internal Structure?
-
-The polyurethane tube (3/8" OD, semi-rigid at 85-95 Shore A) provides some internal structure to the bag:
+With only one port (P1 at the bottom), priming is fundamentally limited:
 
 ```
-    CROSS-SECTION: Bag collapsing around dip tube
+    SINGLE PORT — CANNOT REACH AIR:
 
-    ─────────────────────────────────────
-    │            bag wall              │
-    │     ┌──── dip tube ────┐        │
-    │     │                  │        │  ← tube prevents
-    │     │   (semi-rigid    │        │     complete pinch
-    │     │    PU tube)      │        │     at this location
-    │     └──────────────────┘        │
-    │            bag wall              │
-    ─────────────────────────────────────
+    ╔════════════════════════════╗
+    ║   AIR trapped here        ║  ← air at top
+    ║                           ║     no way to reach it
+    ║                           ║
+    ║                           ║
+    ║        LIQUID             ║  ← liquid at bottom
+    ║                           ║
+    ╚═══════════╤══╤════════════╝
+                │P1│  ← single port at bottom
+                └──┘
+                 │
+            pump can only suck liquid from here
 ```
 
-The tube acts as a small spine inside the bag. Even when the bag is nearly empty and the walls collapse inward, the tube maintains an open channel along its length. This is significant because:
+The pump connected to P1 can only access what is at the bottom of the bag -- which is liquid. The air is trapped at the top with no path to the pump. The pump would need to remove ALL the liquid before it could reach the air, which defeats the purpose.
 
-- The bag walls cannot completely occlude the flow path at the tube location
-- The tube's 3/8" OD holds the bag walls ~9.5mm apart along the tube's length
-- This creates a guaranteed minimum flow channel even in a fully collapsed bag
+Inverting the bag (connector at top) would put the air at the port, but then liquid pools at the bottom away from the port -- the pump cannot efficiently dispense.
 
-### 7b. Can Bag Material Pinch the Dip Tube?
+A single port cannot optimize for both dispensing (port at bottom) and air removal (port at top). The two-port design solves this by putting one port at each location.
 
-The dip tube has a rigid wall (1.6mm PU). The bag material (thin nylon/PE film) cannot crush the tube. However, the bag material CAN:
-
-- Wrap around the tube opening at the tip, partially blocking it
-- Fold across the tube opening like a flap valve
-- Create a seal around the tube tip if the bag is very empty and the film clings to the tube end
+### 4b. The Two-Port Solution
 
 ```
-    FAILURE MODE: Bag film covers tube opening
+    TWO PORTS — EACH OPTIMIZED FOR ITS FUNCTION:
 
-    ╔══════════════════════════╗
-    ║   collapsed bag film     ║
-    ║   ┌───┐                  ║
-    ║   │   │ ← tube           ║
-    ║   │   │                  ║
-    ║   │   ├──┐               ║
-    ║   │   │░░│ ← bag film    ║
-    ║   │   │░░│   draped over ║
-    ║   │   ├──┘   tube opening║
-    ║   │   │                  ║
-    ╚═══╧═══╧══════════════════╝
+    ╔════════════════════════════╗
+    ║   AIR ──→ [tip piece] ──→ ║  ← P2 reaches air at top
+    ║            │              ║
+    ║            │ dip tube     ║
+    ║            │              ║
+    ║        LIQUID             ║  ← P1 reaches liquid at bottom
+    ║                           ║
+    ╚════╤══╤═══════════════════╝
+         │P1│P2│
+         └──┴──┘
+          │   │
+     liquid  air
+     out     out
+
+    P1 at bottom: optimized for liquid (dispensing + filling)
+    P2 at top (via dip tube): optimized for air (priming)
 ```
 
-This can happen when the bag is nearly empty and the collapsed film settles onto the tube tip. The pump suction pulls the film against the tube opening, blocking it. This is functionally the same as "bag pinch" described in `hopper-and-bag-management.md` Section 5a, but localized to the tube tip rather than the bag opening.
+Each port serves one job:
+- **P1**: All liquid operations (dispense, fill). Positioned at the gravity low point. Short path, high flow rate.
+- **P2**: Air evacuation only (prime cycle, fill venting). Positioned at the gravity high point via the dip tube. Used briefly during prime, then closed.
 
-### 7c. Mitigation
+### 4c. Comparison
 
-- **Cut the tube tip at an angle (bevel cut)**: A 45-degree cut at the tube tip creates two opening directions. Even if bag film covers one side, the other side remains open.
-- **Cut small notches near the tip**: Side holes drilled or cut 10-20mm from the tip provide alternate intake points.
-- **Accept the limitation**: In the last 5-10% of bag volume, some sputtering is acceptable. The system can warn the user to refill at ~10% remaining.
-
----
-
-## 8. Priming and First-Use Behavior
-
-### 8a. Initial State After Bag Installation
-
-When a new bag is connected:
-
-```
-    INITIAL STATE: New bag installed, system needs priming
-
-    ╔══════════════════════╗
-    ║                      ║
-    ║   LIQUID             ║  ← bag is full of concentrate
-    ║          ┌───┐       ║
-    ║          │AIR│       ║  ← dip tube is full of AIR
-    ║          │AIR│       ║     (just installed, never pumped)
-    ║          │AIR│       ║
-    ╚══════════╧═══╧═══════╝
-               │cap│
-               └─┬─┘
-                 │ AIR
-                 │ AIR ← entire external tubing is air
-                 ↓
-    ─── solenoid → pump → air out dispensing point ───
-```
-
-### 8b. Priming Sequence
-
-The software prime feature (via S3 touchscreen or iOS app) runs the pump continuously to pull concentrate through the system:
-
-1. Pump starts, solenoid opens
-2. Pump pulls air from the tubing
-3. Air exits through the dispensing point
-4. Eventually, concentrate reaches the dip tube entrance (at the tube tip inside the bag)
-5. Concentrate enters the dip tube and begins traveling down/through it
-6. The concentrate-air boundary moves through the dip tube, then through the external tubing
-7. Concentrate reaches the dispensing point — system is primed
-
-**The dip tube adds ~8 ml of air to the prime volume** (the volume inside the bag portion of the tube). This adds 1-2 seconds to the prime cycle. Not significant.
-
-### 8c. Loss of Prime
-
-If the system loses prime (air enters the line due to empty bag, leak, or disconnection), the dip tube helps with re-priming because:
-
-- The tube's small diameter (6.35mm) creates more capillary action than the 21mm bag opening
-- Liquid wicks into the tube from the bag end, partially filling the dip tube even without pump suction
-- When the pump restarts, it has less air to evacuate than if the entire bag opening were the intake
-
----
-
-## 9. Clean Cycle Implications
-
-### 9a. Clean Fill Phase
-
-During the clean fill phase, water enters the bag through the dip tube. Per Section 5b, this is the REVERSE of normal flow, and air displacement is difficult because the dip tube blocks air escape.
-
-```
-    CLEAN FILL: Water pushed into bag through dip tube
-
-    ╔══════════════════════╗
-    ║   AIR (trapped)      ║  ← air trapped at top of bag
-    ║                      ║     cannot escape
-    ║          ┌───┐       ║
-    ║          │ ↑ │       ║  ← water flows UP
-    ║          │ ↑ │       ║     through dip tube
-    ║          │ ↑ │       ║
-    ║   WATER  │   │       ║  ← water exits tube tip,
-    ║   pooling│   │       ║     falls to bottom of bag
-    ╚══════════╧═══╧═══════╝
-               │cap│
-               └─┬─┘
-                 ↑ water from clean solenoid
-```
-
-Water exits the dip tube at the top of the bag, falls to the bottom, and pools. Air is trapped above the rising water level. Since the only exit path is back down through the dip tube (which is full of incoming water), the air compresses until equilibrium.
-
-**This actually helps cleaning**: the water exits at the top of the bag and cascades downward, contacting more of the bag's interior surface than if it simply pooled at the bottom connector. It acts like a shower head inside the bag.
-
-### 9b. Clean Flush Phase
-
-During flush, the pump pulls water+dissolved residue from the bag through the dip tube:
-
-- Dip tube opening at the top of the bag — it pulls the cleanest water (water that has risen and mixed with residue at the top)
-- The trapped air gets pulled through the dip tube once the water level drops below the tube opening
-- Each fill-flush cycle removes more residue
-
-### 9c. Dead Volume During Cleaning
-
-The dip tube's 11 ml of dead volume means ~11 ml of concentrate-contaminated liquid remains in the tube after the first flush. Subsequent fill-flush cycles dilute this progressively. After 3 cycles, the dilution factor is roughly (11/1000)^3 = negligible.
-
-### 9d. Dip Tube Interior Surface
-
-The inside of the dip tube is a smooth polyurethane bore. Sugar concentrate does not adhere strongly to PU. The tube's small diameter means high flow velocity during pumping (liquid velocity in 6.35mm tube at 400 ml/min = ~210 mm/s), which provides good scrubbing action. The tube interior cleans itself adequately during flush cycles.
-
----
-
-## 10. Corrections to Existing Documents
-
-### 10a. hopper-and-bag-management.md Section 7
-
-**Current text** (Section 7, "The Platypus Bottle Opening as a Design Constraint") analyzes flow through the 21mm bag opening without accounting for the dip tube. Key corrections:
-
-| Current Claim | Corrected Understanding |
-|---|---|
-| "The Platypus opening inner diameter of ~21-22mm is not the bottleneck" | Correct — but the 21mm opening is also not the fill entry point. Liquid enters through the 6.35mm dip tube, not the 21mm opening |
-| "Air escape rate from the bag (air must exit through the same opening as concentrate enters)" | The air escape problem is much worse with the dip tube: air must counter-flow through a 6.35mm tube, not a 21mm opening |
-| "Estimated gravity-fill time for 2L: 8-15 minutes" | With the dip tube, estimate 15-30 minutes for 2L (8-15 min for 1L) |
-| "A funnel opening of 75-100mm catches pours" | This is still correct — the funnel size is independent of the dip tube |
-
-### 10b. hopper-and-bag-management.md Section 3
-
-**Current text** (Section 3a, "Air Management During Hopper Refilling") says "Air could enter the bag through the connector." With the dip tube, air entering from the hopper side must travel UP through the dip tube to reach the bag interior. The tube's small diameter and any residual liquid create a partial barrier to air entry. Air entry into the bag during hopper filling is actually LESS likely with the dip tube than without.
-
-### 10c. hopper-and-bag-management.md Section 3b
-
-**Current text** (Section 3b) discusses bag collapse during dispensing: "If the bag collapses unevenly, a fold or pinch can trap liquid above the fold while air sits at the connector." With the dip tube, the tube provides an internal pathway past any fold or pinch in the bag. Even if the bag walls collapse and fold, the rigid tube maintains an open channel from the connector to the tube tip. This is a significant advantage — the dip tube makes bag-pinch-related sputtering less likely.
-
-### 10d. docs/plumbing.md
-
-The current plumbing document describes the blue tube connection (sleeve joint with black silicone) but does not mention that the blue tube extends through the cap into the bag interior. The document treats the blue tube as purely external. This should be updated to clarify the dip tube function.
-
----
-
-## 11. Compatibility and Alternatives
-
-### 11a. Other 28mm Thread Caps
-
-| Product | Tube Through Cap? | Notes |
+| Capability | Single Port | Two Port |
 |---|---|---|
-| Platypus Closure Cap (07047) | No tube — solid screw cap | Seals the bag completely; no dispensing possible |
-| Platypus Push-Pull Cap | No dip tube — push-pull valve at cap surface | Liquid flows through the cap opening directly, no internal tube |
-| GravityWorks Push-Pull Cap Adapter | No dip tube | Designed for Platypus GravityWorks filter system |
-| Generic 28mm sport cap | Varies | Most do not include an internal tube |
-| Custom 3D-printed cap with barb | Could include dip tube | Custom solution; food-safe PETG or PP |
+| Dispense from bottom | Yes | Yes (P1) |
+| Fill from bottom | Yes | Yes (P1) |
+| Remove air from top | No | Yes (P2 + dip tube) |
+| Vent air during fill | No | Yes (P2 open during fill) |
+| Full prime (no trapped air) | Impossible without draining bag | Yes (prime through P2) |
+| Sealed idle state | Yes (1 valve) | Yes (2 valves, both NC) |
+| Additional valves needed | 0 | 2 (for P2 routing) |
+| Additional parts in cap | 0 | 1 bulkhead fitting + dip tube + tip piece |
 
-### 11b. Wider Dip Tube Options
+The two additional valves per bag (for P2 routing) bring the total valve count from 4 per pump to 6 per pump, 12 total for the two-line system. This is the main cost of the two-port architecture. However, the Beduan 12V NC solenoid valves are $8.99 each, so the incremental cost is ~$36 for all four additional valves.
 
-If the dip tube's 6.35mm ID proves too restrictive for filling:
+---
 
-- **3/8" ID tube (9.5mm)**: Doubles the cross-sectional area. Would need a custom cap with a larger bore.
-- **1/2" ID tube (12.7mm)**: Quadruples the area. Approaches the bag opening size (21mm). Would need a very large bore through the cap — likely impractical without a custom cap.
-- **No dip tube (open cap)**: Eliminates the fill restriction entirely. The bag opening becomes a simple port. However, this loses all the dip tube advantages (sealed system, anti-pinch spine, high drainage point).
+## 5. Dip Tube and Tip Piece
 
-### 11c. Custom Two-Port Solution
+### 5a. Dip Tube Construction
 
-A modification mentioned in `hopper-and-bag-management.md` Section 3a: add a second small opening at the top of the bag as an air vent. This would solve the fill-rate problem:
+The dip tube is a length of 1/4" (6.35mm OD) hard polyethylene or polyurethane tube. It is NOT the Platypus Drink Tube Kit -- that product is no longer needed. The dip tube is simply a cut length of the same hard tube stock used elsewhere in the system for John Guest push-to-connect plumbing.
+
+| Parameter | Value |
+|---|---|
+| Material | Hard polyethylene or polyurethane |
+| Outer diameter | 6.35mm (1/4") |
+| Inner diameter | ~4.0-4.3mm (standard wall) |
+| Length | Cut to reach from cap bulkhead to bag apex (~280-320mm depending on bag mount geometry) |
+| Bottom end | Inserts into P2 John Guest bulkhead fitting (push-to-connect) |
+| Top end | Inserts into tip piece central socket (friction or barb fit) |
+
+### 5b. Tip Piece
+
+The 3D-printed tip piece is detailed in [dip-tube-tip-design.md](dip-tube-tip-design.md). Summary:
+
+- Spans full bag width (~185mm)
+- Assembled through 28mm opening via ship-in-a-bottle technique (insert lengthwise, rotate 90 degrees)
+- Central socket grips 6.35mm OD tube
+- Air channel ribs on top and bottom faces prevent bag film seal-off
+- Wedges between side seams to prevent lateral movement
+- Material: PETG (FDM prototype) or PA12 nylon (SLS production), with food-safe coating
+- Only fluid-contact 3D-printed part in the system
+
+### 5c. Internal Assembly
 
 ```
-    TWO-PORT BAG:
+    INSIDE THE BAG (longitudinal section):
 
-    ╔══════════════════════╗
-    ║   vent (pin hole +   ║  ← air escapes here during fill
-    ║    check valve)      ║
-    ║                      ║
-    ║          ┌───┐       ║
-    ║          │   │ dip   ║
-    ║          │   │ tube  ║
-    ║          │   │       ║
-    ╚══════════╧═══╧═══════╝
-               │cap│
+    sealed end (top, pinned to back wall)
+    ┌──────────────────────────────────┐
+    │  rib  rib  [◉ socket]  rib  rib │  ← tip piece (185mm wide)
+    │              │                   │
+    │              │  1/4" hard tube   │
+    │              │  (dip tube)       │
+    │              │                   │
+    │              │                   │
+    │              │                   │
+    │              │                   │
+    └──────────────┤──╤────────────────┘
+                   │P2│  ← bulkhead fitting in cap
+                   └──┘
+    connector end (bottom-front)
 ```
 
-This allows air to escape from the top while liquid enters through the dip tube at the bottom. The check valve (or simple adhesive flap) prevents liquid from leaking through the vent during dispensing. However, this modifies a commercial product and adds a failure point (vent leak).
+The tube runs straight from the P2 bulkhead fitting up to the tip piece. The tip piece's socket grips the tube. The bag's diagonal mount keeps the tube under light tension (the tip piece is at the high end, the cap is at the low end). The cradle supports the bag from underneath, and the sealed end is pinned to the back wall, so there is no significant force trying to pull the tube out of the socket.
 
-**Not recommended for Phase 1.** The slow fill rate through the dip tube is acceptable for an automated pour-and-walk-away hopper system.
+---
+
+## 6. Bag Collapse Behavior
+
+### 6a. During Dispensing
+
+As liquid is pulled from the bag through P1, the bag volume decreases. Since the system is sealed (both valves closed except the active dispense path), atmospheric pressure pushes the bag walls inward. The bag collapses progressively:
+
+1. The bag film first separates from the cradle support surfaces (sides and top)
+2. Film drapes inward toward the remaining liquid pool at the bottom
+3. The dip tube and tip piece provide internal structure that prevents complete collapse in the top region
+4. The tip piece ribs maintain air channels even as the film contacts the bar
+5. As the bag empties, the film may wrap around the dip tube, but the tube's rigidity (6.35mm OD hard PE) maintains an open channel along its length
+
+### 6b. Dip Tube as Internal Spine
+
+The 6.35mm hard tube running the full length of the bag acts as a structural spine:
+
+```
+    CROSS-SECTION: Collapsed bag around dip tube
+
+    ───────────────────────────────
+    │            bag wall         │
+    │     ┌──── dip tube ────┐   │
+    │     │   (6.35mm OD,    │   │  ← tube prevents
+    │     │    rigid PE)     │   │     complete pinch
+    │     └──────────────────┘   │     at this location
+    │            bag wall         │
+    ───────────────────────────────
+```
+
+Even when the bag is nearly empty, the tube holds the bag walls ~6.35mm apart along its length. This is significant: it creates a guaranteed minimum flow channel from the liquid pool (bottom) to the tip piece (top), ensuring the prime cycle can always reach trapped air.
+
+### 6c. Tip Piece at Collapse
+
+When the bag is very empty, the film collapses onto the tip piece. The ribs (1.5mm tall, see dip-tube-tip-design.md Section 6) hold the film off the bar surface, maintaining air channels. The film tension across the ribs depends on:
+
+- How much residual liquid weight is pressing the film down (very little at the top of the incline)
+- Atmospheric pressure differential (only relevant during active pumping; at rest, pressure equalizes)
+- Film stiffness (Platypus nylon/PE laminate is moderately stiff)
+
+With the sealed end pinned to the back wall and supported by the cradle, the film pressure against the tip piece is minimal. The 1.5mm ribs are more than adequate to maintain air channels.
+
+### 6d. Failure Mode: Film Occlusion of P1
+
+The bottom port (P1) is flush with the cap interior or has a very short stub. When the bag is nearly empty, the collapsed film can drape over and seal the port opening. This is the same "bag pinch" phenomenon described in earlier research.
+
+Mitigation:
+- The short stub (5-10mm) on P1 holds the film away from the actual port bore
+- The film must conform to the cap interior geometry, which includes two protruding bulkhead fittings; the complex surface prevents a clean seal
+- If occlusion occurs, it is intermittent (pump suction briefly lifts the film, draws a slug of liquid, film re-seals, pump pulls again -- pulsating but functional)
+- At very low bag volume (<5%), some sputtering is expected and acceptable; the system warns the user to refill
+
+---
+
+## 7. Hydrostatic Pressure and Seal Integrity
+
+### 7a. Pressure at the Cap
+
+The bag is mounted at 35 degrees with the cap at the lowest point. The hydrostatic pressure at the cap depends on the liquid column height above it.
+
+For a full 2L bag on a 35-degree incline:
+- Bag length along the incline: ~350mm
+- Vertical height of liquid column: 350mm x sin(35 deg) = ~200mm
+- Liquid density: ~1050 kg/m^3 (sugar syrup)
+- Hydrostatic pressure: 200mm x 1050 x 9.81 = 2.06 kPa = **0.30 PSI**
+
+This is trivially low. The John Guest bulkhead fittings are rated for 150 PSI. The O-ring seals in the bulkhead fittings are not challenged by 0.3 PSI.
+
+### 7b. Pressure During Pump Operations
+
+The Kamoer peristaltic pump generates:
+- Suction (dispensing): ~3-5 PSI vacuum at the bag port
+- Pressure (filling): ~3-5 PSI positive at the bag port
+
+Both are well within the 150 PSI rating of the John Guest fittings. The modified cap itself (polypropylene with two drilled holes for the bulkhead fittings) must withstand these pressures, but at 3-5 PSI the stresses are negligible for a solid PP cap.
+
+### 7c. Cap Seal to Bag
+
+The Platypus 2L bag uses a 28mm threaded opening. The cap threads onto this opening with a gasket or O-ring seal. This seal is designed for the original Platypus system (hydration use) and is rated for the mild pressures of sucking through a bite valve.
+
+With the two-port modification, the cap is the original Platypus cap (or a custom replacement) with two holes drilled for the bulkhead fittings. The cap-to-bag thread seal is unchanged and remains adequate -- the 0.3 PSI hydrostatic head and 3-5 PSI pump pressure are within the original design envelope.
+
+### 7d. Bulkhead-to-Cap Seal
+
+Each John Guest PP1208W bulkhead fitting requires a 5/8" (15.9mm) mounting hole. The fitting passes through the hole and is secured with a locknut on the other side. An O-ring on the bulkhead body seals against the cap material.
+
+Two 15.9mm holes in a 28mm cap leaves limited material between the holes and between the holes and the cap thread. The minimum wall thickness between the two holes and from each hole to the cap edge must be assessed:
+
+```
+    CAP FACE (28mm thread OD, ~24mm usable diameter inside thread):
+
+         24mm usable
+    ┌────────────────────┐
+    │                    │
+    │   (P1)     (P2)   │   Two 15.9mm holes
+    │   15.9mm   15.9mm │   in a ~24mm diameter
+    │                    │
+    └────────────────────┘
+
+    Problem: 15.9 + 15.9 = 31.8mm > 24mm
+    Two full-size bulkhead holes DO NOT FIT side by side
+    in a standard 28mm Platypus cap.
+```
+
+**This is a critical dimensional conflict.** Two PP1208W bulkhead fittings (each requiring a 15.9mm hole) cannot both fit within the ~24mm usable diameter of a standard 28mm Platypus cap. The combined hole requirement (31.8mm) exceeds the available space.
+
+### 7e. Resolution: Custom Cap
+
+The 28mm Platypus cap cannot accommodate two standard John Guest bulkhead fittings. Solutions:
+
+**Option A: Custom 3D-printed cap with smaller bulkhead penetrations**
+
+Design a custom cap with a 28mm thread that has a taller body, allowing the two fittings to be stacked vertically (axially offset along the cap height) rather than side by side. Each fitting gets its own cross-section of the cap wall.
+
+```
+    CUSTOM CAP (side view):
+
+    ┌────────────────┐
+    │  P2 bulkhead   │  ← upper fitting
+    │  ┌──┐          │
+    ├──┤  ├──────────┤  ← wall between fittings
+    │  └──┘          │
+    │  P1 bulkhead   │  ← lower fitting
+    │  ┌──┐          │
+    └──┤  ├──────────┘
+       └──┘
+    ───28mm thread───
+```
+
+**Option B: Smaller fittings**
+
+Use smaller push-to-connect fittings that require a smaller mounting hole. Some brands offer 1/4" tube fittings with a 3/8" (9.5mm) or 7/16" (11.1mm) panel hole. Two 9.5mm holes side by side = 19mm, which fits within the 24mm usable diameter with 2.5mm of wall between them and 2.5mm to each edge.
+
+**Option C: Custom cap with barb fittings instead of John Guest**
+
+Instead of push-to-connect bulkheads, use simple barb fittings molded or epoxied into the cap. A barb fitting for 1/4" tube has a ~7-8mm OD shank. Two barbs side by side need ~16mm, which fits within 24mm.
+
+**Option D: One bulkhead + one barb**
+
+Use a John Guest bulkhead for P1 (the main fluid port, where tool-free tube disconnection is valuable for bag changes) and a permanently installed barb fitting for P2 (the dip tube port, which is internal and rarely disconnected).
+
+**Recommended: Option D** for Phase 1. The P1 port benefits from quick-connect for bag changes. The P2 port connects to an internal dip tube that is assembled once per bag and does not need to be disconnected frequently. A barb fitting with a small footprint for P2 keeps the cap dimensions workable while preserving quick-connect convenience on the main fluid line.
+
+If a fully custom cap is pursued (Option A), the cap can be 3D printed in food-safe PETG or PP with the 28mm thread and whatever internal geometry is needed to hold both fittings.
+
+---
+
+## 8. John Guest Bulkhead Fittings
+
+### 8a. Part Numbers
+
+| Part Number | Description | Tube Size | Material | Hole Size | Max Pressure | Standards |
+|---|---|---|---|---|---|---|
+| PP1208W | Bulkhead union, polypropylene, white | 1/4" OD | Polypropylene body, nitrile O-ring | 5/8" (15.9mm) | 150 PSI | NSF/ANSI 51, NSF/ANSI 61 |
+| PI1208S | Bulkhead union, acetal, grey | 1/4" OD | Acetal body, nitrile O-ring | 5/8" (15.9mm) | 150 PSI | NSF/ANSI 51, NSF/ANSI 61 |
+| PP121208W | Reducing bulkhead, 3/8" to 1/4" | 3/8" x 1/4" OD | Polypropylene | -- | 150 PSI | NSF/ANSI 51, NSF/ANSI 61 |
+
+### 8b. PP1208W Specifications
+
+- Push-to-connect on both sides (tube pushes in, collet grips, O-ring seals)
+- Panel/wall thickness range: approximately 1.5-6mm (determined by thread engagement and locknut reach)
+- Both NSF/ANSI 51 (food equipment materials) and NSF/ANSI 61 (drinking water components) certified
+- Operating temperature: up to 150F (65C) -- well above the 15-25C operating range
+- Nitrile O-rings are compatible with sugar syrups and weak acids (pH 3-4)
+
+### 8c. Availability and Cost
+
+| Source | Part | Price | Notes |
+|---|---|---|---|
+| Amazon (10-pack) | PP1208W | ~$20-25 for 10 | B003YKF1SY |
+| Home Depot (10-pack) | PP1208W-US | ~$20-25 | SKU 335236458 |
+| Zoro / McMaster | PP1208W | ~$3-5 each | Single units available |
+| US Water Systems | PP1208W | ~$3-4 each | Specializes in water filtration fittings |
+
+For two bags x one bulkhead each (P1 only, with barb for P2) = 2 fittings needed. A 10-pack provides spares for future bags.
+
+---
+
+## 9. Flow Dynamics
+
+### 9a. Dispensing Flow Path
+
+```
+    Bag interior → P1 (flush port) → 1/4" tube → valve → pump → valve → dispensing line → faucet
+```
+
+| Segment | ID | Length | Cross-Section | Flow Resistance (relative) |
+|---|---|---|---|---|
+| P1 bulkhead bore | ~6mm | 15mm | 28.3 mm^2 | Negligible |
+| 1/4" tube (bag to valve) | ~4mm | ~200mm | 12.6 mm^2 | Low |
+| Solenoid valve bore | ~4mm | ~20mm | 12.6 mm^2 | Low |
+| Pump tubing (peristaltic) | 3.175mm | ~100mm | 7.9 mm^2 | Moderate (bottleneck) |
+| Dispensing line | 3.175mm | ~1000mm | 7.9 mm^2 | Highest |
+
+The peristaltic pump tubing (silicone, 1/8" ID) and the dispensing line are the flow bottlenecks. The bag port and connecting tubing contribute minimal resistance. The pump rate (400 ml/min) is the governing flow rate, not the plumbing resistance.
+
+### 9b. Filling Flow Path
+
+```
+    Hopper → valve → pump → valve → 1/4" tube → P1 (flush port) → bag interior
+```
+
+Same tubing diameters and resistances as dispensing, but flow direction is reversed through the pump. The peristaltic pump is bidirectional (L298N H-bridge). Fill rate is limited by the pump rate (~400 ml/min) and the hopper drainage rate (gravity-limited if the hopper runs dry before the pump).
+
+Fill time for 2L at 400 ml/min: **~5 minutes** (pump-limited). This is a significant improvement over the gravity-fill estimates in previous research (8-30 minutes) because the pump provides positive pressure.
+
+### 9c. Dead Volume
+
+| Segment | Volume | Notes |
+|---|---|---|
+| P1 bulkhead + short stub | ~0.5 ml | Negligible |
+| Tubing between bag and pump | ~3 ml | ~200mm of 1/4" tube |
+| Dip tube (P2, inside bag) | ~5 ml | ~280mm of 1/4" tube |
+| P2 external tubing | ~2 ml | ~150mm of 1/4" tube |
+| **Total dead volume** | **~10.5 ml** | 0.5% of 2L bag capacity |
+
+Dead volume is liquid that remains in the plumbing after operations complete. It is negligible relative to bag capacity. During cleaning, 2-3 flush cycles dilute dead-volume residue to immeasurable levels.
+
+---
+
+## 10. Clean Cycle
+
+### 10a. Clean Fill
+
+The clean cycle pushes clean water through the bag to flush residual concentrate. With the two-port architecture:
+
+```
+    CLEAN FILL:
+
+    Water source → pump (or house pressure via needle valve)
+      → P1 (into bag at bottom)
+        → water rises in bag, dissolving residual syrup
+          → P2 open: air exits through dip tube as water fills
+
+    The bottom-entry fill ensures water contacts the entire
+    bag interior surface as it rises from bottom to top.
+```
+
+### 10b. Clean Flush
+
+After filling with water, the pump pulls the rinse water out:
+
+```
+    CLEAN FLUSH (via P1):
+
+    Bag interior (rinse water + dissolved syrup)
+      → P1 → pump → to waste/drain
+
+    This pulls the dirtiest water (concentrated at the bottom
+    where syrup residue is heaviest) out first.
+```
+
+Optionally, also flush through P2:
+
+```
+    CLEAN FLUSH (via P2):
+
+    Bag interior (top region, near tip piece)
+      → dip tube → P2 → pump → to waste
+
+    This flushes the top of the bag where the tip piece sits,
+    cleaning the 3D-printed part.
+```
+
+### 10c. Cycle Count
+
+Three fill-flush cycles reduce syrup concentration by ~1000x (assuming 10ml dead volume mixing with 2000ml clean water each cycle). After 3 cycles, residual syrup is undetectable by taste.
+
+---
+
+## 11. Bill of Materials Impact
+
+### 11a. Parts No Longer Needed
+
+| Part | Reason Removed |
+|---|---|
+| Platypus Hydration Drink Tube Kit (B07N1T6LNW, $24.95) | The dip tube is now a cut length of 1/4" hard tube, not the Platypus drink tube product. No bite valve, no blue PU tube, no sleeve joints. |
+
+### 11b. New Parts
+
+| Part | Qty per Bag | Qty Total (2 bags) | Est. Cost Each | Est. Total |
+|---|---|---|---|---|
+| John Guest PP1208W bulkhead (for P1) | 1 | 2 | ~$3 | ~$6 |
+| Barb fitting for P2 (1/4" tube, ~8mm shank) | 1 | 2 | ~$2 | ~$4 |
+| 1/4" hard PE tube (dip tube, ~300mm per bag) | 1 | 2 | ~$1 | ~$2 |
+| 3D-printed tip piece | 1 | 2 | ~$2 (FDM+coating) | ~$4 |
+| Additional NC solenoid valves (P2 routing) | 2 | 4 | ~$9 | ~$36 |
+| Food-safe epoxy coating (shared) | -- | 1 bottle | ~$15 | ~$15 |
+| Custom cap (3D printed or modified) | 1 | 2 | ~$3 | ~$6 |
+
+### 11c. Net Cost Change
+
+| Item | Change |
+|---|---|
+| Removed: Platypus Drink Tube Kit x2 | -$49.90 |
+| Added: Bulkheads, barbs, tube, tips, valves, caps, epoxy | +$73.00 |
+| **Net increase** | **+$23.10** |
+
+The main cost driver is the four additional solenoid valves ($36). All other new parts total ~$37. The Drink Tube Kit elimination saves ~$50. Net increase is modest and well worth the priming capability.
 
 ---
 
 ## 12. Conclusions
 
-### What the Dip Tube Enables
+### 12a. What the Two-Port Architecture Enables
 
-1. **Sealed bag system**: The cap + dip tube creates a single-port sealed vessel. Concentrate freshness is maximized. No ambient air exposure during idle or dispensing.
+1. **True air evacuation**: The dip tube reaches trapped air at the bag apex, allowing complete priming without draining the bag.
 
-2. **High-point drainage**: With the tube extending near the top of the bag interior (connector-down orientation), the pump pulls from the highest liquid point. This maximizes drainage efficiency to 85-95% of bag volume.
+2. **Efficient filling**: Pump-assisted fill through the bottom port (P1) at 400 ml/min. Air vents through the dip tube (P2) during fill. Fill time for 2L: ~5 minutes.
 
-3. **Anti-pinch spine**: The semi-rigid PU tube prevents the bag walls from completely collapsing along the tube's length. Even a fully collapsed bag maintains an open flow channel along the dip tube.
+3. **Optimal dispensing**: Bottom port (P1) at the gravity low point gives near-complete bag evacuation with no dip tube in the dispensing path.
 
-4. **Clean rinse distribution**: During clean fills, water exits the tube tip at the top of the bag and cascades downward, distributing rinse water across the bag interior more effectively than bottom-filling through an open connector.
+4. **Sealed freshness**: Both ports sealed by NC solenoid valves between uses. No atmospheric exposure.
 
-### What the Dip Tube Constrains
+5. **Effective cleaning**: Bottom-entry water fill rises through the entire bag. Flush from both ports cleans all regions including the tip piece.
 
-1. **Fill rate**: Filling through the 6.35mm tube with counter-flow air displacement is slow. Gravity-fill times are roughly 2x what they would be without the dip tube. For 1L bags: ~8-15 minutes.
+### 12b. Key Design Decisions
 
-2. **Tube length must be tuned per bag size**: The internal tube length must be cut to ~80-90% of the bag's hanging height. Too short and the drainage advantage is lost. Too long and the tube buckles or the tip presses against the sealed end of the bag.
+| Decision | Choice | Rationale |
+|---|---|---|
+| Cap modification | One JG bulkhead (P1) + one barb fitting (P2) | Two full bulkheads do not fit in 28mm cap |
+| Dip tube material | 1/4" hard PE tube (not Platypus kit) | Simpler, cheaper, compatible with JG fittings |
+| Tip piece | 3D-printed air collection bar, 185mm span | See dip-tube-tip-design.md |
+| Fill strategy | Pump-assisted through P1, air vents through P2 | Fast (~5 min for 2L), no counter-flow problem |
+| Prime strategy | Pump suction on P2 dip tube, then pump through P1 to faucet | Two-step prime clears all air from all paths |
+| Valve count | 6 per pump line (4 for P1 routing + 2 for P2 routing) | 12 total for 2-line system |
 
-3. **Tube tip occlusion**: Bag film can drape over the tube opening when the bag is nearly empty. A bevel cut or side notches near the tip mitigate this.
+### 12c. Open Issues
 
-4. **Dead volume**: ~11 ml of liquid remains in the dip tube after the bag is empty. Negligible for operations but must be flushed during cleaning.
+1. **Custom cap design**: The standard Platypus cap cannot hold two PP1208W bulkheads. A custom cap (3D printed or machined) with one bulkhead + one barb is needed. Detailed cap design is a follow-on task.
 
-### Key Design Decisions Informed by This Analysis
+2. **Valve routing for P2**: The existing valve architecture (valve-architecture.md) describes 4 valves per pump line for P1 routing. Two additional valves per line are needed for P2 (one to connect P2 to pump suction during prime, one to vent P2 to atmosphere during fill). The valve architecture document needs updating.
 
-| Decision | Recommendation |
-|---|---|
-| Bag orientation | Vertical, connector at bottom (primary) or inclined with connector at low end |
-| Internal tube length | Cut to ~200-220mm for 1L bags; ~280-310mm for 2L bags |
-| Tube tip treatment | Bevel cut (45 degrees) to resist bag-film occlusion |
-| Filling strategy | Accept slow gravity fill through dip tube; hopper is pour-and-walk-away |
-| Clean cycle count | 3 cycles is adequate (dip tube dead volume flushes well by cycle 3) |
-| Cap seal reinforcement | Monitor for leaks at tube-through-cap friction fit; add zip tie or hose clamp if needed |
+3. **Tip piece validation**: The tip piece design (dip-tube-tip-design.md) needs physical prototyping to validate air channel effectiveness, tube socket grip, and ship-in-a-bottle assembly feasibility.
 
-### Document Cross-References
-
-- `docs/plumbing.md` — current plumbing layout, sleeve joint details
-- `hardware/enclosure/research/hopper-and-bag-management.md` — bag orientation, flattening, filling analysis (partially superseded by this document for dip-tube-specific behavior)
-- `hardware/bag-zone-geometry.md` — bag dimensions and enclosure fit (1L active design at 400mm enclosure height)
-
----
-
-## Sources
-
-Product specifications and tube dimensions from:
-- [Platypus Drink Tube Kit — Cascade Designs](https://cascadedesigns.com/products/drink-tube-kit)
-- [Platypus Drink Tube Kit — Amazon (B07N1T6LNW)](https://www.amazon.com/Platypus-Hoser-Hydration-System-Drink/dp/B07N1T6LNW)
-- [Platypus Drink Tube Kit — CampSaver](https://www.campsaver.com/platypus-drink-tube-kit.html)
-- [Platypus Drink Tube Kit specifications — Trekkinn](https://www.tradeinn.com/trekkinn/en/platypus-drink-tube-kit/137006411/p)
-- [1/4" ID x 3/8" OD Blue Polyurethane Tubing — U.S. Plastic Corp.](https://www.usplastic.com/catalog/item.aspx?itemid=34305)
-- [Platypus Closure Cap — Cascade Designs](https://cascadedesigns.com/products/closure-cap)
+4. **Dip tube length per bag**: The exact tube length from cap bulkhead to tip piece socket depends on the final mount geometry. Measure on the actual diagonal mount and cut to fit with ~5mm excess (the excess inserts deeper into the socket).
