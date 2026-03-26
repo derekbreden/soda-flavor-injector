@@ -1,421 +1,417 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1150 950" width="1150" height="950" font-family="Arial, Helvetica, sans-serif">
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 820" width="1050" height="820" font-family="Arial, Helvetica, sans-serif">
   <style>
-    .outline { stroke: #000; stroke-width: 1.5; fill: none; }
-    .hidden { stroke: #000; stroke-width: 0.8; fill: none; stroke-dasharray: 4,3; }
-    .center { stroke: #000; stroke-width: 0.4; fill: none; stroke-dasharray: 12,3,2,3; }
-    .dim { stroke: #333; stroke-width: 0.6; fill: none; }
-    .dim-text { font-size: 11px; fill: #333; text-anchor: middle; }
-    .label { font-size: 14px; font-weight: bold; fill: #000; text-anchor: middle; }
-    .note-text { font-size: 10px; fill: #000; }
-    .title-text { font-size: 14px; fill: #000; font-weight: bold; }
-    .title-sub { font-size: 11px; fill: #000; }
-    .thin { stroke: #000; stroke-width: 0.5; fill: none; }
-    .arrow { fill: #333; stroke: none; }
+    .outline { fill: none; stroke: #000; stroke-width: 1.5; }
+    .hidden  { fill: none; stroke: #000; stroke-width: 0.8; stroke-dasharray: 6,3; }
+    .center  { fill: none; stroke: #000; stroke-width: 0.4; stroke-dasharray: 12,3,2,3; }
+    .dim     { fill: none; stroke: #333; stroke-width: 0.6; marker-end: url(#arrow); marker-start: url(#arrow); }
+    .ext     { fill: none; stroke: #333; stroke-width: 0.4; }
+    .label   { font-size: 10px; fill: #333; text-anchor: middle; }
+    .note    { font-size: 9px; fill: #555; }
+    .title   { font-size: 14px; font-weight: bold; fill: #000; text-anchor: middle; }
+    .viewlbl { font-size: 12px; font-weight: bold; fill: #000; text-anchor: middle; }
+    .fill-light { fill: #f0f0f0; stroke: none; }
+    .fill-pin   { fill: #d4c680; stroke: none; }
+    .fill-spring { fill: #c0c0c0; stroke: none; }
+    .fill-pcb   { fill: #2a7a2a; stroke: none; opacity: 0.3; }
   </style>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+    </marker>
+  </defs>
 
   <!-- ============================================================ -->
   <!-- TITLE BLOCK                                                   -->
   <!-- ============================================================ -->
-  <rect x="750" y="800" width="380" height="130" stroke="#000" stroke-width="1.5" fill="none"/>
-  <line x1="750" y1="825" x2="1130" y2="825" stroke="#000" stroke-width="0.8"/>
-  <line x1="750" y1="850" x2="1130" y2="850" stroke="#000" stroke-width="0.8"/>
-  <line x1="750" y1="875" x2="1130" y2="875" stroke="#000" stroke-width="0.8"/>
-  <line x1="750" y1="900" x2="1130" y2="900" stroke="#000" stroke-width="0.8"/>
-  <line x1="870" y1="800" x2="870" y2="930" stroke="#000" stroke-width="0.8"/>
-  <text x="810" y="818" class="title-sub" text-anchor="middle">TITLE</text>
-  <text x="1000" y="818" class="title-text" text-anchor="middle">POGO PIN MOUNT</text>
-  <text x="810" y="843" class="title-sub" text-anchor="middle">MATERIAL</text>
-  <text x="1000" y="843" class="title-sub" text-anchor="middle">PETG bracket + FR4 PCB</text>
-  <text x="810" y="868" class="title-sub" text-anchor="middle">SCALE</text>
-  <text x="1000" y="868" class="title-sub" text-anchor="middle">6:1 (6 px/mm)</text>
-  <text x="810" y="893" class="title-sub" text-anchor="middle">UNITS</text>
-  <text x="1000" y="893" class="title-sub" text-anchor="middle">mm</text>
-  <text x="810" y="918" class="title-sub" text-anchor="middle">PROJECTION</text>
-  <text x="1000" y="918" class="title-sub" text-anchor="middle">Third-angle</text>
-  <text x="810" y="928" class="title-sub" text-anchor="middle">QTY</text>
-  <text x="1000" y="928" class="title-sub" text-anchor="middle">1</text>
+  <text x="525" y="30" class="title">Pogo Pin Mount (Dock Ceiling Bracket) — Engineering Drawing</text>
+  <text x="525" y="48" class="note" text-anchor="middle">Material: PETG bracket + FR4 PCB | Envelope: 60W x 30D x 10H mm | 3-6 pogo pins (P75/P100) | Scale noted per view</text>
+  <line x1="50" y1="56" x2="1000" y2="56" stroke="#000" stroke-width="1"/>
 
   <!-- ============================================================ -->
-  <!-- TOP VIEW  (looking along -Z)                                  -->
-  <!-- Horizontal = X (width 60mm = 360px)                           -->
-  <!-- Vertical = Y (depth 30mm = 180px)  Y=0 at top (front edge)   -->
-  <!-- Origin: (100, 80)                                             -->
+  <!-- FRONT VIEW — Looking along -Y                                -->
+  <!-- Horizontal axis = X (width), Vertical axis = Z (height)      -->
+  <!-- Scale 5:1 => 60mm = 300px, 10mm = 50px                      -->
+  <!-- Bracket top-left at (80, 100)                                -->
   <!-- ============================================================ -->
-  <text x="280" y="55" class="label">TOP VIEW</text>
+  <text x="230" y="85" class="viewlbl">FRONT VIEW</text>
+  <text x="230" y="97" class="note" text-anchor="middle">Looking along -Y (from cartridge side) | Scale 5:1</text>
 
-  <!-- Outer rectangle: 360 x 180 -->
-  <rect x="100" y="80" width="360" height="180" class="outline"/>
+  <!-- Bracket body: 60W x 10H mm => 300 x 50 px -->
+  <rect x="80" y="100" width="300" height="50" class="fill-light"/>
+  <rect x="80" y="100" width="300" height="50" class="outline"/>
 
-  <!-- Wire routing channel (back edge): Y=25-30mm -> pixel Y=150-180 from top of part -->
-  <!-- Channel is 5mm wide (30px), full width, on back edge -->
-  <!-- In top view looking down: channel is a recessed slot, shown with inner lines -->
-  <rect x="100" y="230" width="360" height="30" class="outline"/>
-  <!-- The channel bottom is recessed 4mm — shown as thin lines slightly inset -->
+  <!--
+    Pin layout (front view — looking along -Y):
+    3 required pins + 2 optional, at 10mm spacing.
+    5 pins at positions: 10, 20, 30, 40, 50mm from left edge.
+    SVG X: 80 + mm*5
 
-  <!-- 6 Pogo pin holes (axis=Z, so CIRCLES in top view) -->
-  <!-- Pin X positions: 5,15,25,35,45,55 mm = 30,90,150,210,270,330 px from origin -->
-  <!-- Pin Y position: centered at Y=15mm = 90px from origin (but offset from wire channel, say Y=12mm = 72px) -->
-  <!-- Actually, pins centered on depth excluding wire channel: usable depth = 25mm, center at 12.5mm -->
-  <!-- Pin Y center: 12.5mm = 75px from origin -->
-  <!-- Pin radius: 1.25mm = 7.5px -->
-  <circle cx="130" cy="155" r="7.5" class="outline"/>
-  <circle cx="190" cy="155" r="7.5" class="outline"/>
-  <circle cx="250" cy="155" r="7.5" class="outline"/>
-  <circle cx="310" cy="155" r="7.5" class="outline"/>
-  <circle cx="370" cy="155" r="7.5" class="outline"/>
-  <circle cx="430" cy="155" r="7.5" class="outline"/>
+    Pin Z center: 5mm from bottom of bracket (mid-height).
+    SVG Y: 100 + (10-5)*5 = 125
 
-  <!-- Center marks on pin holes (top view) -->
-  <g class="center">
-    <line x1="130" y1="145" x2="130" y2="165"/>
-    <line x1="125" y1="155" x2="135" y2="155"/>
-    <line x1="190" y1="145" x2="190" y2="165"/>
-    <line x1="185" y1="155" x2="195" y2="155"/>
-    <line x1="250" y1="145" x2="250" y2="165"/>
-    <line x1="245" y1="155" x2="255" y2="155"/>
-    <line x1="310" y1="145" x2="310" y2="165"/>
-    <line x1="305" y1="155" x2="315" y2="155"/>
-    <line x1="370" y1="145" x2="370" y2="165"/>
-    <line x1="365" y1="155" x2="375" y2="155"/>
-    <line x1="430" y1="145" x2="430" y2="165"/>
-    <line x1="425" y1="155" x2="435" y2="155"/>
-  </g>
+    Pins are cylindrical with axis along Z => CIRCLES in front view.
+    Pin pocket: 4mm dia => r=10px at 5:1.
+    Pin tip: 2.5mm dia => r=6.25px.
+  -->
 
-  <!-- M3 mounting screw holes (axis=Z, CIRCLES in top view) -->
-  <!-- Positions: (5,5), (55,5), (5,22), (55,22) mm -->
-  <!-- Pixels: X=5mm->30px+100=130, X=55mm->330px+100=430 -->
-  <!-- Y=5mm->30px+80=110, Y=22mm->132px+80=212 -->
-  <!-- M3 clearance hole: 3.2mm dia = radius 9.6px -->
-  <circle cx="130" cy="110" r="9.6" class="outline"/>
-  <circle cx="430" cy="110" r="9.6" class="outline"/>
-  <circle cx="130" cy="212" r="9.6" class="outline"/>
-  <circle cx="430" cy="212" r="9.6" class="outline"/>
+  <!-- Required pins (filled) at 20mm, 30mm, 40mm from left -->
+  <circle cx="180" cy="125" r="10" class="outline"/>
+  <circle cx="180" cy="125" r="6.25" fill="#d4c680" stroke="#666" stroke-width="0.8"/>
+  <circle cx="230" cy="125" r="10" class="outline"/>
+  <circle cx="230" cy="125" r="6.25" fill="#d4c680" stroke="#666" stroke-width="0.8"/>
+  <circle cx="280" cy="125" r="10" class="outline"/>
+  <circle cx="280" cy="125" r="6.25" fill="#d4c680" stroke="#666" stroke-width="0.8"/>
 
-  <!-- Center marks on screw holes -->
-  <g class="center">
-    <line x1="130" y1="98" x2="130" y2="122"/>
-    <line x1="118" y1="110" x2="142" y2="110"/>
-    <line x1="430" y1="98" x2="430" y2="122"/>
-    <line x1="418" y1="110" x2="442" y2="110"/>
-    <line x1="130" y1="200" x2="130" y2="224"/>
-    <line x1="118" y1="212" x2="142" y2="212"/>
-    <line x1="430" y1="200" x2="430" y2="224"/>
-    <line x1="418" y1="212" x2="442" y2="212"/>
-  </g>
+  <!-- Optional pin positions (dashed) at 10mm and 50mm from left -->
+  <circle cx="130" cy="125" r="10" class="hidden"/>
+  <circle cx="130" cy="125" r="6.25" fill="none" stroke="#666" stroke-width="0.6" stroke-dasharray="4,2"/>
+  <circle cx="330" cy="125" r="10" class="hidden"/>
+  <circle cx="330" cy="125" r="6.25" fill="none" stroke="#666" stroke-width="0.6" stroke-dasharray="4,2"/>
 
-  <!-- Drainage channels: two grooves flanking pin row, at Y=8mm and Y=17mm -->
-  <!-- Y=8mm = 48px, Y=17mm = 102px from origin (80+48=128, 80+102=182) -->
-  <!-- Grooves are 2mm wide (12px), run full width minus screw clearance -->
-  <line x1="148" y1="133" x2="412" y2="133" class="thin"/>
-  <line x1="148" y1="141" x2="412" y2="141" class="thin"/>
-  <line x1="148" y1="169" x2="412" y2="169" class="thin"/>
-  <line x1="148" y1="177" x2="412" y2="177" class="thin"/>
+  <!-- Centerlines through pin positions -->
+  <line x1="70" y1="125" x2="390" y2="125" class="center"/>
+  <line x1="180" y1="90" x2="180" y2="160" class="center"/>
+  <line x1="230" y1="90" x2="230" y2="160" class="center"/>
+  <line x1="280" y1="90" x2="280" y2="160" class="center"/>
 
-  <!-- ============================================================ -->
-  <!-- FRONT VIEW  (looking along -Y)                                -->
-  <!-- Horizontal = X (width 60mm = 360px)                           -->
-  <!-- Vertical = Z (height 10mm = 60px)  Z=0 at bottom              -->
-  <!-- Origin: (100, 350) = top-left of front view                   -->
-  <!-- Bottom of part at Y=410 in SVG, top at Y=350                  -->
-  <!-- ============================================================ -->
-  <text x="280" y="335" class="label">FRONT VIEW</text>
+  <!-- Mounting screw holes (M3, d=3mm => r=7.5px at 5:1) at X=5mm, 55mm -->
+  <!-- SVG X: 80+25=105, 80+275=355; SVG Y: 125 -->
+  <circle cx="105" cy="125" r="7.5" class="hidden"/>
+  <circle cx="355" cy="125" r="7.5" class="hidden"/>
+  <line x1="105" y1="90" x2="105" y2="160" class="center"/>
+  <line x1="355" y1="90" x2="355" y2="160" class="center"/>
 
-  <!-- Outer rectangle -->
-  <rect x="100" y="350" width="360" height="60" class="outline"/>
+  <!-- === FRONT VIEW DIMENSIONS === -->
 
-  <!-- Pogo pin holes (axis=Z): in front view, show as RECTANGLES (vertical parallel lines) -->
-  <!-- Each pin: 2.5mm dia = 15px wide, runs through 10mm height = 60px tall -->
-  <!-- Pin X positions same as top view: 130, 190, 250, 310, 370, 430 -->
-  <!-- Hidden lines (holes go through but are behind front surface — actually they're through-holes, so dashed) -->
-  <g class="hidden">
-    <line x1="122.5" y1="350" x2="122.5" y2="410"/>
-    <line x1="137.5" y1="350" x2="137.5" y2="410"/>
-    <line x1="182.5" y1="350" x2="182.5" y2="410"/>
-    <line x1="197.5" y1="350" x2="197.5" y2="410"/>
-    <line x1="242.5" y1="350" x2="242.5" y2="410"/>
-    <line x1="257.5" y1="350" x2="257.5" y2="410"/>
-    <line x1="302.5" y1="350" x2="302.5" y2="410"/>
-    <line x1="317.5" y1="350" x2="317.5" y2="410"/>
-    <line x1="362.5" y1="350" x2="362.5" y2="410"/>
-    <line x1="377.5" y1="350" x2="377.5" y2="410"/>
-    <line x1="422.5" y1="350" x2="422.5" y2="410"/>
-    <line x1="437.5" y1="350" x2="437.5" y2="410"/>
-  </g>
+  <!-- Overall width 60mm (bottom) -->
+  <line x1="80" y1="150" x2="80" y2="175" class="ext"/>
+  <line x1="380" y1="150" x2="380" y2="175" class="ext"/>
+  <line x1="80" y1="170" x2="380" y2="170" class="dim"/>
+  <text x="230" y="184" class="label">60</text>
 
-  <!-- M3 screw holes (axis=Z): in front view, RECTANGLES (vertical hidden lines) -->
-  <!-- Only front two screws visible: at X=5mm, X=55mm -> px 130, 430 -->
-  <!-- M3 clearance: 3.2mm = 19.2px wide -->
-  <g class="hidden">
-    <line x1="120.4" y1="350" x2="120.4" y2="410"/>
-    <line x1="139.6" y1="350" x2="139.6" y2="410"/>
-    <line x1="420.4" y1="350" x2="420.4" y2="410"/>
-    <line x1="439.6" y1="350" x2="439.6" y2="410"/>
-  </g>
+  <!-- Overall height 10mm (right) -->
+  <line x1="390" y1="100" x2="414" y2="100" class="ext"/>
+  <line x1="390" y1="150" x2="414" y2="150" class="ext"/>
+  <line x1="409" y1="100" x2="409" y2="150" class="dim"/>
+  <text x="424" y="129" class="label" text-anchor="start">10</text>
 
-  <!-- Wire channel visible on top edge at back — in front view, the channel is behind, so hidden -->
-  <!-- Channel is at top, 4mm deep = 24px, full width -->
-  <!-- This shows as a dashed horizontal line 24px from top -->
-  <line x1="100" y1="374" x2="460" y2="374" class="hidden"/>
+  <!-- Pin spacing 10mm (top) -->
+  <line x1="180" y1="100" x2="180" y2="82" class="ext"/>
+  <line x1="230" y1="100" x2="230" y2="82" class="ext"/>
+  <line x1="280" y1="100" x2="280" y2="82" class="ext"/>
+  <line x1="180" y1="85" x2="230" y2="85" class="dim"/>
+  <text x="205" y="80" class="label">10</text>
+  <line x1="230" y1="85" x2="280" y2="85" class="dim"/>
+  <text x="255" y="80" class="label">10</text>
 
-  <!-- Drainage grooves on top face: run along X at Y=8.8mm and Y=16.2mm -->
-  <!-- In front view (along -Y), grooves are behind front surface = hidden dashed lines -->
-  <!-- They appear as horizontal dashed lines 1.5mm (9px) below top edge -->
-  <line x1="148" y1="359" x2="412" y2="359" class="hidden"/>
+  <!-- Left edge to first required pin 20mm -->
+  <line x1="80" y1="195" x2="80" y2="210" class="ext"/>
+  <line x1="180" y1="195" x2="180" y2="210" class="ext"/>
+  <line x1="80" y1="205" x2="180" y2="205" class="dim"/>
+  <text x="130" y="220" class="label">20</text>
+
+  <!-- Pin labels -->
+  <text x="180" y="148" class="note" text-anchor="middle">GND</text>
+  <text x="230" y="148" class="note" text-anchor="middle">MTR A</text>
+  <text x="280" y="148" class="note" text-anchor="middle">MTR B</text>
+  <text x="130" y="148" class="note" text-anchor="middle">(opt)</text>
+  <text x="330" y="148" class="note" text-anchor="middle">(opt)</text>
 
   <!-- ============================================================ -->
-  <!-- SIDE VIEW  (looking along -X, from right side)                -->
-  <!-- Horizontal = Y (depth 30mm = 180px)  Y=0 at left (front)     -->
-  <!-- Vertical = Z (height 10mm = 60px)  Z=0 at bottom              -->
-  <!-- Origin: (580, 350) = top-left                                 -->
+  <!-- SIDE VIEW — Looking along -X                                 -->
+  <!-- Horizontal axis = Y (depth), Vertical axis = Z (height)      -->
+  <!-- Scale 5:1 => 30mm = 150px, 10mm = 50px                      -->
+  <!-- Bracket top-left at (550, 100)                               -->
   <!-- ============================================================ -->
-  <text x="670" y="335" class="label">RIGHT SIDE VIEW</text>
+  <text x="625" y="85" class="viewlbl">SIDE VIEW (RIGHT)</text>
+  <text x="625" y="97" class="note" text-anchor="middle">Looking along -X | Scale 5:1</text>
 
-  <!-- Side view outline with wire channel notch cut from top-right corner -->
-  <!-- Bottom edge -->
-  <line x1="580" y1="410" x2="760" y2="410" class="outline"/>
-  <!-- Left edge -->
-  <line x1="580" y1="350" x2="580" y2="410" class="outline"/>
-  <!-- Right edge -->
-  <line x1="760" y1="374" x2="760" y2="410" class="outline"/>
-  <!-- Top edge (stops at channel) -->
-  <line x1="580" y1="350" x2="730" y2="350" class="outline"/>
-  <!-- Wire channel notch: vertical wall then floor -->
-  <line x1="730" y1="350" x2="730" y2="374" class="outline"/>
-  <line x1="730" y1="374" x2="760" y2="374" class="outline"/>
+  <!-- PCB layer on top of bracket (2mm thick => 10px) -->
+  <rect x="550" y="90" width="150" height="10" class="fill-pcb"/>
+  <rect x="550" y="90" width="150" height="10" class="outline"/>
 
-  <!-- Pogo pin holes (axis=Z): in side view looking along X, -->
-  <!-- All 6 pins are at same Y=12.5mm. Side view shows them overlapping as one rectangle -->
-  <!-- Y=12.5mm = 75px from origin left edge -> SVG x = 580+75 = 655 -->
-  <!-- 2.5mm dia = 15px wide, full height -->
-  <g class="hidden">
-    <line x1="647.5" y1="350" x2="647.5" y2="410"/>
-    <line x1="662.5" y1="350" x2="662.5" y2="410"/>
-  </g>
+  <!-- Bracket body: 30D x 10H mm => 150 x 50 px -->
+  <rect x="550" y="100" width="150" height="50" class="fill-light"/>
+  <rect x="550" y="100" width="150" height="50" class="outline"/>
 
-  <!-- M3 screws: two depths Y=5mm and Y=22mm -->
-  <!-- Y=5mm: 580+30=610, Y=22mm: 580+132=712 -->
-  <!-- 3.2mm = 19.2px wide -->
-  <g class="hidden">
-    <line x1="600.4" y1="350" x2="600.4" y2="410"/>
-    <line x1="619.6" y1="350" x2="619.6" y2="410"/>
-    <line x1="702.4" y1="350" x2="702.4" y2="410"/>
-    <line x1="721.6" y1="350" x2="721.6" y2="410"/>
-  </g>
+  <!--
+    Side view: pin cross-section (rectangle — axis along Z).
+    Pin at Y=15mm center => SVG X: 550 + 15*5 = 625
+    Pocket: 4mm wide => 20px => from X=615 to X=635
+    Bracket bottom: SVG Y=150
+    Pin barrel: 2.5mm wide => 12.5px => from X=619 to X=631 (centered on 625)
+    Barrel extends from bracket top (Y=100) to 6mm below bracket (Y=150+30=180)
+    Total barrel visible below bracket: 6mm => 30px
+    Plunger tip: 2mm dia => 10px wide, extends 2mm (10px) below barrel end
+    Solder tail: extends 3mm (15px) above PCB top (Y=90-15=75)
+  -->
 
-  <!-- Drainage grooves: on top surface at Y=8mm and Y=17mm -->
-  <!-- Y=8mm=48px -> x=628, Y=17mm=102px -> x=682 -->
-  <!-- 2mm wide = 12px, 1.5mm deep = 9px -->
-  <!-- Visible notches on top edge -->
-  <line x1="625" y1="350" x2="625" y2="359" class="outline"/>
-  <line x1="625" y1="359" x2="637" y2="359" class="outline"/>
-  <line x1="637" y1="359" x2="637" y2="350" class="outline"/>
-  <line x1="679" y1="350" x2="679" y2="359" class="outline"/>
-  <line x1="679" y1="359" x2="691" y2="359" class="outline"/>
-  <line x1="691" y1="359" x2="691" y2="350" class="outline"/>
+  <!-- Pin pocket through bracket (white cutout) -->
+  <rect x="615" y="100" width="20" height="50" fill="#fff" stroke="#000" stroke-width="0.8" stroke-dasharray="6,3"/>
 
-  <!-- ============================================================ -->
-  <!-- DIMENSIONS — TOP VIEW                                         -->
-  <!-- ============================================================ -->
+  <!-- Pogo pin barrel -->
+  <rect x="619" y="100" width="12" height="80" fill="#c0c0c0" stroke="#000" stroke-width="1"/>
 
-  <!-- Overall width: 60mm -->
-  <!-- Extension lines from left and right edges, dimension line above -->
-  <line x1="100" y1="70" x2="100" y2="80" class="dim"/>
-  <line x1="460" y1="70" x2="460" y2="80" class="dim"/>
-  <line x1="100" y1="73" x2="460" y2="73" class="dim"/>
-  <polygon points="100,73 107,70 107,76" class="arrow"/>
-  <polygon points="460,73 453,70 453,76" class="arrow"/>
-  <text x="280" y="68" class="dim-text">60</text>
+  <!-- Spring coils inside barrel -->
+  <polyline points="621,118 629,124 621,130 629,136 621,142 629,148 621,154 629,160 621,166 629,172"
+            fill="none" stroke="#666" stroke-width="0.6"/>
 
-  <!-- Overall depth: 30mm (right side of top view) -->
-  <line x1="465" y1="80" x2="475" y2="80" class="dim"/>
-  <line x1="465" y1="260" x2="475" y2="260" class="dim"/>
-  <line x1="472" y1="80" x2="472" y2="260" class="dim"/>
-  <polygon points="472,80 469,87 475,87" class="arrow"/>
-  <polygon points="472,260 469,253 475,253" class="arrow"/>
-  <text x="490" y="174" class="dim-text" text-anchor="start">30</text>
+  <!-- Plunger tip protruding below barrel -->
+  <rect x="620" y="180" width="10" height="10" fill="#d4c680" stroke="#000" stroke-width="1"/>
 
-  <!-- Pin spacing: 10mm between first two pins -->
-  <line x1="130" y1="168" x2="130" y2="185" class="dim"/>
-  <line x1="190" y1="168" x2="190" y2="185" class="dim"/>
-  <line x1="130" y1="180" x2="190" y2="180" class="dim"/>
-  <polygon points="130,180 137,177 137,183" class="arrow"/>
-  <polygon points="190,180 183,177 183,183" class="arrow"/>
-  <text x="160" y="195" class="dim-text">10 TYP</text>
+  <!-- Solder tail above PCB -->
+  <rect x="622" y="75" width="6" height="15" fill="#c0c0c0" stroke="#000" stroke-width="0.8"/>
 
-  <!-- First pin center from edge: 5mm -->
-  <line x1="100" y1="185" x2="100" y2="205" class="dim"/>
-  <line x1="130" y1="185" x2="130" y2="205" class="dim"/>
-  <line x1="100" y1="200" x2="130" y2="200" class="dim"/>
-  <polygon points="100,200 107,197 107,203" class="arrow"/>
-  <polygon points="130,200 123,197 123,203" class="arrow"/>
-  <text x="115" y="215" class="dim-text">5</text>
+  <!-- Bracket bottom face line (reinforce — visible edge) -->
+  <line x1="550" y1="150" x2="615" y2="150" stroke="#000" stroke-width="1.5"/>
+  <line x1="635" y1="150" x2="700" y2="150" stroke="#000" stroke-width="1.5"/>
 
-  <!-- Pin hole diameter callout (leader to first pin) -->
-  <line x1="137" y1="148" x2="155" y2="130" class="dim"/>
-  <line x1="155" y1="130" x2="195" y2="130" class="dim"/>
-  <text x="175" y="126" class="dim-text">&#x2300;2.5 THRU x6</text>
+  <!-- Drainage channels (V-groove on bottom face, either side of pin zone) -->
+  <path d="M 567,150 L 575,160 L 583,150" fill="none" stroke="#000" stroke-width="1"/>
+  <path d="M 667,150 L 675,160 L 683,150" fill="none" stroke="#000" stroke-width="1"/>
 
-  <!-- M3 screw hole callout (leader to top-left screw) -->
-  <line x1="138" y1="103" x2="160" y2="90" class="dim"/>
-  <line x1="160" y1="90" x2="220" y2="90" class="dim"/>
-  <text x="190" y="86" class="dim-text">&#x2300;3.2 THRU x4 (M3 CLR)</text>
+  <!-- Centerline through pin -->
+  <line x1="625" y1="65" x2="625" y2="200" class="center"/>
 
-  <!-- Screw inset from edge: 5mm -->
-  <line x1="95" y1="80" x2="95" y2="115" class="dim"/>
-  <line x1="130" y1="105" x2="95" y2="105" class="dim"/>
-  <text x="85" y="100" class="dim-text" text-anchor="end">5</text>
+  <!-- === SIDE VIEW DIMENSIONS === -->
 
-  <!-- Wire channel width: 5mm -->
-  <line x1="465" y1="230" x2="475" y2="230" class="dim"/>
-  <line x1="465" y1="260" x2="475" y2="260" class="dim"/>
-  <line x1="505" y1="230" x2="505" y2="260" class="dim"/>
-  <line x1="475" y1="230" x2="505" y2="230" class="dim"/>
-  <line x1="475" y1="260" x2="505" y2="260" class="dim"/>
-  <polygon points="505,230 502,237 508,237" class="arrow"/>
-  <polygon points="505,260 502,253 508,253" class="arrow"/>
-  <text x="520" y="249" class="dim-text" text-anchor="start">5</text>
+  <!-- Overall depth 30mm (bottom) -->
+  <line x1="550" y1="155" x2="550" y2="215" class="ext"/>
+  <line x1="700" y1="155" x2="700" y2="215" class="ext"/>
+  <line x1="550" y1="210" x2="700" y2="210" class="dim"/>
+  <text x="625" y="224" class="label">30</text>
 
-  <!-- Pin center Y from front edge: 12.5mm -->
-  <line x1="90" y1="80" x2="90" y2="155" class="dim"/>
-  <line x1="85" y1="80" x2="95" y2="80" class="dim"/>
-  <line x1="85" y1="155" x2="100" y2="155" class="dim"/>
-  <polygon points="90,80 87,87 93,87" class="arrow"/>
-  <polygon points="90,155 87,148 93,148" class="arrow"/>
-  <text x="75" y="120" class="dim-text" text-anchor="end">12.5</text>
+  <!-- Bracket height 10mm (left) -->
+  <line x1="540" y1="100" x2="525" y2="100" class="ext"/>
+  <line x1="540" y1="150" x2="525" y2="150" class="ext"/>
+  <line x1="530" y1="100" x2="530" y2="150" class="dim"/>
+  <text x="518" y="129" class="label" text-anchor="end">10</text>
+
+  <!-- PCB thickness 2mm (left, above bracket) -->
+  <line x1="540" y1="90" x2="510" y2="90" class="ext"/>
+  <line x1="540" y1="100" x2="510" y2="100" class="ext"/>
+  <line x1="515" y1="90" x2="515" y2="100" class="dim"/>
+  <text x="503" y="99" class="label" text-anchor="end">2</text>
+
+  <!-- Pin protrusion below bracket: 8mm total -->
+  <line x1="640" y1="150" x2="660" y2="150" class="ext"/>
+  <line x1="640" y1="190" x2="660" y2="190" class="ext"/>
+  <line x1="655" y1="150" x2="655" y2="190" class="dim"/>
+  <text x="668" y="174" class="label" text-anchor="start">8</text>
+
+  <!-- Plunger stroke 2mm -->
+  <line x1="636" y1="180" x2="648" y2="180" class="ext"/>
+  <line x1="636" y1="190" x2="648" y2="190" class="ext"/>
+  <line x1="643" y1="180" x2="643" y2="190" class="dim"/>
+  <text x="648" y="188" class="note" text-anchor="start"> 2 stroke</text>
+
+  <!-- Solder tail 3mm above PCB -->
+  <line x1="634" y1="75" x2="648" y2="75" class="ext"/>
+  <line x1="634" y1="90" x2="648" y2="90" class="ext"/>
+  <line x1="643" y1="75" x2="643" y2="90" class="dim"/>
+  <text x="651" y="86" class="note" text-anchor="start">3</text>
 
   <!-- ============================================================ -->
-  <!-- DIMENSIONS — FRONT VIEW                                       -->
+  <!-- TOP VIEW — Looking along -Z                                  -->
+  <!-- Horizontal axis = X (width), Vertical axis = Y (depth)       -->
+  <!-- Scale 5:1 => 60mm = 300px, 30mm = 150px                     -->
+  <!-- Bracket top-left at (80, 310)                                -->
+  <!-- Aligned below front view (same X range: 80-380)              -->
   <!-- ============================================================ -->
+  <text x="230" y="295" class="viewlbl">TOP VIEW</text>
+  <text x="230" y="307" class="note" text-anchor="middle">Looking along -Z (from above) | Scale 5:1</text>
 
-  <!-- Overall height: 10mm -->
-  <line x1="465" y1="350" x2="480" y2="350" class="dim"/>
-  <line x1="465" y1="410" x2="480" y2="410" class="dim"/>
-  <line x1="475" y1="350" x2="475" y2="410" class="dim"/>
-  <polygon points="475,350 472,357 478,357" class="arrow"/>
-  <polygon points="475,410 472,403 478,403" class="arrow"/>
-  <text x="490" y="384" class="dim-text" text-anchor="start">10</text>
+  <!-- Bracket body: 60W x 30D mm => 300 x 150 px -->
+  <rect x="80" y="320" width="300" height="150" class="fill-light"/>
+  <rect x="80" y="320" width="300" height="150" class="outline"/>
 
-  <!-- Wire channel depth: 4mm from top -->
-  <line x1="465" y1="350" x2="500" y2="350" class="dim"/>
-  <line x1="465" y1="374" x2="500" y2="374" class="dim"/>
-  <line x1="495" y1="350" x2="495" y2="374" class="dim"/>
-  <polygon points="495,350 492,357 498,357" class="arrow"/>
-  <polygon points="495,374 492,367 498,367" class="arrow"/>
-  <text x="510" y="366" class="dim-text" text-anchor="start">4</text>
+  <!-- PCB outline (inset 2.5mm each side => 12.5px) -->
+  <rect x="93" y="333" width="274" height="124" class="fill-pcb"/>
+  <rect x="93" y="333" width="274" height="124" fill="none" stroke="#060" stroke-width="0.6" stroke-dasharray="4,2"/>
 
-  <!-- ============================================================ -->
-  <!-- DIMENSIONS — SIDE VIEW                                        -->
-  <!-- ============================================================ -->
+  <!--
+    Pin holes in top view: circles (looking down pin axis along -Z).
+    Pin X positions match front view: 20, 30, 40mm from left => SVG X: 180, 230, 280
+    Pin Y position: 15mm from front edge => SVG Y: 320 + 15*5 = 395
+  -->
 
-  <!-- Drainage groove depth: 1.5mm = 9px from top edge -->
-  <line x1="625" y1="340" x2="625" y2="350" class="dim"/>
-  <line x1="637" y1="340" x2="637" y2="350" class="dim"/>
-  <line x1="625" y1="343" x2="637" y2="343" class="dim"/>
-  <!-- Leader line from groove dimension to label -->
-  <line x1="631" y1="340" x2="590" y2="315" class="dim"/>
-  <line x1="590" y1="315" x2="570" y2="315" class="dim"/>
-  <text x="569" y="312" class="dim-text" text-anchor="end">2w x 1.5d</text>
+  <!-- Required pin holes -->
+  <circle cx="180" cy="395" r="10" class="outline"/>
+  <circle cx="180" cy="395" r="6.25" fill="#d4c680" stroke="#666" stroke-width="0.8"/>
+  <circle cx="230" cy="395" r="10" class="outline"/>
+  <circle cx="230" cy="395" r="6.25" fill="#d4c680" stroke="#666" stroke-width="0.8"/>
+  <circle cx="280" cy="395" r="10" class="outline"/>
+  <circle cx="280" cy="395" r="6.25" fill="#d4c680" stroke="#666" stroke-width="0.8"/>
 
-  <!-- Wire channel in side view: 5w x 4d -->
-  <line x1="735" y1="340" x2="760" y2="340" class="dim"/>
-  <line x1="765" y1="350" x2="765" y2="374" class="dim"/>
-  <line x1="762" y1="350" x2="770" y2="350" class="dim"/>
-  <line x1="762" y1="374" x2="770" y2="374" class="dim"/>
-  <polygon points="765,350 762,357 768,357" class="arrow"/>
-  <polygon points="765,374 762,367 768,367" class="arrow"/>
-  <text x="780" y="366" class="dim-text" text-anchor="start">4</text>
+  <!-- Optional pin holes (dashed) -->
+  <circle cx="130" cy="395" r="10" class="hidden"/>
+  <circle cx="130" cy="395" r="6.25" fill="none" stroke="#666" stroke-width="0.6" stroke-dasharray="4,2"/>
+  <circle cx="330" cy="395" r="10" class="hidden"/>
+  <circle cx="330" cy="395" r="6.25" fill="none" stroke="#666" stroke-width="0.6" stroke-dasharray="4,2"/>
 
-  <!-- Channel width 5mm -->
-  <line x1="730" y1="415" x2="730" y2="425" class="dim"/>
-  <line x1="760" y1="415" x2="760" y2="425" class="dim"/>
-  <line x1="730" y1="422" x2="760" y2="422" class="dim"/>
-  <polygon points="730,422 737,419 737,425" class="arrow"/>
-  <polygon points="760,422 753,419 753,425" class="arrow"/>
-  <text x="745" y="436" class="dim-text">5</text>
+  <!-- Mounting screw holes (M3, through-holes visible in top view) -->
+  <circle cx="105" cy="395" r="7.5" class="outline"/>
+  <circle cx="355" cy="395" r="7.5" class="outline"/>
 
-  <!-- Overall depth on side view: 30mm -->
-  <line x1="580" y1="415" x2="580" y2="430" class="dim"/>
-  <line x1="760" y1="415" x2="760" y2="430" class="dim"/>
-  <line x1="580" y1="427" x2="760" y2="427" class="dim"/>
-  <polygon points="580,427 587,424 587,430" class="arrow"/>
-  <polygon points="760,427 753,424 753,430" class="arrow"/>
-  <text x="670" y="443" class="dim-text">30</text>
+  <!-- Centerlines -->
+  <line x1="70" y1="395" x2="390" y2="395" class="center"/>
+  <line x1="180" y1="310" x2="180" y2="480" class="center"/>
+  <line x1="230" y1="310" x2="230" y2="480" class="center"/>
+  <line x1="280" y1="310" x2="280" y2="480" class="center"/>
+  <line x1="105" y1="310" x2="105" y2="480" class="center"/>
+  <line x1="355" y1="310" x2="355" y2="480" class="center"/>
 
-  <!-- Drainage groove positions from front edge -->
-  <line x1="580" y1="448" x2="580" y2="458" class="dim"/>
-  <line x1="625" y1="448" x2="625" y2="458" class="dim"/>
-  <line x1="580" y1="455" x2="625" y2="455" class="dim"/>
-  <polygon points="580,455 587,452 587,458" class="arrow"/>
-  <polygon points="625,455 618,452 618,458" class="arrow"/>
-  <text x="602" y="468" class="dim-text">7.5</text>
+  <!-- Drainage channels (hidden — on underside, parallel to X axis) -->
+  <line x1="80" y1="358" x2="380" y2="358" class="hidden"/>
+  <line x1="80" y1="432" x2="380" y2="432" class="hidden"/>
 
-  <!-- ============================================================ -->
-  <!-- DETAIL INSET: Pin Cross-Section (from side, zoomed)           -->
-  <!-- Shows one pogo pin hole in the side view cross-section        -->
-  <!-- ============================================================ -->
-  <rect x="830" y="450" width="200" height="160" stroke="#000" stroke-width="1" fill="none"/>
-  <text x="930" y="445" class="label">DETAIL A: PIN HOLE (4X SCALE)</text>
+  <!-- === TOP VIEW DIMENSIONS === -->
 
-  <!-- Pin hole cross-section at 4x extra zoom = effective 24px/mm -->
-  <!-- 2.5mm hole in 10mm tall block -->
-  <!-- Block: 10mm = 240px at this scale, but let's show partial -->
-  <!-- Show 6mm tall section = 144px, centered in 160px box -->
-  <!-- Block left edge at x=855, right at x=1005 (150px = ~6.25mm) -->
+  <!-- Overall width 60mm (bottom) -->
+  <line x1="80" y1="470" x2="80" y2="495" class="ext"/>
+  <line x1="380" y1="470" x2="380" y2="495" class="ext"/>
+  <line x1="80" y1="490" x2="380" y2="490" class="dim"/>
+  <text x="230" y="504" class="label">60</text>
 
-  <!-- Simplified cross section showing pin hole and counterbore -->
-  <!-- Block outline (partial) -->
-  <line x1="855" y1="470" x2="1005" y2="470" class="outline"/>
-  <line x1="855" y1="590" x2="1005" y2="590" class="outline"/>
-  <line x1="855" y1="470" x2="855" y2="590" class="outline"/>
-  <line x1="1005" y1="470" x2="1005" y2="590" class="outline"/>
+  <!-- Overall depth 30mm (right) -->
+  <line x1="390" y1="320" x2="414" y2="320" class="ext"/>
+  <line x1="390" y1="470" x2="414" y2="470" class="ext"/>
+  <line x1="409" y1="320" x2="409" y2="470" class="dim"/>
+  <text x="424" y="399" class="label" text-anchor="start">30</text>
 
-  <!-- Pin hole: 2.5mm dia through center -->
-  <!-- Center at x=930. 2.5mm = 60px at 24px/mm. Radius=30px -->
-  <line x1="900" y1="470" x2="900" y2="590" class="outline"/>
-  <line x1="960" y1="470" x2="960" y2="590" class="outline"/>
+  <!-- Pin center Y=15mm from front edge (left side) -->
+  <line x1="80" y1="320" x2="60" y2="320" class="ext"/>
+  <line x1="80" y1="395" x2="60" y2="395" class="ext"/>
+  <line x1="65" y1="320" x2="65" y2="395" class="dim"/>
+  <text x="52" y="361" class="label" text-anchor="end">15</text>
 
-  <!-- Dimension: 2.5mm hole -->
-  <line x1="900" y1="595" x2="900" y2="605" class="dim"/>
-  <line x1="960" y1="595" x2="960" y2="605" class="dim"/>
-  <line x1="900" y1="600" x2="960" y2="600" class="dim"/>
-  <polygon points="900,600 907,597 907,603" class="arrow"/>
-  <polygon points="960,600 953,597 953,603" class="arrow"/>
-  <text x="930" y="614" class="dim-text">&#x2300;2.5</text>
+  <!-- Screw hole to left edge 5mm -->
+  <line x1="80" y1="510" x2="80" y2="525" class="ext"/>
+  <line x1="105" y1="510" x2="105" y2="525" class="ext"/>
+  <line x1="80" y1="520" x2="105" y2="520" class="dim"/>
+  <text x="93" y="534" class="label">5</text>
 
-  <!-- Hatch pattern for solid material -->
-  <g stroke="#888" stroke-width="0.3" fill="none">
-    <line x1="855" y1="480" x2="895" y2="470"/>
-    <line x1="855" y1="500" x2="900" y2="475"/>
-    <line x1="855" y1="520" x2="900" y2="495"/>
-    <line x1="855" y1="540" x2="900" y2="515"/>
-    <line x1="855" y1="560" x2="900" y2="535"/>
-    <line x1="855" y1="580" x2="900" y2="555"/>
-    <line x1="860" y1="590" x2="900" y2="575"/>
-    <line x1="880" y1="590" x2="900" y2="590"/>
-
-    <line x1="960" y1="475" x2="1005" y2="480"/>
-    <line x1="960" y1="495" x2="1005" y2="500"/>
-    <line x1="960" y1="515" x2="1005" y2="520"/>
-    <line x1="960" y1="535" x2="1005" y2="540"/>
-    <line x1="960" y1="555" x2="1005" y2="560"/>
-    <line x1="960" y1="575" x2="1005" y2="580"/>
-    <line x1="960" y1="590" x2="1000" y2="590"/>
-  </g>
+  <!-- Pin labels in top view -->
+  <text x="180" y="385" class="note" text-anchor="middle">GND</text>
+  <text x="230" y="385" class="note" text-anchor="middle">A</text>
+  <text x="280" y="385" class="note" text-anchor="middle">B</text>
 
   <!-- ============================================================ -->
-  <!-- NOTES                                                         -->
+  <!-- DETAIL VIEW — Pin Cross-Section (enlarged)                   -->
+  <!-- Scale 10:1                                                   -->
+  <!-- Shows single pogo pin in bracket pocket                      -->
   <!-- ============================================================ -->
-  <rect x="100" y="480" width="400" height="155" stroke="#000" stroke-width="1" fill="none"/>
-  <text x="110" y="498" class="title-text">NOTES:</text>
-  <text x="110" y="516" class="note-text">1. 6 pogo pin holes (P75/P100 series), 2.5mm dia, 10mm c-t-c</text>
-  <text x="110" y="531" class="note-text">2. Pin stroke: 1-2mm, spring-loaded</text>
-  <text x="110" y="546" class="note-text">3. 4x M3 clearance holes (3.2mm) for mounting to dock ceiling</text>
-  <text x="110" y="561" class="note-text">4. Wire routing channel (5mm W x 4mm D) on back edge</text>
-  <text x="110" y="576" class="note-text">5. Drainage grooves (2mm W x 1.5mm D) flank pin row</text>
-  <text x="110" y="591" class="note-text">6. Mounts to dock ceiling at Z=80-84, X centered at 106mm</text>
-  <text x="110" y="606" class="note-text">7. Contact pads on cartridge: 8mm x 5mm, nickel-plated brass</text>
-  <text x="110" y="621" class="note-text">8. Minimum 3 pins: GND, Motor A 12V, Motor B 12V</text>
-  <text x="110" y="631" class="note-text">   Optional 3 more: cartridge ID, temp sensor, spare</text>
+  <text x="830" y="295" class="viewlbl">DETAIL: PIN SECTION</text>
+  <text x="830" y="307" class="note" text-anchor="middle">Scale 10:1 | Single pin cross-section</text>
+
+  <!--
+    Single pogo pin at 10:1.
+    Pin centered at SVG X=830.
+    PCB top at SVG Y=330, PCB bottom/bracket top at Y=350
+    Bracket bottom at Y=450 (10mm * 10 = 100px)
+    Barrel: 2.5mm => 25px wide, from Y=350 down to Y=510 (16mm * 10 = 160px)
+    Actually barrel length approx 12mm => 120px, so barrel bottom at Y=470
+    Plunger: 2mm => 20px below barrel => plunger bottom at Y=490
+    Solder tail: 3mm => 30px above PCB => from Y=300 to Y=330
+  -->
+
+  <!-- PCB (on top) -->
+  <rect x="770" y="330" width="120" height="20" class="fill-pcb"/>
+  <rect x="770" y="330" width="120" height="20" class="outline"/>
+
+  <!-- Bracket body -->
+  <rect x="770" y="350" width="120" height="100" class="fill-light"/>
+  <rect x="770" y="350" width="120" height="100" class="outline"/>
+
+  <!-- Pin pocket bore through bracket (4mm => 40px wide) -->
+  <rect x="810" y="350" width="40" height="100" fill="#fff" stroke="#000" stroke-width="1"/>
+
+  <!-- Pogo pin barrel (2.5mm => 25px wide, centered on 830) -->
+  <rect x="818" y="355" width="25" height="115" fill="#c0c0c0" stroke="#000" stroke-width="1"/>
+
+  <!-- Spring coils inside barrel -->
+  <polyline points="821,375 838,382 821,389 838,396 821,403 838,410 821,417 838,424 821,431 838,438"
+            fill="none" stroke="#666" stroke-width="0.8"/>
+
+  <!-- Plunger (bottom portion of pin assembly) -->
+  <rect x="821" y="470" width="20" height="20" fill="#d4c680" stroke="#000" stroke-width="1"/>
+
+  <!-- Plunger tip -->
+  <line x1="824" y1="490" x2="838" y2="490" stroke="#000" stroke-width="1.5"/>
+
+  <!-- Solder tail (above PCB) -->
+  <rect x="825" y="300" width="11" height="30" fill="#c0c0c0" stroke="#000" stroke-width="0.8"/>
+
+  <!-- PCB pad / solder ring -->
+  <rect x="820" y="330" width="21" height="6" fill="#c7a040" stroke="#000" stroke-width="0.6"/>
+
+  <!-- Conformal coating zones on PCB (either side of pad) -->
+  <rect x="772" y="333" width="44" height="12" fill="none" stroke="#060" stroke-width="0.5" stroke-dasharray="2,2"/>
+  <rect x="845" y="333" width="42" height="12" fill="none" stroke="#060" stroke-width="0.5" stroke-dasharray="2,2"/>
+
+  <!-- Centerline -->
+  <line x1="830" y1="290" x2="830" y2="500" class="center"/>
+
+  <!-- === DETAIL DIMENSIONS === -->
+
+  <!-- Bracket height 10mm -->
+  <line x1="900" y1="350" x2="920" y2="350" class="ext"/>
+  <line x1="900" y1="450" x2="920" y2="450" class="ext"/>
+  <line x1="915" y1="350" x2="915" y2="450" class="dim"/>
+  <text x="930" y="404" class="label" text-anchor="start">10</text>
+
+  <!-- PCB thickness 2mm -->
+  <line x1="900" y1="330" x2="940" y2="330" class="ext"/>
+  <line x1="900" y1="350" x2="940" y2="350" class="ext"/>
+  <line x1="935" y1="330" x2="935" y2="350" class="dim"/>
+  <text x="945" y="344" class="label" text-anchor="start">2</text>
+
+  <!-- Pocket bore 4mm -->
+  <line x1="810" y1="350" x2="810" y2="340" class="ext"/>
+  <line x1="850" y1="350" x2="850" y2="340" class="ext"/>
+  <line x1="810" y1="344" x2="850" y2="344" class="dim"/>
+  <text x="830" y="338" class="label">4</text>
+
+  <!-- Pin diameter 2.5mm -->
+  <line x1="818" y1="455" x2="818" y2="462" class="ext"/>
+  <line x1="843" y1="455" x2="843" y2="462" class="ext"/>
+  <line x1="818" y1="459" x2="843" y2="459" class="dim"/>
+  <text x="830" y="472" class="label">2.5</text>
+
+  <!-- Plunger stroke 2mm -->
+  <line x1="846" y1="470" x2="862" y2="470" class="ext"/>
+  <line x1="846" y1="490" x2="862" y2="490" class="ext"/>
+  <line x1="857" y1="470" x2="857" y2="490" class="dim"/>
+  <text x="868" y="484" class="label" text-anchor="start">2</text>
+
+  <!-- Spring clearance: bracket bottom to plunger tip = ~4mm -->
+  <line x1="758" y1="450" x2="758" y2="490" class="dim"/>
+  <line x1="770" y1="450" x2="752" y2="450" class="ext"/>
+  <line x1="770" y1="490" x2="752" y2="490" class="ext"/>
+  <text x="748" y="474" class="label" text-anchor="end">4</text>
+
+  <!-- ============================================================ -->
+  <!-- NOTES BLOCK                                                   -->
+  <!-- ============================================================ -->
+  <line x1="50" y1="570" x2="1000" y2="570" stroke="#000" stroke-width="0.6"/>
+  <text x="60" y="590" class="viewlbl" text-anchor="start">NOTES</text>
+
+  <text x="70" y="610" class="note">1. Material: PETG bracket, FR4 PCB (1.6mm nominal, shown as 2mm with solder mask). Conformal coating (silicone or acrylic) on all PCB traces;</text>
+  <text x="75" y="622" class="note">   contact pads left bare metal for electrical contact.</text>
+  <text x="70" y="638" class="note">2. Pins: 3x required (GND, Motor A 12V, Motor B 12V), up to 3x optional (cartridge ID, temp sensor, spare). P75 or P100 series, 2-3mm dia, 1-2mm stroke.</text>
+  <text x="70" y="654" class="note">3. Pin spacing: 10mm center-to-center. Bracket centered at X=106 within 212mm enclosure interior (centered on 148mm cartridge width).</text>
+  <text x="70" y="670" class="note">4. Target pads on cartridge top face: 8mm x 5mm each, nickel-plated brass, 10mm c-t-c. Oversized pads tolerate 2-3mm misalignment.</text>
+  <text x="70" y="686" class="note">5. Wipe action: pin tip drags across elongated pad during slide-in insertion, self-cleaning oxide films and debris.</text>
+  <text x="70" y="702" class="note">6. Drainage channel molded into dock ceiling slopes away from pin pockets. Electrical contacts on dock CEILING (top), water fittings on REAR — gravity separates moisture.</text>
+  <text x="70" y="718" class="note">7. Current: ~0.85A typical per motor, ~3A stall transient. Even P75 probes (1-3A rated) are adequate; Mill-Max 0852 (9A) for extra margin.</text>
+  <text x="70" y="734" class="note">8. Mounting: M3 screws into heat-set inserts in dock ceiling. Bracket at Z=80-84mm (top of cartridge slot).</text>
+  <text x="70" y="750" class="note">9. Spring clearance: minimum 4mm below bracket bottom face to plunger tip at full extension (uncompressed). Cartridge top face contacts plunger at ~1-2mm compression.</text>
+  <text x="70" y="766" class="note">10. Optional pins shown with dashed outlines. 6th pin position omitted from drawing — add if needed.</text>
+
+  <!-- Scale and tolerance block -->
+  <line x1="50" y1="780" x2="1000" y2="780" stroke="#000" stroke-width="0.4"/>
+  <text x="70" y="798" class="note">Tolerances: +/- 0.2mm (3D printed bracket), +/- 0.1mm (PCB features) | All dimensions in mm | Drawing not to production scale — verify against physical parts</text>
 
 </svg>
