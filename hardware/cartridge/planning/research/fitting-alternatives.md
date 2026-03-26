@@ -10,11 +10,11 @@ Survey of every viable option for the 4 fluid connections between the removable 
 
 ### A. John Guest Push-to-Connect -- $8 for 4
 
-**How it works:** Tube pushes in past collet teeth + O-ring. To disconnect, push collet ring inward while pulling tube out.
+**How it works:** Tube pushes in past collet teeth + O-ring. To disconnect, push collet inward while pulling tube out.
 
 | Spec | Value |
 |---|---|
-| Body profile | Barbell: 9.31mm center body, 15.10mm collet rings (caliper-verified) |
+| Body profile | Barbell: 9.31mm center body, 15.10mm body ends (caliper-verified) |
 | Body length (union) | 39.13mm collets compressed / 41.80mm collets extended (caliper-verified) |
 | Insertion depth | ~15-18mm per side |
 | Cost (PI0408S) | ~$2 each, $8 for 4 |
@@ -157,7 +157,7 @@ John Guest 1/4" push-to-connect fittings are the chosen approach. The rationale:
 
 3. **Ubiquitous availability.** Available from Amazon, Home Depot, plumbing supply houses. No specialty sourcing required.
 
-4. **Cam lever release plate gives simultaneous disconnect.** The release plate with four stepped bores engages all 4 collet rings at once. Flipping the lever is a single motion that releases all connections -- solving the "non-intuitive collet push" problem that would otherwise make JG fittings a poor UX choice.
+4. **Cam lever release plate gives simultaneous disconnect.** The release plate with four stepped bores engages all 4 body ends at once. Flipping the lever is a single motion that releases all connections -- solving the "non-intuitive collet push" problem that would otherwise make JG fittings a poor UX choice.
 
 5. **High connection reliability.** Collet grip provides ~20N retention across 4 fittings. The cam lever adds an over-center lock that prevents vibration-induced withdrawal over the 18-36 month service interval.
 
@@ -173,6 +173,6 @@ John Guest 1/4" push-to-connect fittings are the chosen approach. The rationale:
 ### Implications for Other Design Documents
 
 - `cam-lever.md`, `collet-release.md`, `release-plate.md` -- all relevant and describe the JG release mechanism
-- `mating-face.md` -- 4 JG fittings on the dock back wall in a 2x2 grid, barbell profile (9.31mm center body / 15.10mm collet rings), 40mm horizontal x 28mm vertical center-to-center
+- `mating-face.md` -- 4 JG fittings on the dock back wall in a 2x2 grid, barbell profile (9.31mm center body / 15.10mm body ends), 40mm horizontal x 28mm vertical center-to-center
 - Cartridge rear face carries 4 tube stubs (1/4" OD hard nylon, ~30mm protrusion)
 - The cam lever on the cartridge front face drives the release plate via push rod

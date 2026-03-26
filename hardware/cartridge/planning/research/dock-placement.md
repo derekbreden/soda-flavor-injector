@@ -342,7 +342,7 @@ Four bulkhead-mount John Guest 1/4" push-to-connect fittings are installed in th
 
 **Release in this geometry:** The cam lever on the cartridge front face drives a push rod through the cartridge body to the release plate on the rear face. This mechanism is identical to the zone-based design -- the triangular void placement does not change the internal cartridge mechanics.
 
-The release plate has four stepped bores (8.0/10.5/12.5mm) that engage the JG collet rings simultaneously. When the lever is flipped, the plate pushes rearward ~3mm, depressing all four collets. The user then pulls the cartridge forward by the lever handle.
+The release plate has four stepped bores (8.0/10.5/12.5mm) that engage the JG body ends simultaneously. When the lever is flipped, the plate pushes rearward ~3mm, depressing all four collets. The user then pulls the cartridge forward by the lever handle.
 
 **Geometry-specific note:** In the triangular void, the dock back wall is at the rear of the cartridge slot. With 130mm cartridge depth + 35mm dock back wall = 165mm total from front panel to fitting rear. At floor level in a 292mm-deep enclosure (1L bags at 35 deg), this leaves 127mm behind the fittings for tube routing -- generous.
 

@@ -456,7 +456,7 @@ All back panel connections are made once during initial installation. After that
 - Cartridge swaps (every 18-36 months) happen from the front -- no back panel access needed
 - The back panel connections are "set and forget"
 
-The only reason to access the back panel after installation is to disconnect the enclosure entirely (moving, replacing, or major repair). Even then, push-to-connect fittings release easily by pressing the collet ring.
+The only reason to access the back panel after installation is to disconnect the enclosure entirely (moving, replacing, or major repair). Even then, push-to-connect fittings release easily by pressing the collet.
 
 ---
 

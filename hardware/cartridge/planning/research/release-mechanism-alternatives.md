@@ -14,7 +14,7 @@ The release plate is the most complex part of the current design — stepped bor
 
 ### 1a. "Just Pull" — Individual Hand Disconnects
 
-John Guest fittings are designed for tool-free hand disconnect. The user pushes the collet ring with a fingertip and pulls the tube out. For 1/4" fittings, the collet ring is small enough that a fingertip covers most of its face, making one-sided press failure (Section 4.2 of collet-release.md) less of a concern than with larger fittings.
+John Guest fittings are designed for tool-free hand disconnect. The user pushes the collet with a fingertip and pulls the tube out. For 1/4" fittings, the collet is small enough that a fingertip covers most of its face, making one-sided press failure (Section 4.2 of collet-release.md) less of a concern than with larger fittings.
 
 **How long does one disconnect take?**
 
