@@ -229,28 +229,27 @@ Ten solenoid valves mounted behind the cartridge dock, using the depth dimension
 
 - **Type:** 3D printed
 - **Material:** PETG or ABS
-- **Envelope:** ~186W x ~64D x ~75H mm
+- **Envelope:** ~181W x ~55D x ~116H mm
 - **Features:**
   - Holds 10 solenoid valves in a 5-wide x 2-high grid
-  - Valve orientation: long axis (port-to-port, 63.5mm) along Y (depth), coil housing at top
-  - Valve body dimensions: 34.0W x 63.5D (port-to-port) x 58.4H mm per valve
-  - Valve pitch (center-to-center in X): 38mm (34mm body + 4mm gap between bodies)
-  - 5 valves at 38mm pitch: span = 4 x 38 + 34 = 186mm, centered in 212mm interior (13mm margin per side)
-  - Row 1 (bottom): Z=0 to Z=58, 5 valves across width
-  - Row 2 (top): Z=62 to Z=120, 5 valves across width (4mm gap between rows)
-  - Note: rack height is 120mm, taller than previous 75mm estimate due to actual valve height (58.4mm vs estimated 35mm)
-  - Each valve cradle: contoured saddle matching valve body profile with printed retention clips (snap-over arms, 2 per valve, spaced ~30mm apart along valve length). Initial design value, subject to iteration.
-  - Depth consumed: Y=140 to Y=204 (64mm, port-to-port valve length)
+  - Valve orientation: long axis (port-to-port, 50.84mm) along Y (depth), coil housing at top (caliper-verified)
+  - Valve is L-shaped: white body (32.71W x 50.84D x ~19.4H mm) with metal solenoid coil (31.41W mm) rising vertically from one end, total height 56.00mm (caliper-verified)
+  - Valve pitch (center-to-center in X): 37mm (32.71mm body + 4.29mm gap between bodies)
+  - 5 valves at 37mm pitch: span = 4 x 37 + 32.71 = 180.71mm ≈ 181mm, centered in 212mm interior (15.5mm margin per side)
+  - Row 1 (bottom): Z=0 to Z=56, 5 valves across width
+  - Row 2 (top): Z=60 to Z=116, 5 valves across width (4mm gap between rows)
+  - Note: rack height is 116mm, taller than cartridge slot (84mm) -- verify no interference with dock back wall / pogo mount
+  - Each valve cradle: L-shaped profile -- saddle supports the horizontal white valve body from below and on the sides, with a slot/opening for the vertical solenoid coil protrusion. Snap-over retention clips on white body (2 per valve, spaced ~30mm apart along valve length). Must not interfere with tube ports (Y axis) or spade connectors (top). Initial design value, subject to iteration.
+  - Depth consumed: Y=140 to Y=195 (55mm, port-to-port valve length plus clearance) (caliper-verified)
   - Cable routing channels for solenoid wires (12V + GND per valve, 20 wires total) along rack sides
 - **Interfaces:**
-  - Position: directly behind dock back wall (Y=140-204, X=13-199, Z=0-120)
+  - Position: directly behind dock back wall (Y=140-195, X=16-197, Z=0-116)
   - Valve QC fittings face forward (toward dock, short tube runs to dock back wall tube stubs) and rearward (toward bags/back panel)
   - Mounts to enclosure floor and/or walls via M3 screws into heat-set inserts
-  - Clearance to bags above: generous (bag cradle underside at this Y is well above Z=120)
+  - Clearance to bags above: generous (bag cradle underside at this Y is well above Z=116)
 - **Quantity:** 1
 - **Open:**
-  - Valve body dimensions are best available, pending caliper verification of purchased Beduan units
-  - Rack height (120mm) means valve rack extends above the cartridge slot (84mm) -- verify no interference with dock back wall / pogo mount
+  - Rack height (116mm) means valve rack extends above the cartridge slot (84mm) -- verify no interference with dock back wall / pogo mount
 
 ---
 
@@ -517,25 +516,32 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
 ### Part: Solenoid Valve (2-Way NC)
 
 - **Type:** Purchased
-- **Source:** Beduan B07NWCQJK9 (~$9 each, ~$90 for 10). Best available, pending caliper verification.
+- **Source:** Beduan B07NWCQJK9 (~$9 each, ~$90 for 10)
 - **Material:** Food-grade plastic and elastomer (RO-rated)
-- **Envelope:** 34.0W x 63.5D (port-to-port) x 58.4H mm (body only). Approximately 34.0W x 80D x 58.4H mm with 1/4" QC fittings on both ends.
+- **Envelope:** L-shaped assembly, not a simple rectangular block (caliper-verified):
+  - White plastic valve body (fluid section): 32.71W x 50.84D (port-to-port) x ~19.4H mm (caliper-verified)
+  - Metal solenoid coil housing: 31.41W mm, mounted perpendicular on top of valve body at one end (caliper-verified)
+  - Spade connectors protrude from top of metal housing; metal body to spade tips: 36.63mm (caliper-verified)
+  - Total bounding box: 32.71W x 50.84D x 56.00H mm (caliper-verified)
+  - With 1/4" QC fittings on both ends: approximately 32.71W x 68D x 56.00H mm
 - **Weight:** 113g each
 - **Features:**
   - 2-way normally-closed, 12V DC solenoid
   - 1/4" quick-connect fittings (push-fit, standard RO tubing compatible)
   - Power draw: 4.8-5.5W per valve (energized only during active modes)
-  - Working pressure: 0-0.8 MPa
+  - Working pressure: 0-0.8 MPa (label reads "DC12V 0.02-0.8MPa")
   - Working temperature: 0-70C
-  - No built-in mounting bracket -- needs designed cradle/clamp in valve rack
+  - No built-in mounting features (no tabs, flanges, ears, or screw holes) -- needs designed cradle/clamp in valve rack
+  - Metal coil housing is slightly offset from white body in X (not perfectly centered)
 - **Interfaces:**
-  - Mount in valve rack frame (contoured saddle + snap-over retention clips)
+  - Mount in valve rack frame (contoured saddle supporting white body + slot for solenoid coil protrusion + snap-over retention clips)
   - QC fittings accept 1/4" OD (6.35mm) PE or silicone tubing
-  - Solenoid wire leads connect to MCP23017-gated MOSFET driver circuit
+  - Solenoid wire leads (spade connectors at top) connect to MCP23017-gated MOSFET driver circuit
 - **Quantity:** 10
 - **Open:**
-  - All dimensions are best available, pending caliper verification of purchased units
   - Zero-pressure variant (DIGITEN B076KFCPGM) may be needed for pump-inlet valves (suction side)
+  - Tube port stub OD and protrusion length not yet measured (needed for tube routing clearance)
+  - Spade connector spacing not yet measured (needed for wiring harness design)
 
 ### Part: John Guest PP1208W Bulkhead Union (1/4" Push-to-Connect)
 
