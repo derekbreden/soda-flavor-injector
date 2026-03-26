@@ -1,426 +1,443 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 780" width="1050" height="780" font-family="Arial, Helvetica, sans-serif">
-  <title>Cartridge Outer Shell — Engineering Drawing</title>
-
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1100" viewBox="0 0 1680 1100">
+  <style>
+    text { font-family: 'Helvetica Neue', Arial, sans-serif; }
+    .title { font-size: 16px; font-weight: bold; }
+    .subtitle { font-size: 12px; }
+    .label { font-size: 11px; }
+    .dim { font-size: 10px; }
+    .note { font-size: 9.5px; }
+    .visible { stroke: #000; stroke-width: 1.5; fill: none; }
+    .hidden { stroke: #000; stroke-width: 0.8; fill: none; stroke-dasharray: 6,3; }
+    .center { stroke: #666; stroke-width: 0.5; fill: none; stroke-dasharray: 12,3,3,3; }
+    .dim-line { stroke: #333; stroke-width: 0.6; fill: none; }
+    .dim-ext { stroke: #333; stroke-width: 0.4; fill: none; }
+    .hatch { stroke: #999; stroke-width: 0.4; fill: none; }
+    .wall-fill { fill: #e8e8e8; stroke: none; }
+    .fitting { stroke: #06c; stroke-width: 1.2; fill: none; }
+  </style>
   <defs>
-    <style>
-      .outline { stroke: #000; stroke-width: 1.5; fill: none; }
-      .hidden  { stroke: #000; stroke-width: 0.8; fill: none; stroke-dasharray: 6,3; }
-      .thin    { stroke: #000; stroke-width: 0.5; fill: none; }
-      .dim     { stroke: #333; stroke-width: 0.5; fill: none; }
-      .dimtxt  { font-size: 9px; fill: #333; text-anchor: middle; }
-      .dimtxts { font-size: 8px; fill: #333; text-anchor: start; }
-      .label   { font-size: 11px; fill: #000; text-anchor: middle; font-weight: bold; }
-      .note    { font-size: 8px; fill: #555; text-anchor: start; }
-      .title   { font-size: 14px; fill: #000; text-anchor: middle; font-weight: bold; }
-      .subtitle { font-size: 10px; fill: #444; text-anchor: middle; }
-      .centerline { stroke: #666; stroke-width: 0.3; fill: none; stroke-dasharray: 12,3,2,3; }
-      .hatch   { stroke: #999; stroke-width: 0.3; fill: none; }
-    </style>
-    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
       <path d="M0,0 L8,3 L0,6 Z" fill="#333"/>
     </marker>
-    <marker id="arrowRev" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+    <marker id="arr-r" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
       <path d="M8,0 L0,3 L8,6 Z" fill="#333"/>
     </marker>
   </defs>
 
-  <!-- Title block -->
-  <text x="525" y="25" class="title">Cartridge Outer Shell</text>
-  <text x="525" y="40" class="subtitle">148W x 130D x 80H mm  |  4mm wall  |  PETG</text>
-  <line x1="30" y1="48" x2="1020" y2="48" class="thin"/>
+  <!-- Border -->
+  <rect x="10" y="10" width="1660" height="1080" fill="none" stroke="#000" stroke-width="1.5"/>
 
-  <!-- ============================================================ -->
-  <!-- FRONT VIEW  (looking along -Y toward rear)                   -->
-  <!-- Horiz = X (width 148mm)   Vert = Z (height 80mm)            -->
-  <!-- Scale = 4.0 px/mm   =>  592 x 320 px                        -->
-  <!-- Group origin at (70, 95)                                     -->
-  <!-- Z=0 (bottom) at SVG y=320; Z=80 (top) at SVG y=0            -->
-  <!-- ============================================================ -->
-  <text x="366" y="72" class="label">FRONT VIEW</text>
+  <!-- ================================================================ -->
+  <!-- FRONT VIEW  (looking along -Y)                                    -->
+  <!-- H-axis = X (right+), V-axis = Z (up+, pixel down-)               -->
+  <!-- Shell exterior: 148W x 80H mm.  Scale 3 px/mm.                   -->
+  <!-- Pixel origin (exterior bottom-left): px(80, 560)                  -->
+  <!--   X  mm -> px = 80 + X*3        (0..148 -> 80..524)              -->
+  <!--   Z  mm -> px = 560 - Z*3       (0..80  -> 560..320)             -->
+  <!-- ================================================================ -->
+  <text x="302" y="290" text-anchor="middle" class="label" font-weight="bold">FRONT VIEW</text>
+  <text x="302" y="304" text-anchor="middle" class="note">(looking along -Y)</text>
 
-  <g id="front-view" transform="translate(70, 85)">
-    <!-- s=4.0. 148*4=592. 80*4=320 -->
+  <!-- Exterior outline with 5mm/45deg chamfers on all 4 front edges -->
+  <!-- Chamfer = 15px at 45 deg -->
+  <path d="M95,320 L509,320 L524,335 L524,545 L509,560 L95,560 L80,545 L80,335 Z" class="visible"/>
 
-    <!-- Exterior rectangle  148 x 80 mm -->
-    <rect x="0" y="0" width="592" height="320" class="outline"/>
+  <!-- Interior outline (4mm=12px wall) -->
+  <rect x="92" y="332" width="420" height="216" class="hidden"/>
 
-    <!-- 5mm x 45-deg chamfers: 5*4=20px -->
-    <line x1="0" y1="20" x2="20" y2="0" class="outline"/>
-    <line x1="572" y1="0" x2="592" y2="20" class="outline"/>
-    <line x1="0" y1="300" x2="20" y2="320" class="outline"/>
-    <line x1="572" y1="320" x2="592" y2="300" class="outline"/>
+  <!-- Slide rails on bottom face: 2mm tall(6px) x 3mm wide(9px) -->
+  <!-- Approx at X~40mm and X~108mm (symmetric about center, matching dock) -->
+  <rect x="200" y="554" width="9" height="6" class="visible"/>
+  <rect x="395" y="554" width="9" height="6" class="visible"/>
 
-    <!-- Interior cavity (hidden - behind front wall) -->
-    <!-- 4mm wall = 16px.  Interior 140W x 72H = 560 x 288 -->
-    <rect x="16" y="16" width="560" height="288" class="hidden"/>
+  <!-- Cam lever pivot hole: dia 5mm(15px) at X=74,Z=40 => px(302,440) -->
+  <circle cx="302" cy="440" r="7.5" class="visible"/>
 
-    <!-- ─── Front wall features ─── -->
+  <!-- Interior ledges at Z=4 (px 548), 2mm(6px) wide shelves -->
+  <line x1="92" y1="536" x2="98" y2="536" class="hidden"/>
+  <line x1="98" y1="536" x2="98" y2="548" class="hidden"/>
+  <line x1="506" y1="536" x2="512" y2="536" class="hidden"/>
+  <line x1="506" y1="536" x2="506" y2="548" class="hidden"/>
 
-    <!-- Cam lever pivot hole  X=74 Z=40  dia 5mm -->
-    <!-- 74*4=296  Z=40 from bottom -> y=320-160=160 -->
-    <!-- r=2.5*4=10 -->
-    <circle cx="296" cy="160" r="10" class="outline"/>
-    <line x1="296" y1="143" x2="296" y2="177" class="centerline"/>
-    <line x1="279" y1="160" x2="313" y2="160" class="centerline"/>
+  <!-- Hidden: 4x JG fitting pocket bores (9.8mm dia = r14.7) in rear wall -->
+  <!-- Centers: X=54->px242, X=94->px362, Z=26->px482, Z=54->px398 -->
+  <circle cx="242" cy="482" r="14.7" class="hidden"/>
+  <circle cx="362" cy="482" r="14.7" class="hidden"/>
+  <circle cx="242" cy="398" r="14.7" class="hidden"/>
+  <circle cx="362" cy="398" r="14.7" class="hidden"/>
 
-    <!-- ─── Rear wall features (hidden) ─── -->
+  <!-- Hidden: body end OD 15.10mm (r22.65) protrusion outlines -->
+  <circle cx="242" cy="482" r="22.65" class="hidden" stroke-dasharray="4,2"/>
+  <circle cx="362" cy="482" r="22.65" class="hidden" stroke-dasharray="4,2"/>
+  <circle cx="242" cy="398" r="22.65" class="hidden" stroke-dasharray="4,2"/>
+  <circle cx="362" cy="398" r="22.65" class="hidden" stroke-dasharray="4,2"/>
 
-    <!-- 4x JG fitting pocket bores  dia 9.8mm (r=4.9*4=19.6px) -->
-    <!-- X=54->216  X=94->376  Z=26->y=320-104=216  Z=54->y=320-216=104 -->
-    <circle cx="216" cy="216" r="19.6" class="hidden"/>
-    <circle cx="376" cy="216" r="19.6" class="hidden"/>
-    <circle cx="216" cy="104" r="19.6" class="hidden"/>
-    <circle cx="376" cy="104" r="19.6" class="hidden"/>
+  <!-- Hidden: 2x guide pin holes (dia 3mm=r4.5) at X=40,Z=40 & X=110.5,Z=40 -->
+  <circle cx="200" cy="440" r="4.5" class="hidden"/>
+  <circle cx="411.5" cy="440" r="4.5" class="hidden"/>
 
-    <!-- Body end OD circles dia 15.10mm (r=7.55*4=30.2px) -->
-    <circle cx="216" cy="216" r="30.2" class="hidden"/>
-    <circle cx="376" cy="216" r="30.2" class="hidden"/>
-    <circle cx="216" cy="104" r="30.2" class="hidden"/>
-    <circle cx="376" cy="104" r="30.2" class="hidden"/>
+  <!-- Hidden: pogo PCB recess on top face 15Wx30L => front view shows 15mm(45px) width -->
+  <rect x="280" y="320" width="45" height="4.5" class="hidden"/>
 
-    <!-- Pocket bore center marks -->
-    <line x1="216" y1="210" x2="216" y2="222" class="centerline"/>
-    <line x1="210" y1="216" x2="222" y2="216" class="centerline"/>
-    <line x1="376" y1="210" x2="376" y2="222" class="centerline"/>
-    <line x1="370" y1="216" x2="382" y2="216" class="centerline"/>
-    <line x1="216" y1="98" x2="216" y2="110" class="centerline"/>
-    <line x1="210" y1="104" x2="222" y2="104" class="centerline"/>
-    <line x1="376" y1="98" x2="376" y2="110" class="centerline"/>
-    <line x1="370" y1="104" x2="382" y2="104" class="centerline"/>
+  <!-- FRONT DIMENSIONS -->
+  <!-- Width 148mm -->
+  <line x1="80" y1="578" x2="80" y2="588" class="dim-ext"/>
+  <line x1="524" y1="578" x2="524" y2="588" class="dim-ext"/>
+  <line x1="80" y1="584" x2="524" y2="584" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="302" y="598" text-anchor="middle" class="dim">148</text>
 
-    <!-- Release plate cavity  63W x 51H  (hidden behind front wall) -->
-    <!-- Center: X=74 Z=40.  X: 42.5..105.5 -> 170..422  Z: 14.5..65.5 -> y=262..58 -->
-    <rect x="170" y="58" width="252" height="204" class="hidden"/>
+  <!-- Height 80mm -->
+  <line x1="540" y1="320" x2="556" y2="320" class="dim-ext"/>
+  <line x1="540" y1="560" x2="556" y2="560" class="dim-ext"/>
+  <line x1="550" y1="320" x2="550" y2="560" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="564" y="444" text-anchor="start" class="dim">80</text>
 
-    <!-- Guide pin holes  dia 3mm  at X=40 Z=40  and X=110.5 Z=40 -->
-    <!-- X=40->160  X=110.5->442  Z=40->y=160  r=1.5*4=6 -->
-    <circle cx="160" cy="160" r="6" class="hidden"/>
-    <circle cx="442" cy="160" r="6" class="hidden"/>
+  <!-- Wall 4mm (top) -->
+  <line x1="80" y1="312" x2="80" y2="318" class="dim-ext"/>
+  <line x1="92" y1="312" x2="92" y2="318" class="dim-ext"/>
+  <line x1="80" y1="315" x2="92" y2="315" class="dim-line"/>
+  <text x="86" y="310" text-anchor="middle" class="dim">4</text>
 
-    <!-- Bottom slide rails  2mm tall x 3mm wide -->
-    <!-- 2*4=8px tall, 3*4=12px wide. X~35->140, X~113->452 -->
-    <rect x="140" y="320" width="12" height="8" class="outline"/>
-    <rect x="452" y="320" width="12" height="8" class="outline"/>
+  <!-- X=54 to first fitting center -->
+  <line x1="80" y1="606" x2="80" y2="616" class="dim-ext"/>
+  <line x1="242" y1="606" x2="242" y2="616" class="dim-ext"/>
+  <line x1="80" y1="612" x2="242" y2="612" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="161" y="624" text-anchor="middle" class="dim">54</text>
 
-    <!-- Interior ledges at Z=4  (y=320-16=304)  2mm wide=8px from interior walls -->
-    <line x1="16" y1="304" x2="24" y2="304" class="hidden"/>
-    <line x1="568" y1="304" x2="576" y2="304" class="hidden"/>
+  <!-- 40mm fitting c-t-c horizontal -->
+  <line x1="242" y1="606" x2="242" y2="616" class="dim-ext"/>
+  <line x1="362" y1="606" x2="362" y2="616" class="dim-ext"/>
+  <line x1="242" y1="612" x2="362" y2="612" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="302" y="624" text-anchor="middle" class="dim">40</text>
 
-    <!-- ═══════ Dimension callouts ═══════ -->
+  <!-- Z=26 from bottom to lower fitting row -->
+  <line x1="58" y1="560" x2="70" y2="560" class="dim-ext"/>
+  <line x1="58" y1="482" x2="70" y2="482" class="dim-ext"/>
+  <line x1="64" y1="560" x2="64" y2="482" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="50" y="525" text-anchor="middle" class="dim">26</text>
 
-    <!-- Width 148 -->
-    <line x1="0" y1="-18" x2="0" y2="-6" class="dim"/>
-    <line x1="592" y1="-18" x2="592" y2="-6" class="dim"/>
-    <line x1="0" y1="-12" x2="592" y2="-12" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="296" y="-16" class="dimtxt">148</text>
+  <!-- 28mm fitting c-t-c vertical -->
+  <line x1="58" y1="482" x2="70" y2="482" class="dim-ext"/>
+  <line x1="58" y1="398" x2="70" y2="398" class="dim-ext"/>
+  <line x1="64" y1="482" x2="64" y2="398" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="50" y="444" text-anchor="middle" class="dim">28</text>
 
-    <!-- Height 80 -->
-    <line x1="-20" y1="0" x2="-8" y2="0" class="dim"/>
-    <line x1="-20" y1="320" x2="-8" y2="320" class="dim"/>
-    <line x1="-14" y1="0" x2="-14" y2="320" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="-16" y="165" class="dimtxt" transform="rotate(-90,-16,165)">80</text>
+  <!-- Callouts -->
+  <line x1="95" y1="557" x2="130" y2="574" class="dim-ext"/>
+  <text x="132" y="574" class="note">5x45 chamfer (4x)</text>
 
-    <!-- Wall thickness 4 -->
-    <line x1="0" y1="-34" x2="0" y2="-26" class="dim"/>
-    <line x1="16" y1="-34" x2="16" y2="-26" class="dim"/>
-    <line x1="0" y1="-30" x2="16" y2="-30" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="8" y="-33" class="dimtxt">4</text>
+  <line x1="209" y1="556" x2="245" y2="546" class="dim-ext"/>
+  <text x="247" y="546" class="note">rail 2x3</text>
 
-    <!-- Pivot X=74 from left edge -->
-    <line x1="0" y1="348" x2="0" y2="338" class="dim"/>
-    <line x1="296" y1="348" x2="296" y2="338" class="dim"/>
-    <line x1="0" y1="343" x2="296" y2="343" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="148" y="340" class="dimtxt">74</text>
+  <line x1="310" y1="440" x2="350" y2="418" class="dim-ext"/>
+  <text x="352" y="416" class="note">pivot dia 5</text>
 
-    <!-- Pivot Z=40 from bottom -->
-    <line x1="614" y1="320" x2="604" y2="320" class="dim"/>
-    <line x1="614" y1="160" x2="604" y2="160" class="dim"/>
-    <line x1="609" y1="320" x2="609" y2="160" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="622" y="245" class="dimtxt" transform="rotate(-90,622,245)">40</text>
+  <!-- Pocket bore callout -->
+  <line x1="377" y1="398" x2="420" y2="380" class="dim-ext"/>
+  <text x="422" y="378" class="note">pocket bore dia 9.8 (hidden)</text>
+  <text x="422" y="390" class="note">body end dia 15.10 (hidden)</text>
 
-    <!-- Fitting H spacing 40mm -->
-    <line x1="216" y1="250" x2="216" y2="262" class="dim"/>
-    <line x1="376" y1="250" x2="376" y2="262" class="dim"/>
-    <line x1="216" y1="258" x2="376" y2="258" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="296" y="273" class="dimtxt">40 H c/c</text>
+  <!-- ================================================================ -->
+  <!-- RIGHT SIDE VIEW  (looking along -X)                              -->
+  <!-- H-axis = Y (right+), V-axis = Z (up+, pixel down-)              -->
+  <!-- Shell: 130D x 80H mm.  Front(Y=0) at left.                      -->
+  <!-- Pixel origin: px(620, 560)                                       -->
+  <!--   Y  mm -> px = 620 + Y*3       (0..130 -> 620..1010)           -->
+  <!--   Z  mm -> px = 560 - Z*3       (same Z as front view)          -->
+  <!-- ================================================================ -->
+  <text x="815" y="290" text-anchor="middle" class="label" font-weight="bold">RIGHT SIDE VIEW</text>
+  <text x="815" y="304" text-anchor="middle" class="note">(looking along -X)</text>
 
-    <!-- Fitting V spacing 28mm -->
-    <line x1="408" y1="216" x2="420" y2="216" class="dim"/>
-    <line x1="408" y1="104" x2="420" y2="104" class="dim"/>
-    <line x1="415" y1="216" x2="415" y2="104" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="430" y="165" class="dimtxt" transform="rotate(-90,430,165)">28 V c/c</text>
+  <!-- Exterior with front chamfers only (front = left side) -->
+  <path d="M635,320 L1010,320 L1010,560 L635,560 L620,545 L620,335 Z" class="visible"/>
 
-    <!-- Fitting X=54 from left -->
-    <line x1="0" y1="362" x2="0" y2="354" class="dim"/>
-    <line x1="216" y1="362" x2="216" y2="354" class="dim"/>
-    <line x1="0" y1="358" x2="216" y2="358" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="108" y="370" class="dimtxt">54</text>
+  <!-- Interior -->
+  <rect x="632" y="332" width="366" height="216" class="hidden"/>
 
-    <!-- Fitting Z=26 from bottom -->
-    <line x1="636" y1="320" x2="646" y2="320" class="dim"/>
-    <line x1="636" y1="216" x2="646" y2="216" class="dim"/>
-    <line x1="641" y1="320" x2="641" y2="216" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="655" y="273" class="dimtxt" transform="rotate(-90,655,273)">26</text>
+  <!-- Rear wall inner face at Y=126 -> px998 shown as slightly heavier hidden line -->
+  <!-- (wall from px998 to px1010 is the rear wall thickness) -->
 
-    <!-- Bore callouts -->
-    <line x1="236" y1="200" x2="280" y2="186" class="dim"/>
-    <text x="282" y="184" class="dimtxts" font-size="7.5">&#x2300;9.8 pocket bore (4x)</text>
-    <text x="282" y="194" class="dimtxts" font-size="7.5">&#x2300;15.10 body end (protruding)</text>
+  <!-- Slide rail on bottom: full depth, 2mm tall -->
+  <rect x="620" y="554" width="390" height="6" class="visible"/>
 
-    <!-- Pivot dia -->
-    <line x1="304" y1="152" x2="328" y2="128" class="dim"/>
-    <text x="330" y="126" class="dimtxts" font-size="7.5">&#x2300;5 pivot hole</text>
+  <!-- Hidden: fitting pocket bores in rear wall (side view = rectangles) -->
+  <!-- 9.8mm(29.4px) tall, 4mm(12px) wide from Y=126 to Y=130 => px998..1010 -->
+  <!-- Lower row Z=26 -> px482 center, Upper row Z=54 -> px398 center -->
+  <rect x="998" y="467.3" width="12" height="29.4" class="hidden"/>
+  <rect x="998" y="383.3" width="12" height="29.4" class="hidden"/>
 
-    <!-- Chamfer callout -->
-    <line x1="14" y1="10" x2="48" y2="26" class="dim"/>
-    <text x="50" y="24" class="dimtxts" font-size="7.5">5x45&#xb0; chamfer (4 edges)</text>
+  <!-- Hidden: interior body end protrusions (15.10mm = 45.3px tall) -->
+  <!-- From inner wall Y=126 inward 12.08mm(36.24px) => px998-36.24=961.8 -->
+  <rect x="961.8" y="459.4" width="36.2" height="45.3" class="hidden" stroke-dasharray="4,2"/>
+  <rect x="961.8" y="375.4" width="36.2" height="45.3" class="hidden" stroke-dasharray="4,2"/>
+  <!-- Exterior body end protrusions past shell -->
+  <rect x="1010" y="459.4" width="36.2" height="45.3" class="hidden" stroke-dasharray="4,2"/>
+  <rect x="1010" y="375.4" width="36.2" height="45.3" class="hidden" stroke-dasharray="4,2"/>
 
-    <!-- Guide pin callout -->
-    <line x1="160" y1="152" x2="140" y2="129" class="dim"/>
-    <text x="85" y="126" class="dimtxts" font-size="7.5">&#x2300;3 guide pin (2x)</text>
+  <!-- Release plate cavity: 6mm(18px) deep, 51mm(153px) tall -->
+  <!-- From Y=120 to Y=126 => px980..998, Z centered on fittings: Z=14.5..65.5 => px516.5..363.5 -->
+  <rect x="980" y="363.5" width="18" height="153" class="hidden"/>
+
+  <!-- Guide pin (side view): horizontal line at Z=40 -> px440, from cavity to wall -->
+  <line x1="968" y1="438.5" x2="998" y2="438.5" class="hidden"/>
+  <line x1="968" y1="441.5" x2="998" y2="441.5" class="hidden"/>
+
+  <!-- Cam lever pivot in front wall: Y=0..4 => px620..632, Z=40 => px440 -->
+  <circle cx="626" cy="440" r="7.5" class="hidden"/>
+
+  <!-- Pogo PCB recess on top: 30L(90px) along Y, 1.5D(4.5px) -->
+  <rect x="770" y="320" width="90" height="4.5" class="hidden"/>
+
+  <!-- Interior ledge at Z=4: line from front to rear wall -->
+  <line x1="632" y1="548" x2="998" y2="548" class="hidden"/>
+
+  <!-- SIDE DIMENSIONS -->
+  <!-- Depth 130mm -->
+  <line x1="620" y1="578" x2="620" y2="588" class="dim-ext"/>
+  <line x1="1010" y1="578" x2="1010" y2="588" class="dim-ext"/>
+  <line x1="620" y1="584" x2="1010" y2="584" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="815" y="598" text-anchor="middle" class="dim">130</text>
+
+  <!-- Rear wall 4mm -->
+  <line x1="998" y1="312" x2="998" y2="318" class="dim-ext"/>
+  <line x1="1010" y1="312" x2="1010" y2="318" class="dim-ext"/>
+  <line x1="998" y1="315" x2="1010" y2="315" class="dim-line"/>
+  <text x="1004" y="310" text-anchor="middle" class="dim">4</text>
+
+  <!-- Cavity depth 6mm -->
+  <line x1="980" y1="350" x2="980" y2="356" class="dim-ext"/>
+  <line x1="998" y1="350" x2="998" y2="356" class="dim-ext"/>
+  <line x1="980" y1="353" x2="998" y2="353" class="dim-line"/>
+  <text x="989" y="345" text-anchor="middle" class="dim">6</text>
+
+  <!-- Rail height 2mm -->
+  <line x1="1028" y1="554" x2="1040" y2="554" class="dim-ext"/>
+  <line x1="1028" y1="560" x2="1040" y2="560" class="dim-ext"/>
+  <line x1="1035" y1="554" x2="1035" y2="560" class="dim-line"/>
+  <text x="1044" y="560" class="dim">2</text>
+
+  <!-- Callouts -->
+  <line x1="962" y1="456" x2="890" y2="418" class="dim-ext"/>
+  <text x="750" y="416" class="note">body end 15.10 OD protrudes</text>
+  <text x="750" y="428" class="note">~12mm each side of wall</text>
+
+  <line x1="989" y1="363.5" x2="920" y2="334" class="dim-ext"/>
+  <line x1="920" y1="334" x2="720" y2="334" class="dim-ext"/>
+  <text x="720" y="330" class="note">release plate cavity 63x51x6</text>
+
+  <!-- ================================================================ -->
+  <!-- TOP VIEW  (looking along -Z, downward)                           -->
+  <!-- H-axis = X (right+), V-axis = Y (rear+, pixel down+)            -->
+  <!-- Shares X range with front view (px 80..524).                     -->
+  <!-- Pixel origin: px(80, 680) = front-left corner.                   -->
+  <!--   X  mm -> px = 80 + X*3                                        -->
+  <!--   Y  mm -> px = 680 + Y*3       (0..130 -> 680..1070)           -->
+  <!-- ================================================================ -->
+  <text x="302" y="650" text-anchor="middle" class="label" font-weight="bold">TOP VIEW</text>
+  <text x="302" y="664" text-anchor="middle" class="note">(looking along -Z)</text>
+
+  <!-- Exterior with front chamfers -->
+  <path d="M95,680 L509,680 L524,695 L524,1070 L80,1070 L80,695 Z" class="visible"/>
+
+  <!-- Interior -->
+  <rect x="92" y="692" width="420" height="366" class="hidden"/>
+
+  <!-- Slide rails: full depth, 3mm(9px) wide -->
+  <rect x="200" y="680" width="9" height="390" class="visible"/>
+  <rect x="395" y="680" width="9" height="390" class="visible"/>
+
+  <!-- JG pocket bores in rear wall (top view: rectangles through wall) -->
+  <!-- X=54->px242, X=94->px362. Y=126..130 -> px1058..1070 -->
+  <!-- 9.8mm(29.4px) wide -->
+  <rect x="227.3" y="1058" width="29.4" height="12" class="visible"/>
+  <rect x="347.3" y="1058" width="29.4" height="12" class="visible"/>
+
+  <!-- Body end protrusions (interior side): 15.10mm(45.3px) wide -->
+  <!-- From inner wall Y=126 inward 12.08mm(36.24px) => row px1058-36.24=1021.8 -->
+  <rect x="219.4" y="1021.8" width="45.3" height="36.2" class="hidden" stroke-dasharray="4,2"/>
+  <rect x="339.4" y="1021.8" width="45.3" height="36.2" class="hidden" stroke-dasharray="4,2"/>
+  <!-- Exterior protrusions beyond shell -->
+  <rect x="219.4" y="1070" width="45.3" height="36.2" class="hidden" stroke-dasharray="4,2"/>
+  <rect x="339.4" y="1070" width="45.3" height="36.2" class="hidden" stroke-dasharray="4,2"/>
+
+  <!-- Pogo PCB recess (visible from top): 15W(45px) x 30L(90px) -->
+  <!-- Centered at ~X=74 => px302, Y=50..80 => px830..920 -->
+  <rect x="280" y="830" width="45" height="90" class="visible"/>
+  <text x="302.5" y="878" text-anchor="middle" class="note" font-size="7">PCB</text>
+
+  <!-- Release plate cavity (hidden below top face) -->
+  <!-- 63mm(189px) wide: center X=74 => X=42.5..105.5 => px207.5..396.5 -->
+  <!-- 6mm deep: Y=120..126 => px1040..1058 -->
+  <rect x="207.5" y="1040" width="189" height="18" class="hidden"/>
+
+  <!-- Guide pin holes (top view: small circles in rear wall) -->
+  <!-- X=40->px200, X=110.5->px411.5, Y=128->px1064 -->
+  <circle cx="200" cy="1064" r="4.5" class="visible"/>
+  <circle cx="411.5" cy="1064" r="4.5" class="visible"/>
+
+  <!-- Cam lever pivot on front wall: X=74->px302, Y=2->px686 -->
+  <circle cx="302" cy="686" r="7.5" class="visible"/>
+
+  <!-- TOP DIMENSIONS -->
+  <!-- Width 148mm (aligned with front view) -->
+  <line x1="80" y1="1082" x2="80" y2="1090" class="dim-ext"/>
+  <line x1="524" y1="1082" x2="524" y2="1090" class="dim-ext"/>
+  <line x1="80" y1="1086" x2="524" y2="1086" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="302" y="1098" text-anchor="middle" class="dim">148</text>
+
+  <!-- Depth 130mm -->
+  <line x1="540" y1="680" x2="556" y2="680" class="dim-ext"/>
+  <line x1="540" y1="1070" x2="556" y2="1070" class="dim-ext"/>
+  <line x1="550" y1="680" x2="550" y2="1070" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="564" y="880" text-anchor="start" class="dim">130</text>
+
+  <!-- Callouts (outside border, below protrusion rects y>1107) -->
+  <!-- These are outside the drawing border, but necessary -->
+  <!-- Actually place right of the exterior protrusion rects -->
+  <line x1="362" y1="1064" x2="490" y2="1064" class="dim-ext"/>
+  <text x="492" y="1068" class="note">JG pocket dia 9.8 (4x)</text>
+
+  <line x1="205" y1="1064" x2="205" y2="1080" class="dim-ext"/>
+  <line x1="205" y1="1080" x2="490" y2="1080" class="dim-ext"/>
+  <text x="492" y="1084" class="note">guide pin dia 3.0 (2x)</text>
+
+  <!-- ================================================================ -->
+  <!-- DETAIL A — Rear wall section through one fitting pocket          -->
+  <!-- Horizontal section, 6 px/mm detail scale                         -->
+  <!-- ================================================================ -->
+  <rect x="1100" y="320" width="400" height="320" fill="#fff" stroke="#000" stroke-width="1.2"/>
+  <text x="1300" y="310" text-anchor="middle" class="label" font-weight="bold">DETAIL A: REAR WALL SECTION</text>
+  <text x="1300" y="324" text-anchor="middle" class="note">(section through one fitting pocket, 6 px/mm)</text>
+
+  <!-- At 6px/mm: wall 4mm=24px, bore 9.8mm=58.8px -->
+  <!-- center body 9.31mm=55.86px, 12.16mm long=72.96px -->
+  <!-- body end 15.10mm=90.6px, 12.08mm long=72.48px -->
+  <!-- collet OD 9.57mm=57.42px, protrusion 1.4mm=8.4px -->
+
+  <!-- Wall exterior(dock) face at py=460, interior face at py=484 -->
+  <!-- Wall spans px 1140..1460 in X (wide enough for context) -->
+  <!-- Bore centered at px=1300 => bore edges at 1300-29.4=1270.6, 1300+29.4=1329.4 -->
+
+  <!-- Wall left section (solid with hatch) -->
+  <rect x="1140" y="460" width="130.6" height="24" class="wall-fill"/>
+  <rect x="1140" y="460" width="130.6" height="24" class="visible"/>
+  <!-- Wall right section -->
+  <rect x="1329.4" y="460" width="130.6" height="24" class="wall-fill"/>
+  <rect x="1329.4" y="460" width="130.6" height="24" class="visible"/>
+
+  <!-- Hatch lines (45-deg, 12px spacing) -->
+  <g class="hatch">
+    <line x1="1146" y1="484" x2="1164" y2="460"/><line x1="1158" y1="484" x2="1176" y2="460"/>
+    <line x1="1170" y1="484" x2="1188" y2="460"/><line x1="1182" y1="484" x2="1200" y2="460"/>
+    <line x1="1194" y1="484" x2="1212" y2="460"/><line x1="1206" y1="484" x2="1224" y2="460"/>
+    <line x1="1218" y1="484" x2="1236" y2="460"/><line x1="1230" y1="484" x2="1248" y2="460"/>
+    <line x1="1242" y1="484" x2="1260" y2="460"/><line x1="1254" y1="484" x2="1270.6" y2="464"/>
+    <line x1="1140" y1="480" x2="1152" y2="460"/>
+    <line x1="1335" y1="484" x2="1353" y2="460"/><line x1="1347" y1="484" x2="1365" y2="460"/>
+    <line x1="1359" y1="484" x2="1377" y2="460"/><line x1="1371" y1="484" x2="1389" y2="460"/>
+    <line x1="1383" y1="484" x2="1401" y2="460"/><line x1="1395" y1="484" x2="1413" y2="460"/>
+    <line x1="1407" y1="484" x2="1425" y2="460"/><line x1="1419" y1="484" x2="1437" y2="460"/>
+    <line x1="1431" y1="484" x2="1449" y2="460"/><line x1="1443" y1="484" x2="1460" y2="464"/>
+    <line x1="1329.4" y1="480" x2="1341" y2="460"/>
   </g>
 
-  <!-- ============================================================ -->
-  <!-- SIDE VIEW  (looking along -X from right)                     -->
-  <!-- Horiz = Y (depth 130mm)   Vert = Z (height 80mm)            -->
-  <!-- Scale = 2.5 px/mm   =>  325 x 200 px                        -->
-  <!-- Group origin at (50, 500)                                    -->
-  <!-- Y=0 (front) at SVG x=0; Y=130 (rear) at SVG x=325          -->
-  <!-- Z=0 (bottom) at SVG y=200; Z=80 (top) at SVG y=0            -->
-  <!-- ============================================================ -->
-  <text x="212" y="490" class="label">SIDE VIEW (RIGHT)</text>
+  <!-- Bore edges through wall -->
+  <line x1="1270.6" y1="460" x2="1270.6" y2="484" class="visible"/>
+  <line x1="1329.4" y1="460" x2="1329.4" y2="484" class="visible"/>
 
-  <g id="side-view" transform="translate(50, 500)">
-    <!-- s=2.5  130*2.5=325  80*2.5=200 -->
+  <!-- JG FITTING — barbell profile (blue) -->
+  <!-- Center body: 55.86px wide, 72.96px long, centered on wall center py=472 -->
+  <!-- From py=472-36.48=435.52 to py=472+36.48=508.48 -->
+  <rect x="1272.1" y="435.5" width="55.9" height="73" class="fitting"/>
 
-    <!-- Exterior -->
-    <rect x="0" y="0" width="325" height="200" class="outline"/>
+  <!-- Exterior body end (dock side): 90.6px wide, 72.48px long -->
+  <!-- From center body top py=435.5 upward => py=435.5-72.48=363 -->
+  <rect x="1254.7" y="363" width="90.6" height="72.5" class="fitting"/>
 
-    <!-- Front wall inner face Y=4 -> x=10 -->
-    <line x1="10" y1="0" x2="10" y2="200" class="thin"/>
-    <!-- Rear wall inner face Y=126 -> x=315 -->
-    <line x1="315" y1="0" x2="315" y2="200" class="thin"/>
+  <!-- Interior body end (cartridge side): from center body bottom py=508.5 downward -->
+  <rect x="1254.7" y="508.5" width="90.6" height="72.5" class="fitting"/>
 
-    <!-- Interior cavity -->
-    <rect x="10" y="10" width="305" height="180" class="hidden"/>
+  <!-- Collet sleeves (compressed, ~1.4mm=8.4px protrusion) -->
+  <!-- Collet OD 9.57mm=57.42px wide -->
+  <!-- Exterior collet: from body end top py=363 upward 8.4px => py354.6 -->
+  <rect x="1271.3" y="354.6" width="57.4" height="8.4" class="fitting" stroke-dasharray="3,2"/>
+  <!-- Interior collet -->
+  <rect x="1271.3" y="581" width="57.4" height="8.4" class="fitting" stroke-dasharray="3,2"/>
 
-    <!-- ─── Fitting barbell profiles ─── -->
-    <!-- Rear wall x=315 to x=325 (Y=126..130) -->
-    <!-- Z=26: y=200-65=135   Z=54: y=200-135=65 -->
-    <!-- Body end: 15.10/2*2.5=18.875px half-h, 12.08*2.5=30.2px long -->
-    <!-- Center body: 9.31/2*2.5=11.64px half-h, wall=10px -->
+  <!-- Tube centerline -->
+  <line x1="1300" y1="345" x2="1300" y2="600" class="center"/>
 
-    <!-- Lower fitting Z=26 (y=135) -->
-    <!-- Interior body end: x=315-30.2=284.8 to 315 -->
-    <rect x="284.8" y="116.1" width="30.2" height="37.75" rx="1.2" class="hidden"/>
-    <!-- Center body in wall -->
-    <rect x="315" y="123.4" width="10" height="23.3" class="thin"/>
-    <!-- Exterior body end: x=325 to 355.2 -->
-    <rect x="325" y="116.1" width="30.2" height="37.75" rx="1.2" class="outline"/>
+  <!-- Shoulder labels -->
+  <line x1="1271" y1="460" x2="1271" y2="452" class="dim-ext"/>
+  <line x1="1271" y1="452" x2="1112" y2="452" class="dim-ext"/>
+  <text x="1112" y="448" class="note">shoulder seats against wall face</text>
 
-    <!-- Upper fitting Z=54 (y=65) -->
-    <rect x="284.8" y="46.1" width="30.2" height="37.75" rx="1.2" class="hidden"/>
-    <rect x="315" y="53.4" width="10" height="23.3" class="thin"/>
-    <rect x="325" y="46.1" width="30.2" height="37.75" rx="1.2" class="outline"/>
+  <!-- Bore diameter annotation (placed below interior body end + collet, py>590) -->
+  <line x1="1270.6" y1="484" x2="1270.6" y2="596" class="dim-ext"/>
+  <line x1="1329.4" y1="484" x2="1329.4" y2="596" class="dim-ext"/>
+  <line x1="1270.6" y1="594" x2="1329.4" y2="594" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="1300" y="606" text-anchor="middle" class="dim">bore dia 9.8</text>
 
-    <!-- Centerlines through fittings -->
-    <line x1="275" y1="135" x2="362" y2="135" class="centerline"/>
-    <line x1="275" y1="65" x2="362" y2="65" class="centerline"/>
+  <!-- Center body OD (right side leader, clear of hatch) -->
+  <line x1="1328" y1="508.5" x2="1380" y2="508.5" class="dim-ext"/>
+  <text x="1385" y="512" class="dim" fill="#06c">center body 9.31</text>
 
-    <!-- Release plate cavity: 6mm deep from interior face -->
-    <!-- x=315-15=300 to 315.  51mm tall: Z=14.5..65.5 -> y=163.75..36.25 -->
-    <rect x="300" y="36.25" width="15" height="127.5" class="hidden"/>
-    <!-- Hatching -->
-    <line x1="300" y1="46" x2="308" y2="36.25" class="hatch"/>
-    <line x1="300" y1="60" x2="315" y2="45" class="hatch"/>
-    <line x1="300" y1="78" x2="315" y2="63" class="hatch"/>
-    <line x1="300" y1="96" x2="315" y2="81" class="hatch"/>
-    <line x1="300" y1="114" x2="315" y2="99" class="hatch"/>
-    <line x1="300" y1="132" x2="315" y2="117" class="hatch"/>
-    <line x1="300" y1="150" x2="315" y2="135" class="hatch"/>
-    <line x1="304" y1="163.75" x2="315" y2="152.75" class="hatch"/>
+  <!-- Body end OD (right side leader) -->
+  <line x1="1345.3" y1="530" x2="1380" y2="530" class="dim-ext"/>
+  <text x="1385" y="534" class="dim" fill="#06c">body end 15.10</text>
 
-    <!-- Pivot hole: Z=40 -> y=100, r=2.5*2.5=6.25 -->
-    <circle cx="5" cy="100" r="6.25" class="outline"/>
-    <line x1="5" y1="88" x2="5" y2="112" class="centerline"/>
+  <!-- Wall thickness in detail -->
+  <line x1="1130" y1="460" x2="1130" y2="484" class="dim-ext"/>
+  <line x1="1124" y1="460" x2="1136" y2="460" class="dim-ext"/>
+  <line x1="1124" y1="484" x2="1136" y2="484" class="dim-ext"/>
+  <line x1="1130" y1="460" x2="1130" y2="484" class="dim-line" marker-start="url(#arr-r)" marker-end="url(#arr)"/>
+  <text x="1120" y="476" text-anchor="end" class="dim">4</text>
 
-    <!-- Push rod (hidden): 5mm dia = 12.5px, Z=40 center at y=100 -->
-    <line x1="10" y1="93.75" x2="300" y2="93.75" class="hidden"/>
-    <line x1="10" y1="106.25" x2="300" y2="106.25" class="hidden"/>
+  <!-- Side labels -->
+  <text x="1300" y="342" text-anchor="middle" class="note" font-weight="bold">DOCK SIDE</text>
+  <text x="1300" y="620" text-anchor="middle" class="note" font-weight="bold">INTERIOR</text>
 
-    <!-- Slide rail on bottom -->
-    <rect x="0" y="200" width="325" height="5" class="outline"/>
+  <!-- Collet label -->
+  <line x1="1329" y1="358.6" x2="1370" y2="345" class="dim-ext"/>
+  <text x="1372" y="345" class="note" fill="#06c">collet (9.57 OD)</text>
 
-    <!-- Interior ledge at Z=4 (y=190) -->
-    <line x1="10" y1="190" x2="315" y2="190" class="hidden"/>
+  <!-- ================================================================ -->
+  <!-- NOTES BLOCK                                                       -->
+  <!-- ================================================================ -->
+  <rect x="1100" y="660" width="400" height="310" fill="#fafafa" stroke="#000" stroke-width="0.8"/>
+  <text x="1112" y="680" class="label" font-weight="bold">NOTES</text>
+  <text x="1112" y="698" class="note">1. Rectangular box, open top (lid closes). Material: PETG.</text>
+  <text x="1112" y="713" class="note">2. 4mm solid walls all sides, no ribs.</text>
+  <text x="1112" y="728" class="note">3. Exterior envelope: 148W x 130D x 80H mm.</text>
+  <text x="1112" y="743" class="note">4. Interior volume: 140W x 122D x 72H mm.</text>
+  <text x="1112" y="758" class="note">5. Rear wall (Y=126..130): 4x JG PP0408W pockets,</text>
+  <text x="1125" y="773" class="note">2x2 grid, 40mm H x 28mm V c-t-c.</text>
+  <text x="1112" y="788" class="note">6. Pocket bore dia 9.8 (sliding fit for 9.31 center body,</text>
+  <text x="1125" y="803" class="note">~0.25mm clearance/side).</text>
+  <text x="1112" y="818" class="note">7. Body ends (15.10 OD) protrude ~12mm each side of wall.</text>
+  <text x="1112" y="833" class="note">8. Release plate cavity: 63W x 51H x 6D behind pockets.</text>
+  <text x="1112" y="848" class="note">9. Guide pins: dia 3.0, 10mm deep, at X=40 &amp; X=110.5, Z=40.</text>
+  <text x="1112" y="863" class="note">10. Cam lever pivot: dia 5 at X=74, Z=40 in front wall.</text>
+  <text x="1112" y="878" class="note">11. Bottom slide rails: 2x3mm x full 130mm depth.</text>
+  <text x="1112" y="893" class="note">12. 5mm x 45-deg chamfer on 4 front leading edges.</text>
+  <text x="1112" y="908" class="note">13. Interior ledges at Z=4 (2mm wide shelves) for pump tray.</text>
+  <text x="1112" y="923" class="note">14. Pogo PCB recess on top face: 15W x 30L x 1.5D mm.</text>
+  <text x="1112" y="938" class="note">15. Fitting pocket centers: X=54, X=94, Z=26, Z=54.</text>
+  <text x="1112" y="953" class="note">16. Detail A: barbell profile section at 6 px/mm.</text>
 
-    <!-- Pogo pocket on top: 30*2.5=75px, 1.5*2.5=3.75px deep -->
-    <rect x="125" y="0" width="75" height="3.75" class="thin"/>
-
-    <!-- ═══════ Dimensions ═══════ -->
-
-    <!-- Depth 130 -->
-    <line x1="0" y1="-30" x2="0" y2="-6" class="dim"/>
-    <line x1="325" y1="-30" x2="325" y2="-6" class="dim"/>
-    <line x1="0" y1="-24" x2="325" y2="-24" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="162.5" y="-28" class="dimtxt">130</text>
-
-    <!-- Height 80 -->
-    <line x1="-20" y1="0" x2="-8" y2="0" class="dim"/>
-    <line x1="-20" y1="200" x2="-8" y2="200" class="dim"/>
-    <line x1="-14" y1="0" x2="-14" y2="200" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="-16" y="105" class="dimtxt" transform="rotate(-90,-16,105)">80</text>
-
-    <!-- Front wall 4mm -->
-    <line x1="0" y1="218" x2="0" y2="210" class="dim"/>
-    <line x1="10" y1="218" x2="10" y2="210" class="dim"/>
-    <line x1="0" y1="214" x2="10" y2="214" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="5" y="228" class="dimtxt">4</text>
-
-    <!-- Rear wall 4mm -->
-    <line x1="315" y1="218" x2="315" y2="210" class="dim"/>
-    <line x1="325" y1="218" x2="325" y2="210" class="dim"/>
-    <line x1="315" y1="214" x2="325" y2="214" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="320" y="228" class="dimtxt">4</text>
-
-    <!-- Body end protrusion 12.08 -->
-    <line x1="325" y1="38" x2="325" y2="30" class="dim"/>
-    <line x1="355.2" y1="38" x2="355.2" y2="30" class="dim"/>
-    <line x1="325" y1="34" x2="355.2" y2="34" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="340" y="27" class="dimtxt">12.08</text>
-
-    <!-- Body end dia -->
-    <line x1="348" y1="47" x2="368" y2="35" class="dim"/>
-    <text x="370" y="33" class="dimtxts" font-size="7.5">&#x2300;15.10</text>
-
-    <!-- Cavity depth 6 -->
-    <line x1="300" y1="172" x2="300" y2="182" class="dim"/>
-    <line x1="315" y1="172" x2="315" y2="182" class="dim"/>
-    <line x1="300" y1="177" x2="315" y2="177" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="307.5" y="204" class="dimtxt">6</text>
-
-    <!-- Pivot callout -->
-    <line x1="10" y1="94" x2="25" y2="82" class="dim"/>
-    <text x="27" y="80" class="dimtxts" font-size="7.5">&#x2300;5 pivot</text>
-
-    <!-- Push rod -->
-    <text x="155" y="88" class="dimtxt" font-size="7">push rod &#x2300;5</text>
-
-    <!-- Center body -->
-    <text x="342" y="148" class="dimtxt" font-size="6.5" transform="rotate(-90,342,148)">&#x2300;9.31</text>
-  </g>
-
-  <!-- ============================================================ -->
-  <!-- TOP VIEW  (looking along -Z from above)                      -->
-  <!-- Horiz = X (width 148mm)   Vert = Y (depth 130mm)            -->
-  <!-- Scale = 2.0 px/mm   =>  296 x 260 px                        -->
-  <!-- Group origin at (530, 500)                                   -->
-  <!-- X=0 left, X=148 right.  Y=0 front (top), Y=130 rear (btm)  -->
-  <!-- ============================================================ -->
-  <text x="678" y="465" class="label">TOP VIEW</text>
-
-  <g id="top-view" transform="translate(530, 475)">
-    <!-- s=2.0  148*2=296  130*2=260 -->
-
-    <!-- Exterior -->
-    <rect x="0" y="0" width="296" height="260" class="outline"/>
-
-    <!-- Interior (visible — open top box) -->
-    <rect x="8" y="8" width="280" height="244" class="outline"/>
-
-    <!-- Front chamfers 5mm=10px -->
-    <line x1="0" y1="10" x2="10" y2="0" class="outline"/>
-    <line x1="286" y1="0" x2="296" y2="10" class="outline"/>
-
-    <!-- Rear wall: Y=126..130 -> y=252..260 -->
-
-    <!-- Fitting pocket bores through rear wall (4 project to 2 in top view) -->
-    <!-- X=54->108  X=94->188  Y=128->y=256 -->
-    <!-- Bore 9.8mm -> r=9.8px -->
-    <circle cx="108" cy="256" r="9.8" class="outline"/>
-    <circle cx="188" cy="256" r="9.8" class="outline"/>
-
-    <!-- Body end circles 15.10mm -> r=15.1px (hidden, projecting within wall) -->
-    <circle cx="108" cy="256" r="15.1" class="hidden"/>
-    <circle cx="188" cy="256" r="15.1" class="hidden"/>
-
-    <!-- Exterior body end protrusions (beyond shell rear) -->
-    <!-- 12.08mm = 24.16px past y=260 -->
-    <rect x="92.9" y="260" width="30.2" height="24.16" rx="1" class="outline"/>
-    <rect x="172.9" y="260" width="30.2" height="24.16" rx="1" class="outline"/>
-
-    <!-- Interior body end protrusions -->
-    <!-- From y=252 upward 24.16px -> y=227.84 -->
-    <rect x="92.9" y="227.84" width="30.2" height="24.16" rx="1" class="hidden"/>
-    <rect x="172.9" y="227.84" width="30.2" height="24.16" rx="1" class="hidden"/>
-
-    <!-- Center body bore in wall (9.8mm wide rects) -->
-    <rect x="98.2" y="252" width="19.6" height="8" class="thin"/>
-    <rect x="178.2" y="252" width="19.6" height="8" class="thin"/>
-
-    <!-- Fitting centerlines -->
-    <line x1="108" y1="220" x2="108" y2="290" class="centerline"/>
-    <line x1="188" y1="220" x2="188" y2="290" class="centerline"/>
-
-    <!-- Guide pin holes  X=40->80  X=110.5->221  Y=128->y=256 -->
-    <circle cx="80" cy="256" r="3" class="hidden"/>
-    <circle cx="221" cy="256" r="3" class="hidden"/>
-
-    <!-- Pogo PCB pocket: 15W=30px x 30L=60px -->
-    <!-- X=74->148 center.  Y~65->130 center -->
-    <rect x="133" y="100" width="30" height="60" class="outline"/>
-
-    <!-- Pivot hole in front wall X=74->148, Y=2->4 -->
-    <circle cx="148" cy="4" r="5" class="outline"/>
-
-    <!-- Slide rails (hidden, underside) -->
-    <rect x="70" y="0" width="6" height="260" class="hidden"/>
-    <rect x="226" y="0" width="6" height="260" class="hidden"/>
-
-    <!-- ═══════ Dimensions ═══════ -->
-
-    <!-- Width 148 -->
-    <line x1="0" y1="-18" x2="0" y2="-6" class="dim"/>
-    <line x1="296" y1="-18" x2="296" y2="-6" class="dim"/>
-    <line x1="0" y1="-12" x2="296" y2="-12" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="148" y="-16" class="dimtxt">148</text>
-
-    <!-- Depth 130 -->
-    <line x1="312" y1="0" x2="302" y2="0" class="dim"/>
-    <line x1="312" y1="260" x2="302" y2="260" class="dim"/>
-    <line x1="307" y1="0" x2="307" y2="260" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="320" y="135" class="dimtxt" transform="rotate(-90,320,135)">130</text>
-
-    <!-- Fitting X=54 -->
-    <line x1="0" y1="280" x2="0" y2="272" class="dim"/>
-    <line x1="108" y1="280" x2="108" y2="272" class="dim"/>
-    <line x1="0" y1="276" x2="108" y2="276" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="54" y="289" class="dimtxt">54</text>
-
-    <!-- Fitting H spacing 40 -->
-    <line x1="188" y1="280" x2="188" y2="272" class="dim"/>
-    <line x1="108" y1="286" x2="188" y2="286" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="148" y="299" class="dimtxt">40 c/c</text>
-
-    <!-- Bore callout -->
-    <line x1="120" y1="246" x2="145" y2="232" class="dim"/>
-    <text x="147" y="230" class="dimtxts" font-size="7">&#x2300;9.8 bore (4x)</text>
-
-    <!-- Pogo pocket -->
-    <text x="148" y="135" class="dimtxt" font-size="7">pogo pocket</text>
-    <text x="148" y="145" class="dimtxt" font-size="7">15x30x1.5D</text>
-
-    <!-- Protrusion label -->
-    <line x1="130" y1="270" x2="155" y2="270" class="dim"/>
-    <text x="157" y="273" class="dimtxts" font-size="7">body end 12.08 protrusion</text>
-  </g>
-
-  <!-- ============================================================ -->
-  <!-- Notes                                                         -->
-  <!-- ============================================================ -->
-  <g transform="translate(30, 760)">
-    <text x="0" y="0" class="note">NOTES: All dims in mm. Fitting pockets: 9.8mm bore grips 9.31mm JG center body (0.25mm clearance/side). 15.10mm body ends protrude ~12mm each side of 4mm rear wall.</text>
-    <text x="0" y="12" class="note">Release plate cavity 6mm deep x 63W x 51H behind fittings. Guide pins 3mm press-fit. Cam pivot 5mm. Front 4.0:1, Side/Top 2.5/2.0:1 (px:mm).</text>
-  </g>
+  <!-- ================================================================ -->
+  <!-- TITLE BLOCK                                                       -->
+  <!-- ================================================================ -->
+  <rect x="620" y="660" width="460" height="110" fill="#f9f9f9" stroke="#000" stroke-width="1.2"/>
+  <line x1="620" y1="690" x2="1080" y2="690" stroke="#000" stroke-width="0.8"/>
+  <line x1="620" y1="715" x2="1080" y2="715" stroke="#000" stroke-width="0.8"/>
+  <line x1="620" y1="740" x2="1080" y2="740" stroke="#000" stroke-width="0.8"/>
+  <text x="850" y="682" text-anchor="middle" class="title">CARTRIDGE OUTER SHELL</text>
+  <text x="850" y="708" text-anchor="middle" class="subtitle">Pump Cartridge Module — Soda Flavor Injector</text>
+  <text x="632" y="733" class="dim">Material: PETG (3D printed)</text>
+  <text x="850" y="733" class="dim">Scale: 3 px/mm (views) | 6 px/mm (detail)</text>
+  <text x="632" y="755" class="dim">Exterior: 148W x 130D x 80H mm</text>
+  <text x="850" y="755" class="dim">Wall: 4mm solid (all sides)</text>
+  <text x="632" y="768" class="dim">Interior: 140W x 122D x 72H mm</text>
 
 </svg>
