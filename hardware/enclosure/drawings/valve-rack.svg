@@ -126,10 +126,10 @@
     <text x="316" y="448" class="dim-text">181mm (rack width, 5 valves)</text>
 
     <!-- Valve pitch 37mm between col 0 and 1 centers -->
-    <line x1="57.2" y1="455" x2="57.2" y2="468" class="dim"/>
-    <line x1="186.7" y1="455" x2="186.7" y2="468" class="dim"/>
-    <line x1="57.2" y1="463" x2="186.7" y2="463" class="dim" marker-start="url(#aL)" marker-end="url(#aR)"/>
-    <text x="122" y="478" class="dim-text">37mm pitch</text>
+    <line x1="57.2" y1="455" x2="57.2" y2="480" class="dim"/>
+    <line x1="186.7" y1="455" x2="186.7" y2="480" class="dim"/>
+    <line x1="57.2" y1="475" x2="186.7" y2="475" class="dim" marker-start="url(#aL)" marker-end="url(#aR)"/>
+    <text x="122" y="490" class="dim-text">37mm pitch</text>
 
     <!-- Body width 32.71mm (shown as inset annotation on col 4) -->
     <text x="575" y="395" class="dim-sm" fill="#555">32.71</text>
@@ -204,7 +204,7 @@
 
     <!-- L-shape labels -->
     <text x="55" y="380" class="note" text-anchor="middle" font-size="8px">white body</text>
-    <text x="147" y="280" class="note" text-anchor="middle" font-size="8px">metal coil</text>
+    <text x="147" y="206" class="note" text-anchor="middle" font-size="8px">metal coil</text>
 
     <!-- Dimensions -->
     <!-- Rack depth 55mm -->
@@ -235,7 +235,7 @@
   <!-- ================================================================ -->
 
   <g id="top-view" transform="translate(24,565)">
-    <text x="316" y="-10" class="label">TOP VIEW (looking along -Z)</text>
+    <text x="316" y="-22" class="label">TOP VIEW (looking along -Z)</text>
 
     <!-- Rack envelope -->
     <rect x="0" y="0" width="633.5" height="192.5" class="rack"/>
