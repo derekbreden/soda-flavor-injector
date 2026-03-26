@@ -119,7 +119,7 @@
   <line x1="442" y1="330" x2="465" y2="318" class="dim"/>
   <line x1="442" y1="337.5" x2="465" y2="350" class="dim"/>
   <line x1="465" y1="318" x2="465" y2="350" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
-  <text x="482" y="337" class="dimtxt" style="font-size:9px">1.5 ECC</text>
+  <text x="482" y="355" class="dimtxt" style="font-size:9px">1.5 ECC</text>
 
   <!-- ============================================================ -->
   <!--  TOP VIEW  (looking along -Z)                                -->
