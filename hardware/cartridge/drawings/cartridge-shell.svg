@@ -168,16 +168,16 @@
     <text x="282" y="194" class="dimtxts" font-size="7.5">&#x2300;15.10 body end (protruding)</text>
 
     <!-- Pivot dia -->
-    <line x1="304" y1="152" x2="328" y2="140" class="dim"/>
-    <text x="330" y="138" class="dimtxts" font-size="7.5">&#x2300;5 pivot hole</text>
+    <line x1="304" y1="152" x2="328" y2="128" class="dim"/>
+    <text x="330" y="126" class="dimtxts" font-size="7.5">&#x2300;5 pivot hole</text>
 
     <!-- Chamfer callout -->
     <line x1="14" y1="10" x2="48" y2="26" class="dim"/>
     <text x="50" y="24" class="dimtxts" font-size="7.5">5x45&#xb0; chamfer (4 edges)</text>
 
     <!-- Guide pin callout -->
-    <line x1="160" y1="152" x2="140" y2="136" class="dim"/>
-    <text x="85" y="133" class="dimtxts" font-size="7.5">&#x2300;3 guide pin (2x)</text>
+    <line x1="160" y1="152" x2="140" y2="129" class="dim"/>
+    <text x="85" y="126" class="dimtxts" font-size="7.5">&#x2300;3 guide pin (2x)</text>
   </g>
 
   <!-- ============================================================ -->
@@ -260,10 +260,10 @@
     <!-- ═══════ Dimensions ═══════ -->
 
     <!-- Depth 130 -->
-    <line x1="0" y1="-18" x2="0" y2="-6" class="dim"/>
-    <line x1="325" y1="-18" x2="325" y2="-6" class="dim"/>
-    <line x1="0" y1="-12" x2="325" y2="-12" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="162.5" y="-16" class="dimtxt">130</text>
+    <line x1="0" y1="-30" x2="0" y2="-6" class="dim"/>
+    <line x1="325" y1="-30" x2="325" y2="-6" class="dim"/>
+    <line x1="0" y1="-24" x2="325" y2="-24" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
+    <text x="162.5" y="-28" class="dimtxt">130</text>
 
     <!-- Height 80 -->
     <line x1="-20" y1="0" x2="-8" y2="0" class="dim"/>
@@ -297,7 +297,7 @@
     <line x1="300" y1="172" x2="300" y2="182" class="dim"/>
     <line x1="315" y1="172" x2="315" y2="182" class="dim"/>
     <line x1="300" y1="177" x2="315" y2="177" class="dim" marker-start="url(#arrowRev)" marker-end="url(#arrow)"/>
-    <text x="307.5" y="192" class="dimtxt">6</text>
+    <text x="307.5" y="204" class="dimtxt">6</text>
 
     <!-- Pivot callout -->
     <line x1="10" y1="94" x2="25" y2="82" class="dim"/>
@@ -307,7 +307,7 @@
     <text x="155" y="88" class="dimtxt" font-size="7">push rod &#x2300;5</text>
 
     <!-- Center body -->
-    <text x="320" y="148" class="dimtxt" font-size="6.5" transform="rotate(-90,320,148)">&#x2300;9.31</text>
+    <text x="342" y="148" class="dimtxt" font-size="6.5" transform="rotate(-90,342,148)">&#x2300;9.31</text>
   </g>
 
   <!-- ============================================================ -->
