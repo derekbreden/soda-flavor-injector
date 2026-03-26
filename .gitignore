@@ -13,6 +13,7 @@ src_display/fw_version.h
 __pycache__/
 *.xcodeproj/
 logs/*.log
+.claude
 
 # CAD script output (generated STEP/STL files)
 hardware/cartridge/scripts/output/*.step
