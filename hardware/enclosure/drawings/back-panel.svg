@@ -1,32 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 850" width="1100" height="850" font-family="Arial, Helvetica, sans-serif">
-  <title>Enclosure Back Panel - Orthographic Drawing</title>
-  <desc>
-    Three-view orthographic projection of the enclosure back panel.
-    Scale: 1.35 px/mm (front, top), side detail at 8 px/mm.
-    Coordinate system: X=width (0-220mm), Y=depth (0-4mm), Z=height (0-400mm).
-    Origin at exterior front-bottom-left.
-    Front view (looking along -Y): X horizontal, Z vertical.
-    Side view (looking along -X): Y horizontal, Z vertical.
-    Top view (looking along -Z): X horizontal, Y vertical.
-  </desc>
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1100" width="1200" height="1100" font-family="Arial, Helvetica, sans-serif">
   <style>
     .outline { fill: none; stroke: #000; stroke-width: 1.5; }
-    .outline-thin { fill: none; stroke: #000; stroke-width: 0.75; }
-    .hidden { fill: none; stroke: #000; stroke-width: 0.75; stroke-dasharray: 6,3; }
-    .hidden-thin { fill: none; stroke: #000; stroke-width: 0.6; stroke-dasharray: 2,2; }
-    .center { fill: none; stroke: #000; stroke-width: 0.4; stroke-dasharray: 12,3,3,3; }
-    .dim { fill: none; stroke: #333; stroke-width: 0.6; }
-    .ext { fill: none; stroke: #333; stroke-width: 0.4; }
-    .dim-text { font-size: 10px; fill: #333; text-anchor: middle; }
-    .dim-sm { font-size: 9px; fill: #333; text-anchor: middle; }
-    .label { font-size: 10px; fill: #333; text-anchor: middle; }
+    .hidden  { fill: none; stroke: #000; stroke-width: 0.8; stroke-dasharray: 6,3; }
+    .center  { fill: none; stroke: #000; stroke-width: 0.4; stroke-dasharray: 12,3,2,3; }
+    .dim     { fill: none; stroke: #333; stroke-width: 0.6; marker-end: url(#arrow); marker-start: url(#arrow); }
+    .ext     { fill: none; stroke: #333; stroke-width: 0.4; }
+    .label   { font-size: 10px; fill: #333; text-anchor: middle; }
+    .note    { font-size: 9px; fill: #555; }
+    .title   { font-size: 14px; font-weight: bold; fill: #000; text-anchor: middle; }
     .viewlbl { font-size: 12px; font-weight: bold; fill: #000; text-anchor: middle; }
-    .note { font-size: 9px; fill: #555; }
-    .title-text { font-size: 15px; fill: #000; font-weight: bold; text-anchor: middle; }
-    .subtitle { font-size: 10px; fill: #555; text-anchor: middle; }
-    .arrow { fill: #333; stroke: none; }
-    .detail-frame { fill: none; stroke: #000; stroke-width: 1.0; stroke-dasharray: 8,4; }
+    .fill-light { fill: #f0f0f0; stroke: none; }
+    .fill-recess { fill: #e0e0e0; stroke: none; }
   </style>
 
   <defs>
@@ -39,437 +23,360 @@
   <!-- ============================================================ -->
   <!-- TITLE BLOCK                                                   -->
   <!-- ============================================================ -->
-  <text x="550" y="24" class="title-text">Enclosure Back Panel - Engineering Drawing</text>
-  <text x="550" y="40" class="subtitle">Material: ABS or ASA (3D printed) | Envelope: 220W x 4D x 400H mm | Scale noted per view</text>
-  <line x1="30" y1="50" x2="1070" y2="50" stroke="#000" stroke-width="1"/>
+  <text x="600" y="28" class="title">Enclosure Back Panel — Engineering Drawing</text>
+  <text x="600" y="44" class="note" text-anchor="middle">Material: ABS or ASA (3D printed) | Envelope: 220W x 4D x 400H mm | Scale noted per view</text>
+  <line x1="30" y1="52" x2="1170" y2="52" stroke="#000" stroke-width="1"/>
 
   <!-- ============================================================ -->
-  <!-- FRONT VIEW - Looking along -Y                                -->
-  <!-- Horizontal axis = X (width 220mm), Vertical axis = Z (height 400mm) -->
-  <!-- Scale 1.35 px/mm => 220mm = 297px, 400mm = 540px            -->
-  <!-- Panel bottom-left at SVG (60, 600), top-left at (60, 60)     -->
-  <!-- SVG y = 600 - Z*1.35                                         -->
-  <!-- SVG x = 60 + X*1.35                                          -->
+  <!-- REAR VIEW — Looking along +Y (exterior face, viewed from rear) -->
+  <!-- Horizontal axis = X (width 0-220), Vertical axis = Z (height 0-400) -->
+  <!-- Scale 2:1 => 220mm = 440px, 400mm = 800px                  -->
+  <!-- Panel bottom-left at SVG (60, 880), top-left at (60, 80)    -->
+  <!-- px_x = 60 + Xmm * 2                                        -->
+  <!-- px_y = 880 - Zmm * 2                                        -->
   <!-- ============================================================ -->
+  <text x="280" y="72" class="viewlbl">REAR VIEW</text>
+  <text x="280" y="84" class="note" text-anchor="middle">Looking along +Y (exterior face) | Scale 2:1</text>
 
-  <g id="front-view">
-    <text x="208" y="72" class="viewlbl">FRONT VIEW</text>
-    <text x="208" y="84" class="note" text-anchor="middle">Looking along -Y (exterior face) | Scale 1.35:1</text>
+  <!-- Panel body -->
+  <rect x="60" y="80" width="440" height="800" class="fill-light"/>
+  <rect x="60" y="80" width="440" height="800" class="outline"/>
 
-    <!-- Panel outline -->
-    <rect x="60" y="60" width="297" height="540" class="outline"/>
-
-    <!-- === UPPER ZONE: IEC C14 inlet at X=165, Z=370 === -->
-    <!-- IEC cutout: 27.4W x 19.8H mm centered at X=165, Z=370 -->
-    <!-- SVG center: x=60+165*1.35=282.75, y=600-370*1.35=100.5 -->
-    <!-- Cutout half-w: 27.4/2*1.35=18.5, half-h: 19.8/2*1.35=13.37 -->
-    <rect x="264.25" y="87.13" width="36.99" height="26.73" class="outline"/>
-
-    <!-- IEC M3 mounting holes, 40mm horizontal c-t-c -->
-    <!-- Left hole: X=165-20=145, Z=370 => SVG (255.75, 100.5) -->
-    <!-- Right hole: X=165+20=185, Z=370 => SVG (309.75, 100.5) -->
-    <!-- M3 hole = 3.2mm dia => r=2.16px at 1.35 -->
-    <circle cx="255.75" cy="100.5" r="2.16" class="outline"/>
-    <circle cx="309.75" cy="100.5" r="2.16" class="outline"/>
-    <!-- Centerlines for IEC -->
-    <line x1="282.75" y1="75" x2="282.75" y2="125" class="center"/>
-    <line x1="245" y1="100.5" x2="320" y2="100.5" class="center"/>
-
-    <!-- === LOWER ZONE: Three JG bulkhead holes at Z=50 === -->
-    <!-- Tap water: X=30, Z=50 => SVG (100.5, 532.5) -->
-    <!-- Soda in: X=80, Z=50 => SVG (168, 532.5) -->
-    <!-- Soda out: X=130, Z=50 => SVG (235.5, 532.5) -->
-    <!-- 15.9mm dia => r=10.73px -->
-    <circle cx="100.5" cy="532.5" r="10.73" class="outline"/>
-    <circle cx="168" cy="532.5" r="10.73" class="outline"/>
-    <circle cx="235.5" cy="532.5" r="10.73" class="outline"/>
-    <!-- Centerlines for lower zone -->
-    <line x1="100.5" y1="520" x2="100.5" y2="555" class="center"/>
-    <line x1="168" y1="520" x2="168" y2="555" class="center"/>
-    <line x1="235.5" y1="520" x2="235.5" y2="555" class="center"/>
-    <line x1="85" y1="532.5" x2="250" y2="532.5" class="center"/>
-
-    <!-- === MID ZONE: PG7 cable gland holes at Z=200 === -->
-    <!-- Flavor 1: X=50, Z=200 => SVG (127.5, 330) -->
-    <!-- Flavor 2: X=170, Z=200 => SVG (289.5, 330) -->
-    <!-- 12.5mm dia => r=8.44px -->
-    <circle cx="127.5" cy="330" r="8.44" class="outline"/>
-    <circle cx="289.5" cy="330" r="8.44" class="outline"/>
-    <!-- Centerlines for mid zone -->
-    <line x1="127.5" y1="318" x2="127.5" y2="345" class="center"/>
-    <line x1="289.5" y1="318" x2="289.5" y2="345" class="center"/>
-    <line x1="115" y1="330" x2="302" y2="330" class="center"/>
-
-    <!-- === FRONT VIEW DIMENSIONS === -->
-
-    <!-- Overall width 220mm (bottom) -->
-    <line x1="60" y1="610" x2="60" y2="632" class="ext"/>
-    <line x1="357" y1="610" x2="357" y2="632" class="ext"/>
-    <line x1="60" y1="627" x2="357" y2="627" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="208" y="642" class="label">220</text>
-
-    <!-- Overall height 400mm (right side) -->
-    <line x1="367" y1="60" x2="392" y2="60" class="ext"/>
-    <line x1="367" y1="600" x2="392" y2="600" class="ext"/>
-    <line x1="387" y1="60" x2="387" y2="600" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="400" y="334" class="label" text-anchor="start" transform="rotate(-90,400,334)">400</text>
-
-    <!-- IEC X position: 165mm from left -->
-    <line x1="60" y1="78" x2="60" y2="68" class="ext"/>
-    <line x1="282.75" y1="78" x2="282.75" y2="68" class="ext"/>
-    <line x1="60" y1="73" x2="282.75" y2="73" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="171" y="68" class="dim-sm">165</text>
-
-    <!-- IEC Z position: 370mm from bottom (=30mm from top) -->
-    <line x1="50" y1="60" x2="38" y2="60" class="ext"/>
-    <line x1="50" y1="100.5" x2="38" y2="100.5" class="ext"/>
-    <line x1="43" y1="60" x2="43" y2="100.5" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="30" y="84" class="dim-sm" text-anchor="end">30</text>
-
-    <!-- IEC mounting hole spacing 40mm -->
-    <line x1="255.75" y1="130" x2="255.75" y2="140" class="ext"/>
-    <line x1="309.75" y1="130" x2="309.75" y2="140" class="ext"/>
-    <line x1="255.75" y1="137" x2="309.75" y2="137" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="282.75" y="150" class="dim-sm">40</text>
-
-    <!-- IEC cutout width 27.4mm -->
-    <line x1="264.25" y1="120" x2="264.25" y2="127" class="ext"/>
-    <line x1="301.24" y1="120" x2="301.24" y2="127" class="ext"/>
-    <line x1="264.25" y1="125" x2="301.24" y2="125" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="282.75" y="120" class="dim-sm">27.4</text>
-
-    <!-- IEC cutout height 19.8mm -->
-    <line x1="310" y1="87.13" x2="325" y2="87.13" class="ext"/>
-    <line x1="310" y1="113.86" x2="325" y2="113.86" class="ext"/>
-    <line x1="320" y1="87.13" x2="320" y2="113.86" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="332" y="104" class="dim-sm" text-anchor="start">19.8</text>
-
-    <!-- Lower zone Z=50: distance from bottom -->
-    <line x1="50" y1="532.5" x2="38" y2="532.5" class="ext"/>
-    <line x1="50" y1="600" x2="38" y2="600" class="ext"/>
-    <line x1="43" y1="532.5" x2="43" y2="600" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="30" y="570" class="dim-sm" text-anchor="end">50</text>
-
-    <!-- Tap water X=30 from left -->
-    <line x1="60" y1="560" x2="60" y2="568" class="ext"/>
-    <line x1="100.5" y1="560" x2="100.5" y2="568" class="ext"/>
-    <line x1="60" y1="565" x2="100.5" y2="565" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="80" y="578" class="dim-sm">30</text>
-
-    <!-- Soda in X=80 (50mm spacing from tap) -->
-    <line x1="100.5" y1="510" x2="100.5" y2="502" class="ext"/>
-    <line x1="168" y1="510" x2="168" y2="502" class="ext"/>
-    <line x1="100.5" y1="506" x2="168" y2="506" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="134" y="500" class="dim-sm">50</text>
-
-    <!-- Soda out X=130 (50mm spacing from soda in) -->
-    <line x1="168" y1="510" x2="168" y2="502" class="ext"/>
-    <line x1="235.5" y1="510" x2="235.5" y2="502" class="ext"/>
-    <line x1="168" y1="506" x2="235.5" y2="506" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="201" y="500" class="dim-sm">50</text>
-
-    <!-- Hole diameter callout for JG bulkheads -->
-    <line x1="108" y1="525" x2="130" y2="510" stroke="#333" stroke-width="0.5"/>
-    <text x="132" y="508" class="note" text-anchor="start">&#x2300;15.9 (3x)</text>
-
-    <!-- Mid zone Z=200 -->
-    <line x1="50" y1="330" x2="38" y2="330" class="ext"/>
-    <line x1="50" y1="600" x2="38" y2="600" class="ext"/>
-    <line x1="33" y1="330" x2="33" y2="600" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="20" y="469" class="dim-sm" text-anchor="end">200</text>
-
-    <!-- Flavor 1 X=50 from left -->
-    <line x1="60" y1="348" x2="60" y2="356" class="ext"/>
-    <line x1="127.5" y1="348" x2="127.5" y2="356" class="ext"/>
-    <line x1="60" y1="353" x2="127.5" y2="353" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="93" y="366" class="dim-sm">50</text>
-
-    <!-- Flavor 2 X=170 from left -->
-    <line x1="60" y1="313" x2="60" y2="305" class="ext"/>
-    <line x1="289.5" y1="313" x2="289.5" y2="305" class="ext"/>
-    <line x1="60" y1="308" x2="289.5" y2="308" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="174" y="303" class="dim-sm">170</text>
-
-    <!-- PG7 hole diameter callout -->
-    <line x1="295" y1="324" x2="315" y2="312" stroke="#333" stroke-width="0.5"/>
-    <text x="317" y="310" class="note" text-anchor="start">&#x2300;12.5 (2x)</text>
-
-    <!-- Feature labels with leaders -->
-    <!-- IEC C14 label (placed below cutout, inside front view) -->
-    <line x1="282.75" y1="116" x2="275" y2="160" stroke="#333" stroke-width="0.5"/>
-    <text x="275" y="170" class="note" text-anchor="middle">IEC C14 inlet</text>
-
-    <!-- M3 mounting holes label -->
-    <line x1="255.75" y1="105" x2="230" y2="158" stroke="#333" stroke-width="0.5"/>
-    <text x="228" y="162" class="note" text-anchor="end">M3 mtg (2x)</text>
-
-    <!-- Lower zone labels -->
-    <text x="100.5" y="550" class="note" text-anchor="middle" font-size="7">TAP</text>
-    <text x="168" y="550" class="note" text-anchor="middle" font-size="7">SODA IN</text>
-    <text x="235.5" y="550" class="note" text-anchor="middle" font-size="7">SODA OUT</text>
-
-    <!-- Mid zone labels -->
-    <text x="127.5" y="348" class="note" text-anchor="middle" font-size="7">FLAV 1</text>
-    <text x="289.5" y="348" class="note" text-anchor="middle" font-size="7">FLAV 2</text>
-  </g>
+  <!-- Panel vertical centerline X=110mm => px 60+110*2=280 -->
+  <line x1="280" y1="70" x2="280" y2="890" class="center"/>
 
   <!-- ============================================================ -->
-  <!-- SIDE VIEW - Looking along -X (right side)                    -->
-  <!-- Horizontal axis = Y (depth 4mm), Vertical axis = Z (height 400mm) -->
-  <!-- Scale 1.35 px/mm for Z (matches front view vertical)        -->
-  <!-- Y at 1.35: 4mm = 5.4px (very thin)                          -->
-  <!-- Position: right of front view, Z aligned                    -->
-  <!-- Side view left edge at SVG x=430, exterior face (Y=0) at left -->
+  <!-- LOWER ZONE: Water fittings (Z=50, 15.9mm holes)            -->
   <!-- ============================================================ -->
 
-  <g id="side-view">
-    <text x="433" y="47" class="viewlbl">SIDE</text>
-    <text x="433" y="57" class="note" text-anchor="middle">1.35:1</text>
+  <!--
+    Tap water inlet: X=30, Z=50, 15.9mm hole => r=7.95mm => 15.9px at 2:1
+    px: (60+30*2, 880-50*2) = (120, 780)
+  -->
+  <circle cx="120" cy="780" r="15.9" class="outline"/>
+  <line x1="120" y1="760" x2="120" y2="800" class="center"/>
+  <line x1="100" y1="780" x2="140" y2="780" class="center"/>
+  <text x="120" y="812" class="label">TAP IN</text>
+  <text x="120" y="822" class="note" text-anchor="middle">15.9mm</text>
 
-    <!-- Panel outline: 5.4px wide x 540px tall -->
-    <rect x="430" y="60" width="5.4" height="540" class="outline"/>
+  <!--
+    Soda water inlet: X=80, Z=50
+    px: (60+80*2, 880-50*2) = (220, 780)
+  -->
+  <circle cx="220" cy="780" r="15.9" class="outline"/>
+  <line x1="220" y1="760" x2="220" y2="800" class="center"/>
+  <line x1="200" y1="780" x2="240" y2="780" class="center"/>
+  <text x="220" y="812" class="label">SODA IN</text>
+  <text x="220" y="822" class="note" text-anchor="middle">15.9mm</text>
 
-    <!-- Hidden lines for holes (Y-axis cylinders seen from side) -->
-    <!-- All holes pass through the 4mm panel thickness -->
-    <!-- Each appears as a pair of horizontal dashed lines -->
-
-    <!-- IEC cutout at Z=370 (19.8mm tall): SVG y=87.13 to 113.86 -->
-    <line x1="430" y1="87.13" x2="435.4" y2="87.13" class="hidden-thin"/>
-    <line x1="430" y1="113.86" x2="435.4" y2="113.86" class="hidden-thin"/>
-
-    <!-- M3 holes at Z=370: 3.2mm dia => 2.16px half -->
-    <!-- Top M3 pair at SVG y=98.34, 102.66 -->
-    <line x1="430" y1="98.34" x2="435.4" y2="98.34" class="hidden-thin"/>
-    <line x1="430" y1="102.66" x2="435.4" y2="102.66" class="hidden-thin"/>
-
-    <!-- JG holes at Z=50: 15.9mm dia => 10.73px half, center y=532.5 -->
-    <line x1="430" y1="521.77" x2="435.4" y2="521.77" class="hidden-thin"/>
-    <line x1="430" y1="543.23" x2="435.4" y2="543.23" class="hidden-thin"/>
-
-    <!-- PG7 holes at Z=200: 12.5mm dia => 8.44px half, center y=330 -->
-    <line x1="430" y1="321.56" x2="435.4" y2="321.56" class="hidden-thin"/>
-    <line x1="430" y1="338.44" x2="435.4" y2="338.44" class="hidden-thin"/>
-
-    <!-- Depth dimension 4mm -->
-    <line x1="430" y1="610" x2="430" y2="625" class="ext"/>
-    <line x1="435.4" y1="610" x2="435.4" y2="625" class="ext"/>
-    <line x1="425" y1="620" x2="441" y2="620" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="433" y="638" class="label">4</text>
-
-    <!-- Direction labels -->
-    <text x="426" y="616" class="note" text-anchor="end" font-size="7">EXT</text>
-    <text x="440" y="616" class="note" text-anchor="start" font-size="7">INT</text>
-  </g>
+  <!--
+    Soda water outlet: X=130, Z=50
+    px: (60+130*2, 880-50*2) = (320, 780)
+  -->
+  <circle cx="320" cy="780" r="15.9" class="outline"/>
+  <line x1="320" y1="760" x2="320" y2="800" class="center"/>
+  <line x1="300" y1="780" x2="340" y2="780" class="center"/>
+  <text x="320" y="812" class="label">SODA OUT</text>
+  <text x="320" y="822" class="note" text-anchor="middle">15.9mm</text>
 
   <!-- ============================================================ -->
-  <!-- TOP VIEW - Looking along -Z (from above)                    -->
-  <!-- Horizontal axis = X (width 220mm), Vertical axis = Y (depth 4mm) -->
-  <!-- Scale 1.35 px/mm for X (matches front view horizontal)      -->
-  <!-- Y at 1.35: 4mm = 5.4px                                      -->
-  <!-- Position: below front view, X aligned                       -->
-  <!-- Top of panel (exterior, Y=0) at top of view                 -->
+  <!-- MID ZONE: Flavor line exits (Z=200, 12.5mm holes, PG7)     -->
   <!-- ============================================================ -->
 
-  <g id="top-view">
-    <text x="208" y="666" class="viewlbl">TOP VIEW</text>
-    <text x="208" y="678" class="note" text-anchor="middle">Looking along -Z (from above) | Scale 1.35:1</text>
+  <!--
+    Flavor line 1: X=50, Z=200
+    px: (60+50*2, 880-200*2) = (160, 480)
+    12.5mm hole => r=6.25mm => 12.5px at 2:1
+  -->
+  <circle cx="160" cy="480" r="12.5" class="outline"/>
+  <line x1="160" y1="464" x2="160" y2="496" class="center"/>
+  <line x1="144" y1="480" x2="176" y2="480" class="center"/>
+  <text x="160" y="502" class="label">FLAVOR 1</text>
+  <text x="160" y="512" class="note" text-anchor="middle">PG7 12.5mm</text>
 
-    <!-- Panel outline: 297px wide x 5.4px tall -->
-    <rect x="60" y="690" width="297" height="5.4" class="outline"/>
-
-    <!-- Hidden lines for holes (Y-axis cylinders seen from top) -->
-    <!-- Each hole shows as a pair of vertical dashed lines -->
-
-    <!-- IEC cutout at X=165: 27.4mm wide => left X=151.3, right X=178.7 -->
-    <!-- SVG: x=60+151.3*1.35=264.26, x=60+178.7*1.35=301.25 -->
-    <line x1="264.26" y1="690" x2="264.26" y2="695.4" class="hidden-thin"/>
-    <line x1="301.25" y1="690" x2="301.25" y2="695.4" class="hidden-thin"/>
-
-    <!-- M3 holes at X=145 and X=185 -->
-    <!-- X=145: SVG 60+145*1.35=255.75 -->
-    <!-- X=185: SVG 60+185*1.35=309.75 -->
-    <!-- 3.2mm => 2.16px half -->
-    <line x1="253.59" y1="690" x2="253.59" y2="695.4" class="hidden-thin"/>
-    <line x1="257.91" y1="690" x2="257.91" y2="695.4" class="hidden-thin"/>
-    <line x1="307.59" y1="690" x2="307.59" y2="695.4" class="hidden-thin"/>
-    <line x1="311.91" y1="690" x2="311.91" y2="695.4" class="hidden-thin"/>
-
-    <!-- JG bulkhead holes at X=30, 80, 130 -->
-    <!-- 15.9mm dia => 10.73px half -->
-    <!-- X=30: SVG center 100.5, edges 89.77 and 111.23 -->
-    <line x1="89.77" y1="690" x2="89.77" y2="695.4" class="hidden-thin"/>
-    <line x1="111.23" y1="690" x2="111.23" y2="695.4" class="hidden-thin"/>
-    <!-- X=80: SVG center 168 -->
-    <line x1="157.27" y1="690" x2="157.27" y2="695.4" class="hidden-thin"/>
-    <line x1="178.73" y1="690" x2="178.73" y2="695.4" class="hidden-thin"/>
-    <!-- X=130: SVG center 235.5 -->
-    <line x1="224.77" y1="690" x2="224.77" y2="695.4" class="hidden-thin"/>
-    <line x1="246.23" y1="690" x2="246.23" y2="695.4" class="hidden-thin"/>
-
-    <!-- PG7 holes at X=50 and X=170 -->
-    <!-- 12.5mm => 8.44px half -->
-    <!-- X=50: SVG center 127.5 -->
-    <line x1="119.06" y1="690" x2="119.06" y2="695.4" class="hidden-thin"/>
-    <line x1="135.94" y1="690" x2="135.94" y2="695.4" class="hidden-thin"/>
-    <!-- X=170: SVG center 289.5 -->
-    <line x1="281.06" y1="690" x2="281.06" y2="695.4" class="hidden-thin"/>
-    <line x1="297.94" y1="690" x2="297.94" y2="695.4" class="hidden-thin"/>
-
-    <!-- Depth dimension 4mm -->
-    <line x1="367" y1="690" x2="382" y2="690" class="ext"/>
-    <line x1="367" y1="695.4" x2="382" y2="695.4" class="ext"/>
-    <line x1="377" y1="685" x2="377" y2="701" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="390" y="696" class="label" text-anchor="start">4</text>
-
-    <!-- Direction labels -->
-    <text x="52" y="693" class="note" text-anchor="end" font-size="7">EXT</text>
-    <text x="52" y="699" class="note" text-anchor="end" font-size="7">INT</text>
-  </g>
+  <!--
+    Flavor line 2: X=170, Z=200
+    px: (60+170*2, 880-200*2) = (400, 480)
+  -->
+  <circle cx="400" cy="480" r="12.5" class="outline"/>
+  <line x1="400" y1="464" x2="400" y2="496" class="center"/>
+  <line x1="384" y1="480" x2="416" y2="480" class="center"/>
+  <text x="400" y="502" class="label">FLAVOR 2</text>
+  <text x="400" y="512" class="note" text-anchor="middle">PG7 12.5mm</text>
 
   <!-- ============================================================ -->
-  <!-- DETAIL A - IEC C14 Cutout Area                              -->
-  <!-- Scale 4 px/mm                                                -->
-  <!-- Shows rectangular cutout + 2 M3 mounting holes              -->
+  <!-- UPPER ZONE: IEC C14 power inlet (X=165, Z=370)              -->
+  <!-- Cutout 27.4W x 19.8H, mounting holes at 40mm h c-t-c       -->
+  <!-- Center: px (60+165*2, 880-370*2) = (390, 140)              -->
+  <!-- Cutout: 27.4*2=54.8px W, 19.8*2=39.6px H                  -->
+  <!-- Top-left: (390-27.4, 140-19.8) = (362.6, 120.2)           -->
   <!-- ============================================================ -->
 
-  <g id="detail-a">
-    <!-- Detail frame -->
-    <rect x="490" y="56" width="280" height="280" class="detail-frame"/>
-    <text x="630" y="80" class="viewlbl" font-size="12" text-anchor="middle">DETAIL A - IEC C14 Cutout</text>
-    <text x="630" y="92" class="note" text-anchor="middle">Scale 4:1 | Front view</text>
+  <rect x="362.6" y="120.2" width="54.8" height="39.6" class="outline"/>
+  <text x="390" y="170" class="label">IEC C14</text>
+  <text x="390" y="180" class="note" text-anchor="middle">27.4 x 19.8mm</text>
 
-    <!-- At 4px/mm, 40mm horizontal span = 160px, 19.8mm cutout height = 79.2px -->
-    <!-- Center the 40mm M3 span horizontally in the frame -->
-    <!-- Center at SVG (630, 200) -->
-    <!-- M3 left: X=145mm => (630-20*4)=550, M3 right: X=185mm => (630+20*4)=710 -->
-    <!-- Cutout center at X=165mm aligned to frame center=630 -->
-    <!-- Cutout: 27.4*4=109.6 wide, 19.8*4=79.2 tall -->
-    <!-- Cutout left: 630-54.8=575.2, top: 200-39.6=160.4 -->
-
-    <!-- Rectangular cutout -->
-    <rect x="575.2" y="160.4" width="109.6" height="79.2" class="outline" stroke-width="1.2"/>
-
-    <!-- M3 mounting holes: 3.2mm dia => r=6.4px -->
-    <circle cx="550" cy="200" r="6.4" class="outline"/>
-    <circle cx="710" cy="200" r="6.4" class="outline"/>
-
-    <!-- Centerlines -->
-    <line x1="630" y1="135" x2="630" y2="270" class="center"/>
-    <line x1="530" y1="200" x2="730" y2="200" class="center"/>
-
-    <!-- Dimension: M3 hole spacing 40mm -->
-    <line x1="550" y1="260" x2="550" y2="272" class="ext"/>
-    <line x1="710" y1="260" x2="710" y2="272" class="ext"/>
-    <line x1="550" y1="268" x2="710" y2="268" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="630" y="282" class="dim-sm">40</text>
-
-    <!-- Dimension: cutout width 27.4mm -->
-    <line x1="575.2" y1="248" x2="575.2" y2="256" class="ext"/>
-    <line x1="684.8" y1="248" x2="684.8" y2="256" class="ext"/>
-    <line x1="575.2" y1="254" x2="684.8" y2="254" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="630" y="250" class="dim-sm">27.4</text>
-
-    <!-- Dimension: cutout height 19.8mm -->
-    <line x1="700" y1="160.4" x2="728" y2="160.4" class="ext"/>
-    <line x1="700" y1="239.6" x2="728" y2="239.6" class="ext"/>
-    <line x1="724" y1="160.4" x2="724" y2="239.6" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="736" y="204" class="dim-sm" text-anchor="start">19.8</text>
-
-    <!-- Dimension: M3 hole to cutout edge (horizontal) -->
-    <!-- Left M3 at x=550, cutout left at x=575.2 => gap = (145-151.3)=-6.3mm? -->
-    <!-- Actually: M3 centers at X=145,185. Cutout from X=151.3 to 178.7 -->
-    <!-- Left M3 to cutout left edge: 151.3-145=6.3mm = 25.2px -->
-    <line x1="550" y1="152" x2="550" y2="145" class="ext"/>
-    <line x1="575.2" y1="152" x2="575.2" y2="145" class="ext"/>
-    <line x1="550" y1="148" x2="575.2" y2="148" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="562" y="143" class="dim-sm">6.3</text>
-
-    <!-- M3 hole diameter callout -->
-    <line x1="555" y1="195" x2="530" y2="180" stroke="#333" stroke-width="0.5"/>
-    <text x="510" y="178" class="note" text-anchor="end">&#x2300;3.2 thru (2x)</text>
-
-    <!-- IEC cutout label -->
-    <text x="630" y="195" class="note" text-anchor="middle" font-size="8">27.4 x 19.8</text>
-    <text x="630" y="206" class="note" text-anchor="middle" font-size="8">RECTANGULAR</text>
-    <text x="630" y="217" class="note" text-anchor="middle" font-size="8">CUTOUT</text>
-
-    <!-- Detail circle callout on front view -->
-    <circle cx="282.75" cy="100.5" r="35" fill="none" stroke="#000" stroke-width="0.8" stroke-dasharray="6,3"/>
-    <text x="316" y="130" class="note" font-size="10" font-weight="bold">A</text>
-    <line x1="315" y1="120" x2="490" y2="120" stroke="#000" stroke-width="0.6" stroke-dasharray="4,3"/>
-  </g>
+  <!-- M3 mounting holes: 40mm c-t-c horizontal => 20mm each side of center -->
+  <!-- Left hole: X=165-20=145 => px 60+145*2=350, Z=370 => py 140 -->
+  <!-- Right hole: X=165+20=185 => px 60+185*2=430, Z=370 => py 140 -->
+  <circle cx="350" cy="140" r="3" class="outline"/>
+  <circle cx="430" cy="140" r="3" class="outline"/>
 
   <!-- ============================================================ -->
-  <!-- DETAIL B - Side Cross-Section (enlarged)                    -->
-  <!-- Scale 8 px/mm for depth detail                              -->
-  <!-- Shows panel thickness with a hole passing through           -->
+  <!-- VENTILATION: Horizontal slots in upper-left zone             -->
+  <!-- 5 slots, each 60mm long x 3mm wide, spaced 6mm c-t-c       -->
+  <!-- Z=320 to Z=344, X=30 to X=90                               -->
+  <!-- Z=320 => py=880-320*2=240, Z=344 => py=880-344*2=192       -->
+  <!-- X=30 => px=120, X=90 => px=240 (60mm*2=120px wide)         -->
+  <!-- 3mm high => 6px, 6mm c-t-c => 12px spacing                 -->
   <!-- ============================================================ -->
-
-  <g id="detail-b">
-    <rect x="490" y="349" width="250" height="230" class="detail-frame"/>
-    <text x="615" y="374" class="viewlbl" font-size="12" text-anchor="middle">DETAIL B - Panel Section</text>
-    <text x="615" y="386" class="note" text-anchor="middle">Scale 8:1 | Side section thru JG hole</text>
-
-    <!-- Panel 4mm thick at 8px/mm = 32px wide -->
-    <!-- Center panel in frame: x=599 to x=631 -->
-    <!-- Show a section through the 15.9mm JG bulkhead hole -->
-    <!-- Hole: 15.9mm = 127.2px diameter at 8px/mm -->
-    <!-- Center at y=480, half = 63.6px -->
-
-    <!-- Panel wall (solid above and below hole) -->
-    <rect x="599" y="415" width="32" height="40" fill="#e0e0e0" stroke="none"/>
-    <rect x="599" y="519" width="32" height="40" fill="#e0e0e0" stroke="none"/>
-
-    <!-- Through-hole (clear area: 15.9mm = 127.2px but that exceeds frame) -->
-    <!-- Use a partial section: show 50px above and below center at y=480 -->
-    <rect x="599" y="455" width="32" height="64" fill="white" stroke="none"/>
-
-    <!-- Hole edges -->
-    <line x1="599" y1="455" x2="631" y2="455" class="outline"/>
-    <line x1="599" y1="519" x2="631" y2="519" class="outline"/>
-
-    <!-- Panel outline -->
-    <line x1="599" y1="415" x2="599" y2="559" class="outline"/>
-    <line x1="631" y1="415" x2="631" y2="559" class="outline"/>
-    <line x1="599" y1="415" x2="631" y2="415" class="outline"/>
-    <line x1="599" y1="559" x2="631" y2="559" class="outline"/>
-
-    <!-- Centerline -->
-    <line x1="585" y1="487" x2="645" y2="487" class="center"/>
-
-    <!-- Panel thickness 4mm -->
-    <line x1="599" y1="560" x2="599" y2="568" class="ext"/>
-    <line x1="631" y1="560" x2="631" y2="568" class="ext"/>
-    <line x1="594" y1="564" x2="636" y2="564" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="615" y="560" class="dim-sm">4</text>
-
-    <!-- Hole diameter 15.9mm (vertical in this section) -->
-    <line x1="645" y1="455" x2="660" y2="455" class="ext"/>
-    <line x1="645" y1="519" x2="660" y2="519" class="ext"/>
-    <line x1="656" y1="455" x2="656" y2="519" class="dim" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-    <text x="668" y="491" class="dim-sm" text-anchor="start">15.9</text>
-
-    <!-- Direction labels -->
-    <text x="595" y="412" class="note" text-anchor="end" font-size="8">EXT</text>
-    <text x="635" y="412" class="note" text-anchor="start" font-size="8">INT</text>
-
-    <!-- Interior clearance note -->
-    <line x1="631" y1="487" x2="665" y2="475" stroke="#333" stroke-width="0.5"/>
-    <text x="667" y="473" class="note" text-anchor="start" font-size="8">30mm int.</text>
-    <text x="667" y="483" class="note" text-anchor="start" font-size="8">clearance</text>
-  </g>
+  <rect x="120" y="234" width="120" height="6" rx="3" class="outline"/>
+  <rect x="120" y="222" width="120" height="6" rx="3" class="outline"/>
+  <rect x="120" y="210" width="120" height="6" rx="3" class="outline"/>
+  <rect x="120" y="198" width="120" height="6" rx="3" class="outline"/>
+  <rect x="120" y="186" width="120" height="6" rx="3" class="outline"/>
+  <text x="180" y="254" class="note" text-anchor="middle">Vent slots (5x)</text>
+  <text x="180" y="264" class="note" text-anchor="middle">60 x 3mm ea.</text>
 
   <!-- ============================================================ -->
-  <!-- NOTES                                                         -->
+  <!-- REAR VIEW DIMENSIONS                                         -->
   <!-- ============================================================ -->
-  <line x1="30" y1="720" x2="1070" y2="720" stroke="#ccc" stroke-width="0.5"/>
-  <text x="60" y="740" class="viewlbl" text-anchor="start">NOTES</text>
-  <text x="60" y="756" class="note">1. All dimensions in mm. Tolerances: holes &#xb1;0.2mm, cutout &#xb1;0.3mm, overall &#xb1;0.5mm.</text>
-  <text x="60" y="770" class="note">2. Material: ABS or ASA, 3D printed. Wall thickness 4mm. Color: dark (to match enclosure).</text>
-  <text x="60" y="784" class="note">3. Lower zone (3x): &#x2300;15.9mm thru for JG PP1208W bulkhead fittings. 30mm interior clearance per fitting.</text>
-  <text x="60" y="798" class="note">4. Mid zone (2x): &#x2300;12.5mm thru for PG7 cable glands (flavor line exit). 15mm interior clearance per gland.</text>
-  <text x="60" y="812" class="note">5. Upper zone (1x): IEC C14 panel-mount inlet, 27.4 x 19.8mm rectangular cutout with 2x M3 mounting holes at 40mm c-t-c. 25mm interior clearance.</text>
-  <text x="60" y="826" class="note">6. Color-coded rings and embossed labels at each fitting position per assembly drawing.</text>
-  <text x="60" y="840" class="note">7. Panel may be integral to enclosure body or removable (fastener details per enclosure assembly).</text>
+
+  <!-- Overall width: 220mm -->
+  <line x1="60" y1="896" x2="60" y2="906" class="ext"/>
+  <line x1="500" y1="896" x2="500" y2="906" class="ext"/>
+  <line x1="60" y1="902" x2="500" y2="902" class="dim"/>
+  <text x="280" y="916" class="label">220</text>
+
+  <!-- Overall height: 400mm (right side) -->
+  <line x1="516" y1="80" x2="526" y2="80" class="ext"/>
+  <line x1="516" y1="880" x2="526" y2="880" class="ext"/>
+  <line x1="522" y1="80" x2="522" y2="880" class="dim"/>
+  <text x="542" y="484" class="label" transform="rotate(-90,542,484)">400</text>
+
+  <!-- Water fitting Z height from bottom: 50mm -->
+  <line x1="40" y1="880" x2="50" y2="880" class="ext"/>
+  <line x1="40" y1="780" x2="50" y2="780" class="ext"/>
+  <line x1="46" y1="780" x2="46" y2="880" class="dim"/>
+  <text x="32" y="834" class="label" transform="rotate(-90,32,834)">50</text>
+
+  <!-- Flavor line Z height from water fittings: 150mm (Z=50 to Z=200) -->
+  <line x1="40" y1="480" x2="50" y2="480" class="ext"/>
+  <line x1="46" y1="480" x2="46" y2="780" class="dim"/>
+  <text x="32" y="634" class="label" transform="rotate(-90,32,634)">150</text>
+
+  <!-- IEC C14 Z height from flavor zone: 170mm (Z=200 to Z=370) -->
+  <line x1="40" y1="140" x2="50" y2="140" class="ext"/>
+  <line x1="46" y1="140" x2="46" y2="480" class="dim"/>
+  <text x="32" y="314" class="label" transform="rotate(-90,32,314)">170</text>
+
+  <!-- Tap water X: 30mm from left edge -->
+  <line x1="60" y1="836" x2="60" y2="846" class="ext"/>
+  <line x1="120" y1="836" x2="120" y2="846" class="ext"/>
+  <line x1="60" y1="842" x2="120" y2="842" class="dim"/>
+  <text x="90" y="854" class="label">30</text>
+
+  <!-- Soda in X: 50mm spacing from tap -->
+  <line x1="220" y1="836" x2="220" y2="846" class="ext"/>
+  <line x1="120" y1="842" x2="220" y2="842" class="dim"/>
+  <text x="170" y="854" class="label">50</text>
+
+  <!-- Soda out X: 50mm spacing from soda in -->
+  <line x1="320" y1="836" x2="320" y2="846" class="ext"/>
+  <line x1="220" y1="842" x2="320" y2="842" class="dim"/>
+  <text x="270" y="854" class="label">50</text>
+
+  <!-- Flavor 1 X: 50mm from left -->
+  <line x1="160" y1="524" x2="160" y2="534" class="ext"/>
+  <line x1="60" y1="530" x2="160" y2="530" class="dim"/>
+  <text x="110" y="544" class="label">50</text>
+
+  <!-- Flavor 1 to Flavor 2: 120mm -->
+  <line x1="400" y1="524" x2="400" y2="534" class="ext"/>
+  <line x1="160" y1="530" x2="400" y2="530" class="dim"/>
+  <text x="280" y="544" class="label">120</text>
+
+  <!-- IEC C14 center X: 165mm from left -->
+  <line x1="390" y1="186" x2="390" y2="196" class="ext"/>
+  <line x1="60" y1="192" x2="390" y2="192" class="dim"/>
+  <text x="225" y="204" class="label">165</text>
+
+  <!-- M3 holes pitch: 40mm -->
+  <line x1="350" y1="108" x2="350" y2="114" class="ext"/>
+  <line x1="430" y1="108" x2="430" y2="114" class="ext"/>
+  <line x1="350" y1="111" x2="430" y2="111" class="dim"/>
+  <text x="390" y="106" class="label">40 c-t-c</text>
+
+  <!-- ============================================================ -->
+  <!-- SIDE VIEW — Looking along -X (right side)                   -->
+  <!-- Horizontal axis = Y (depth), Vertical axis = Z (height)    -->
+  <!-- Panel is only 4mm deep; use Y-scale 5:1, Z-scale 2:1      -->
+  <!-- Fittings protrude beyond panel; show at Y-scale 1.5:1      -->
+  <!-- Interior face (Y=0) at px_x=640                            -->
+  <!-- Exterior face (Y=4) at px_x=640+4*5=660                    -->
+  <!-- px_y = 880 - Zmm * 2 (same Z mapping as rear view)         -->
+  <!-- For fitting protrusions: interior extends left of 640       -->
+  <!--   px = 640 - depth_mm * 1.5                                 -->
+  <!--   exterior extends right of 660: px = 660 + depth_mm * 1.5 -->
+  <!-- ============================================================ -->
+  <text x="680" y="72" class="viewlbl">SIDE VIEW (RIGHT)</text>
+  <text x="680" y="84" class="note" text-anchor="middle">Looking along -X | Panel 5:1, fittings 1.5:1</text>
+
+  <!-- Panel body: 4mm thick x 400mm tall -->
+  <rect x="640" y="80" width="20" height="800" class="fill-light"/>
+  <rect x="640" y="80" width="20" height="800" class="outline"/>
+
+  <!-- Water fitting at Z=50 (representative, all three overlap in side view) -->
+  <!-- JG bulkhead: ~25mm OD body, 30mm interior protrusion, 25mm exterior (body+elbow) -->
+  <!-- Z=50 => py=780. Body height ~25mm OD => 50px at 2:1 Z-scale, centered on Z=50 -->
+  <!-- Interior protrusion: 30mm * 1.5 = 45px left of interior face -->
+  <!-- Exterior protrusion: 25mm * 1.5 = 37.5px right of exterior face -->
+  <rect x="595" y="755" width="45" height="50" class="hidden"/>
+  <rect x="660" y="755" width="38" height="50" class="hidden"/>
+
+  <!-- PG7 cable gland at Z=200 (flavor lines) -->
+  <!-- ~20mm OD body, 15mm interior, 10mm exterior protrusion -->
+  <!-- Z=200 => py=480. Body 20mm => 40px at 2:1 -->
+  <rect x="618" y="460" width="22" height="40" class="hidden"/>
+  <rect x="660" y="460" width="15" height="40" class="hidden"/>
+
+  <!-- IEC C14 at Z=370 (power inlet) -->
+  <!-- 25mm interior depth, flush-mount exterior with screw heads ~3mm -->
+  <!-- Z=370 => py=140. Height 19.8mm => 39.6px -->
+  <rect x="602" y="120" width="38" height="40" class="hidden"/>
+  <rect x="660" y="128" width="5" height="24" class="hidden"/>
+
+  <!-- Vent slots at Z=320-344 (through-panel, 4mm deep) -->
+  <!-- In side view, 4mm deep through panel => full panel width -->
+  <!-- Show as dashed lines through panel cross-section -->
+  <line x1="640" y1="234" x2="660" y2="234" class="hidden"/>
+  <line x1="640" y1="222" x2="660" y2="222" class="hidden"/>
+  <line x1="640" y1="210" x2="660" y2="210" class="hidden"/>
+  <line x1="640" y1="198" x2="660" y2="198" class="hidden"/>
+  <line x1="640" y1="186" x2="660" y2="186" class="hidden"/>
+
+  <!-- Side view dimensions -->
+  <!-- Panel thickness: 4mm -->
+  <line x1="640" y1="896" x2="640" y2="906" class="ext"/>
+  <line x1="660" y1="896" x2="660" y2="906" class="ext"/>
+  <line x1="640" y1="902" x2="660" y2="902" class="dim"/>
+  <text x="650" y="916" class="label">4</text>
+
+  <!-- Interior protrusion: 30mm (water fitting) -->
+  <line x1="595" y1="810" x2="595" y2="818" class="ext"/>
+  <line x1="640" y1="810" x2="640" y2="818" class="ext"/>
+  <line x1="595" y1="814" x2="640" y2="814" class="dim"/>
+  <text x="618" y="828" class="label">30 int.</text>
+
+  <!-- Exterior protrusion: 25mm (water fitting + elbow) -->
+  <line x1="660" y1="810" x2="660" y2="818" class="ext"/>
+  <line x1="698" y1="810" x2="698" y2="818" class="ext"/>
+  <line x1="660" y1="814" x2="698" y2="814" class="dim"/>
+  <text x="679" y="828" class="label">25 ext.</text>
+
+  <!-- IEC C14 interior depth: 25mm -->
+  <line x1="602" y1="166" x2="602" y2="174" class="ext"/>
+  <line x1="640" y1="166" x2="640" y2="174" class="ext"/>
+  <line x1="602" y1="170" x2="640" y2="170" class="dim"/>
+  <text x="621" y="182" class="label">25 int.</text>
+
+  <!-- Side view height: 400mm -->
+  <line x1="710" y1="80" x2="720" y2="80" class="ext"/>
+  <line x1="710" y1="880" x2="720" y2="880" class="ext"/>
+  <line x1="716" y1="80" x2="716" y2="880" class="dim"/>
+  <text x="736" y="484" class="label" transform="rotate(-90,736,484)">400</text>
+
+  <!-- ============================================================ -->
+  <!-- TOP VIEW — Looking along -Z (from above)                    -->
+  <!-- Horizontal axis = X (0-220), Vertical axis = Y (0-4 depth) -->
+  <!-- Scale: X 2:1, Y 5:1                                        -->
+  <!-- Panel top-left at SVG: (60, 960)                            -->
+  <!-- px_x = 60 + Xmm * 2                                        -->
+  <!-- px_y = 960 + Ymm * 5 (Y=0 interior at 960, Y=4 exterior at 980) -->
+  <!-- ============================================================ -->
+  <text x="280" y="940" class="viewlbl">TOP VIEW</text>
+  <text x="280" y="952" class="note" text-anchor="middle">Looking along -Z (from above) | X-scale 2:1, Y-scale 5:1</text>
+
+  <!-- Panel body -->
+  <rect x="60" y="960" width="440" height="20" class="fill-light"/>
+  <rect x="60" y="960" width="440" height="20" class="outline"/>
+
+  <!-- Panel centerline X=110 => px 280 -->
+  <line x1="280" y1="954" x2="280" y2="986" class="center"/>
+
+  <!-- Water fitting holes shown as hidden circles (through-holes along Z axis) -->
+  <!-- In top view looking down -Z, Z-axis holes appear as circles -->
+  <!-- Panel center Y=2mm => py=960+2*5=970 -->
+  <!-- Tap water X=30 => px=120, 15.9mm hole => but at 5:1 Y, 2:1 X the circle is an ellipse -->
+  <!-- Approximate as small through-hole marks -->
+  <circle cx="120" cy="970" r="4" class="hidden"/>
+  <circle cx="220" cy="970" r="4" class="hidden"/>
+  <circle cx="320" cy="970" r="4" class="hidden"/>
+
+  <!-- Flavor gland holes -->
+  <circle cx="160" cy="970" r="3" class="hidden"/>
+  <circle cx="400" cy="970" r="3" class="hidden"/>
+
+  <!-- IEC C14 cutout (rectangle through panel) -->
+  <!-- X=165 center, 27.4mm wide => px 362.6 to 417.4, full panel depth -->
+  <rect x="362.6" y="960" width="54.8" height="20" class="hidden"/>
+
+  <!-- Vent slot region (5 slots at X=30-90) -->
+  <!-- Show as single dashed zone -->
+  <rect x="120" y="960" width="120" height="20" fill="none" stroke="#000" stroke-width="0.4" stroke-dasharray="3,2"/>
+
+  <!-- Top view labels -->
+  <text x="120" y="956" class="note" text-anchor="middle">TAP</text>
+  <text x="220" y="956" class="note" text-anchor="middle">SODA IN</text>
+  <text x="320" y="956" class="note" text-anchor="middle">SODA OUT</text>
+  <text x="160" y="992" class="note" text-anchor="middle">FL1</text>
+  <text x="400" y="992" class="note" text-anchor="middle">FL2</text>
+  <text x="390" y="956" class="note" text-anchor="middle">C14</text>
+
+  <!-- Top view dimensions -->
+  <line x1="60" y1="994" x2="60" y2="1004" class="ext"/>
+  <line x1="500" y1="994" x2="500" y2="1004" class="ext"/>
+  <line x1="60" y1="1000" x2="500" y2="1000" class="dim"/>
+  <text x="280" y="1014" class="label">220</text>
+
+  <!-- Depth: 4mm -->
+  <line x1="510" y1="960" x2="518" y2="960" class="ext"/>
+  <line x1="510" y1="980" x2="518" y2="980" class="ext"/>
+  <line x1="514" y1="960" x2="514" y2="980" class="dim"/>
+  <text x="530" y="974" class="label">4</text>
+
+  <!-- ============================================================ -->
+  <!-- NOTES BLOCK                                                  -->
+  <!-- ============================================================ -->
+  <line x1="820" y1="90" x2="1170" y2="90" stroke="#000" stroke-width="0.5"/>
+  <text x="820" y="108" class="viewlbl" text-anchor="start">NOTES</text>
+
+  <text x="820" y="130" class="note">1. All dimensions in mm.</text>
+  <text x="820" y="148" class="note">2. Lower zone (Z=30-70): Three JG PP1208W 1/4"</text>
+  <text x="830" y="161" class="note">bulkhead unions. 15.9mm (5/8") mounting holes.</text>
+  <text x="830" y="174" class="note">Exterior 90-deg elbows (JG PP0308W) on each.</text>
+  <text x="830" y="187" class="note">30mm interior clearance required.</text>
+  <text x="820" y="208" class="note">3. Mid zone (Z=180-220): Two PG7 cable glands</text>
+  <text x="830" y="221" class="note">for 1/4" OD silicone flavor tubes. 12.5mm holes.</text>
+  <text x="830" y="234" class="note">15mm interior clearance per gland.</text>
+  <text x="820" y="255" class="note">4. Upper zone (Z=340-380): IEC C14 panel-mount</text>
+  <text x="830" y="268" class="note">inlet with fuse holder. 27.4 x 19.8mm cutout.</text>
+  <text x="830" y="281" class="note">Two M3 screws at 40mm c-t-c. 25mm interior</text>
+  <text x="830" y="294" class="note">clearance. PSU mounts adjacent on interior.</text>
+  <text x="820" y="315" class="note">5. Ventilation: 5 horizontal slots (60 x 3mm ea.)</text>
+  <text x="830" y="328" class="note">at Z=320-344, X=30-90 for PSU heat dissipation.</text>
+  <text x="820" y="349" class="note">6. Soda water path: inlet bulkhead to DIGITEN</text>
+  <text x="830" y="362" class="note">flow meter (interior mount) to outlet bulkhead.</text>
+  <text x="830" y="375" class="note">No flavor mixing on soda line inside enclosure.</text>
+  <text x="820" y="396" class="note">7. Color coding: TAP IN = blue, SODA IN = green,</text>
+  <text x="830" y="409" class="note">SODA OUT = white, FLAVOR 1/2 = user-assignable.</text>
+  <text x="820" y="430" class="note">8. Panel may be integral or removable (TBD).</text>
+  <text x="830" y="443" class="note">4mm wall thickness, ABS or ASA.</text>
+  <text x="820" y="464" class="note">9. Internal tube routing: hard PE/nylon connects</text>
+  <text x="830" y="477" class="note">water bulkheads to valve rack and flow meter.</text>
+  <text x="830" y="490" class="note">Silicone transition at PG7 glands for external</text>
+  <text x="830" y="503" class="note">cosmetic run to faucet.</text>
+  <text x="820" y="524" class="note">10. All water fittings accept 1/4" OD (6.35mm)</text>
+  <text x="830" y="537" class="note">tubing. JG push-to-connect, collet release.</text>
 
 </svg>
