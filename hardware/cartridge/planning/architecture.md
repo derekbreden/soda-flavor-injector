@@ -11,12 +11,12 @@ The pump cartridge is the only user-replaceable module in the system. It contain
 | Envelope | **148W x 130D x 80H mm** |
 | Pump count | 2 |
 | Pump model | Kamoer KPHM400-SW3B25 (12V DC brushed, 400ml/min) |
-| Single pump dimensions | 68.6W x 115.6D x 62.7H mm |
+| Single pump dimensions | 68.6W x 116.48D x 62.6H mm (caliper-verified; 111.43mm without motor nub) |
 | Combined pump width (side-by-side) | ~137.2mm |
 | Cartridge mass (estimated) | ~820g (2x 306g pumps + shell) |
 | Replacement interval | 18-36 months (pump tube wear) |
 
-The two pumps sit side-by-side with motors facing the same direction (toward the rear). This is the simplest arrangement: symmetric tube routing, both pump heads face forward, electrical leads exit from the same side. The 148mm width accommodates 137.2mm of pumps with ~5.5mm margin per side for shell walls and clearance. The 130mm depth fits the 115.6mm motor axis plus mounting hardware and connector protrusion. The 80mm height clears the 62.7mm pumps with room for tubing routing above.
+The two pumps sit side-by-side with motors facing the same direction (toward the rear). This is the simplest arrangement: symmetric tube routing, both pump heads face forward, electrical leads exit from the same side. The 148mm width accommodates 137.2mm of pumps with ~5.5mm margin per side for shell walls and clearance. The 130mm depth fits the 116.48mm motor axis (caliper-verified, including motor nub) plus mounting hardware and connector protrusion. The 80mm height clears the 62.6mm pumps with room for tubing routing above.
 
 The envelope is constrained by the pumps, not by the available void. The triangular space below the diagonal bags is far larger than needed.
 
@@ -77,7 +77,7 @@ See `research/dock-placement.md` for the full triangle geometry analysis, ergono
 
 Four JG PP0408W 1/4" push-to-connect union fittings mount in the cartridge rear wall in a 2x2 grid (40mm horizontal x 28mm vertical center-to-center). The dock carries four bare 1/4" OD hard nylon tube stubs (~30mm protrusion) that the cartridge slides onto during insertion. Collets grip automatically on insertion — no user action needed to connect. The cartridge is the fitting-bearing side; the dock is passive.
 
-**Disconnect uses a single-motion release mechanism.** A cam lever on the cartridge front face drives a push rod through the cartridge body to a release plate on the rear face. The release plate has four stepped bores (8.0/10.5/12.5mm) that engage all four JG collet rings simultaneously. The user flips the lever, all four collets release at once, and the user pulls the cartridge out by the lever handle. One motion to unlock, one motion to remove. Compression springs on the guide pins return the release plate to the locked position.
+**Disconnect uses a single-motion release mechanism.** A cam lever on the cartridge front face drives a push rod through the cartridge body to a release plate on the rear face. The release plate has four stepped bores (8.0/10.5/12.5mm) that engage all four JG body ends simultaneously. The user flips the lever, all four collets release at once, and the user pulls the cartridge out by the lever handle. One motion to unlock, one motion to remove. Compression springs on the guide pins return the release plate to the locked position.
 
 | Aspect | Detail |
 |--------|--------|

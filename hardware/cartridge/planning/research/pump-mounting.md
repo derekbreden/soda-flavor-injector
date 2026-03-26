@@ -14,7 +14,7 @@ This document synthesizes the Kamoer KK series product manual (KKDD/TS, version 
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
-| Overall size (L x W x H) | 115.6 x 68.6 x 62.7 mm | Verified -- Kamoer product page |
+| Overall size (L x W x H) | 116.48 x 68.6 x 62.6 mm (caliper-verified; 111.43mm without motor nub) | Caliper-verified (supersedes datasheet 115.6mm) |
 | Weight (brushed DC variant) | ~306 g | Verified -- Kamoer specs |
 | Pump tube | BPT 25# (4.8 mm ID x 8.0 mm OD) | Verified -- model suffix B25 |
 | Motor type | 12V DC brushed | Verified -- model suffix SW |
