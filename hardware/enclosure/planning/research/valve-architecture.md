@@ -264,14 +264,14 @@ The RO (reverse osmosis) water purification market produces exactly the type of 
 - Power: 5.5W rated
 - Working pressure: 0.02-0.8 MPa
 - Working temperature: up to 60C (140F)
-- **Valve dimensions (caliper-verified):** L-shaped body, 32.71mm wide (X) x 50.84mm deep (Y, port-to-port) x 56.00mm tall (Z, bottom of white body to top of spade connectors)
+- **Valve dimensions (caliper-verified):** T-shaped body (metal coil centered on white body), 32.71mm wide (X) x 50.84mm deep (Y, port-to-port) x 56.00mm tall (Z, bottom of white body to top of spade connectors)
 - Package dimensions: ~215 x 60 x 34mm (Amazon packaging, not the valve)
 - Weight: ~100g
 - Materials: White plastic valve body + metal solenoid coil housing, designed for RO systems
 - Rating: 4.2/5 stars (143 ratings)
 - Price: ~$8.99 (check current listing)
 - Prime eligible: Yes
-- Notes: Beduan is a well-known valve brand on Amazon with a wide product line. L-shaped profile: horizontal white valve body with vertical metal solenoid coil rising from one end. No built-in mounting features -- requires designed cradle/clamp.
+- Notes: Beduan is a well-known valve brand on Amazon with a wide product line. T-shaped profile: horizontal white valve body with vertical metal solenoid coil rising from the center. Spade connectors parallel to tube flow axis. No built-in mounting features -- requires designed cradle/clamp.
 
 **Candidate 5: Akent 1/4" DC12V Inlet Feed Water Solenoid Valve**
 - ASIN: B071RYT994
@@ -346,7 +346,7 @@ $20-50 per valve. Zero holding power (permanent magnet holds position, brief pul
 
 At the 220mm width target, valves cannot be arranged in side banks flanking the cartridge -- there is not enough lateral space. Instead, the 10 valves are placed behind and/or above the cartridge dock area.
 
-The Beduan solenoid valve (caliper-verified) is L-shaped, not cylindrical: 32.71mm wide x 50.84mm deep (port-to-port) x 56.00mm tall (white body base to spade connector tips). The white valve body is ~19.4mm tall; the metal solenoid coil housing rises ~36.6mm above that.
+The Beduan solenoid valve (caliper-verified) is T-shaped, not cylindrical: 32.71mm wide x 50.84mm deep (port-to-port) x 56.00mm tall (white body base to spade connector tips). The metal solenoid coil (31.41mm wide) is centered on the white valve body (32.71mm wide, ~19.4mm tall), rising ~36.6mm above it. Spade connectors extend parallel to the tube flow axis (Y).
 
 ### 5b. Fitting 10 Two-Way Valves
 

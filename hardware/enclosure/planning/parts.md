@@ -233,13 +233,13 @@ Ten solenoid valves mounted behind the cartridge dock, using the depth dimension
 - **Features:**
   - Holds 10 solenoid valves in a 5-wide x 2-high grid
   - Valve orientation: long axis (port-to-port, 50.84mm) along Y (depth), coil housing at top (caliper-verified)
-  - Valve is L-shaped: white body (32.71W x 50.84D x ~19.4H mm) with metal solenoid coil (31.41W mm) rising vertically from one end, total height 56.00mm (caliper-verified)
+  - Valve is T-shaped: white body (32.71W x 50.84D x ~19.4H mm) with metal solenoid coil (31.41W mm) rising vertically from the center, total height 56.00mm (caliper-verified)
   - Valve pitch (center-to-center in X): 37mm (32.71mm body + 4.29mm gap between bodies)
   - 5 valves at 37mm pitch: span = 4 x 37 + 32.71 = 180.71mm ≈ 181mm, centered in 212mm interior (15.5mm margin per side)
   - Row 1 (bottom): Z=0 to Z=56, 5 valves across width
   - Row 2 (top): Z=60 to Z=116, 5 valves across width (4mm gap between rows)
   - Note: rack height is 116mm, taller than cartridge slot (84mm) -- verify no interference with dock back wall / pogo mount
-  - Each valve cradle: L-shaped profile -- saddle supports the horizontal white valve body from below and on the sides, with a slot/opening for the vertical solenoid coil protrusion. Snap-over retention clips on white body (2 per valve, spaced ~30mm apart along valve length). Must not interfere with tube ports (Y axis) or spade connectors (top). Initial design value, subject to iteration.
+  - Each valve cradle: T-shaped profile -- centered saddle supports the horizontal white valve body from below and on the sides, with clearance above for the centered vertical solenoid coil. Snap-over retention clips on white body (2 per valve, spaced ~30mm apart along valve length). Must not interfere with tube ports (Y axis) or spade connectors (top, extending parallel to Y). Initial design value, subject to iteration.
   - Depth consumed: Y=140 to Y=195 (55mm, port-to-port valve length plus clearance) (caliper-verified)
   - Cable routing channels for solenoid wires (12V + GND per valve, 20 wires total) along rack sides
 - **Interfaces:**
@@ -518,10 +518,10 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
 - **Type:** Purchased
 - **Source:** Beduan B07NWCQJK9 (~$9 each, ~$90 for 10)
 - **Material:** Food-grade plastic and elastomer (RO-rated)
-- **Envelope:** L-shaped assembly, not a simple rectangular block (caliper-verified):
+- **Envelope:** T-shaped assembly, not a simple rectangular block (caliper-verified):
   - White plastic valve body (fluid section): 32.71W x 50.84D (port-to-port) x ~19.4H mm (caliper-verified)
-  - Metal solenoid coil housing: 31.41W mm, mounted perpendicular on top of valve body at one end (caliper-verified)
-  - Spade connectors protrude from top of metal housing; metal body to spade tips: 36.63mm (caliper-verified)
+  - Metal solenoid coil housing: 31.41W mm, centered on top of valve body (caliper-verified)
+  - Spade connectors protrude from top of metal housing parallel to tube flow axis (Y); metal body to spade tips: 36.63mm (caliper-verified)
   - Total bounding box: 32.71W x 50.84D x 56.00H mm (caliper-verified)
   - With 1/4" QC fittings on both ends: approximately 32.71W x 68D x 56.00H mm
 - **Weight:** 113g each
