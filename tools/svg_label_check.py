@@ -245,6 +245,28 @@ def is_dimension_label_for_line(text_bb: BBox, line_bb: BBox) -> bool:
     return dist < max(line_len * 0.6, 20)
 
 
+def get_ancestor_translate(elem: ET.Element, parent_map: dict) -> tuple[float, float]:
+    """Walk up the tree accumulating translate(tx,ty) from <g> ancestors."""
+    tx_total, ty_total = 0.0, 0.0
+    node = elem
+    while node in parent_map:
+        node = parent_map[node]
+        transform = node.get("transform", "")
+        m = re.search(r"translate\(\s*([-\d.]+)[\s,]+([-\d.]+)\s*\)", transform)
+        if m:
+            tx_total += float(m.group(1))
+            ty_total += float(m.group(2))
+    return tx_total, ty_total
+
+
+def apply_translate(bb: BBox, tx: float, ty: float) -> BBox:
+    """Offset a bbox by a translate amount."""
+    if tx == 0 and ty == 0:
+        return bb
+    return BBox(bb.x_min + tx, bb.y_min + ty, bb.x_max + tx, bb.y_max + ty,
+                bb.label, bb.kind)
+
+
 def parse_svg(filepath: str) -> tuple[list[BBox], list[BBox]]:
     """Parse SVG and return (text_bboxes, geometry_bboxes)."""
     tree = ET.parse(filepath)
@@ -253,6 +275,9 @@ def parse_svg(filepath: str) -> tuple[list[BBox], list[BBox]]:
     ns = ""
     if root.tag.startswith("{"):
         ns = root.tag.split("}")[0] + "}"
+
+    # Build parent map for ancestor traversal
+    parent_map = {child: parent for parent in root.iter() for child in parent}
 
     texts = []
     geometry = []
@@ -263,15 +288,18 @@ def parse_svg(filepath: str) -> tuple[list[BBox], list[BBox]]:
         if tag == "text":
             bb = text_bbox(elem)
             if bb:
-                texts.append(bb)
+                tx, ty = get_ancestor_translate(elem, parent_map)
+                texts.append(apply_translate(bb, tx, ty))
         elif tag == "rect":
             bb = rect_bbox(elem)
             if bb:
-                geometry.append(bb)
+                tx, ty = get_ancestor_translate(elem, parent_map)
+                geometry.append(apply_translate(bb, tx, ty))
         elif tag == "line":
             bb = line_bbox(elem)
             if bb:
-                geometry.append(bb)
+                tx, ty = get_ancestor_translate(elem, parent_map)
+                geometry.append(apply_translate(bb, tx, ty))
 
     return texts, geometry
 
