@@ -118,7 +118,7 @@
     <line x1="57.2" y1="-22" x2="57.2"  y2="415" class="center"/>
     <line x1="186.7" y1="-22" x2="186.7" y2="415" class="center"/>
 
-    <!-- ---- Dimensions ---- -->
+    <!-- Dimensions -->
     <!-- Rack width 181mm -->
     <line x1="0" y1="425" x2="0" y2="438" class="dim"/>
     <line x1="633.5" y1="425" x2="633.5" y2="438" class="dim"/>
@@ -165,7 +165,7 @@
   <!-- SVG x=0 => Y=0 (front),  x=192.5 => Y=55 (rear)                 -->
   <!-- SVG y=0 => Z=116 (top),  y=406 => Z=0 (bottom)                   -->
   <!-- ================================================================ -->
-  <!-- All 5 valves in a column overlap perfectly -- draw one L profile -->
+  <!-- All 5 valves in a column overlap perfectly, draw one L profile -->
   <!-- White body: Y 2.08..52.92 (centered in 55mm) = px 7.3..185.2  -->
   <!-- Metal coil at rear end. Coil depth ~22mm => Y 30.9..52.9 = px 108.2..185.2 -->
 
@@ -206,7 +206,7 @@
     <text x="55" y="380" class="note" text-anchor="middle" font-size="8px">white body</text>
     <text x="147" y="280" class="note" text-anchor="middle" font-size="8px">metal coil</text>
 
-    <!-- ---- Dimensions ---- -->
+    <!-- Dimensions -->
     <!-- Rack depth 55mm -->
     <line x1="0" y1="425" x2="0" y2="438" class="dim"/>
     <line x1="192.5" y1="425" x2="192.5" y2="438" class="dim"/>
