@@ -14,9 +14,9 @@ This document synthesizes manufacturer documentation, patent literature, and wel
 
 A John Guest push-to-connect port contains these components in order from the outside face inward:
 
-1. **Collet ring** (acetal copolymer) -- the visible ring on the fitting face that the user pushes to release. This is the external interface to the grip mechanism.
+1. **Collet / release sleeve** (acetal copolymer) -- the visible moving ring on the fitting face that the user pushes inward to release. OD: 9.57mm, wall: 1.44mm, ID: 6.69mm (caliper-verified). This is the external interface to the grip mechanism.
 
-2. **Stainless steel gripper teeth** -- a stamped stainless steel ring with inward-angled teeth (sometimes called "grab ring" or "gripper ring"). The teeth are angled toward the interior of the fitting, meaning they allow insertion but resist withdrawal. The teeth are integrated into or seated against the collet ring.
+2. **Stainless steel gripper teeth** -- a stamped stainless steel ring with inward-angled teeth (sometimes called "grab ring" or "gripper ring"). The teeth are angled toward the interior of the fitting, meaning they allow insertion but resist withdrawal. The teeth are integrated into or seated against the collet.
 
 3. **O-ring** (nitrile or EPDM) -- provides the pressure seal. Seated in a groove in the fitting body, deeper inside than the gripper teeth.
 
@@ -29,18 +29,21 @@ A John Guest push-to-connect port contains these components in order from the ou
 | Tube OD | 0.250" (6.35 mm) | Verified -- spec |
 | Tube OD tolerance | +0.001" / -0.004" | Verified -- John Guest spec |
 | O-ring size | AS568-108 (7/16" OD x 1/4" ID x 3/32" CS) | Verified -- John Guest |
-| Fitting body OD | Barbell profile: 9.31mm center body, 15.10mm collet rings | Caliper-verified (see geometry-description.md) |
+| Fitting body OD | Barbell profile: 9.31mm center body, 15.10mm body ends | Caliper-verified (see geometry-description.md) |
 | Center body length | 12.16mm | Caliper-verified |
-| Collet ring length | 12.08mm each | Caliper-verified |
+| Body end length | 12.08mm each | Caliper-verified |
 | Insertion depth to tube stop | ~16mm per side | Industry convention, unverified |
-| Collet ring OD | 15.10mm | Caliper-verified |
-| Tube port opening (collet bore) | 9.57mm | Caliper-verified |
+| Body end OD | 15.10mm | Caliper-verified — the fixed housing section |
+| Collet (release sleeve) OD | 9.57mm | Caliper-verified — the moving part that is pushed inward |
+| Collet wall thickness | 1.44mm | Caliper-verified |
+| Collet ID | 6.69mm | Derived: 9.57 - 2×1.44; tube passes through this |
+| Tube OD (measured) | 6.30mm | Caliper-verified (nominal 6.35mm / 1/4") |
 | Max working pressure | 150 PSI at 70F | Verified -- John Guest spec |
 
 ### Insertion Sequence
 
 1. Tube is pushed into the fitting port.
-2. Tube passes through the collet ring, which is in its relaxed (gripping) position.
+2. Tube passes through the collet, which is in its relaxed (gripping) position.
 3. The gripper teeth deflect slightly outward as the tube passes -- the teeth are angled to allow forward movement.
 4. Tube slides past the O-ring, compressing it to create a seal.
 5. Tube bottoms out against the tube stop.
@@ -61,18 +64,18 @@ The system is designed so that **it grips before it seals** -- the teeth engage 
 
 ### The Release Action
 
-To release a tube, the collet ring is pushed **inward toward the fitting body** (in the same direction as tube insertion). This is a linear axial motion, not a twist or rotation.
+To release a tube, the collet is pushed **inward toward the fitting body** (in the same direction as tube insertion). This is a linear axial motion, not a twist or rotation.
 
-What happens internally when the collet ring is pressed inward:
+What happens internally when the collet is pressed inward:
 
-1. The collet ring slides axially into the fitting body.
-2. The collet ring pushes against the back side of the gripper teeth ring, or the collet geometry changes the angle/position of the teeth.
+1. The collet slides axially into the fitting body.
+2. The collet pushes against the back side of the gripper teeth ring, or the collet geometry changes the angle/position of the teeth.
 3. The teeth are forced to a more perpendicular orientation relative to the tube -- they are pushed off the tube surface or their angle is neutralized so they no longer bite.
 4. With the teeth disengaged, the tube can slide freely out of the fitting.
 
 ### Critical Detail: The Collet Must Be Held Depressed
 
-The teeth re-engage as soon as the collet ring is released. The release is not a toggle -- it requires **sustained inward pressure** on the collet ring while simultaneously withdrawing the tube. Release the collet before the tube clears the teeth, and it re-grips.
+The teeth re-engage as soon as the collet is released. The release is not a toggle -- it requires **sustained inward pressure** on the collet while simultaneously withdrawing the tube. Release the collet before the tube clears the teeth, and it re-grips.
 
 ### Travel and Force
 
@@ -121,15 +124,15 @@ Key geometric features:
 
 1. **U-shaped opening (slot)**: The tool slides around the tube without requiring the tube to be disconnected from anything else first. The slot width is slightly larger than the tube OD (just over 1/4" for a 1/4" tool).
 
-2. **Outer cradle**: The outer wall of the tool surrounds and engages the collet ring on its sides. This is not just for positioning -- it **prevents the collet from moving laterally** when force is applied. The outer diameter of this cradle matches the collet ring OD.
+2. **Outer cradle**: The outer wall of the tool surrounds and engages the collet on its sides. This is not just for positioning -- it **prevents the collet from moving laterally** when force is applied. The outer diameter of this cradle matches the collet OD.
 
-3. **Inset inner lip**: Inside the U-shape, there is a recessed lip that is narrower than the collet ring but wider than the tube. This lip is the surface that actually pushes the collet inward. The lip engages the collet ring face **evenly around its full circumference** (minus the U-slot gap).
+3. **Inset inner lip**: Inside the U-shape, there is a recessed lip that is narrower than the collet but wider than the tube. This lip is the surface that actually pushes the collet inward. The lip engages the collet face **evenly around its full circumference** (minus the U-slot gap).
 
 4. **Depth/thickness**: The tool has enough axial depth to apply force over the full travel distance of the collet (~1.3mm per side, caliper-verified) without slipping off.
 
 ### Why This Geometry Exists
 
-The geometry solves a specific mechanical problem: **the collet ring must be pushed perfectly axially (straight in) to release cleanly.** The tool achieves this through three mechanisms:
+The geometry solves a specific mechanical problem: **the collet must be pushed perfectly axially (straight in) to release cleanly.** The tool achieves this through three mechanisms:
 
 1. **Lateral constraint** (outer cradle): Prevents the collet from shifting sideways when force is applied. Without this, pressing on one side of the collet pushes the opposite side outward -- the collet pivots instead of translating.
 
@@ -144,12 +147,12 @@ For a 1/4" OD tube fitting (all values measured/inferred):
 | Dimension | Value | Purpose |
 |-----------|-------|---------|
 | Slot width (U opening) | ~7.5-8.0 mm (~5/16") | Clears 1/4" tube with slight margin |
-| Inner lip ID | ~7.5-8.0 mm | Same as slot -- clears tube |
-| Inner lip OD | ~12-13 mm | Engages collet ring face (must be between 9.57mm port opening and 15.10mm collet ring OD) |
-| Outer cradle ID | ~15.5-16 mm | Surrounds collet ring sides (must clear 15.10mm collet ring OD) |
+| Inner bore (tube clearance) | Between 6.30mm and 6.69mm | Must clear tube OD (6.30mm caliper-verified) but be smaller than collet ID (6.69mm) — so tool face contacts collet end face |
+| Collet-hugging bore | Just over 9.57mm | Must clear collet OD (9.57mm caliper-verified) — closely surrounds collet for lateral constraint. Tighter = better grip. |
+| Outer cradle ID | Just over 15.10mm | Must clear body end OD (15.10mm caliper-verified) — surrounds body end for lateral constraint. Tighter = less wobble. |
 | Tool thickness (axial) | ~3-4 mm | Enough depth to engage collet through full ~1.3mm travel |
 
-The key relationship: **inner lip OD < collet ring OD (15.10mm, caliper-verified) < outer cradle ID**. The lip pushes the face; the cradle holds the sides. The inner lip OD must also be larger than the tube port opening (9.57mm, caliper-verified) to contact the collet ring face rather than falling into the port.
+The key relationships: The tool has **three concentric bores**. (1) The innermost bore is smaller than the collet ID (6.69mm), so the tool face around this bore contacts the collet's annular end face and pushes it inward. The design window here is only 0.39mm (6.30–6.69mm). (2) The collet-hugging bore is just larger than the collet OD (9.57mm), closely surrounding the collet to prevent lateral movement during the push. Should be as tight as manufacturing allows. (3) The outer cradle just clears the body end OD (15.10mm, caliper-verified) and constrains it laterally. Also as tight as manufacturing allows.
 
 ---
 
@@ -157,9 +160,9 @@ The key relationship: **inner lip OD < collet ring OD (15.10mm, caliper-verified
 
 ### 4.1 Uneven Pressure on the Collet
 
-**What happens**: When force is applied more to one side of the collet ring than the other, the ring tilts/cocks rather than translating axially. One side of the gripper teeth disengages while the other side grips harder.
+**What happens**: When force is applied more to one side of the collet than the other, the ring tilts/cocks rather than translating axially. One side of the gripper teeth disengages while the other side grips harder.
 
-**Result**: The tube feels stuck. Pulling harder causes the still-engaged teeth to dig in deeper. Users often resort to excessive force, which can damage the tube surface (scoring/gouging), damage the gripper teeth, or crack the collet ring.
+**Result**: The tube feels stuck. Pulling harder causes the still-engaged teeth to dig in deeper. Users often resort to excessive force, which can damage the tube surface (scoring/gouging), damage the gripper teeth, or crack the collet.
 
 **This is the most common release failure mode** and the primary reason release tools exist at all.
 
@@ -167,7 +170,7 @@ The key relationship: **inner lip OD < collet ring OD (15.10mm, caliper-verified
 
 **What happens**: Pressing the collet from a single point (e.g., with a fingertip on one edge) creates a moment about the collet's center. The collet pivots: the pressed side goes in, the opposite side stays put or pushes out.
 
-**Result**: Same as uneven pressure -- partial tooth disengagement. In John Guest's small fittings (1/4", 3/8"), this is less of a problem because the collet ring is small enough that a fingertip covers most of its face. In larger fittings (1/2"+), it becomes a real issue, which is why release tools are more important for larger sizes.
+**Result**: Same as uneven pressure -- partial tooth disengagement. In John Guest's small fittings (1/4", 3/8"), this is less of a problem because the collet is small enough that a fingertip covers most of its face. In larger fittings (1/2"+), it becomes a real issue, which is why release tools are more important for larger sizes.
 
 ### 4.3 Insufficient Travel
 
@@ -177,7 +180,7 @@ The key relationship: **inner lip OD < collet ring OD (15.10mm, caliper-verified
 
 ### 4.4 Cocked/Tilted Collet
 
-**What happens**: The collet ring gets pushed in at an angle (not perpendicular to the fitting face). This can happen from off-axis force, from the tool slipping, or from lateral force on the tube during release.
+**What happens**: The collet gets pushed in at an angle (not perpendicular to the fitting face). This can happen from off-axis force, from the tool slipping, or from lateral force on the tube during release.
 
 **Result**: The gripper teeth disengage unevenly around the circumference. Even if the tube can be removed, the collet may not return to its proper resting position. On reinsertion, the cocked collet may not grip evenly, potentially leading to a blow-out under pressure.
 
@@ -185,7 +188,7 @@ The key relationship: **inner lip OD < collet ring OD (15.10mm, caliper-verified
 
 **What happens**: A subset of the gripper teeth (e.g., teeth on one semicircle) disengage while others remain engaged.
 
-**Result**: The tube can rotate but not withdraw. Or the tube withdraws partway and then catches. Forceful removal with partial engagement is the scenario most likely to **permanently damage the fitting** -- the engaged teeth can be bent or broken, the collet ring can crack, and the tube surface gets scored.
+**Result**: The tube can rotate but not withdraw. Or the tube withdraws partway and then catches. Forceful removal with partial engagement is the scenario most likely to **permanently damage the fitting** -- the engaged teeth can be bent or broken, the collet can crack, and the tube surface gets scored.
 
 ### 4.6 Summary Table
 
@@ -261,23 +264,29 @@ Each hole in the release plate needs a **stepped bore** that replicates the rele
 
 Three concentric diameters per hole:
 
-| Feature | Diameter | Depth (axial) | Purpose |
-|---------|----------|---------------|---------|
-| Tube clearance hole | ~8 mm (5/16") | Through | Tube passes through freely |
-| Inner lip (collet pusher) | ~12-13 mm | ~1.5-2 mm | Engages collet ring face (15.10mm OD, caliper-verified), pushes it inward. Must clear 9.57mm port opening. |
-| Outer bore (collet cradle) | ~15.5-16 mm | ~2-3 mm | Surrounds collet ring sides (15.10mm OD, caliper-verified), prevents lateral movement |
+| Feature | Constraint Window | Depth (axial) | Purpose |
+|---------|-------------------|---------------|---------|
+| Tube clearance hole | 6.30mm < D < 6.69mm | Through | Must clear tube (6.30mm caliper-verified) but be smaller than collet ID (6.69mm) so plate face contacts collet end face. **Only 0.39mm design window.** |
+| Inner lip (collet hugger) | D > 9.57mm, as tight as possible | ~1.5-2 mm | Must clear collet OD (9.57mm caliper-verified). Closely surrounds collet for lateral constraint — tighter = less wobble during release. |
+| Outer bore (body end cradle) | D > 15.10mm, as tight as possible | ~2-3 mm | Must clear body end OD (15.10mm caliper-verified). Closely surrounds body end for lateral constraint — tighter = less wobble. |
 
-The inner lip is the critical feature. It must:
+**How force is applied:** The plate face between the through-hole and the inner lip bore contacts the collet's annular end face. The collet face is an annulus from 6.69mm ID to 9.57mm OD (1.44mm wide = the collet wall thickness). The plate contacts the full face of this annulus, providing even, distributed push force. The tighter the inner lip bore is to 9.57mm, the more precisely the plate's contact annulus matches the collet face.
 
-- Clear the tube (ID > tube OD + clearance)
-- Be larger than the tube port opening (9.57mm, caliper-verified) so it contacts the collet ring face, not the port bore
-- Contact the collet ring face (OD smaller than 15.10mm collet ring OD, caliper-verified)
-- Be wide enough to distribute force evenly (annular contact area)
-- Be deep enough to maintain engagement through full collet travel (~1.3mm per side, caliper-verified)
+**The inner lip bore serves dual purpose:**
+1. **Lateral constraint:** Closely hugs the 9.57mm collet, preventing sideways movement during the push (same principle as the PI-TOOL's outer cradle, but at the collet scale). Tighter fit = better constraint.
+2. **Bore transition:** Defines the outer boundary of the contact annulus on the collet face.
+
+**The through-hole is the most dimensionally critical feature:**
+- Must be > 6.30mm (tube OD, caliper-verified) so the tube passes through
+- Must be < 6.69mm (collet ID) so the plate face contacts the collet face
+- **Design window: only 0.39mm.** This is at the edge of FDM accuracy — may require post-processing (drilling/reaming) after printing.
+
+**Clearance philosophy:** All three bores should be as tight to their reference dimensions as manufacturing allows. The tightest constraint (0.39mm on the through-hole) limits overall lateral play; adding unnecessary clearance to the other bores would create more wobble without any benefit. The same precision target should apply to all three bores, bounded by what FDM can reliably produce.
+- The inner lip bore must be deep enough to maintain engagement through full collet travel (~1.3mm per side, caliper-verified)
 
 ### Tolerances
 
-The collet ring position relative to the fitting body face varies slightly between fittings. The release plate must accommodate this variation:
+The collet position relative to the fitting body face varies slightly between fittings. The release plate must accommodate this variation:
 
 | Tolerance | Value | Notes |
 |-----------|-------|-------|
@@ -343,19 +352,24 @@ Before committing to a full 4-fitting release plate, validate with a single-fitt
 
 For a 1/4" OD John Guest push-to-connect release plate:
 
-| Parameter | Target Value | Tolerance | Source |
-|-----------|-------------|-----------|--------|
-| Tube clearance bore | 8.0 mm | +0.5 / -0 mm | Design (clears 6.35mm tube) |
-| Inner lip bore (collet pusher) | 12.5 mm | +/- 0.25 mm | Design (caliper-verified: 9.57mm port opening, 15.10mm collet ring OD) |
-| Outer bore (collet cradle) | 15.6 mm | +/- 0.5 mm | Design (caliper-verified: clears 15.10mm collet ring OD with 0.25mm/side) |
-| Inner lip depth | 2.0 mm | +/- 0.25 mm | Design |
-| Collet travel (per side) | ~1.3 mm | -- | Caliper-verified |
-| Plate travel (stroke) | 3.0 mm | Min 2.5 mm | Design (~1.7mm margin over collet travel) |
-| Plate parallelism during travel | < 0.3 mm deviation across plate | -- | Design |
-| Actuation force per fitting | ~3-5 N | -- | Inferred |
-| Total actuation force (4 fittings) | ~12-20 N (2.7-4.5 lbf) | -- | Inferred |
+| Parameter | Constraint | Source |
+|-----------|-----------|--------|
+| Tube clearance bore | 6.30mm < D < 6.69mm (only 0.39mm window) | Caliper-verified: tube OD 6.30mm, collet ID 6.69mm |
+| Inner lip bore (collet hugger) | D > 9.57mm, as tight as manufacturing allows | Caliper-verified: collet OD 9.57mm |
+| Outer bore (body end cradle) | D > 15.10mm, as tight as manufacturing allows | Caliper-verified: body end OD 15.10mm |
+| Inner lip depth | ≥ 1.5mm (must maintain engagement through 1.3mm collet travel) | Caliper-verified travel |
+| Collet travel (per side) | ~1.3 mm | Caliper-verified |
+| Plate travel (stroke) | 3.0 mm | Design (~1.7mm margin over collet travel) |
+| Plate parallelism during travel | < 0.3 mm deviation across plate | Design |
+| Actuation force per fitting | ~3-5 N | Inferred |
+| Total actuation force (4 fittings) | ~12-20 N (2.7-4.5 lbf) | Inferred |
 
-**These are starting values for prototyping.** The inner lip bore diameter (12.5mm) is the most critical dimension — it must be larger than the 9.57mm port opening (to contact the collet ring face, not fall into the port) and smaller than the 15.10mm collet ring OD (to push the ring rather than slip over it). Both reference dimensions are caliper-verified. The lip should still be validated against actual fittings with a single-bore test print.
+**These are constraint-based starting values for prototyping.** All three bore diameters should be as tight to their reference dimensions as manufacturing allows — unnecessary clearance adds wobble with no benefit. The tube clearance bore has the tightest constraint (0.39mm window); the inner lip and outer bore have more room but should still be tight for best lateral constraint.
+
+**FDM considerations:** FDM holes typically print undersized by 0.1–0.3mm (material squish into the bore). This means:
+- The tube clearance bore should be designed slightly above center of the 6.30–6.69mm window to compensate for undersize, but may still need post-processing (drilling/reaming to size).
+- The inner lip and outer bore will also print slightly undersized, which actually helps lateral constraint — but if too tight, the plate won't slide over the collet/body end.
+- **Validate all three bore diameters with a single-bore test print** against the physical fitting before committing to the full plate.
 
 ---
 

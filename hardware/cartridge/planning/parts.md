@@ -20,7 +20,7 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - Rectangular box, open on top (lid closes it)
   - Exterior slide rails on bottom face: 2x parallel rails, 2mm tall x 3mm wide, full 130mm depth, spaced to match dock floor rails
   - Exterior side guide contact surfaces: 1.5mm wide rail features on left/right walls, 0.3-0.5mm clearance per side to dock guides
-  - Rear wall (Y=126 to Y=130, 4mm thick): 4x fitting pockets for JG PP0408W union bodies in 2x2 grid, 40mm horizontal x 28mm vertical center-to-center. **Barbell profile accommodation (caliper-verified):** The fitting has a 9.31mm center body flanked by 15.10mm collet rings. Pocket bore 9.8mm diameter (sliding fit for 9.31mm center body, ~0.25mm clearance per side). The 15.10mm collet rings protrude on both sides of the rear wall — the pocket only grips the narrow center section. The center body is 12.16mm long, so the 4mm wall engages a portion of the center section; the fitting shoulders (step-down from 15.10mm to 9.31mm) provide axial location against the wall faces. Through-holes for tube passage (8.0mm, clears 6.35mm tube). Fitting pocket centers at X=54, X=94, Z=26, Z=54 (centered on rear wall). **Note:** The collet rings (15.10mm OD) protrude ~12mm on each side of the wall — ensure no interference with interior components (release plate cavity side) or exterior dock features (dock side).
+  - Rear wall (Y=126 to Y=130, 4mm thick): 4x fitting pockets for JG PP0408W union bodies in 2x2 grid, 40mm horizontal x 28mm vertical center-to-center. **Barbell profile accommodation (caliper-verified):** The fitting has a 9.31mm center body flanked by 15.10mm body ends. Pocket bore 9.8mm diameter (sliding fit for 9.31mm center body, ~0.25mm clearance per side). The 15.10mm body ends protrude on both sides of the rear wall — the pocket only grips the narrow center section. The center body is 12.16mm long, so the 4mm wall engages a portion of the center section; the fitting shoulders (step-down from 15.10mm to 9.31mm) provide axial location against the wall faces. Through-holes for tube passage (must clear 6.30mm tube OD; size depends on whether tube passes through wall independently or through the fitting center body). Fitting pocket centers at X=54, X=94, Z=26, Z=54 (centered on rear wall). **Note:** The body ends (15.10mm OD) protrude ~12mm on each side of the wall — ensure no interference with interior components (release plate cavity side) or exterior dock features (dock side).
   - Rear wall: release plate travel cavity behind fitting pockets, 6mm deep x 63mm wide x 51mm tall (clears 59x47mm plate with 2mm margin per side)
   - Rear wall: 2x guide pin holes for release plate dowel pins (3.0mm diameter press-fit, 10mm deep), positioned at X=40, Z=40 and X=110.5, Z=40 (symmetric, outside the bore pattern, matching plate guide pin slot positions)
   - Front wall (Y=0 to Y=4, 4mm thick): cam lever pivot hole (5mm diameter, at X=74, Z=40) for pivot pin; push rod through-hole (5mm diameter, at X=74, Z=40 — coaxial with pivot, push rod passes below pivot pin)
@@ -83,17 +83,17 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 ### Part: Release Plate
 - **Type:** 3D printed
 - **Material:** PETG
-- **Envelope:** 59W x 47H x 6D mm (enlarged from 55x43mm to accommodate 15.10mm collet ring OD)
+- **Envelope:** 59W x 47H x 6D mm (enlarged from 55x43mm to accommodate 15.10mm body end OD)
 - **Features:**
   - 4x stepped bores in 2x2 grid, 40mm horizontal x 28mm vertical center-to-center (matches JG fitting spacing):
     - Bore centers at: (9.5, 9.5), (49.5, 9.5), (9.5, 37.5), (49.5, 37.5) relative to plate bottom-left corner
-    - Tube clearance hole: 8.0mm diameter, through full thickness (+0.5/-0 mm tolerance)
-    - Inner lip (collet pusher): 12.5mm diameter (caliper-verified design), 2.0mm depth (+/-0.25mm tolerance). The collet port opening is 9.57mm and collet ring OD is 15.10mm (both caliper-verified). The 12.5mm lip engages (15.10 - 12.5) / 2 = 1.30mm of the collet ring face per side — enough contact to push evenly without slipping over the ring. The lip clears the 9.57mm port opening by (12.5 - 9.57) / 2 = 1.47mm per side.
-    - Outer bore (collet cradle): 15.6mm diameter (caliper-verified design — clears 15.10mm collet ring OD with 0.25mm per side), 2.0mm depth (+/-0.5mm tolerance)
-    - 0.2mm chamfer at tube hole entry edge
+    - Tube clearance hole: between 6.30mm and 6.69mm diameter, through full thickness. Must clear tube (6.30mm caliper-verified) but be smaller than collet ID (6.69mm) so plate face contacts collet end face. **Only 0.39mm design window** — may need post-processing after FDM printing.
+    - Inner lip (collet hugger): just over 9.57mm diameter, 2.0mm depth. Closely surrounds the collet (9.57mm OD, caliper-verified) for lateral constraint during release. As tight as manufacturing allows — tighter = less wobble. The plate face between the through-hole and this bore contacts the collet's full annular end face (6.69mm ID to 9.57mm OD = 1.44mm contact width = collet wall thickness).
+    - Outer bore (body end cradle): just over 15.10mm diameter, 2.0mm depth. Closely surrounds the body end (15.10mm OD, caliper-verified) for lateral constraint. As tight as manufacturing allows.
+    - 0.1mm chamfer at tube hole entry edge
     - 0.3mm x 45-degree lead-in chamfer at outer bore entry
   - Axial depth stack: 2.0mm outer bore + 2.0mm inner lip + 2.0mm structural back = 6.0mm total
-  - Inner lip annular width: (12.5 - 8.0) / 2 = 2.25mm (healthy for FDM — approximately 5-6 perimeter walls at 0.4mm nozzle)
+  - Inner lip annular width depends on final bore sizes; see release-plate.md Section 1.3 for detailed analysis
   - Edge-to-bore clearance: 9.5mm from plate edge to nearest bore center (1.7mm minimum wall around outer bore)
   - 2x guide pin slots: 3.3mm wide x 7.3mm long (oriented along travel axis), positioned at X=(-5.5, 23.5) and X=(64.5, 23.5) relative to plate bottom-left — symmetric outside the bore pattern
   - Push rod contact point: centered boss on back face at (29.5, 23.5) relative to plate bottom-left, 8mm diameter x 1mm proud
@@ -101,11 +101,11 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - Slides on 2x 3mm steel dowel pins mounted in outer shell rear wall
   - Stroke: 3.0mm (min 2.5mm) — collet travel is ~1.3mm per side (caliper-verified), so 3mm stroke provides ~1.7mm margin
   - Receives axial push from cam lever push rod on back face
-  - Stepped bores engage JG collet rings (15.10mm OD, caliper-verified) on fitting face side
+  - Stepped bores engage JG collets (9.57mm OD) and body ends (15.10mm OD) on fitting face side (all caliper-verified)
   - Return spring: 2x small compression springs (one per guide pin, ~5mm OD x 10mm free length, ~0.5 N/mm rate) ride on the dowel pins between the plate and the shell rear wall, returning the plate to the retracted (locked) position when the cam lever is released. Initial design values, subject to iteration after printing.
   - Must maintain <0.3mm parallelism deviation across 59mm plate width during full stroke
 - **Quantity:** 1
-- **Open:** Inner lip bore diameter (12.5mm) is designed from caliper-verified dimensions but should still be validated with a single-bore test print against the physical fitting. Print orientation: bore axis perpendicular to build plate (Z-axis) for best circularity.
+- **Open:** All three bore diameters (tube clearance, collet hugger, body end cradle) are constraint-based ranges, not fixed values. Must be validated with single-bore test prints against the physical fitting (see release-plate.md Section 7.1). The tube clearance bore (0.39mm design window) is particularly critical. Print orientation: bore axis perpendicular to build plate (Z-axis) for best circularity.
 
 ---
 
@@ -183,17 +183,17 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 ### Part: John Guest PP0408W 1/4" Push-to-Connect Union
 - **Type:** Purchased
 - **Material:** Acetal copolymer body, stainless steel gripper teeth, nitrile/EPDM O-ring
-- **Envelope:** Barbell profile — 15.10mm collet ring OD x 9.31mm center body OD x 39.13mm overall length (collets compressed) / 41.80mm (collets extended) (caliper-verified)
+- **Envelope:** Barbell profile — 15.10mm body end OD x 9.31mm center body OD x 39.13mm overall length (collets compressed) / 41.80mm (collets extended) (caliper-verified)
 - **Features:**
   - Accepts 1/4" OD (6.35mm) tubing from each end
   - Tube insertion depth to tube stop: ~16mm per side (industry convention, unverified)
-  - **Barbell profile (caliper-verified):** The fitting is NOT a uniform cylinder. It has two wider collet ring sections connected by a narrower center body:
+  - **Barbell profile (caliper-verified):** The fitting is NOT a uniform cylinder. It has two wider body end sections connected by a narrower center body:
     - Center body OD: 9.31mm (caliper-verified) — the narrowest section, this is the mounting/pocket surface
     - Center body length: 12.16mm (caliper-verified)
     - Collet ring OD: 15.10mm (caliper-verified) — significantly wider than center body
     - Collet ring length: 12.08mm each (caliper-verified)
-    - Shoulder annular width: (15.10 - 9.31) / 2 = 2.90mm per side — sharp radial step-down between collet ring and center body
-  - Tube port opening (collet bore): 9.57mm (caliper-verified) — the entry bore through which the tube passes before gripper teeth engage
+    - Shoulder annular width: (15.10 - 9.31) / 2 = 2.90mm per side — sharp radial step-down between body end and center body
+  - **Collet (release sleeve) dimensions (caliper-verified):** OD: 9.57mm, wall: 1.44mm, ID: 6.69mm. The collet is the visible moving ring that is pushed inward to release the tube. The tube (6.30mm measured / 6.35mm nominal) passes through the collet ID (6.69mm) with 0.39mm clearance.
   - Overall length (collets compressed): 39.13mm (caliper-verified)
   - Overall length (collets extended): 41.80mm (caliper-verified)
   - Collet travel (inward, for release): ~1.3mm per side / 2.67mm total (caliper-verified)
@@ -204,7 +204,7 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - NSF 61 certified for potable water
   - Weight: ~45g per fitting
 - **Interfaces:**
-  - Press into rear wall pockets of outer shell — pocket grips the 9.31mm center body (see Outer Shell rear wall notes). The 15.10mm collet rings protrude on both sides of the wall.
+  - Press into rear wall pockets of outer shell — pocket grips the 9.31mm center body (see Outer Shell rear wall notes). The 15.10mm body ends protrude on both sides of the wall.
   - Cartridge carries all 4 fittings in its rear wall (union style — accepts tubes from both ends)
   - Dock side: bare 1/4" OD tube stubs protrude from dock back wall (~30mm). Cartridge slides onto these stubs during insertion.
   - Cartridge interior side: accepts hard tube stubs from pump tubing transition
@@ -399,7 +399,7 @@ Composed of: cam lever + pivot pin + E-clip + push rod + release plate + 2x dowe
 
 - **Function:** Single lever flip releases all 4 JG collets simultaneously. Springs return the plate when the lever is released.
 - **Actuation:** 180-degree lever rotation produces 3mm axial plate travel via 1.5mm eccentric cam. Collet travel is ~1.3mm per side (caliper-verified), so the 3mm cam stroke provides ~1.7mm of margin — comfortable overtravel that also helps absorb fitting-to-fitting variation in collet protrusion.
-- **Force path:** Hand -> lever handle (76mm arm) -> eccentric cam (1.5mm offset) -> push rod (118mm, 5mm steel) -> release plate (59x47x6mm) -> 4x collet rings (15.10mm OD, caliper-verified).
+- **Force path:** Hand -> lever handle (76mm arm) -> eccentric cam (1.5mm offset) -> push rod (118mm, 5mm steel) -> release plate (59x47x6mm) -> 4x collets (9.57mm OD) via body ends (15.10mm OD, caliper-verified).
 - **Return path:** 2x compression springs on dowel pins push plate back to retracted position, which pushes push rod back, which rotates cam lever back past over-center detent.
 - **Mechanical advantage:** ~10:1 (76mm lever arm / 7mm cam effective radius).
 - **Total required force at collets:** 12-20N (4 fittings x 3-5N each).

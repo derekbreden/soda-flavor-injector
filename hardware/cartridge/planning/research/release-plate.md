@@ -7,14 +7,17 @@ This builds on established values from prior research:
 | Parameter | Value | Source |
 |---|---|---|
 | Tube OD | 6.35mm (1/4") | collet-release.md (verified) |
-| Fitting profile | Barbell: 9.31mm center body, 15.10mm collet rings | Caliper-verified (geometry-description.md) |
+| Fitting profile | Barbell: 9.31mm center body, 15.10mm body ends | Caliper-verified (geometry-description.md) |
 | Center body length | 12.16mm | Caliper-verified |
-| Collet ring OD | 15.10mm | Caliper-verified |
-| Collet ring length | 12.08mm each | Caliper-verified |
-| Tube port opening (collet bore) | 9.57mm | Caliper-verified |
-| Tube clearance bore | 8.0mm | collet-release.md |
-| Inner lip bore (collet pusher) | 12.5mm | Design (between 9.57mm port and 15.10mm ring) |
-| Outer bore (collet cradle) | 15.6mm | Design (clears 15.10mm ring with 0.25mm/side) |
+| Body end OD | 15.10mm | Caliper-verified — the fixed housing section |
+| Body end length | 12.08mm each | Caliper-verified |
+| Collet (release sleeve) OD | 9.57mm | Caliper-verified — the moving part |
+| Collet wall thickness | 1.44mm | Caliper-verified |
+| Collet ID | 6.69mm | Derived: 9.57 - 2×1.44 |
+| Tube OD (measured) | 6.30mm | Caliper-verified (nominal 6.35mm) |
+| Tube clearance bore | 6.5mm | collet-release.md (must be between 6.30mm tube and 6.69mm collet ID) |
+| Inner lip bore (collet hugger) | 10.0mm | Design (just over 9.57mm collet OD, provides lateral constraint) |
+| Outer bore (body end cradle) | 15.6mm | Design (clears 15.10mm body end with 0.25mm/side) |
 | Collet travel (inward, per side) | ~1.3mm | Caliper-verified (2.67mm total both ends) |
 | Collet protrusion (per side, compressed) | ~1.4mm | Caliper-verified |
 | Plate travel (stroke) | 3.0mm (min 2.5mm) | collet-release.md |
@@ -42,10 +45,10 @@ Each hole in the release plate replicates the geometry of a John Guest release t
     │   │   │                                       │   │   │
     │   │   │   ┌─ tube clearance hole ─────────┐   │   │   │
     │   │   │   │                               │   │   │   │
-    │   │   │   │       8.0mm dia               │   │   │   │
+    │   │   │   │       6.5mm dia               │   │   │   │
     │   │   │   │                               │   │   │   │
     │   │   │   └───────────────────────────────┘   │   │   │
-    │   │   │         12.5mm dia                    │   │   │
+    │   │   │         10.0mm dia                    │   │   │
     │   │   └───────────────────────────────────────┘   │   │
     │   │              15.6mm dia                       │   │
     │   └───────────────────────────────────────────────┘   │
@@ -61,42 +64,47 @@ Each hole in the release plate replicates the geometry of a John Guest release t
     plate travel direction: ←───────
 
          outer     inner lip    tube hole
-         bore      (pusher)     (through)
+         bore      (hugger)     (through)
         ┌─────┐   ┌────────┐   ┌──────────────────────────┐
         │     │   │        │   │                          │
-        │     │   │        │   │    8.0mm through hole    │
+        │     │   │        │   │    6.5mm through hole    │
         │     │   │        │   │                          │
     ────┘     └───┘        └───┘                          └────
-    plate     2.0mm  1.5mm        remaining plate
+    plate     2.0mm  2.0mm        remaining plate
     face      deep   deep         thickness
 ```
 
 ### 1.3 Feature-by-Feature Breakdown
 
-**Tube clearance hole: 8.0mm diameter, through the full plate thickness**
+**Tube clearance hole: between 6.30mm and 6.69mm, through the full plate thickness**
 
-This is the center bore that the tube passes through freely. The 8.0mm diameter provides 1.65mm of clearance around the 6.35mm tube (0.825mm per side). This clearance serves two purposes: (1) the tube passes through without binding even with slight misalignment, and (2) during release, the tube can withdraw at a slight angle without catching on the bore wall. The through-hole extends the full thickness of the plate.
+This is the center bore that the tube passes through. Unlike the previous 8.0mm design, this bore is intentionally tight — its purpose is not just tube clearance, but also to enable the plate face around the bore to contact the collet's annular end face and push it inward.
 
-For print quality, 8.0mm is large enough that FDM can produce a clean circular hole. Printing with the bore axis vertical (Z-axis) gives the best circularity. A 0.2mm chamfer at the entry helps thread the tube through during assembly.
+- **Lower bound (6.30mm):** The tube OD, caliper-verified. The bore must be larger than this for the tube to pass through.
+- **Upper bound (6.69mm):** The collet ID (derived: 9.57mm OD - 2×1.44mm wall = 6.69mm). The bore must be smaller than this so the plate face extends past the collet opening and contacts the collet's annular face.
+- **Design window: only 0.39mm.** This is at the edge of FDM accuracy. FDM holes typically print undersized by 0.1–0.3mm, so the as-designed value should be slightly above center of the window to compensate. May require post-processing (drilling/reaming) after printing.
+- The through-hole extends the full thickness of the plate.
+- Printing with the bore axis vertical (Z-axis) gives the best circularity. A 0.1mm chamfer at the entry helps thread the tube through during assembly.
 
-**Inner lip: 12.5mm bore, 2.0mm depth**
+**Inner lip (collet hugger): just over 9.57mm bore, 2.0mm depth**
 
-The inner lip is the annular surface that contacts the collet ring face and pushes it inward. It is the most critical feature on the entire plate.
+The inner lip bore closely surrounds the collet (9.57mm OD, caliper-verified) for lateral constraint during release. The plate face between the through-hole and this bore is the surface that contacts the collet's annular end face and pushes it inward.
 
-- **Inner diameter (12.5mm)**: Must clear the tube (8.0mm) with margin, be larger than the tube port opening (9.57mm, caliper-verified) so it contacts the collet ring face rather than falling into the port, and be smaller than the collet ring OD (15.10mm, caliper-verified) so it pushes the ring rather than slipping over it. The 12.5mm lip engages (15.10 - 12.5) / 2 = 1.30mm of the collet ring face per side -- enough contact area to push evenly without slipping over the ring. The lip clears the port opening by (12.5 - 9.57) / 2 = 1.47mm per side.
-- **Lip annular width**: (12.5 - 8.0) / 2 = 2.25mm. This is the radial width of the lip wall. For PETG at reasonable infill, 2.25mm is approximately 5-6 perimeter walls at 0.4mm nozzle width -- structurally robust for the 3-5N per fitting force, and well within FDM capabilities.
-- **Depth (2.0mm)**: The lip must remain engaged with the collet face through the full collet travel (~1.3mm per side, caliper-verified). A 2.0mm lip depth provides 1.7mm minimum engagement even with 0.3mm collet protrusion variation between fittings.
+- **Bore diameter:** Must clear the 9.57mm collet OD, but should be as tight as manufacturing allows. Tighter = better lateral constraint, less wobble during the push. The same precision philosophy applies here as to the through-hole — unnecessary clearance reduces grip without adding benefit.
+- **Contact annulus:** The plate face contacts the collet's full annular face, from collet ID (6.69mm) to collet OD (9.57mm). This annulus is exactly 1.44mm wide (the collet wall thickness), providing even force distribution across the entire collet face.
+- **Lip annular width:** Determined by (inner lip bore - through-hole bore) / 2. This is the radial width of the lip wall that does the pushing. Must be structurally robust for the 3-5N per fitting force.
+- **Depth (2.0mm):** The lip must remain engaged with the collet through the full collet travel (~1.3mm per side, caliper-verified). A 2.0mm lip depth provides ~0.7mm minimum engagement margin.
 
-- **Lip face profile**: The face of the lip (the surface that contacts the collet) should be flat, not chamfered. A chamfer would reduce the contact area and could allow the collet to cam sideways. A very slight break (0.1-0.2mm 45-degree chamfer) on the inner edge is acceptable to prevent catching during insertion, but the outer contact annulus must remain a flat, perpendicular face.
+- **Lip face profile:** The face of the lip (the surface that contacts the collet) should be flat, not chamfered. A chamfer would reduce the contact area and could allow the collet to cam sideways. A very slight break (0.1-0.2mm 45-degree chamfer) on the inner edge is acceptable to prevent catching during insertion, but the contact annulus must remain a flat, perpendicular face.
 
-**Outer bore (cradle): 15.6mm bore, 2.0mm depth**
+**Outer bore (body end cradle): just over 15.10mm bore, 2.0mm depth**
 
-The outer bore surrounds the collet ring sides and prevents lateral movement during release. This is the feature that prevents the cocking/tilting failure mode described in collet-release.md Section 4.
+The outer bore surrounds the body end (15.10mm OD, caliper-verified) and prevents lateral movement during release. This is the feature that prevents the cocking/tilting failure mode described in collet-release.md Section 4.
 
-- **Bore diameter (15.6mm)**: The collet ring OD is 15.10mm (caliper-verified). This gives (15.6 - 15.10) / 2 = 0.25mm clearance per side between the collet ring and the cradle wall. This is tight enough to prevent meaningful lateral collet movement but loose enough for the plate to slide over the collet without binding.
-- **Depth (2.0mm)**: The collet ring protrudes ~1.4mm from the fitting body face when compressed (caliper-verified). A 2.0mm cradle depth means the cradle wall surrounds the full protruding portion of the collet ring. The collet moves inward during release (further into the cradle), so the cradle engagement depth actually increases during actuation.
+- **Bore diameter:** Must clear the 15.10mm body end OD, but should be as tight as manufacturing allows. Tighter = better lateral constraint. FDM undersizing actually helps here — a bore designed at 15.2mm that prints at 15.0mm gives a near-perfect sliding fit.
+- **Depth (2.0mm):** The collet protrudes ~2.7mm from the body face when extended (at rest). The outer bore cradle surrounds the body end below the collet protrusion. During release, as the plate pushes the collet inward, the body end engagement depth increases.
 
-  **Key insight from the John Guest PI-TOOL**: The commercial tool's cradle wraps around the collet sides, not just its face. The depth of cradle engagement determines how much lateral constraint is provided. At 2.0mm depth, with ~1.4mm collet protrusion, the cradle fully captures the collet ring -- sufficient to prevent tilting during the ~1.3mm inward push.
+  **Key insight from the John Guest PI-TOOL:** The commercial tool's cradle wraps around the collet sides, not just its face. Our design applies this principle at two scales: the inner lip hugs the collet (9.57mm), and the outer bore hugs the body end (15.10mm). Both should be as tight as manufacturing allows — the tightest constraint (0.39mm on the through-hole) already limits overall play, so looseness in the other bores only adds wobble without gaining any additional lateral freedom.
 
 - **Wall angle**: The cradle bore should be straight (cylindrical), not tapered. A tapered cradle would allow the collet to shift laterally as it moves axially. The cylindrical bore maintains constant lateral constraint through the full stroke. A small lead-in chamfer (0.3mm x 45 degrees) at the entry helps the plate slide over the collet without catching on any slight collet protrusion asymmetry.
 
@@ -112,12 +120,12 @@ From the fitting-facing surface of the plate inward:
 
 | Zone | Depth | Running Total | Feature |
 |---|---|---|---|
-| Outer bore (cradle) | 2.0mm | 2.0mm | 15.6mm dia, constrains collet sides |
-| Inner lip (pusher) | 2.0mm | 4.0mm | 12.5mm dia, pushes collet face |
-| Structural back | 2.0mm | 6.0mm | 8.0mm through-hole only |
+| Outer bore (cradle) | 2.0mm | 2.0mm | Just over 15.10mm dia, constrains body end sides |
+| Inner lip (hugger) | 2.0mm | 4.0mm | Just over 9.57mm dia, hugs collet and pushes collet face |
+| Structural back | 2.0mm | 6.0mm | Through-hole only (between 6.30 and 6.69mm) |
 | **Total plate thickness** | | **6.0mm** | |
 
-The 2.0mm structural back provides material behind the inner lip for rigidity. Without this, the lip would be a thin cantilevered ring that could flex under load. The 8.0mm through-hole continues through this zone.
+The 2.0mm structural back provides material behind the inner lip for rigidity. Without this, the lip would be a thin cantilevered ring that could flex under load. The through-hole continues through this zone.
 
 **Alternative: 5.0mm total** by reducing the structural back to 1.0mm. This is the minimum before the lip becomes too flexible in PETG. 6.0mm is the conservative starting point; 5.0mm is acceptable if plate thickness is constrained by the overall assembly.
 
@@ -127,7 +135,7 @@ The 2.0mm structural back provides material behind the inner lip for rigidity. W
 
 ### 2.1 Minimum Center-to-Center Spacing
 
-The outer bore is 15.6mm diameter (sized to clear the 15.10mm collet ring OD, caliper-verified). Two adjacent outer bores need a wall of material between them for structural integrity.
+The outer bore is 15.6mm diameter (sized to clear the 15.10mm body end OD, caliper-verified). Two adjacent outer bores need a wall of material between them for structural integrity.
 
 **Minimum wall thickness between bores in PETG (FDM)**:
 - Absolute minimum: 1.0mm (approximately 2.5 perimeter widths at 0.4mm nozzle). The wall would be structurally sound in compression (the plate pushes collets inward) but fragile if any lateral or bending load is applied.
@@ -149,7 +157,7 @@ The outer bore is 15.6mm diameter (sized to clear the 15.10mm collet ring OD, ca
 
 The 4 fittings correspond to 2 pumps x 2 connections each (inlet + outlet). The physical arrangement of these 4 holes on the plate determines the plate footprint and aspect ratio.
 
-**Update:** The fitting spacing has been finalized in parts.md as **40mm horizontal x 28mm vertical center-to-center** in a 2x2 grid. This spacing was chosen to accommodate the caliper-verified barbell profile (15.10mm collet rings) with comfortable margins. The original analysis below explored tighter spacings based on the assumed 12.7mm uniform body OD — those options are no longer feasible because the collet ring OD is 15.10mm, which requires a minimum ~17.1mm C-C (with 1.5mm wall between 15.6mm outer bores). The 40x28mm spacing provides far more than enough room. The analysis below is retained for reference but the dimensions are superseded.
+**Update:** The fitting spacing has been finalized in parts.md as **40mm horizontal x 28mm vertical center-to-center** in a 2x2 grid. This spacing was chosen to accommodate the caliper-verified barbell profile (15.10mm body ends) with comfortable margins. The original analysis below explored tighter spacings based on the assumed 12.7mm uniform body OD — those options are no longer feasible because the body end OD is 15.10mm, which requires a minimum ~17.1mm C-C (with 1.5mm wall between 15.6mm outer bores). The 40x28mm spacing provides far more than enough room. The analysis below is retained for reference but the dimensions are superseded.
 
 #### Option A: 4-in-a-Line (1x4)
 
@@ -179,7 +187,7 @@ Not selected. At 40mm horizontal spacing, a 4-in-a-line arrangement would produc
 | Plate height | 28.0 + 15.6 + 2x1.7 = 47.0mm (per parts.md: 47mm) |
 | Aspect ratio | ~1.26:1 |
 
-**Pros**: Generous spacing between bores. The wall between adjacent outer bores is 28 - 15.6 = 12.4mm (vertical) and 40 - 15.6 = 24.4mm (horizontal) — extremely robust. The maximum moment arm to any bore from plate center is sqrt(20^2 + 14^2) = 24.4mm. The fitting collet rings (15.10mm OD) have 28 - 15.10 = 12.9mm clearance vertically and 40 - 15.10 = 24.9mm clearance horizontally — no interference possible.
+**Pros**: Generous spacing between bores. The wall between adjacent outer bores is 28 - 15.6 = 12.4mm (vertical) and 40 - 15.6 = 24.4mm (horizontal) — extremely robust. The maximum moment arm to any bore from plate center is sqrt(20^2 + 14^2) = 24.4mm. The fitting body ends (15.10mm OD) have 28 - 15.10 = 12.9mm clearance vertically and 40 - 15.10 = 24.9mm clearance horizontally — no interference possible.
 
 **Cons**: Larger plate footprint (59x47mm) than the tighter spacings originally analyzed. But the cartridge interior (140x122mm) easily accommodates this, and the wider spacing improves parallelism margin.
 
@@ -195,7 +203,7 @@ Not selected. Asymmetric layout with no advantage at the 40x28mm spacing.
 
 ### 2.3 Arrangement Summary
 
-**2x2 grid at 40mm H x 28mm V center-to-center** (per parts.md). This was chosen to match the cartridge rear wall fitting pocket layout. The spacing provides generous material between bores and comfortable clearance around the 15.10mm collet rings.
+**2x2 grid at 40mm H x 28mm V center-to-center** (per parts.md). This was chosen to match the cartridge rear wall fitting pocket layout. The spacing provides generous material between bores and comfortable clearance around the 15.10mm body ends.
 
 | Property | Value |
 |---|---|
@@ -238,7 +246,7 @@ From Section 1.5:
 ### 3.2 Can It Be Thinner?
 
 **5.0mm minimum** (reducing structural back to 1.0mm):
-- The inner lip wall is 2.25mm radial width. With only 1.0mm of material behind it, the lip would have adequate compression strength but reduced rigidity against FDM defects (underextrusion, layer adhesion issues).
+- The inner lip radial width depends on final bore sizes but is narrower than the previous design (~1.75mm vs 2.25mm with the tighter bores). With only 1.0mm of material behind it, the lip would have adequate compression strength but reduced rigidity against FDM defects (underextrusion, layer adhesion issues).
 - Acceptable for a test coupon. Not recommended for the production plate.
 
 **6.0mm recommended** for prototyping. Provides 2.0mm structural back, which gives confident rigidity and allows the back face to serve as a bearing surface for guide features.
@@ -325,11 +333,11 @@ The plate has grooves or channels on its sides that mate with corresponding rail
 
 #### Option 3: Bore-Guided (Collets Themselves as Guides)
 
-The outer bores of the stepped profile slide over the collet ring/fitting body, using the fittings themselves as guide surfaces. The plate is guided by the 4 fittings it engages with.
+The outer bores of the stepped profile slide over the body end/fitting body, using the fittings themselves as guide surfaces. The plate is guided by the 4 fittings it engages with.
 
 **Pros**: Zero additional hardware. The guide and actuation surfaces are colocated, which inherently prevents the plate from tilting relative to the collets (the most important reference).
 
-**Cons**: The plate must approach the fittings already roughly aligned -- it can't be guided by features it hasn't engaged yet. There's a "last millimeter problem": the plate has no guidance until the outer bore slides over the collet ring. Works as secondary guidance once engaged but needs primary guidance for the approach. Also, the clearance between outer bore (15.6mm) and collet ring (15.10mm, caliper-verified) is 0.25mm per side -- tighter than before, which improves secondary centering but makes the approach alignment more critical.
+**Cons**: The plate must approach the fittings already roughly aligned -- it can't be guided by features it hasn't engaged yet. There's a "last millimeter problem": the plate has no guidance until the outer bore slides over the body end. Works as secondary guidance once engaged but needs primary guidance for the approach. Also, the tighter the clearance between outer bore and body end (15.10mm, caliper-verified), the better the secondary centering but the more critical the approach alignment.
 
 #### Option 4: Hybrid (Recommended)
 
@@ -355,7 +363,7 @@ The plate needs a feature where the cam or lever applies force to drive it axial
 
 After the cam retracts (lever opened), the plate must return to its retracted position (away from the collets). Options:
 
-1. **Collet springs**: The collet rings themselves are spring-loaded to their resting (gripping) position. When the plate retracts, the collets push the plate back. This provides ~2-5N per fitting of return force (same as the actuation force), totaling 8-20N. This is enough to return the plate without additional springs.
+1. **Collet springs**: The body ends themselves are spring-loaded to their resting (gripping) position. When the plate retracts, the collets push the plate back. This provides ~2-5N per fitting of return force (same as the actuation force), totaling 8-20N. This is enough to return the plate without additional springs.
 
 2. **Compression springs on guide pins**: Small compression springs around the guide pins, between the plate and the dock frame. Provides a positive return force independent of the collets. Adds cost (springs) but ensures the plate always returns even if collets are absent (useful during assembly/testing).
 
@@ -369,7 +377,7 @@ After the cam retracts (lever opened), the plate must return to its retracted po
 
 ### 5.1 The Problem
 
-The 4 collet rings may not all protrude the same distance from the fitting body face. Collet-release.md estimates +/-0.3mm variation between fittings of the same model. Additionally, the dock's fitting mounting may introduce +/-0.5mm variation in fitting face position. Total worst-case variation between the most-protruding and least-protruding collet: up to 0.8mm.
+The 4 body ends may not all protrude the same distance from the fitting body face. Collet-release.md estimates +/-0.3mm variation between fittings of the same model. Additionally, the dock's fitting mounting may introduce +/-0.5mm variation in fitting face position. Total worst-case variation between the most-protruding and least-protruding collet: up to 0.8mm.
 
 A rigid plate pushing all 4 collets simultaneously will contact the most-protruding collet first. The plate must continue traveling until the least-protruding collet is also fully engaged. During this continued travel, the already-engaged collets are pushed beyond their required travel.
 
@@ -393,7 +401,7 @@ A rigid plate pushing all 4 collets simultaneously will contact the most-protrud
 
 **Compliance**: A 1.5mm sheet of 50A silicone compresses approximately 20-30% under the 3-5N per fitting load. That's 0.3-0.45mm of independent travel per collet -- close to the +/-0.3mm fitting variation spec.
 
-**Implementation**: Cut a gasket-shaped piece (same outline as the plate, with 8.0mm holes for tube clearance) and sandwich it between the plate face and the collets. The gasket sits in the outer bore cradle.
+**Implementation**: Cut a gasket-shaped piece (same outline as the plate, with through-holes matching the tube clearance bore) and sandwich it between the plate face and the collets. The gasket sits in the outer bore cradle.
 
 **Pros**: Simple, cheap, no moving parts. Provides distributed compliance. Can be replaced if it degrades.
 
@@ -405,7 +413,7 @@ A rigid plate pushing all 4 collets simultaneously will contact the most-protrud
 
 **Concept**: Each of the 4 inner lip features is independently spring-loaded, allowing it to travel axially relative to the plate body.
 
-**Implementation in FDM**: Extremely difficult. Each lip would need to be a separate sliding ring within the plate body, with a small compression spring behind it. The bore diameter is 12.5mm, but this still leaves very little room for spring seats and sliding features within the 15.6mm outer bore. The assembly complexity (4 springs, 4 sliding rings, 4 retaining features) is far beyond what's needed for 0.8mm of compliance.
+**Implementation in FDM**: Extremely difficult. Each lip would need to be a separate sliding ring within the plate body, with a small compression spring behind it. The bore diameters are very tight (inner lip just over 9.57mm within the ~15.2mm outer bore), leaving very little room for spring seats and sliding features. The assembly complexity (4 springs, 4 sliding rings, 4 retaining features) is far beyond what's needed for 0.8mm of compliance.
 
 **Verdict**: Over-engineered for this application. The compliance need is <1mm, and overtravel or an elastomeric layer handles it trivially. Spring-loaded lips are appropriate for systems with 5mm+ variation or where different fittings need fundamentally different travel.
 
@@ -468,7 +476,7 @@ The plate stands upright on the build plate, with the bore axes running in the X
 
 **Pros**: Layer adhesion direction aligns with the axial load direction (strongest). The lip face is formed by the perimeter paths.
 
-**Cons**: The circular bores are formed by stacked layers (stairstepping). A circle printed in the ZX or ZY plane has visible layer steps that create a rough bore surface. The inner lip bore at 12.5mm would have ~0.2mm step artifacts at 0.2mm layer height. The plate needs supports for the overhanging bore features. Overall worse geometric accuracy.
+**Cons**: The circular bores are formed by stacked layers (stairstepping). A circle printed in the ZX or ZY plane has visible layer steps that create a rough bore surface. The inner lip bore (just over 9.57mm) would have ~0.2mm step artifacts at 0.2mm layer height — problematic given the tight tolerances needed for collet hugging. The plate needs supports for the overhanging bore features. Overall worse geometric accuracy.
 
 **Verdict**: Option A (bore axis vertical) is clearly superior.
 
@@ -515,7 +523,7 @@ The plate stands upright on the build plate, with the bore axes running in the X
 
     Dimensions:
     - Block: 22mm x 22mm x 6mm thick
-    - Bore: 8.0 / 12.5 / 15.6mm stepped profile per Section 1
+    - Bore: stepped profile per Section 1 (tube clearance / collet hugger / body end cradle)
 ```
 
 | Dimension | Value |
@@ -523,9 +531,9 @@ The plate stands upright on the build plate, with the bore axes running in the X
 | Block width | 22.0mm |
 | Block height | 22.0mm |
 | Block thickness | 6.0mm |
-| Tube clearance bore | 8.0mm through |
-| Inner lip bore | 12.5mm, 2.0mm deep |
-| Outer bore (cradle) | 15.6mm, 2.0mm deep |
+| Tube clearance bore | Between 6.30–6.69mm, through (see Section 1.3) |
+| Inner lip bore (collet hugger) | Just over 9.57mm, 2.0mm deep (see Section 1.3) |
+| Outer bore (body end cradle) | Just over 15.10mm, 2.0mm deep (see Section 1.3) |
 | Material | PETG |
 | Print orientation | Bore axis vertical (Z-up) |
 | Estimated print time | ~10-15 minutes |
@@ -534,13 +542,13 @@ The plate stands upright on the build plate, with the bore axes running in the X
 **Test procedure**:
 1. Insert 1/4" hard tubing through the test coupon's bore.
 2. Insert the tubing into a John Guest fitting.
-3. Slide the test coupon along the tubing toward the fitting until the cradle engages the collet ring.
+3. Slide the test coupon along the tubing toward the fitting until the cradle engages the body end and inner lip surrounds the collet.
 4. Push the coupon axially toward the fitting (simulating plate actuation).
 5. Feel for collet release. Can the tubing be withdrawn while the coupon holds the collet depressed?
 6. Test centering: does the collet release cleanly, or does it cock/bind?
 7. Intentionally tilt the coupon during release to find the tilt tolerance.
 
-**Print 3 copies with variation**: One at nominal dimensions (8.0/12.5/15.6mm), one with inner lip bore at 12.0mm (tighter, more contact area on 15.10mm collet ring), one at 13.0mm (looser, less contact area). This brackets the optimal lip diameter. The outer bore (15.6mm) stays the same across all three — it's set by the 15.10mm collet ring OD (caliper-verified) plus 0.25mm/side clearance.
+**Print 3 copies with variation**: Vary the through-hole and inner lip bore diameters to bracket the optimal fit. For example, through-holes at 6.4mm, 6.5mm, 6.6mm (spanning the 6.30–6.69mm window), and inner lip bores at 9.7mm, 9.8mm, 9.9mm (varying the collet hug tightness). The outer bore should also be varied in tightness — try 15.2mm, 15.3mm, 15.4mm. The goal is to find the tightest dimensions that still allow smooth plate engagement without binding.
 
 ### 7.2 Four-Hole Plates
 
@@ -560,7 +568,7 @@ Print after validating the single-hole bore geometry. Use the bore dimensions co
     └─────────────────────────────────────────────────────────────┘
 
     ○ = guide pin slots (3.3mm wide x 7.3mm long)
-    O = stepped bore (8.0/12.5/15.6mm)
+    O = stepped bore (per Section 1.3)
 ```
 
 | Dimension | Value |
@@ -592,7 +600,7 @@ The dock's mating face must have:
 - 4 John Guest fittings mounted in the same pattern as the plate bores (40mm H x 28mm V C-C, per parts.md).
 - Guide pin holes (or pin mounts) matching the plate's guide pin holes, with pins extending toward the incoming plate.
 - Clearance behind the plate for the cam mechanism.
-- The fitting collet ring OD (15.10mm, caliper-verified) is the controlling dimension for clearance. At 40x28mm C-C, fitting collet rings have 12.9mm minimum clearance (vertical) — no interference risk. The fitting pocket bore grips the 9.31mm center body (caliper-verified), with the 15.10mm collet rings protruding on both sides of the wall.
+- The fitting body end OD (15.10mm, caliper-verified) is the controlling dimension for clearance. At 40x28mm C-C, fitting body ends have 12.9mm minimum clearance (vertical) — no interference risk. The fitting pocket bore grips the 9.31mm center body (caliper-verified), with the 15.10mm body ends protruding on both sides of the wall.
 
 ### 8.2 Cam/Lever Mechanism
 
@@ -604,7 +612,7 @@ The cam acts on the back face of the plate. Key interface dimensions:
 
 ### 8.3 Cartridge Body
 
-The cartridge body houses the pumps and tube stubs. The tube stubs must align with the plate's tube clearance holes. For the 2x2 grid, this means 4 hard 1/4" OD tube stubs in a 40mm H x 28mm V C-C grid on the cartridge face. The stubs pass through the plate's 8.0mm holes and into the John Guest fittings.
+The cartridge body houses the pumps and tube stubs. The tube stubs must align with the plate's tube clearance holes. For the 2x2 grid, this means 4 hard 1/4" OD tube stubs in a 40mm H x 28mm V C-C grid on the cartridge face. The stubs pass through the plate's through-holes (between 6.30–6.69mm, very tight fit) and into the John Guest fittings.
 
 **Tube stub length**: Must be long enough to reach through the plate thickness (6.0mm) and into the fitting (~16mm insertion depth). Total stub length from cartridge face: 6.0mm (plate) + 3.0mm (plate travel gap when retracted) + 16.0mm (fitting insertion) = 25.0mm minimum. Add 2-3mm safety margin = **28mm stub length**.
 
@@ -620,7 +628,7 @@ If the plate relies on collet spring-back for return (Section 4.4), the plate mu
 
 ### Arrangement
 
-1. **2x2 grid at 40mm H x 28mm V C-C** (selected, per parts.md) -- 59x47mm plate, generous inter-bore walls (12.4mm minimum), comfortable collet ring clearance (12.9mm minimum). Max moment arm 24.4mm to corner bore.
+1. **2x2 grid at 40mm H x 28mm V C-C** (selected, per parts.md) -- 59x47mm plate, generous inter-bore walls (12.4mm minimum), comfortable body end clearance (12.9mm minimum). Max moment arm 24.4mm to corner bore.
 
 ### Compliance
 
@@ -648,7 +656,7 @@ If the plate relies on collet spring-back for return (Section 4.4), the plate mu
 
 Three 22mm x 22mm x 6mm blocks, each with a single stepped bore:
 - **Coupon A**: 8.0 / 12.5 / 15.6mm (nominal from caliper-verified dimensions)
-- **Coupon B**: 8.0 / 12.0 / 15.6mm (tighter lip, more contact area on 15.10mm collet ring)
+- **Coupon B**: Tighter inner lip and outer bore (closer to reference dimensions, less clearance)
 - **Coupon C**: 8.0 / 13.0 / 15.6mm (looser lip, less contact area)
 
 All three print on one bed in under 30 minutes. Test each against a John Guest fitting with tubing inserted. Record which coupon gives the cleanest release.

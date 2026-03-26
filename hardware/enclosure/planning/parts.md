@@ -567,10 +567,11 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
 - **Envelope:** 12.7mm body OD x 38.1mm overall length
 - **Features:**
   - Accepts 1/4" OD (6.35mm) tubing from each end
-  - Insertion depth to tube stop: ~15-18mm per side
-  - Collet ring OD: ~11.4mm (needs physical verification)
-  - Collet ring protrusion from body face: ~2-3mm
-  - Collet travel (inward, for release): ~1.5-2.0mm
+  - Insertion depth to tube stop: ~16mm per side (industry convention)
+  - **Barbell profile (caliper-verified):** 15.10mm body end OD, 9.31mm center body OD, 12.08mm body end length, 12.16mm center body length
+  - **Collet (release sleeve, caliper-verified):** 9.57mm OD, 1.44mm wall, 6.69mm ID
+  - Collet protrusion from body face: ~1.4mm per side compressed, ~2.7mm extended (caliper-verified)
+  - Collet travel (inward, for release): ~1.3mm per side (caliper-verified)
   - Release force per fitting: ~3-5N
   - Grip force per fitting: ~20N (4 fittings total ~80N retention)
   - Max working pressure: 150 PSI at 70F
@@ -579,11 +580,10 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
   - Mounted inside cartridge rear wall (JG fittings are cartridge-mounted, not dock-mounted)
   - Cartridge slides onto bare 1/4" OD tube stubs protruding from dock back wall
   - Cartridge interior side: accepts hard tube stubs from pump tubing transition
-  - Collet rings engage release plate stepped bores during disconnect
+  - Release plate stepped bores engage collets (9.57mm) and body ends (15.10mm) during disconnect
   - 2x2 grid arrangement in cartridge, ~40mm horizontal x ~28mm vertical center-to-center
 - **Quantity:** 4 (in cartridge -- listed here for dock interface reference)
-- **Open:**
-  - Exact collet ring OD (verify ~11.4mm with calipers)
+- **Open:** None — all critical dimensions caliper-verified (see cartridge parts.md and off-the-shelf-parts/john-guest-union/)
 
 ### Part: 1/4" OD Hard Nylon Tubing (Dock Tube Stubs)
 
