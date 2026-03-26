@@ -58,7 +58,7 @@ The fitting has 5 distinct zones. Because the fitting is symmetric, only 3 uniqu
 - This is the section that press-fits into the cartridge rear wall pocket. A **9.8mm bore** would give a sliding fit; a **9.5mm bore** would give a light press-fit.
 
 ### Zone 4 & 5: Mirror of Zones 2 & 1
-Identical shoulder and collet ring on the opposite end.
+Identical shoulder and body end on the opposite end.
 
 ## Overall Length Measurements
 
@@ -98,8 +98,8 @@ Identical shoulder and collet ring on the opposite end.
 
 ### Rear Wall Pocket Bore
 The fitting's barbell profile means the pocket bore design is fundamentally different than assumed:
-- **Option A (pocket grips center body):** Bore = ~9.5–9.8mm. The collet rings (15.10mm) protrude on both sides of the wall. The wall pocket is narrow but the grip is on the skinny section.
-- **Option B (pocket clears collet ring):** Bore = ~15.5mm. The fitting slides through freely and must be retained by other means (snap ring, adhesive, interference on collet shoulder).
+- **Option A (pocket grips center body):** Bore = ~9.5–9.8mm. The body ends (15.10mm) protrude on both sides of the wall. The wall pocket is narrow but the grip is on the skinny section.
+- **Option B (pocket clears body end):** Bore = ~15.5mm. The fitting slides through freely and must be retained by other means (snap ring, adhesive, interference on collet shoulder).
 - **The current design assumed a uniform ~12.7mm cylinder — this must be redesigned** for the actual barbell profile.
 
 ### Release Plate Stepped Bores
@@ -109,7 +109,7 @@ Updated bore design based on caliper-verified collet dimensions (collet OD 9.57m
 - **Outer bore (body end cradle):** Just over 15.10mm body end OD, as tight as manufacturing allows.
 
 ### Release Mechanism Stroke
-The collet travel is ~1.3mm per side. The cam lever produces 3mm of plate travel. This means the release mechanism has ~1.7mm of margin — comfortable, but the plate must contact the collet ring before the stroke begins (i.e., the fitting must be seated so the collet ring is within reach of the plate's starting position).
+The collet travel is ~1.3mm per side. The cam lever produces 3mm of plate travel. This means the release mechanism has ~1.7mm of margin — comfortable, but the plate must contact the body end before the stroke begins (i.e., the fitting must be seated so the body end is within reach of the plate's starting position).
 
 ## Geometry for 3D Modeling Agents
 
