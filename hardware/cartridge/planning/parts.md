@@ -48,8 +48,8 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 - **Envelope:** 138W x 120D x 6H mm (fits inside 140mm interior with 1mm clearance per side)
 - **Features:**
   - Flat plate, prints horizontally for maximum screw boss strength
-  - 4-8x M3 heat-set insert bosses for pump bracket mounting (boss OD: 8mm, boss height: 6mm, pilot hole: 4.0mm)
-  - Exact mounting hole pattern: TBD — must be measured from physical KPHM400 bracket with calipers or from a GrabCAD STEP model. Expected: 2x or 4x M3 per pump, spacing estimated ~55-65mm x ~40-50mm per pump (scaled from KK series)
+  - 4x M3 heat-set insert bosses for pump bracket mounting (boss OD: 8mm, boss height: 6mm, pilot hole: 4.0mm) — 2 per pump
+  - Mounting hole pattern per pump: 49.45mm center-to-center, one axis (caliper-verified), 3.13mm hole diameter (accepts M3 screws with ~0.13mm clearance). Bracket has 2x M3 through-holes (one per ear). If a 2x2 pattern exists, the perpendicular axis spacing is TBD.
   - 4x printed C-clips for BPT tubing strain relief (clip ID: 8.3mm for 8.0mm OD BPT tube, clip opening: 6.5mm for snap-in)
   - 4x printed C-clips for 1/4" hard tubing strain relief (clip ID: 6.65mm for 6.35mm OD tube, clip opening: 4.85mm for snap-in)
   - Wire routing channel along one edge: 5mm wide x 3mm deep U-channel
@@ -60,7 +60,7 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - Tray bolts to shell ledges via 4x M3 screws
   - Locating tabs engage shell wall slots for lateral alignment
 - **Quantity:** 1
-- **Open:** Exact pump mounting hole pattern (critical — must measure physical pumps or obtain STEP model). Number of mounting holes per pump (2 or 4). Whether rubber grommet isolators are needed (try rigid mount first).
+- **Open:** Perpendicular axis mounting hole spacing (if bracket has 2x2 pattern — currently only one axis measured). Whether rubber grommet isolators are needed (try rigid mount first).
 
 ---
 
@@ -155,16 +155,18 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 ### Part: Kamoer KPHM400-SW3B25 Peristaltic Pump
 - **Type:** Purchased
 - **Material:** Various (motor housing, pump head, BPT tubing)
-- **Envelope:** 68.6W x 115.6D x 62.7H mm (confirmed from datasheet)
+- **Envelope:** Pump head 62.6mm square (caliper-verified), bracket ears bring width to 68.6mm. Total length 116.48mm with motor shaft nub (caliper-verified) or 111.43mm without (caliper-verified). Height 62.6mm (caliper-verified). Datasheet states 68.6W x 115.6D x 62.7H mm.
 - **Features:**
   - 12V DC brushed motor, 10W, ~0.83A typical draw
   - 3-roller pump head
   - BPT 25# pump tube: 4.8mm ID x 8.0mm OD
-  - Tube exits from pump head face (front of unit), inlet and outlet on same face
+  - Tube exits from pump head face (front of unit), inlet and outlet on same face (caliper-verified)
   - Tube stub protrusion from pump head: ~30-50mm (estimated)
   - Motor leads exit from rear of motor housing
-  - Mounting bracket (straight plate): metal, 2x or 4x M3 through-holes
-  - Bracket mounting hole pattern: TBD (blocked datasheet drawing; will measure with calipers or obtain STEP model from GrabCAD)
+  - Motor shaft nub protrudes 5.05mm from motor end cap (caliper-verified)
+  - Mounting bracket (straight plate): metal, 2x M3 through-holes (one per ear)
+  - Bracket mounting hole diameter: 3.13mm (caliper-verified), accepts M3 screws with ~0.13mm clearance
+  - Bracket mounting hole center-to-center: 49.45mm, single axis (caliper-verified). If bracket has a 2x2 pattern, perpendicular axis spacing is TBD.
   - Weight: 306g per pump (confirmed)
   - Noise: <=65 dB (confirmed)
   - Flow rate: 400 ml/min (confirmed)
@@ -173,8 +175,8 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - BPT tube stubs connect to brass barb fittings for transition to 1/4" hard tubing
   - Motor leads route through wire channel to pogo target PCB
 - **Quantity:** 2
-- **Status:** Best available dimensions, pending caliper verification of mounting hole pattern and tube exit positions.
-- **Open:** Exact mounting hole pattern (center-to-center spacing). Bracket overall dimensions. Tube exit positions relative to mounting face. Motor lead length. Motor protrusion beyond bracket (determines tray-to-lid clearance).
+- **Status:** Envelope, mounting hole pattern (one axis), and motor nub protrusion caliper-verified. Tube exit X/Z positions, motor lead length, and motor body diameter (~35mm, low confidence) still TBD.
+- **Open:** Tube exit positions relative to mounting face. Motor lead length. Motor body diameter (caliper readings ~34.5-35.1mm, low confidence). Perpendicular axis mounting hole spacing (if 2x2 pattern exists).
 
 ---
 
@@ -335,8 +337,7 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
   - Secures tray to shell (through tray into shell inserts)
 - **Interfaces:**
   - Threads into M3 heat-set inserts in pump tray and shell
-- **Quantity:** 8-12 (4-8 for pump brackets + 4 for tray-to-shell)
-- **Open:** Exact count depends on pump bracket hole count (2 or 4 per pump).
+- **Quantity:** 8 (4 for pump brackets — 2 per pump + 4 for tray-to-shell)
 
 ---
 
@@ -352,7 +353,7 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 - **Interfaces:**
   - Press-set into pump tray bosses (4.0mm pilot holes)
   - Press-set into shell interior bosses for tray mounting
-- **Quantity:** 8-12 (matching screw count)
+- **Quantity:** 8 (matching screw count)
 
 ---
 
@@ -379,7 +380,7 @@ See `architecture.md` for design rationale and `research/` for detailed trade-of
 - **Interfaces:**
   - M3 screw passes through grommet center hole
   - Grommet sits in counterbore on tray or between bracket and tray surface
-- **Quantity:** 4-8 (one per pump mounting screw)
+- **Quantity:** 4 (one per pump mounting screw — 2 per pump)
 - **Open:** Not needed for MVP — try rigid mount first. Add if vibration/noise is objectionable.
 
 ---
