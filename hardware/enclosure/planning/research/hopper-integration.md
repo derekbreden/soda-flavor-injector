@@ -310,7 +310,7 @@ Sugar syrup at 50-67 Brix (the concentration of typical flavor syrups) has low w
 - Regular clean cycles (weekly, automated by firmware schedule)
 - Hopper line flush after each refill
 - Removable funnel for periodic deep clean
-- Smooth, non-porous materials throughout (silicone tubing, PP/Tritan funnel, no 3D-printed surfaces in the fluid path)
+- Smooth, non-porous materials throughout (hard PE/PU tubing internally, silicone only at pump heads and external runs, PP/Tritan funnel, no 3D-printed surfaces in the fluid path)
 
 ### 6d. Material Selection
 
@@ -318,7 +318,7 @@ Sugar syrup at 50-67 Brix (the concentration of typical flavor syrups) has low w
 |---|---|---|
 | Funnel body | Food-grade silicone (Shore 40-60A) | Flexible (removable), translucent, dishwasher safe, non-porous |
 | Funnel mounting ring | PP or ABS (injection molded or machined) | Rigid support for silicone funnel, chemical resistant |
-| Hopper tubing | Food-grade silicone (platinum-cured) | Flexible, non-porous, compatible with peristaltic pump if needed |
+| Hopper tubing | 1/4" OD hard PE or PU with John Guest push-to-connect fittings | NSF 61 certified, does not absorb flavors, standard in RO/ice maker systems. Clean cycle flushes lines; the removable silicone funnel insert handles the critical food-contact surface |
 | Funnel lid/cap | Food-grade silicone or PP | Snap-fit or press-fit, with optional duckbill valve for sealed hopper operation |
 | Drip tray | PP or ABS | Rigid, chemical resistant, removable for washing |
 

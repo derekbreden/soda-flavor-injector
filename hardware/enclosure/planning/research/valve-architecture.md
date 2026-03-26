@@ -302,7 +302,7 @@ These solenoid valves draw 4.8-5.5W continuously while energized. The coils will
 
 All candidates use standard 1/4" (6.35mm OD) RO-style push-fit connectors. These accept standard 1/4" OD polyethylene or silicone tubing by pushing the tube into the fitting until it clicks. To release, press the collet and pull the tube out. This is the same fitting standard used throughout the RO water purification industry.
 
-The system uses 1/4" ID silicone tubing (approximately 6.35mm OD with thin-wall tubing). Verify OD compatibility with specific tubing before ordering -- some silicone tubing has thicker walls giving a larger OD that won't fit push-connect fittings. If needed, short adapters (1/4" barb to 1/4" push-connect) are available for under $1 each.
+The system uses 1/4" OD hard PE or PU tubing for all internal plumbing, with John Guest push-to-connect fittings throughout. This is the same tubing standard used in RO and ice maker systems -- NSF 61 certified, does not absorb flavors, and routes cleanly with elbows for direction changes. Silicone tubing is used only in four specific locations: peristaltic pump heads, the cosmetic external run from the back panel to the faucet, back panel cable gland pass-throughs, and short vibration-dampening segments near the pump dock.
 
 ---
 

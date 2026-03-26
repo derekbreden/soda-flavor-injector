@@ -177,19 +177,22 @@ At 35 degrees the leak rate is roughly double what it would be at 18 degrees. No
 
 The diagonal layout puts the bag connectors at an intermediate height (roughly 100-200mm above the enclosure floor, depending on exact cradle position). The valves and pump are below. Tubes must route from the connector position down to the valve zone.
 
+All internal plumbing uses 1/4" OD hard PE or PU tubing with John Guest push-to-connect fittings. Hard tubing uses elbow fittings for direction changes rather than bending the tube itself. Cold-bent PE has a minimum bend radius of ~25mm (4x OD), but elbows are preferred for clean 90-degree turns. Each John Guest 90-degree elbow adds approximately 20mm of protrusion in each perpendicular axis — this must be accounted for in routing channel design. Silicone tubing is used only at peristaltic pump heads, back panel pass-throughs, the external faucet run, and short vibration-dampening segments near the pump dock.
+
 **Failure modes:**
 
-- **Kink in vertical drop:** Tubing dropping from the connector through a tight bend to reach a valve below could kink, especially soft silicone tubing.
-- **Tube interference with cradle removal:** If bags are changed by lifting the cradle out, the tubes attached to the bag connectors must disconnect or flex enough to allow cradle extraction.
-- **Spaghetti:** 8+ tubes in a 272mm-wide enclosure is manageable but requires deliberate routing channels or clips to prevent tangling.
+- **Elbow protrusion:** John Guest elbows add ~20mm per axis at each turn. In a 272mm-wide enclosure with 8+ tube runs, elbow clearance can conflict with bag cradle, valve assembly, or electronics if not planned during CAD.
+- **Tube interference with cradle removal:** If bags are changed by lifting the cradle out, the tubes attached to the bag connectors must disconnect or flex enough to allow cradle extraction. Hard tubing is rigid — quick-disconnect fittings at the bag connectors are essential, not optional.
+- **Routing rigidity:** Unlike flexible tubing that can be stuffed into any available gap, hard tubing requires deliberate routing channels with clip points at fixed intervals. Each tube run must be planned in CAD with specific entry/exit angles.
 
 **Mitigations:**
 
-- Minimum bend radius specified for all tube runs (silicone tubing typically 2-4x outer diameter).
-- Printed tube routing channels or clips integrated into the cradle and enclosure walls.
-- Quick-disconnect fittings at the bag connectors for cartridge/bag change.
+- Routing channels and clip points designed into the cradle, enclosure walls, and valve manifold area during CAD. Hard tubing cannot be improvised after the fact.
+- John Guest elbow fittings at all direction changes, with 20mm clearance budgeted per axis per elbow.
+- Cold bending (minimum ~25mm radius) for gentle curves where a full elbow fitting is overkill.
+- Quick-disconnect fittings at the bag connectors for cradle removal.
 
-**Verdict:** An organization problem, not a physics problem. Requires deliberate routing design during the enclosure CAD phase.
+**Verdict:** An organization problem, not a physics problem, but one that demands more CAD discipline than flexible tubing would. Every tube run and elbow position must be specified in the enclosure design — hard tubing does not forgive ad-hoc routing.
 
 ---
 

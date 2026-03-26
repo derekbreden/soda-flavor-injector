@@ -154,6 +154,10 @@ For two stacked 2L bags at 35°:
 - Weight: estimated 100-200g depending on wall thickness and infill
 - Print time: 4-8 hours on a standard FDM printer (may need to be printed in 2 halves and joined)
 
+### 4e. Hard tubing routing clearance
+
+Internal plumbing uses 1/4" OD hard PE/PU tubing with John Guest push-to-connect fittings. Unlike flexible tubing that can be stuffed into any gap, hard tubing and JG elbows require designed routing channels or clip points in the cradle structure. Each 90-degree JG elbow adds ~20mm of protrusion per axis. The cradle design must include tube routing features (channels, clip slots, or standoff points) along its edges or underside to accommodate the 8+ tube runs between bag connectors, valves, and pump. These routing features should be part of the initial CAD design, not added after the fact.
+
 ---
 
 ## 5. Height Consumed and Available Voids

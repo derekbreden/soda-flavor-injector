@@ -41,7 +41,7 @@ The back panel is 280mm wide x 400mm tall (exterior dimensions). What lives on t
 
 **Interior contents:** The diagonal bag slab passes through this region. At the back wall (Y=292), the lower bag surface is at Z=127mm (V1-A, 1L bags at 35 degrees). The bags slope upward from there toward the front. This zone is mostly occupied by the descending bag slab and the tube channels on the enclosure floor beneath it.
 
-**What goes here:** The two flavor tube exits. These silicone tubes originate from the pump cartridge area (front-bottom) and route rearward along the enclosure floor, then exit the back panel. Placing them in the mid-panel range (around Z=180-220mm) keeps them:
+**What goes here:** The two flavor tube exits. Internal routing from the pump cartridge area (front-bottom) to the back panel uses hard PE/PU tubing with John Guest fittings. The transition to silicone tubing happens at or near the back panel PG7/PG9 cable gland, since silicone is only needed for the external cosmetic run to the faucet. Placing the exits in the mid-panel range (around Z=180-220mm) keeps them:
 - Clear of the water fittings below
 - Clear of the power inlet above
 - At a height where they can route upward through the cabinet to the faucet with a gentle bend
