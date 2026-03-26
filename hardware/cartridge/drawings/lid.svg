@@ -32,7 +32,7 @@
   <!-- ===== TOP VIEW ===== -->
   <!-- Scale 2:1, origin at (80, 60) -->
   <!-- 148mm W = 296px, 130mm D = 260px -->
-  <text x="228" y="50" class="label">TOP VIEW (2:1)</text>
+  <text x="228" y="38" class="label">TOP VIEW (2:1)</text>
 
   <!-- Lid outline -->
   <rect x="80" y="60" width="296" height="260" class="outline"/>
