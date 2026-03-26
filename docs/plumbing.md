@@ -1,37 +1,31 @@
 # Plumbing
 
-## Tubing Types
+## Tubing Strategy
 
-Two types of tubing are used throughout the system:
+1/4" OD hard tubing (PE or PU, food-grade) with John Guest push-to-connect fittings is the primary tubing for all internal plumbing. The entire fluid system already uses 1/4" push-connect fittings (Beduan solenoid valves, John Guest bulkheads, dock tube stubs), so hard tubing pushes directly into every fitting — zero tools, zero skill.
 
-- **Soft silicone tubing** (1/8" ID x 1/4" OD, food-grade, black) — used for flavoring concentrate lines. Flexible, easy to route, works with peristaltic pumps. Purchased as a 6m spool from Amazon (B0BM4KQ6RT).
-- **Hard RO tubing** (1/4" OD, white/clear) — used for water lines (filtered tap water, cold water, carbonated water). Rigid, holds well in push-connect fittings. Sourced from an ice maker installation kit.
+Silicone tubing is used only in four specific places:
 
-## Connection Methods
+1. **Peristaltic pump heads** — mechanical requirement. Peristaltic pumps need flexible tubing to compress against the rollers.
+2. **Faucet cosmetic run** — 1/8" ID black silicone zip-tied to the matte black gooseneck faucet. This is the only user-visible tubing; the black silicone blends with the faucet finish.
+3. **Back panel PG7/PG9 cable gland pass-throughs** — flexibility needed for external routing through the gland seals.
+4. **Short vibration-dampening segments near the pump cartridge dock** (optional) — absorbs peristaltic pump pulsation to prevent transmitted vibration.
 
-### Push-Connect Fittings
+### Why Hard Tubing
 
-Push-connect (quick-connect) fittings are used on solenoid valves, tee splitters, elbows, and manual valves. They accept 1/4" OD tubing — push the tube in, the collet grabs it.
+- **Push-connect compatibility**: hard tubing seats properly in push-connect fittings. The rigid tube holds against the collet grip and the O-ring seals against the smooth, firm outer surface.
+- **Silicone does NOT hold in push-connect fittings**: the silicone deforms under the collet grip and slips out. The old approach required stretching silicone over a hard tube stub inserted into the QC fitting, secured with zip ties — every connection was two connections (one push-fit, one stretch + zip tie). Hard tubing eliminates all of that.
+- **Flavor absorption**: PE/PU doesn't absorb flavors the way silicone does. Important for a flavor injection system where users change flavors.
+- **Manufacturability**: cut to length, push in. Every unit identical. No zip-tie skill variance.
+- **Volume**: the ID difference between 1/8" silicone and ~0.170" hard tubing is negligible (single-digit mL over full line runs).
 
-**Hard tubing works well in push-connect fittings.** The rigid tube seats properly and the O-ring seals against the smooth, firm outer surface.
+## Push-Connect Fittings
 
-**Soft silicone does NOT hold in push-connect fittings.** The silicone deforms under the collet grip and slips out. Never push silicone directly into a push-connect fitting.
+Push-connect (quick-connect) fittings are used on solenoid valves, tee splitters, elbows, manual valves, and bulkheads. They accept 1/4" OD tubing — push the tube in, the collet grabs it.
 
-### Silicone-to-Push-Connect Transition
+Hard tubing works. Silicone does not. Never push silicone directly into a push-connect fitting.
 
-To connect soft silicone tubing to a push-connect fitting, use hard tubing as an intermediary:
-
-```
-[push-connect fitting] ← hard tube → inserted into soft silicone ← zip tie
-```
-
-1. Push one end of a short piece of hard 1/4" OD tubing into the push-connect fitting.
-2. Insert the other end of the hard tube *into* the soft silicone tubing (the hard tube's OD matches the silicone's ID, creating a snug interference fit).
-3. Zip-tie the silicone over the hard tube to prevent slippage.
-
-The interference fit of the hard tube stretching the silicone creates the seal. The zip ties are more about preventing the tube from sliding off than about sealing — the fit itself is what keeps liquid in.
-
-### Platypus Bag Connection
+## Platypus Bag Connection
 
 The Platypus Hydration Drink Tube Kit (B07N1T6LNW) comes with blue tubing that has a slightly larger ID than the black silicone's OD. The black silicone slides *inside* the blue tube, creating an overlap/sleeve joint of a couple inches. Zip ties compress the blue tube onto the inner black tube to hold and seal.
 
@@ -40,6 +34,8 @@ Zip tie torque on this joint is a balancing act:
 - **Too loose** — leaking under backpressure (see failure mode below).
 - **Too tight** — collapses the inner black silicone tube, restricting or blocking flow. Possible but hasn't been an ongoing issue.
 
+The Platypus bag connection transitions to hard tubing via a short silicone-to-hard-tube adapter segment at the bag end of the line.
+
 ## Current Flavoring Line Path
 
 Each of the two flavor lines follows this path:
@@ -47,12 +43,14 @@ Each of the two flavor lines follows this path:
 ```
 Platypus bag
   → blue tube (from Platypus drink tube kit)
-    → zip tie joint (blue over black silicone)
-      → 1/4" OD black silicone tubing
-        → hard tube transition + zip tie
-          → [dispensing solenoid valve, Beduan 12V NC, 1/4" push-connect]
-            → [peristaltic pump, Kamoer 400ml/min 12V]
-              → dispensing point (faucet gooseneck)
+    → zip tie joint (blue over black silicone adapter)
+      → 1/4" OD hard tubing (push-connect into dispensing solenoid)
+        → [dispensing solenoid valve, Beduan 12V NC, 1/4" push-connect]
+          → 1/4" OD hard tubing
+            → [peristaltic pump, Kamoer 400ml/min 12V] (silicone segment through pump head)
+              → 1/4" OD hard tubing → faucet gooseneck
+                → 1/8" ID black silicone (cosmetic run, zip-tied to faucet)
+                  → dispensing point
 ```
 
 The two flavor lines are independent and identical in layout. An air switch toggles which flavor is active.
@@ -84,6 +82,7 @@ Kamoer peristaltic pumps (B09MS6C91D), 400ml/min at 12V. $32.55 each.
 - Duty-cycle driven by flow meter readings (burst mode, not continuous)
 - Burst duration: 50-300ms realistic range
 - The pump's roller compression creates a natural seal when stopped — liquid doesn't free-flow through a stopped pump
+- Silicone tubing through the pump head transitions to hard tubing on both the inlet and outlet sides
 
 ## Observed Failure: Leak Under Pump Backpressure
 
@@ -95,7 +94,7 @@ Fix: tightened the zip tie a small amount. Problem went away immediately.
 
 ## Clean Cycle Plumbing (Planned)
 
-Two new solenoid valves (one per flavor line) and a needle valve for flow restriction. Tee fittings and hard tubing sourced from an existing ice maker kit.
+Two new solenoid valves (one per flavor line) and a needle valve for flow restriction. Tee fittings and hard tubing sourced from an existing ice maker kit. All connections are 1/4" push-connect with hard tubing.
 
 ### Layout
 
@@ -111,7 +110,7 @@ Each flavor line gets its own clean solenoid and tee. The needle valve and water
 
 ### Why a Needle Valve Instead of a Pressure Regulator
 
-Household water pressure is 40-80 PSI. The flavoring lines and zip-tie joints operate at well under 10 PSI. A pressure regulator in the 1/4" RO ecosystem is designed to protect RO membranes — they reduce to ~60 PSI, not the 5-10 PSI we need, and aren't reliable at the extreme low end of their range.
+Household water pressure is 40-80 PSI. The flavoring lines operate at well under 10 PSI. A pressure regulator in the 1/4" RO ecosystem is designed to protect RO membranes — they reduce to ~60 PSI, not the 5-10 PSI we need, and aren't reliable at the extreme low end of their range.
 
 A needle valve restricts *flow* by physically narrowing the passage with a screw. Turn it down and only a trickle gets through, regardless of input pressure. The pressure issue solves itself because so little water can pass at once. Simpler, cheaper, and more reliable at low flow rates.
 
