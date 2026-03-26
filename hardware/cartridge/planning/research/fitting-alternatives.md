@@ -14,8 +14,8 @@ Survey of every viable option for the 4 fluid connections between the removable 
 
 | Spec | Value |
 |---|---|
-| Body OD | ~12-14mm |
-| Body length (union) | ~38-42mm |
+| Body profile | Barbell: 9.31mm center body, 15.10mm collet rings (caliper-verified) |
+| Body length (union) | 39.13mm collets compressed / 41.80mm collets extended (caliper-verified) |
 | Insertion depth | ~15-18mm per side |
 | Cost (PI0408S) | ~$2 each, $8 for 4 |
 | Food safety | NSF 61 (potable water) |
@@ -173,6 +173,6 @@ John Guest 1/4" push-to-connect fittings are the chosen approach. The rationale:
 ### Implications for Other Design Documents
 
 - `cam-lever.md`, `collet-release.md`, `release-plate.md` -- all relevant and describe the JG release mechanism
-- `mating-face.md` -- 4 JG fittings on the dock back wall in a 2x2 grid, 12.7mm body OD, 30mm center spacing
+- `mating-face.md` -- 4 JG fittings on the dock back wall in a 2x2 grid, barbell profile (9.31mm center body / 15.10mm collet rings), 40mm horizontal x 28mm vertical center-to-center
 - Cartridge rear face carries 4 tube stubs (1/4" OD hard nylon, ~30mm protrusion)
 - The cam lever on the cartridge front face drives the release plate via push rod

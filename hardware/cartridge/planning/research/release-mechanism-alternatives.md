@@ -10,7 +10,7 @@ This document challenges every assumption in that design. The goal is not to pro
 
 ## 1. Do We Even Need a Release Plate?
 
-The release plate is the most complex part of the current design — stepped bores with three concentric diameters, tight tolerances on lip width (1.25mm annular), linear guide features to prevent tilt, and a cam-to-plate interface. It demands careful 3D print orientation and may need multiple iterations to get the bore dimensions right. Is all of this necessary?
+The release plate is the most complex part of the current design — stepped bores with three concentric diameters, tight tolerances on lip width (2.25mm annular), linear guide features to prevent tilt, and a cam-to-plate interface. It demands careful 3D print orientation and may need multiple iterations to get the bore dimensions right. Is all of this necessary?
 
 ### 1a. "Just Pull" — Individual Hand Disconnects
 
@@ -39,7 +39,7 @@ With practice, a single John Guest 1/4" disconnect takes approximately 3-5 secon
 
 The time difference is real but not enormous. The bigger issue is **user experience under adverse conditions**:
 
-- Under a sink, the fittings face a wall. The user reaches in, often working by feel. Individual collet presses require fingertip precision on a 11mm ring while simultaneously pulling a tube straight out — this is a two-handed operation per fitting.
+- Under a sink, the fittings face a wall. The user reaches in, often working by feel. Individual collet presses require fingertip precision on a 15.10mm ring while simultaneously pulling a tube straight out — this is a two-handed operation per fitting.
 - The release plate + lever converts this to a one-handed operation (flip lever, slide cartridge).
 - For a product that someone else might use (spouse, renter, property manager), "flip lever and pull" is dramatically more approachable than "push each of these 4 tiny rings while pulling the tubes."
 
