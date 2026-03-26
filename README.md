@@ -125,7 +125,8 @@ Nearly everything was sourced from Amazon Prime. The only exception is the carbo
 | [Westbrass Cold Water Dispenser Faucet (Matte Black)](https://www.amazon.com/dp/B0BXFW1J38) | Dispensing tap at the counter |
 | [Platypus 2L Collapsible Bottle](https://www.amazon.com/dp/B000J2KEGY) x2 | Flavor concentrate reservoirs |
 | [Platypus Hydration Drink Tube Kit](https://www.amazon.com/dp/B07N1T6LNW) | Tubing + bite valve for reservoirs |
-| [Silicone Tubing (1/8" ID x 1/4" OD)](https://www.amazon.com/dp/B0BM4KQ6RT) | Food-grade tubing for concentrate lines |
+| 1/4" OD Hard Tubing (PE/PU) | All internal plumbing connections (John Guest push-to-connect fittings) |
+| [Silicone Tubing (1/8" ID x 1/4" OD)](https://www.amazon.com/dp/B0BM4KQ6RT) | Pump heads, faucet cosmetic run, cable gland pass-throughs, vibration-dampening segments |
 | [Waterdrop 15UC-UF Inline Water Filter](https://www.amazon.com/dp/B085G9TZ4L) | Filters water before carbonation |
 
 ### Flavor Concentrates
@@ -378,6 +379,7 @@ Prices as of March 2026.
 | [Westbrass Dispenser Faucet](https://www.amazon.com/dp/B0BXFW1J38) | $30.00 | 1 | $30.00 |
 | [Platypus 2L Collapsible Bottle](https://www.amazon.com/dp/B000J2KEGY) | $15.94 | 2 | $31.88 |
 | [Platypus Drink Tube Kit](https://www.amazon.com/dp/B07N1T6LNW) | $24.95 | 1 | $24.95 |
+| 1/4" OD Hard Tubing (25ft roll) | ~$9.00 | 1 | ~$9 |
 | [Silicone Tubing (6m)](https://www.amazon.com/dp/B0BM4KQ6RT) | $12.99 | 1 | $12.99 |
 | [Waterdrop Inline Water Filter](https://www.amazon.com/dp/B085G9TZ4L) | $62.99 | 1 | $62.99 |
 | [Dupont Jumper Wires (120-pack)](https://www.amazon.com/dp/B0BRTJXND9) | $5.97 | 1 | $5.97 |
@@ -390,9 +392,9 @@ Prices as of March 2026.
 | [#8 x 1/2" Wood Screws (100-pack)](https://www.homedepot.com/p/204275505) | $6.87 | 1 | $6.87 |
 | [SodaStream Pepsi Wild Cherry (4-pack)](https://www.amazon.com/dp/B0G4NRDQB8) | $28.99 | 1 | $28.99 |
 | [SodaStream Diet MTN Dew (4-pack)](https://www.amazon.com/dp/B0CS191QMW) | ~$29 | 1 | ~$29 |
-| **Subtotal (without carbonator)** | | | **~$766** |
+| **Subtotal (without carbonator)** | | | **~$775** |
 | [Lilium Under-Sink Carbonator](https://liliumfaucet.com/products/under-sink-carbonated-soda-maker-sparkling-water-dispenser-with-3-way-faucet) | $1,039.00 | 1 | $1,039.00 |
-| **Subtotal (all parts)** | | | **~$1,805** |
+| **Subtotal (all parts)** | | | **~$1,814** |
 | *Tools (if not already owned):* | | | |
 | [RYOBI Drill/Driver Kit](https://www.homedepot.com/p/326680222) | $49.97 | 1 | $49.97 |
 | [RYOBI Drill Bit Set (15-piece)](https://www.homedepot.com/p/315853368) | $12.97 | 1 | $12.97 |
@@ -402,7 +404,7 @@ Prices as of March 2026.
 | [Klein Tools 3005CR Ratcheting Crimper](https://www.amazon.com/dp/B07WMB61J5) | $34.96 | 1 | $34.96 |
 | [Apple USB-C to USB-C Cable (2m)](https://www.amazon.com/dp/B0DCH5B2HF) | $18.00 | 1 | $18.00 |
 | [LISEN USB-C to Micro USB Cable (2-pack)](https://www.amazon.com/dp/B0D3BXM91B) | $7.59 | 1 | $7.59 |
-| **Total (with tools)** | | | **~$1,972** |
+| **Total (with tools)** | | | **~$1,981** |
 
 ## License
 
