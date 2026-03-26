@@ -1,378 +1,336 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 780" width="1050" height="780" font-family="Arial, Helvetica, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 950" width="1050" height="950" font-family="Arial, Helvetica, sans-serif">
   <title>Pump Tray — Engineering Drawing</title>
-  <style>
-    .outline { fill: none; stroke: #000; stroke-width: 1.5; }
-    .thin { fill: none; stroke: #000; stroke-width: 0.8; }
-    .hidden { fill: none; stroke: #000; stroke-width: 0.8; stroke-dasharray: 2,2; }
-    .phantom { fill: none; stroke: #000; stroke-width: 0.6; stroke-dasharray: 10,3,2,3; }
-    .center { fill: none; stroke: #000; stroke-width: 0.4; stroke-dasharray: 12,3,2,3; }
-    .dim { fill: none; stroke: #333; stroke-width: 0.5; }
-    .dim-text { font-size: 10px; fill: #333; text-anchor: middle; }
-    .dim-text-s { font-size: 9px; fill: #333; text-anchor: middle; }
-    .label { font-size: 11px; fill: #000; font-weight: bold; text-anchor: middle; }
-    .note { font-size: 9px; fill: #555; }
-    .title-text { font-size: 16px; fill: #000; font-weight: bold; text-anchor: middle; }
-    .subtitle { font-size: 11px; fill: #444; text-anchor: middle; }
-    .arrow { fill: #333; stroke: none; }
-    .boss-fill { fill: #ddd; stroke: #000; stroke-width: 0.8; }
-    .channel-fill { fill: #f0f0f0; stroke: #000; stroke-width: 0.6; }
-  </style>
 
-  <!--
-    SCALE: S = 3.5 px/mm
-    LAYOUT (third-angle projection):
-      Front view (upper-left): looking along -Y, shows X(horiz) x Z(vert)
-      Side view (upper-right): looking along -X, shows Y(horiz) x Z(vert), Z-aligned with Front
-      Top view (lower-left): looking along -Z, shows X(horiz) x Y(vert), X-aligned with Front
+  <defs>
+    <style>
+      .outline   { fill:none; stroke:#000; stroke-width:1.5; }
+      .hidden    { fill:none; stroke:#000; stroke-width:0.75; stroke-dasharray:4,3; }
+      .phantom   { fill:none; stroke:#07c; stroke-width:0.75; stroke-dasharray:8,3,2,3; }
+      .center    { fill:none; stroke:#000; stroke-width:0.35; stroke-dasharray:8,3,2,3; }
+      .dim       { fill:none; stroke:#000; stroke-width:0.5; }
+      .dimtext   { font-size:10px; text-anchor:middle; fill:#000; }
+      .label     { font-size:12px; font-weight:bold; text-anchor:middle; fill:#000; }
+      .note      { font-size:9px; fill:#000; }
+      .title     { font-size:14px; font-weight:bold; fill:#000; }
+      .titletext { font-size:10px; fill:#000; }
+      .frame     { fill:none; stroke:#000; stroke-width:1; }
+      .boss      { fill:none; stroke:#000; stroke-width:1; }
+    </style>
+    <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#000"/>
+    </marker>
+    <marker id="ah-rev" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+      <path d="M8,0 L0,3 L8,6 Z" fill="#000"/>
+    </marker>
+  </defs>
 
-    Tray dimensions:
-      Front: 138*3.5=483 x 6*3.5=21
-      Side:  120*3.5=420 x 6*3.5=21
-      Top:   138*3.5=483 x 120*3.5=420
-
-    Origins:
-      Front: Fx=80, Fy=100 (top-left corner of tray front face)
-      Side:  Sx=603, Sy=100 (aligned Z with front; 80+483+40=603)
-      Top:   Tx=80, Ty=185 (below front; 100+21+gap)
-  -->
-
-  <!-- Title block -->
-  <text x="525" y="28" class="title-text">Pump Tray</text>
-  <text x="525" y="44" class="subtitle">138W x 120D x 6H mm — PETG — Qty 1</text>
-  <text x="525" y="58" class="subtitle">Scale: 3.5 px/mm — Dimensions in mm</text>
-  <line x1="50" y1="65" x2="1000" y2="65" stroke="#999" stroke-width="0.5"/>
+  <!-- Drawing border -->
+  <rect x="5" y="5" width="1040" height="940" class="frame"/>
 
   <!-- ============================================================ -->
-  <!-- FRONT VIEW (looking along -Y): X (horiz) x Z (vert)         -->
-  <!-- Origin Fx=80, Fy=100. Size: 483 x 21 px                     -->
+  <!-- AXIS LOOKUP TABLE (for self-review)                          -->
+  <!-- Front view: looking along -Y, H=X, V=Z                      -->
+  <!-- Side view:  looking along -X, H=Y, V=Z                      -->
+  <!-- Top view:   looking along -Z, H=X, V=Y                      -->
+  <!-- Scale: 3.5 px/mm                                             -->
+  <!-- Tray envelope: 138W x 120D x 6H mm                          -->
+  <!-- Top view: 483px W x 420px D                                  -->
+  <!-- Front view: 483px W x 21px H (shares X range with top)      -->
+  <!-- Side view: 420px D x 21px H (shares Z range with front)     -->
   <!-- ============================================================ -->
 
-  <text x="321" y="88" class="label">FRONT VIEW</text>
-  <text x="321" y="97" class="note" text-anchor="middle" style="font-size:7px">(looking along -Y)</text>
+  <!-- ===== TOP VIEW ===== -->
+  <!-- Origin at (60, 50). X right, Y down (maps to +Y depth).     -->
+  <!-- Tray: 138mm W = 483px, 120mm D = 420px                      -->
+  <text x="301" y="28" class="label">TOP VIEW (3.5:1)</text>
 
   <!-- Tray outline -->
-  <rect x="80" y="100" width="483" height="21" class="outline"/>
+  <rect x="60" y="50" width="483" height="420" class="outline"/>
 
-  <!-- Heat-set insert bosses: hidden behind front face -->
-  <!-- 8mm OD = 28px wide, full 21px tall -->
-  <!-- Pump1 holes at X=9.975, 59.425mm => Fx+34.9=114.9, Fx+208.0=288.0 -->
-  <!-- Pump2 holes at X=78.575, 128.025mm => Fx+275.0=355.0, Fx+448.1=528.1 -->
-  <rect x="101" y="100" width="28" height="21" class="hidden"/>
-  <rect x="274" y="100" width="28" height="21" class="hidden"/>
-  <rect x="341" y="100" width="28" height="21" class="hidden"/>
-  <rect x="514" y="100" width="28" height="21" class="hidden"/>
+  <!-- ── Pump phantom outlines (top view sees pump head rectangles) ── -->
+  <!-- Pumps side-by-side, motors same direction (rear).               -->
+  <!-- Pump 1 centered at X=34.5mm, Pump 2 at X=103.5mm.              -->
+  <!-- Each pump: 116.48mm long, centered at Y=60mm.                   -->
+  <!-- Front face at Y=60-116.48/2=1.76, rear at Y=118.24.            -->
 
-  <!-- Corner through-holes: hidden vertical lines at X=5mm and X=133mm -->
-  <!-- 3.4mm dia = 11.9px; half=5.95 -->
-  <!-- X=5mm: center=80+17.5=97.5 -->
-  <line x1="91.6" y1="100" x2="91.6" y2="121" class="hidden"/>
-  <line x1="103.5" y1="100" x2="103.5" y2="121" class="hidden"/>
-  <!-- X=133mm: center=80+465.5=545.5 -->
-  <line x1="539.6" y1="100" x2="539.6" y2="121" class="hidden"/>
-  <line x1="551.5" y1="100" x2="551.5" y2="121" class="hidden"/>
+  <!-- Pump 1: pump head phantom (front 48mm, 62.6mm wide) -->
+  <!-- X: 34.5-31.3=3.2 to 65.8mm. Y: 1.76 to 49.76mm -->
+  <!-- px: x1=3.2*3.5+60=71.2, w=62.6*3.5=219.1, y1=1.76*3.5+50=56.2, h=48*3.5=168 -->
+  <rect x="71.2" y="56.2" width="219.1" height="168" class="phantom"/>
+  <!-- Pump 1: motor body (~35mm dia) Y: 52..118.24mm -->
+  <!-- X: 34.5-17.5=17 to 52mm. px: x1=17*3.5+60=119.5, w=35*3.5=122.5 -->
+  <!-- py: y1=52*3.5+50=232, h=66.24*3.5=231.8 -->
+  <rect x="119.5" y="232" width="122.5" height="231.8" class="phantom"/>
 
-  <!-- Wire channel at right edge: 5mm=17.5px wide, 3mm=10.5px deep from top -->
-  <rect x="545.5" y="100" width="17.5" height="10.5" class="channel-fill"/>
+  <!-- Pump 2: pump head phantom -->
+  <!-- X: 103.5-31.3=72.2 to 134.8mm. px: x1=72.2*3.5+60=312.7 -->
+  <rect x="312.7" y="56.2" width="219.1" height="168" class="phantom"/>
+  <!-- Pump 2: motor body -->
+  <!-- X: 103.5-17.5=86 to 121mm. px: x1=86*3.5+60=361 -->
+  <rect x="361" y="232" width="122.5" height="231.8" class="phantom"/>
 
-  <!-- Phantom pump bracket ears above tray -->
-  <!-- Pump 1: bracket ears X=0.4..3.4mm and 66.0..69.0mm -->
-  <!-- Ear 1: Fx+1.4=81.4 to Fx+11.9=91.9 -->
-  <line x1="81" y1="100" x2="81" y2="93" class="phantom"/>
-  <line x1="92" y1="100" x2="92" y2="93" class="phantom"/>
-  <line x1="81" y1="93" x2="92" y2="93" class="phantom"/>
-  <!-- Ear 2: Fx+231.0=311 to Fx+241.5=321.5 -->
-  <line x1="311" y1="100" x2="311" y2="93" class="phantom"/>
-  <line x1="322" y1="100" x2="322" y2="93" class="phantom"/>
-  <line x1="311" y1="93" x2="322" y2="93" class="phantom"/>
-  <!-- Pump head sides -->
-  <line x1="92" y1="93" x2="92" y2="80" class="phantom"/>
-  <line x1="311" y1="93" x2="311" y2="80" class="phantom"/>
+  <!-- Phantom labels -->
+  <text x="180" y="155" style="font-size:8px; fill:#07c; text-anchor:middle;">PUMP 1 (PHANTOM)</text>
+  <text x="422" y="155" style="font-size:8px; fill:#07c; text-anchor:middle;">PUMP 2 (PHANTOM)</text>
 
-  <!-- Pump 2: bracket ears X=69.0..72.0mm and 134.6..137.6mm -->
-  <line x1="322" y1="100" x2="322" y2="93" class="phantom"/>
-  <line x1="332" y1="100" x2="332" y2="93" class="phantom"/>
-  <line x1="322" y1="93" x2="332" y2="93" class="phantom"/>
-  <line x1="551" y1="100" x2="551" y2="93" class="phantom"/>
-  <line x1="562" y1="100" x2="562" y2="93" class="phantom"/>
-  <line x1="551" y1="93" x2="562" y2="93" class="phantom"/>
-  <line x1="332" y1="93" x2="332" y2="80" class="phantom"/>
-  <line x1="551" y1="93" x2="551" y2="80" class="phantom"/>
+  <!-- ── Mounting hole bosses (top view: circles) ── -->
+  <!-- 4x bosses: 8mm OD (r=14px), 4mm pilot (r=7px) -->
+  <!-- Bracket at Y=48mm (junction between head and motor) -->
+  <!-- Pump 1 holes: X=9.775mm, X=59.225mm at Y=48mm -->
+  <!-- Pump 2 holes: X=78.775mm, X=128.225mm at Y=48mm -->
+  <!-- px Y: 48*3.5+50=218 -->
+
+  <!-- Boss 1: X=9.775mm -> 9.775*3.5+60=94.2 -->
+  <circle cx="94.2" cy="218" r="14" class="boss"/>
+  <circle cx="94.2" cy="218" r="7" class="hidden"/>
+  <line x1="94.2" y1="201" x2="94.2" y2="235" class="center"/>
+  <line x1="77.2" y1="218" x2="111.2" y2="218" class="center"/>
+
+  <!-- Boss 2: X=59.225mm -> 59.225*3.5+60=267.3 -->
+  <circle cx="267.3" cy="218" r="14" class="boss"/>
+  <circle cx="267.3" cy="218" r="7" class="hidden"/>
+  <line x1="267.3" y1="201" x2="267.3" y2="235" class="center"/>
+  <line x1="250.3" y1="218" x2="284.3" y2="218" class="center"/>
+
+  <!-- Boss 3: X=78.775mm -> 78.775*3.5+60=335.7 -->
+  <circle cx="335.7" cy="218" r="14" class="boss"/>
+  <circle cx="335.7" cy="218" r="7" class="hidden"/>
+  <line x1="335.7" y1="201" x2="335.7" y2="235" class="center"/>
+  <line x1="318.7" y1="218" x2="352.7" y2="218" class="center"/>
+
+  <!-- Boss 4: X=128.225mm -> 128.225*3.5+60=508.8 -->
+  <circle cx="508.8" cy="218" r="14" class="boss"/>
+  <circle cx="508.8" cy="218" r="7" class="hidden"/>
+  <line x1="508.8" y1="201" x2="508.8" y2="235" class="center"/>
+  <line x1="491.8" y1="218" x2="525.8" y2="218" class="center"/>
+
+  <!-- ── Corner through-holes (3.4mm dia = 11.9px dia, r=5.95px) ── -->
+  <!-- Inset 6mm from edges: (6,6), (132,6), (6,114), (132,114) -->
+
+  <!-- Corner hole 1: (6,6) -> (6*3.5+60, 6*3.5+50) = (81, 71) -->
+  <circle cx="81" cy="71" r="5.95" class="outline"/>
+  <line x1="81" y1="62" x2="81" y2="80" class="center"/>
+  <line x1="72" y1="71" x2="90" y2="71" class="center"/>
+
+  <!-- Corner hole 2: (132,6) -> (132*3.5+60, 71) = (522, 71) -->
+  <circle cx="522" cy="71" r="5.95" class="outline"/>
+  <line x1="522" y1="62" x2="522" y2="80" class="center"/>
+  <line x1="513" y1="71" x2="531" y2="71" class="center"/>
+
+  <!-- Corner hole 3: (6,114) -> (81, 114*3.5+50) = (81, 449) -->
+  <circle cx="81" cy="449" r="5.95" class="outline"/>
+  <line x1="81" y1="440" x2="81" y2="458" class="center"/>
+  <line x1="72" y1="449" x2="90" y2="449" class="center"/>
+
+  <!-- Corner hole 4: (132,114) -> (522, 449) -->
+  <circle cx="522" cy="449" r="5.95" class="outline"/>
+  <line x1="522" y1="440" x2="522" y2="458" class="center"/>
+  <line x1="513" y1="449" x2="531" y2="449" class="center"/>
+
+  <!-- ── Wire routing channel (5mm wide x 3mm deep along left edge) ── -->
+  <!-- Top view: shows as 5mm wide strip, X=0..5mm, full depth -->
+  <!-- px: x=60 to 60+5*3.5=77.5, y=50 to 470 -->
+  <line x1="77.5" y1="50" x2="77.5" y2="470" class="hidden"/>
+
+  <!-- ── TOP VIEW DIMENSIONS ── -->
+
+  <!-- Width 138mm across top -->
+  <line x1="60" y1="40" x2="60" y2="46" class="dim"/>
+  <line x1="543" y1="40" x2="543" y2="46" class="dim"/>
+  <line x1="60" y1="43" x2="543" y2="43" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="301" y="39" class="dimtext">138</text>
+
+  <!-- Depth 120mm on right side -->
+  <line x1="549" y1="50" x2="570" y2="50" class="dim"/>
+  <line x1="549" y1="470" x2="570" y2="470" class="dim"/>
+  <line x1="560" y1="50" x2="560" y2="470" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="560" y="264" class="dimtext" transform="rotate(-90,560,264)">120</text>
+
+  <!-- Mounting hole c-c 49.45mm (Pump 1: B1 to B2) -->
+  <line x1="94.2" y1="238" x2="94.2" y2="256" class="dim" stroke-dasharray="1,1"/>
+  <line x1="267.3" y1="238" x2="267.3" y2="256" class="dim" stroke-dasharray="1,1"/>
+  <line x1="94.2" y1="252" x2="267.3" y2="252" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="180.7" y="266" class="dimtext">49.45</text>
+
+  <!-- Mounting hole c-c 49.45mm (Pump 2: B3 to B4) -->
+  <line x1="335.7" y1="238" x2="335.7" y2="256" class="dim" stroke-dasharray="1,1"/>
+  <line x1="508.8" y1="238" x2="508.8" y2="256" class="dim" stroke-dasharray="1,1"/>
+  <line x1="335.7" y1="252" x2="508.8" y2="252" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="422.2" y="266" class="dimtext">49.45</text>
+
+  <!-- Corner hole inset from left edge: 6mm -->
+  <line x1="60" y1="480" x2="81" y2="480" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="70.5" y="492" class="dimtext" style="font-size:8px">6</text>
+  <line x1="60" y1="470" x2="60" y2="484" class="dim" stroke-dasharray="1,1"/>
+  <line x1="81" y1="458" x2="81" y2="484" class="dim" stroke-dasharray="1,1"/>
+
+  <!-- Corner hole inset from rear edge: 6mm -->
+  <line x1="575" y1="449" x2="575" y2="470" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="588" y="463" class="dimtext" style="font-size:8px">6</text>
+  <line x1="543" y1="449" x2="579" y2="449" class="dim" stroke-dasharray="1,1"/>
+  <line x1="543" y1="470" x2="579" y2="470" class="dim" stroke-dasharray="1,1"/>
+
+  <!-- Boss Y position from front edge: 48mm -->
+  <line x1="40" y1="50" x2="40" y2="218" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="30" y="138" class="dimtext" style="font-size:8px" transform="rotate(-90,30,138)">48</text>
+  <line x1="44" y1="50" x2="60" y2="50" class="dim" stroke-dasharray="1,1"/>
+  <line x1="44" y1="218" x2="77.2" y2="218" class="dim" stroke-dasharray="1,1"/>
+
+  <!-- Boss 1 X position from left edge: 9.78mm -->
+  <line x1="60" y1="280" x2="94.2" y2="280" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="77.1" y="294" class="dimtext" style="font-size:8px">9.78</text>
+  <line x1="94.2" y1="256" x2="94.2" y2="284" class="dim" stroke-dasharray="1,1"/>
+  <line x1="60" y1="270" x2="60" y2="284" class="dim" stroke-dasharray="1,1"/>
+
+  <!-- Wire channel width: 5mm -->
+  <line x1="60" y1="496" x2="77.5" y2="496" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="68.8" y="508" class="dimtext" style="font-size:8px">5</text>
+
+  <!-- Boss diameter callout -->
+  <line x1="518" y1="208" x2="548" y2="193" class="dim"/>
+  <text x="550" y="192" class="dimtext" style="text-anchor:start; font-size:8px">4x &#x2300;8 BOSS, &#x2300;4.0 PILOT</text>
+
+  <!-- Corner hole callout -->
+  <line x1="526" y1="66" x2="555" y2="56" class="dim"/>
+  <text x="557" y="55" class="dimtext" style="text-anchor:start; font-size:8px">4x &#x2300;3.4 THRU</text>
+
+  <!-- ===== FRONT VIEW ===== -->
+  <!-- Looking along -Y. H=X, V=Z. Shares X range with top view.  -->
+  <!-- Tray top at y=530 (Z=6mm), tray bottom at y=551 (Z=0mm).   -->
+  <text x="301" y="598" class="label">FRONT VIEW (3.5:1)</text>
+
+  <!-- Tray outline -->
+  <rect x="60" y="530" width="483" height="21" class="outline"/>
+
+  <!-- Bosses behind front face (at Y=48mm) — hidden rectangles -->
+  <!-- Boss width 8mm=28px, height 6mm=21px (full tray height) -->
+  <!-- Boss 1: cx=94.2, x=94.2-14=80.2 -->
+  <rect x="80.2" y="530" width="28" height="21" class="hidden"/>
+  <!-- Boss 2: cx=267.3 -->
+  <rect x="253.3" y="530" width="28" height="21" class="hidden"/>
+  <!-- Boss 3: cx=335.7 -->
+  <rect x="321.7" y="530" width="28" height="21" class="hidden"/>
+  <!-- Boss 4: cx=508.8 -->
+  <rect x="494.8" y="530" width="28" height="21" class="hidden"/>
+
+  <!-- Hidden pilot holes within bosses (4mm = 14px wide) -->
+  <line x1="87.2" y1="530" x2="87.2" y2="551" class="hidden"/>
+  <line x1="101.2" y1="530" x2="101.2" y2="551" class="hidden"/>
+  <line x1="260.3" y1="530" x2="260.3" y2="551" class="hidden"/>
+  <line x1="274.3" y1="530" x2="274.3" y2="551" class="hidden"/>
+  <line x1="328.7" y1="530" x2="328.7" y2="551" class="hidden"/>
+  <line x1="342.7" y1="530" x2="342.7" y2="551" class="hidden"/>
+  <line x1="501.8" y1="530" x2="501.8" y2="551" class="hidden"/>
+  <line x1="515.8" y1="530" x2="515.8" y2="551" class="hidden"/>
+
+  <!-- Wire channel (5mm wide x 3mm deep notch, left side, bottom) -->
+  <!-- Z=0..3mm -> y=551 down to y=551-3*3.5=540.5, X=0..5mm -> x=60..77.5 -->
+  <line x1="77.5" y1="540.5" x2="77.5" y2="551" class="hidden"/>
+
+  <!-- Pump phantoms in front view (above tray, resting on top surface Z=6) -->
+  <!-- Pump head: 62.6x62.6mm. Z: 6..68.6mm -->
+  <!-- Z=6mm -> y=530, Z=68.6mm -> y=551-68.6*3.5=310.9 -->
+
+  <!-- Pump 1 phantom: X: 3.2..65.8mm -> px 71.2..290.3 -->
+  <rect x="71.2" y="310.9" width="219.1" height="219.1" class="phantom"/>
+  <!-- Pump 2 phantom: X: 72.2..134.8mm -> px 312.7..531.8 -->
+  <rect x="312.7" y="310.9" width="219.1" height="219.1" class="phantom"/>
 
   <!-- Front view dimensions -->
-  <!-- Width: 138mm -->
-  <line x1="80" y1="135" x2="80" y2="126" class="dim"/>
-  <line x1="563" y1="135" x2="563" y2="126" class="dim"/>
-  <line x1="80" y1="132" x2="563" y2="132" class="dim"/>
-  <polygon points="80,132 86,129.5 86,134.5" class="arrow"/>
-  <polygon points="563,132 557,129.5 557,134.5" class="arrow"/>
-  <text x="321" y="143" class="dim-text">138</text>
+  <!-- Width 138mm -->
+  <line x1="60" y1="557" x2="60" y2="566" class="dim"/>
+  <line x1="543" y1="557" x2="543" y2="566" class="dim"/>
+  <line x1="60" y1="562" x2="543" y2="562" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="301" y="575" class="dimtext">138</text>
 
-  <!-- Height: 6mm -->
-  <line x1="575" y1="100" x2="588" y2="100" class="dim"/>
-  <line x1="575" y1="121" x2="588" y2="121" class="dim"/>
-  <line x1="583" y1="100" x2="583" y2="121" class="dim"/>
-  <polygon points="583,100 580.5,106 585.5,106" class="arrow"/>
-  <polygon points="583,121 580.5,115 585.5,115" class="arrow"/>
-  <text x="596" y="114" class="dim-text">6</text>
+  <!-- Height 6mm -->
+  <line x1="549" y1="530" x2="575" y2="530" class="dim"/>
+  <line x1="549" y1="551" x2="575" y2="551" class="dim"/>
+  <line x1="565" y1="525" x2="565" y2="556" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="582" y="543" class="dimtext" style="text-anchor:start">6</text>
 
-  <!-- ============================================================ -->
-  <!-- SIDE VIEW (looking along -X): Y (horiz) x Z (vert)          -->
-  <!-- Origin Sx=603, Sy=100. Size: 420 x 21 px. Z-aligned w/ Front -->
-  <!-- ============================================================ -->
+  <!-- Wire channel depth 3mm -->
+  <line x1="48" y1="540.5" x2="55" y2="540.5" class="dim"/>
+  <line x1="48" y1="551" x2="55" y2="551" class="dim"/>
+  <line x1="51" y1="538" x2="51" y2="553" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="38" y="548" class="dimtext" style="font-size:8px">3</text>
 
-  <text x="813" y="75" class="label">SIDE VIEW</text>
-  <text x="813" y="83" class="note" text-anchor="middle" style="font-size:7px">(looking along -X)</text>
+  <!-- ===== RIGHT SIDE VIEW ===== -->
+  <!-- Looking along -X. H=Y, V=Z. Shares Z range with front view. -->
+  <!-- Origin at (610, 530). 120mm D = 420px, 6mm H = 21px -->
+  <text x="820" y="524" class="label">RIGHT SIDE VIEW (3.5:1)</text>
 
   <!-- Tray outline -->
-  <rect x="603" y="100" width="420" height="21" class="outline"/>
+  <rect x="610" y="530" width="420" height="21" class="outline"/>
 
-  <!-- Heat-set bosses at Y=~50mm: center at Sx+175=778 -->
-  <rect x="764" y="100" width="28" height="21" class="hidden"/>
+  <!-- Boss visible in side view (at Y=48mm, projects as rectangle) -->
+  <!-- Y=48mm -> 48*3.5+610=778. Boss 8mm=28px wide, 6mm=21px tall -->
+  <rect x="764" y="530" width="28" height="21" class="outline"/>
+  <!-- Pilot hole visible (4mm = 14px) -->
+  <line x1="771" y1="530" x2="771" y2="551" class="hidden"/>
+  <line x1="785" y1="530" x2="785" y2="551" class="hidden"/>
 
-  <!-- Corner through-holes at Y=5mm and Y=115mm -->
-  <!-- Y=5: center=603+17.5=620.5 -->
-  <line x1="614.6" y1="100" x2="614.6" y2="121" class="hidden"/>
-  <line x1="626.5" y1="100" x2="626.5" y2="121" class="hidden"/>
-  <!-- Y=115: center=603+402.5=1005.5 -->
-  <line x1="999.6" y1="100" x2="999.6" y2="121" class="hidden"/>
-  <line x1="1011.5" y1="100" x2="1011.5" y2="121" class="hidden"/>
+  <!-- Wire channel hidden line at Z=3mm across full depth -->
+  <line x1="610" y1="540.5" x2="1030" y2="540.5" class="hidden"/>
 
-  <!-- Wire channel: hidden step 3mm=10.5px from top, full depth -->
-  <line x1="603" y1="110.5" x2="1023" y2="110.5" class="hidden"/>
+  <!-- Corner holes in side view: at Y=6 and Y=114, axis along Z (rectangles) -->
+  <!-- Y=6 -> 6*3.5+610=631. Hole 3.4mm=11.9px wide -->
+  <rect x="625.1" y="530" width="11.9" height="21" class="hidden"/>
+  <!-- Y=114 -> 114*3.5+610=1009 -->
+  <rect x="1003.1" y="530" width="11.9" height="21" class="hidden"/>
 
-  <!-- Phantom pump in side view -->
-  <!-- Pump head: Y=1.76..49.76mm => Sx+6.2..Sx+174.2 = 609.2..777.2 -->
-  <rect x="609" y="80" width="168" height="20" class="phantom"/>
-  <!-- Motor: Y=49.76..113.19mm => 777..999 -->
-  <rect x="777" y="84" width="222" height="16" class="phantom"/>
-  <!-- Motor nub: Y=113.19..118.24mm => 999..1017 -->
-  <line x1="999" y1="88" x2="1017" y2="88" class="phantom"/>
-  <line x1="999" y1="96" x2="1017" y2="96" class="phantom"/>
-  <line x1="1017" y1="88" x2="1017" y2="96" class="phantom"/>
+  <!-- Pump phantom in side view -->
+  <!-- Head: Y=1.76..49.76mm, Z=6..68.6mm -->
+  <!-- py: Y=1.76 -> 1.76*3.5+610=616.2, w=48*3.5=168 -->
+  <!-- pz: Z=68.6 -> 310.9, Z=6 -> 530. h=219.1 -->
+  <rect x="616.2" y="310.9" width="168" height="219.1" class="phantom"/>
+  <!-- Motor: Y=52..118.24mm, Z=19.8..54.8mm (centered at Z=37.3, r=17.5) -->
+  <!-- py: Y=52 -> 52*3.5+610=792, w=66.24*3.5=231.8 -->
+  <!-- pz: Z=54.8 -> 551-54.8*3.5=358.7, Z=19.8 -> 551-19.8*3.5=481.7. h=123 -->
+  <rect x="792" y="358.7" width="231.8" height="123" class="phantom"/>
 
   <!-- Side view dimensions -->
-  <!-- Depth: 120mm -->
-  <line x1="603" y1="135" x2="603" y2="126" class="dim"/>
-  <line x1="1023" y1="135" x2="1023" y2="126" class="dim"/>
-  <line x1="603" y1="132" x2="1023" y2="132" class="dim"/>
-  <polygon points="603,132 609,129.5 609,134.5" class="arrow"/>
-  <polygon points="1023,132 1017,129.5 1017,134.5" class="arrow"/>
-  <text x="813" y="143" class="dim-text">120</text>
+  <!-- Depth 120mm -->
+  <line x1="610" y1="557" x2="610" y2="566" class="dim"/>
+  <line x1="1030" y1="557" x2="1030" y2="566" class="dim"/>
+  <line x1="610" y1="562" x2="1030" y2="562" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="820" y="575" class="dimtext">120</text>
 
-  <!-- Bracket Y from front edge -->
-  <line x1="603" y1="153" x2="603" y2="148" class="dim"/>
-  <line x1="778" y1="153" x2="778" y2="148" class="dim"/>
-  <line x1="603" y1="151" x2="778" y2="151" class="dim"/>
-  <polygon points="603,151 609,148.5 609,153.5" class="arrow"/>
-  <polygon points="778,151 772,148.5 772,153.5" class="arrow"/>
-  <text x="691" y="162" class="dim-text-s">~50 (bracket Y)</text>
+  <!-- Height 6mm -->
+  <line x1="1036" y1="530" x2="1045" y2="530" class="dim"/>
+  <line x1="1036" y1="551" x2="1045" y2="551" class="dim"/>
+  <line x1="1040" y1="525" x2="1040" y2="556" class="dim" marker-start="url(#ah-rev)" marker-end="url(#ah)"/>
+  <text x="1040" y="522" class="dimtext">6</text>
 
-  <!-- ============================================================ -->
-  <!-- TOP VIEW (looking along -Z): X (horiz) x Y (vert)           -->
-  <!-- Origin Tx=80, Ty=185. Size: 483 x 420 px.                   -->
-  <!-- X-aligned with Front view.                                   -->
-  <!-- ============================================================ -->
+  <!-- ===== NOTES ===== -->
+  <text x="60" y="610" class="note" font-weight="bold">NOTES:</text>
+  <text x="60" y="624" class="note">1. MATERIAL: PETG, 3D PRINTED (FLAT/HORIZONTAL ORIENTATION FOR SCREW BOSS STRENGTH)</text>
+  <text x="60" y="638" class="note">2. ALL DIMENSIONS IN MM</text>
+  <text x="60" y="652" class="note">3. 4x PUMP MOUNTING BOSSES: &#x2300;8mm OD, 6mm HEIGHT, &#x2300;4.0mm PILOT HOLE FOR M3 x 5mm BRASS HEAT-SET INSERTS</text>
+  <text x="60" y="666" class="note">4. MOUNTING HOLE PATTERN: 49.45mm CENTER-TO-CENTER (CALIPER-VERIFIED), ONE AXIS PER PUMP BRACKET</text>
+  <text x="60" y="680" class="note">5. 4x M3 CORNER THROUGH-HOLES (&#x2300;3.4mm) FOR MOUNTING TRAY TO OUTER SHELL LEDGES</text>
+  <text x="60" y="694" class="note">6. WIRE ROUTING CHANNEL: 5mm WIDE x 3mm DEEP U-CHANNEL ALONG LEFT EDGE</text>
+  <text x="60" y="708" class="note">7. PUMP PHANTOMS (BLUE) SHOW KAMOER KPHM400-SW3B25 ENVELOPE (62.6mm SQ HEAD, ~35mm DIA MOTOR)</text>
+  <text x="60" y="722" class="note">8. PUMPS SIDE-BY-SIDE, MOTORS FACING REAR, TUBES EXIT FRONT</text>
+  <text x="60" y="736" class="note">9. C-CLIPS FOR TUBING STRAIN RELIEF NOT SHOWN (POSITIONS TBD BASED ON TUBE ROUTING)</text>
+  <text x="60" y="750" class="note">10. OPTIONAL RUBBER GROMMET ISOLATORS BETWEEN PUMP BRACKETS AND BOSSES (TRY RIGID FIRST)</text>
 
-  <text x="321" y="178" class="label">TOP VIEW</text>
+  <!-- ===== TITLE BLOCK ===== -->
+  <rect x="700" y="800" width="330" height="120" class="frame"/>
+  <line x1="700" y1="822" x2="1030" y2="822" class="frame"/>
+  <line x1="700" y1="844" x2="1030" y2="844" class="frame"/>
+  <line x1="700" y1="866" x2="1030" y2="866" class="frame"/>
+  <line x1="700" y1="888" x2="1030" y2="888" class="frame"/>
+  <line x1="840" y1="800" x2="840" y2="920" class="frame"/>
 
-  <!-- Tray outline -->
-  <rect x="80" y="185" width="483" height="420" class="outline"/>
-
-  <!-- Wire routing channel along right edge: X=133..138mm, full depth -->
-  <!-- Tx+465.5=545.5 to Tx+483=563, Ty to Ty+420 -->
-  <rect x="545.5" y="185" width="17.5" height="420" class="channel-fill"/>
-
-  <!-- Corner through-holes: 3.4mm dia = 5.95px radius -->
-  <!-- (5,5) => (Tx+17.5, Ty+17.5) = (97.5, 202.5) -->
-  <circle cx="97.5" cy="202.5" r="5.95" class="thin"/>
-  <line x1="93" y1="202.5" x2="102" y2="202.5" class="center"/>
-  <line x1="97.5" y1="198" x2="97.5" y2="207" class="center"/>
-  <!-- (133,5) => (545.5, 202.5) -->
-  <circle cx="545.5" cy="202.5" r="5.95" class="thin"/>
-  <line x1="541" y1="202.5" x2="550" y2="202.5" class="center"/>
-  <line x1="545.5" y1="198" x2="545.5" y2="207" class="center"/>
-  <!-- (5,115) => (97.5, 587.5) -->
-  <circle cx="97.5" cy="587.5" r="5.95" class="thin"/>
-  <line x1="93" y1="587.5" x2="102" y2="587.5" class="center"/>
-  <line x1="97.5" y1="583" x2="97.5" y2="592" class="center"/>
-  <!-- (133,115) => (545.5, 587.5) -->
-  <circle cx="545.5" cy="587.5" r="5.95" class="thin"/>
-  <line x1="541" y1="587.5" x2="550" y2="587.5" class="center"/>
-  <line x1="545.5" y1="583" x2="545.5" y2="592" class="center"/>
-
-  <!-- Heat-set insert bosses: 8mm OD = 14px radius, 4mm pilot = 7px radius -->
-  <!-- Pump1: (9.975, 49.76) => (Tx+34.9, Ty+174.2) = (114.9, 359.2) -->
-  <!-- Pump1: (59.425, 49.76) => (Tx+208.0, Ty+174.2) = (288.0, 359.2) -->
-  <!-- Pump2: (78.575, 49.76) => (Tx+275.0, Ty+174.2) = (355.0, 359.2) -->
-  <!-- Pump2: (128.025, 49.76) => (Tx+448.1, Ty+174.2) = (528.1, 359.2) -->
-  <circle cx="115" cy="359" r="14" class="boss-fill"/>
-  <circle cx="115" cy="359" r="7" class="thin"/>
-  <line x1="106" y1="359" x2="124" y2="359" class="center"/>
-  <line x1="115" y1="350" x2="115" y2="368" class="center"/>
-
-  <circle cx="288" cy="359" r="14" class="boss-fill"/>
-  <circle cx="288" cy="359" r="7" class="thin"/>
-  <line x1="279" y1="359" x2="297" y2="359" class="center"/>
-  <line x1="288" y1="350" x2="288" y2="368" class="center"/>
-
-  <circle cx="355" cy="359" r="14" class="boss-fill"/>
-  <circle cx="355" cy="359" r="7" class="thin"/>
-  <line x1="346" y1="359" x2="364" y2="359" class="center"/>
-  <line x1="355" y1="350" x2="355" y2="368" class="center"/>
-
-  <circle cx="528" cy="359" r="14" class="boss-fill"/>
-  <circle cx="528" cy="359" r="7" class="thin"/>
-  <line x1="519" y1="359" x2="537" y2="359" class="center"/>
-  <line x1="528" y1="350" x2="528" y2="368" class="center"/>
-
-  <!-- BPT C-clips (8.3mm ID = 14.5px radius) near front, Y~10mm -->
-  <!-- Y=10mm => Ty+35=220. X positions at pump tube exits. -->
-  <!-- Pump 1: X~25mm, 45mm => Tx+87.5=167.5, Tx+157.5=237.5 -->
-  <!-- Pump 2: X~93mm, 113mm => Tx+325.5=405.5, Tx+395.5=475.5 -->
-  <circle cx="168" cy="220" r="14.5" fill="none" class="thin"/>
-  <text x="168" y="223" class="note" text-anchor="middle" style="font-size:5px">BPT</text>
-  <circle cx="238" cy="220" r="14.5" fill="none" class="thin"/>
-  <text x="238" y="223" class="note" text-anchor="middle" style="font-size:5px">BPT</text>
-  <circle cx="406" cy="220" r="14.5" fill="none" class="thin"/>
-  <text x="406" y="223" class="note" text-anchor="middle" style="font-size:5px">BPT</text>
-  <circle cx="476" cy="220" r="14.5" fill="none" class="thin"/>
-  <text x="476" y="223" class="note" text-anchor="middle" style="font-size:5px">BPT</text>
-
-  <!-- 1/4" hard tube C-clips (6.65mm ID = 11.6px radius) near rear, Y~110mm -->
-  <!-- Y=110mm => Ty+385=570 -->
-  <circle cx="168" cy="570" r="11.6" fill="none" class="thin"/>
-  <text x="168" y="573" class="note" text-anchor="middle" style="font-size:5px">1/4"</text>
-  <circle cx="238" cy="570" r="11.6" fill="none" class="thin"/>
-  <text x="238" y="573" class="note" text-anchor="middle" style="font-size:5px">1/4"</text>
-  <circle cx="406" cy="570" r="11.6" fill="none" class="thin"/>
-  <text x="406" y="573" class="note" text-anchor="middle" style="font-size:5px">1/4"</text>
-  <circle cx="476" cy="570" r="11.6" fill="none" class="thin"/>
-  <text x="476" y="573" class="note" text-anchor="middle" style="font-size:5px">1/4"</text>
-
-  <!-- Phantom pump outlines in top view -->
-  <!-- Pump 1: head (3.4,1.76)-(66.0,49.76) => px (91.9,191.2)-(311.0,359.2) -->
-  <rect x="92" y="191" width="219" height="168" rx="4" ry="4" class="phantom"/>
-  <!-- Bracket at Y=49.76mm: full width 0.4..69.0mm => 81.4..321.5 -->
-  <line x1="81" y1="359" x2="322" y2="359" class="phantom"/>
-  <line x1="81" y1="354" x2="81" y2="364" class="phantom"/>
-  <line x1="81" y1="354" x2="92" y2="354" class="phantom"/>
-  <line x1="81" y1="364" x2="92" y2="364" class="phantom"/>
-  <line x1="311" y1="354" x2="322" y2="354" class="phantom"/>
-  <line x1="311" y1="364" x2="322" y2="364" class="phantom"/>
-  <line x1="322" y1="354" x2="322" y2="364" class="phantom"/>
-  <!-- Motor: 35mm dia centered at X=34.7mm, Y=49.76..113.19mm -->
-  <!-- X: 34.7-17.5=17.2..52.2mm => px 140.2..262.7 -->
-  <!-- Y: px 359..581 -->
-  <rect x="140" y="359" width="123" height="222" rx="61" ry="4" class="phantom"/>
-  <!-- Motor nub -->
-  <rect x="185" y="581" width="33" height="18" rx="8" ry="4" class="phantom"/>
-
-  <!-- Pump 2: head (72.0,1.76)-(134.6,49.76) => px (332,191)-(551,359) -->
-  <rect x="332" y="191" width="219" height="168" rx="4" ry="4" class="phantom"/>
-  <!-- Bracket 69.0..137.6mm => 321.5..561.6 -->
-  <line x1="322" y1="359" x2="562" y2="359" class="phantom"/>
-  <line x1="322" y1="354" x2="322" y2="364" class="phantom"/>
-  <line x1="322" y1="354" x2="332" y2="354" class="phantom"/>
-  <line x1="322" y1="364" x2="332" y2="364" class="phantom"/>
-  <line x1="551" y1="354" x2="562" y2="354" class="phantom"/>
-  <line x1="551" y1="364" x2="562" y2="364" class="phantom"/>
-  <line x1="562" y1="354" x2="562" y2="364" class="phantom"/>
-  <!-- Motor -->
-  <rect x="380" y="359" width="123" height="222" rx="61" ry="4" class="phantom"/>
-  <!-- Motor nub -->
-  <rect x="425" y="581" width="33" height="18" rx="8" ry="4" class="phantom"/>
-
-  <!-- Pump center lines -->
-  <line x1="201" y1="185" x2="201" y2="605" class="center"/>
-  <line x1="441" y1="185" x2="441" y2="605" class="center"/>
-
-  <!-- Top view dimensions -->
-  <!-- Width: 138mm -->
-  <line x1="80" y1="620" x2="80" y2="610" class="dim"/>
-  <line x1="563" y1="620" x2="563" y2="610" class="dim"/>
-  <line x1="80" y1="617" x2="563" y2="617" class="dim"/>
-  <polygon points="80,617 86,614.5 86,619.5" class="arrow"/>
-  <polygon points="563,617 557,614.5 557,619.5" class="arrow"/>
-  <text x="321" y="628" class="dim-text">138</text>
-
-  <!-- Depth: 120mm -->
-  <line x1="575" y1="185" x2="588" y2="185" class="dim"/>
-  <line x1="575" y1="605" x2="588" y2="605" class="dim"/>
-  <line x1="583" y1="185" x2="583" y2="605" class="dim"/>
-  <polygon points="583,185 580.5,191 585.5,191" class="arrow"/>
-  <polygon points="583,605 580.5,599 585.5,599" class="arrow"/>
-  <text x="583" y="400" class="dim-text" transform="rotate(-90, 583, 400)">120</text>
-
-  <!-- Pump 1 mounting hole c-t-c: 49.45mm -->
-  <line x1="115" y1="385" x2="115" y2="393" class="dim"/>
-  <line x1="288" y1="385" x2="288" y2="393" class="dim"/>
-  <line x1="115" y1="390" x2="288" y2="390" class="dim"/>
-  <polygon points="115,390 121,387.5 121,392.5" class="arrow"/>
-  <polygon points="288,390 282,387.5 282,392.5" class="arrow"/>
-  <text x="201" y="403" class="dim-text-s">49.45</text>
-
-  <!-- Pump 2 mounting hole c-t-c: 49.45mm -->
-  <line x1="355" y1="385" x2="355" y2="393" class="dim"/>
-  <line x1="528" y1="385" x2="528" y2="393" class="dim"/>
-  <line x1="355" y1="390" x2="528" y2="390" class="dim"/>
-  <polygon points="355,390 361,387.5 361,392.5" class="arrow"/>
-  <polygon points="528,390 522,387.5 522,392.5" class="arrow"/>
-  <text x="441" y="403" class="dim-text-s">49.45</text>
-
-  <!-- Boss Y from front edge: ~50mm -->
-  <line x1="55" y1="185" x2="68" y2="185" class="dim"/>
-  <line x1="55" y1="359" x2="68" y2="359" class="dim"/>
-  <line x1="62" y1="185" x2="62" y2="359" class="dim"/>
-  <polygon points="62,185 59.5,191 64.5,191" class="arrow"/>
-  <polygon points="62,359 59.5,353 64.5,353" class="arrow"/>
-  <text x="50" y="278" class="dim-text-s" transform="rotate(-90, 50, 278)">~50</text>
-
-  <!-- Feature callouts -->
-  <line x1="129" y1="359" x2="155" y2="338" class="dim"/>
-  <text x="157" y="335" class="note" style="font-size:8px">M3 heat-set boss (4x)</text>
-  <text x="157" y="344" class="note" style="font-size:8px">8mm OD, 4mm pilot</text>
-
-  <line x1="476" y1="206" x2="476" y2="173" class="dim"/>
-  <text x="478" y="175" class="note" style="font-size:8px">BPT C-clip 8.3mm ID (4x)</text>
-
-  <line x1="253" y1="570" x2="278" y2="555" class="dim"/>
-  <text x="280" y="552" class="note" style="font-size:8px">1/4" tube C-clip 6.65mm ID (4x)</text>
-
-  <line x1="110" y1="202.5" x2="135" y2="215" class="dim"/>
-  <text x="137" y="215" class="note" style="font-size:8px">M3 thru 3.4mm dia (4x)</text>
-
-  <!-- Legend -->
-  <rect x="615" y="185" width="420" height="420" fill="none" stroke="none"/>
-  <text x="630" y="205" class="note" style="font-size:10px; font-weight:bold">LEGEND</text>
-  <line x1="630" y1="220" x2="680" y2="220" class="phantom"/>
-  <text x="685" y="224" class="note">Pump outline (phantom)</text>
-  <line x1="630" y1="238" x2="680" y2="238" class="hidden"/>
-  <text x="685" y="242" class="note">Hidden feature</text>
-  <line x1="630" y1="256" x2="680" y2="256" class="center"/>
-  <text x="685" y="260" class="note">Center line</text>
-
-  <!-- Notes -->
-  <text x="630" y="295" class="note" style="font-size:10px; font-weight:bold">NOTES</text>
-  <text x="630" y="312" class="note">1. Material: PETG</text>
-  <text x="630" y="326" class="note">2. 4x M3x5 brass heat-set inserts</text>
-  <text x="630" y="340" class="note">   in 8mm OD x 6mm tall bosses</text>
-  <text x="630" y="354" class="note">3. Print flat (horizontal) for max</text>
-  <text x="630" y="368" class="note">   screw boss strength</text>
-  <text x="630" y="382" class="note">4. 2 pumps side-by-side, motors</text>
-  <text x="630" y="396" class="note">   facing rear (same direction)</text>
-  <text x="630" y="410" class="note">5. Fits 140mm shell interior</text>
-  <text x="630" y="424" class="note">   (1mm clearance per side)</text>
-  <text x="630" y="438" class="note">6. Tray rests on shell ledges</text>
-  <text x="630" y="452" class="note">   at Z=4mm above shell floor</text>
-  <text x="630" y="466" class="note">7. 4x corner M3 thru-holes for</text>
-  <text x="630" y="480" class="note">   tray-to-shell fastening</text>
-  <text x="630" y="494" class="note">8. Wire channel 5W x 3D mm</text>
-  <text x="630" y="508" class="note">   along right edge, full depth</text>
-  <text x="630" y="522" class="note">9. Pump bracket mtg holes:</text>
-  <text x="630" y="536" class="note">   3.13mm dia, 49.45mm c-t-c</text>
-  <text x="630" y="550" class="note">10. Pump head: 62.6mm square</text>
-  <text x="630" y="564" class="note">    Bracket width: 68.6mm</text>
-  <text x="630" y="578" class="note">    Total length: 116.48mm</text>
-  <text x="630" y="592" class="note">    (incl 5.05mm motor nub)</text>
-
+  <text x="710" y="817" class="titletext">TITLE:</text>
+  <text x="850" y="817" class="title">PUMP TRAY</text>
+  <text x="710" y="839" class="titletext">PROJECT:</text>
+  <text x="850" y="839" class="titletext">SODA FLAVOR INJECTOR — PUMP CARTRIDGE</text>
+  <text x="710" y="861" class="titletext">MATERIAL:</text>
+  <text x="850" y="861" class="titletext">PETG (3D PRINTED)</text>
+  <text x="710" y="883" class="titletext">SCALE:</text>
+  <text x="850" y="883" class="titletext">3.5:1 (ALL VIEWS)</text>
+  <text x="710" y="905" class="titletext">DIMS:</text>
+  <text x="850" y="905" class="titletext">138W x 120D x 6H mm</text>
 </svg>
