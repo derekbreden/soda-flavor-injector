@@ -8,94 +8,109 @@ This document describes the physical geometry of the John Guest PP0408W push-to-
 
 The fitting is a **symmetric inline union**: a single white acetal copolymer body with identical tube-accepting ports on each end. It connects two pieces of 1/4" OD (6.35mm) tubing end-to-end through a straight-through internal passage. The fitting is rotationally symmetric about its long axis (axis of tube flow).
 
-When viewed from the side, the profile is **not a simple cylinder** — it has distinct diameter transitions along its length, creating a barbell-like silhouette with wider collet ends and a narrower waist.
+When viewed from the side, the profile is a **barbell**: two wider collet-ring sections (15.10mm OD) at each end, connected by a significantly narrower central body (9.31mm OD). This diameter step-down is critical for understanding how the fitting sits in pockets and how the release plate engages it.
 
-## Axis and Orientation Convention
+## Axis Convention
 
 - **Long axis (L):** The axis of tube flow, running through the center of both ports. All "length" dimensions are along this axis.
-- **Radial (R):** Perpendicular to L, in any direction. The fitting is axially symmetric, so all cross-sections perpendicular to L are circles.
-- **"Collet end":** Either end of the fitting where a tube inserts. Both ends are identical.
-- **"Body center":** The waist region between the two collet zones.
+- **Radial (R):** Perpendicular to L. The fitting is axially symmetric — all cross-sections perpendicular to L are circles.
 
-## Dimensional Profile Along the Long Axis
+## Dimensional Profile — 5 Zones Along the Long Axis
 
-The fitting has **5 distinct zones** progressing from one tube port to the other. Because the fitting is symmetric, the profile mirrors at the center. Described from left port inward:
+The fitting has 5 distinct zones. Because the fitting is symmetric, only 3 unique zones exist. Described from left port inward:
 
-### Zone 1: Collet Ring (each end)
-- **OD: 14.96–15.10mm** (caliper-verified from photos 01–03)
-- This is the outermost visible ring at the tube entry. It houses the internal collet mechanism (spring steel gripper teeth + release sleeve).
-- The collet ring has a **slight lip/shoulder** where it transitions to the body.
-- **Blue variant:** Some PP0408W units include a blue plastic collet ring (visible in photo 08). This is a cosmetic/branding difference — same mechanism.
-- The collet ring can be **pressed inward** (toward body center) to release the gripper teeth, allowing tube removal. This is the release action that the release plate exploits.
+```
+  ┌──────┐              ┌──────┐
+  │COLLET│  ┌────────┐  │COLLET│
+  │15.10 │──│  9.31  │──│15.10 │
+  │      │  │ center │  │      │
+  │12.08 │  │ 12.16  │  │12.08 │
+  └──────┘  └────────┘  └──────┘
+  ◄─────── 36.32mm body ────────►
+  ◄──── 39.13mm collets compressed ────►
+  ◄───── 41.80mm collets extended ──────►
+```
 
-### Zone 2: Body Shoulder / Transition
-- Short transition zone where the OD steps down from the collet ring diameter (~15mm) to the central body diameter.
-- This shoulder is the surface the release plate's stepped bore engages against.
+### Zone 1: Collet Ring (left end)
+- **OD: 15.10mm** (caliper-verified, photo 01)
+- **Length: 12.08mm** (caliper-verified)
+- This section houses the internal collet mechanism: spring steel gripper teeth that grab the inserted tube, and a release sleeve.
+- The outer surface is smooth cylindrical white acetal.
+- **End face:** Open circular port accepting 1/4" OD (6.35mm) tubing.
+- End-on view of collet ring OD: **14.96mm** (photos 02, 03) — slight measurement variation from photo 01, likely parallax. Use 15.10mm as the controlling dimension.
+- **Tube port opening:** The entry bore seen end-on measures **9.57mm** (photos 04, 05). This is the collet opening through which the tube passes before the gripper teeth engage.
+- **Blue variant:** Some PP0408W units include a blue plastic collet ring (visible in photo 08). Same mechanism and dimensions.
 
-### Zone 3: Central Body (waist)
-- The narrowest section, located at the midpoint of the fitting.
-- This is the zone that press-fits into the cartridge rear wall pocket.
-- **OD at this zone needs clarification** — the 15.10mm reading (photo 01) may be measuring across the collet ring, not the true central body. The parts.md estimated 12.7mm body OD (1/2" nominal). The caliper photos show the jaws clamping at different axial positions, and some readings differ.
-- **User verification needed:** Is the 15.10mm reading (photo 01) measuring the collet ring OD, or is there a narrower central body region? If the central body is narrower, what is its OD?
+### Zone 2: Shoulder / Step-Down
+- Sharp transition from 15.10mm collet ring OD to 9.31mm central body.
+- This shoulder is a **radial face** — a flat annular ring perpendicular to the long axis.
+- **Shoulder annular width:** (15.10 - 9.31) / 2 = **2.90mm** per side.
+- This shoulder is the surface the release plate's stepped bore seats against to push the collet inward for tube release.
+
+### Zone 3: Central Body
+- **OD: 9.31mm** (caliper-verified, photo 06)
+- **Length: 12.16mm** (caliper-verified)
+- Smooth cylindrical section — the narrowest part of the fitting.
+- This is the section that press-fits into the cartridge rear wall pocket. A **9.8mm bore** would give a sliding fit; a **9.5mm bore** would give a light press-fit.
 
 ### Zone 4 & 5: Mirror of Zones 2 & 1
-Identical collet ring and shoulder on the opposite end.
+Identical shoulder and collet ring on the opposite end.
+
+## Overall Length Measurements
+
+| Measurement | Value | What It Represents |
+|-------------|-------|--------------------|
+| Body without collets | 36.32mm | Sum of 12.08 + 12.16 + 12.08 (just the 3 solid body zones) |
+| Collets compressed | 39.13mm | Full length with collet sleeves pushed fully inward (photo 07) |
+| Collets extended | 41.80mm | Full length with collet sleeves in default/extended position (photo 08, blue ring visible) |
+| Collet protrusion (total, both ends) | 39.13 - 36.32 = **2.81mm** | ~1.4mm per side when compressed |
+| Collet travel (total, both ends) | 41.80 - 39.13 = **2.67mm** | ~1.3mm per side from extended to compressed |
 
 ## Caliper Measurements Summary
 
 | Photo | Reading | What's Being Measured | Confidence |
 |-------|---------|----------------------|------------|
-| 01 | 15.10mm | Body or collet ring OD, side view, calipers across widest point near one end | HIGH — display clear |
-| 02 | 14.96mm | End-on view looking into tube port, calipers across the collet ring OD | HIGH — display clear |
-| 03 | 14.96mm | Same as 02, different camera angle | HIGH — confirms 02 |
-| 04 | 9.57mm | Tube stub section OD — the smooth cylindrical zone where 1/4" tube would grip | HIGH — display clear |
-| 05 | 9.57mm | Same measurement as 04, different angle | HIGH — confirms 04 |
-| 06 | 9.31mm | Narrower feature — possibly the internal bore/passage ID, or a recessed inner surface | HIGH — display clear |
-| 07 | 39.13mm | Overall length, port-to-port, white body only (no blue collet visible) | HIGH — display clear |
-| 08 | 41.80mm | Overall length with blue collet ring visible on one end | HIGH — display clear |
+| 01 | 15.10mm | Collet ring OD, side view | HIGH |
+| 02 | 14.96mm | Collet ring OD, end-on view | HIGH |
+| 03 | 14.96mm | Collet ring OD, side angle (confirms 02) | HIGH |
+| 04 | 9.57mm | Collet port opening / tube entry bore, end-on | HIGH |
+| 05 | 9.57mm | Same as 04, different angle | HIGH |
+| 06 | 9.31mm | Central body OD (the narrow waist) | HIGH |
+| 07 | 39.13mm | Overall length, collets compressed | HIGH |
+| 08 | 41.80mm | Overall length, collets extended (blue ring visible) | HIGH |
 
-## Key Corrections to Previous Estimates
+## Corrections to Previous parts.md Values
 
-The cartridge `parts.md` listed:
-- Body OD: 12.7mm → **Actual: 14.96–15.10mm** (significantly larger — the 12.7mm was likely a nominal spec, not the actual OD)
-- Overall length: 38.1mm → **Actual: 39.13mm** (white body only) or **41.80mm** (with blue collet ring extended)
-- Collet ring OD: ~12.7mm → **Actual: 14.96–15.10mm** (same as body OD at the collet zone)
+| Parameter | Old Value | Corrected Value | Impact |
+|-----------|-----------|-----------------|--------|
+| Body OD | 12.7mm | **9.31mm** (center), **15.10mm** (collet rings) | Rear wall pocket bore must match 9.31mm center body, NOT 12.7mm. Current 13.0mm bore is too large for press-fit of 9.31mm body. |
+| Overall length | 38.1mm | **39.13mm** (compressed) / **41.80mm** (extended) | Slightly longer than spec |
+| Collet ring OD | ~12.7mm | **15.10mm** | Release plate outer bore must clear 15.10mm, not 12.7mm |
+| Collet travel | TBD | **~1.3mm per side** (2.67mm total) | Release plate stroke of 3mm is more than sufficient |
 
-**Critical impact on cartridge design:**
-- The rear wall pocket bore was spec'd at 13.0mm to clear a 12.7mm body. If the actual body/collet is ~15mm, the pocket bore must be **at least 15.5mm** for clearance.
-- The release plate stepped bores (currently 10.5mm inner lip / 12.5mm outer bore) need to be reconsidered against the actual collet ring geometry.
+## Critical Design Implications
 
-## 9.57mm Feature — What Is It?
+### Rear Wall Pocket Bore
+The fitting's barbell profile means the pocket bore design is fundamentally different than assumed:
+- **Option A (pocket grips center body):** Bore = ~9.5–9.8mm. The collet rings (15.10mm) protrude on both sides of the wall. The wall pocket is narrow but the grip is on the skinny section.
+- **Option B (pocket clears collet ring):** Bore = ~15.5mm. The fitting slides through freely and must be retained by other means (snap ring, adhesive, interference on collet shoulder).
+- **The current design assumed a uniform ~12.7mm cylinder — this must be redesigned** for the actual barbell profile.
 
-Photos 04 and 05 show the calipers measuring a ~9.57mm feature. Looking at the photos, this appears to be:
-- The **tube stub** or **smooth cylindrical zone** at the very end of the fitting where the tube inserts. This is the portion just inside the collet ring opening, before the gripper teeth engage.
-- This dimension is relevant for understanding the collet opening diameter — a 6.35mm tube must pass through this zone.
+### Release Plate Stepped Bores
+Current spec: 8.0mm tube clearance / 10.5mm inner lip / 12.5mm outer bore. With actual dimensions:
+- **Tube clearance hole:** 8.0mm is fine (6.35mm tube passes through easily, 9.31mm body does NOT pass through — this hole only needs to clear the tube)
+- **Inner lip (collet pusher):** Must engage the collet ring. The collet port opening is 9.57mm and the collet ring OD is 15.10mm. The inner lip diameter should be between these — large enough to push on the collet sleeve but small enough to not slip over it. Likely needs to be ~12–13mm.
+- **Outer bore (collet cradle):** Must clear the collet ring OD of 15.10mm. Needs to be **at least 15.5mm**, not 12.5mm.
 
-## 9.31mm Feature — What Is It?
-
-Photo 06 shows a 9.31mm measurement. This could be:
-- The **internal passage diameter** at the tube stop (the bore through the center of the fitting)
-- Or a slightly different axial position on the same tube-entry zone as the 9.57mm reading
-
-## Length Discrepancy: 39.13mm vs 41.80mm
-
-The 2.67mm difference between photos 07 and 08 likely represents:
-- **Collet protrusion:** The blue collet ring in photo 08 is in its extended (default) position, protruding ~2.67mm beyond the white body face. When pressed in for tube release, it retracts flush.
-- This 2.67mm may be the **collet travel distance** — the axial distance the release plate must push the collet to release the tube grip.
-- Alternatively, these may be two slightly different fitting variants. User should verify whether both measurements are from the same physical fitting.
+### Release Mechanism Stroke
+The collet travel is ~1.3mm per side. The cam lever produces 3mm of plate travel. This means the release mechanism has ~1.7mm of margin — comfortable, but the plate must contact the collet ring before the stroke begins (i.e., the fitting must be seated so the collet ring is within reach of the plate's starting position).
 
 ## Geometry for 3D Modeling Agents
 
-When modeling a pocket, bore, or clamp to hold this fitting:
+When modeling parts that interface with this fitting:
 
-1. **Press-fit pocket:** Must accommodate ~15mm OD. Use 15.5mm bore for light press or 16mm for sliding fit.
-2. **Axial retention:** The shoulder between collet ring and body waist (if there is a diameter step-down) provides a natural shoulder to seat against. If there is no step-down (i.e., the fitting is a uniform ~15mm cylinder), retention must come from pocket depth or clips.
-3. **Tube clearance:** Both ends need clear access for 6.35mm OD tubing insertion.
-4. **Release mechanism access:** The collet ring must be accessible for inward push (~2.67mm travel) to release tubes. The release plate engages here.
-5. **Overall length budget:** Plan for 42mm total length with collet extended, 39mm body-only.
-
-## Questions for User Verification
-
-1. **Is there a diameter step-down between the collet ring and the central body?** Photos 01–03 all measure ~15mm, but they may all be at the collet zone. If the body waist is narrower (e.g., 12–13mm), that changes the pocket bore design significantly.
-2. **Are photos 07 and 08 the same physical fitting?** The blue collet suggests photo 08 might be a different fitting or the same fitting with the collet extended.
-3. **What is the 9.31mm feature in photo 06?** Is it the internal bore, the collet opening, or something else?
+1. **The fitting is a barbell, not a cylinder.** Any pocket, bore, or clamp must account for the 15.10mm → 9.31mm → 15.10mm profile.
+2. **Press-fit on the 9.31mm center body** is the natural mounting strategy. The shoulders provide axial location.
+3. **Collet rings protrude 15.10mm** — ensure clearance or intentional engagement (for release plate).
+4. **Tube insertion depth:** ~16mm per side (industry standard, not directly measured here). Plan for 6.35mm tube protruding ~16mm into each end.
+5. **Total axial footprint:** 42mm with collets extended, 39mm compressed, plus tube insertion lengths on each side.

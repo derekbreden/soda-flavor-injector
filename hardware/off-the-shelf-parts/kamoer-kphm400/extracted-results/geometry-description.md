@@ -14,7 +14,7 @@ When viewed from the front (tube connector face), the pump head appears nearly s
 
 - **X (width):** Horizontal when pump is in its normal operating orientation. The mounting bracket ears extend along this axis.
 - **Y (depth):** From front face (tube connectors) toward rear (motor terminals). This is the longest dimension.
-- **Z (height):** Vertical. The pump is roughly symmetric about the XY midplane.
+- **Z (height):** Vertical. The pump head is roughly symmetric about the XY midplane.
 - **Front face:** The face with the Kamoer branding label, yellow priming cap, 4 corner screws, and tube connector exits.
 - **Rear:** Motor terminal end.
 
@@ -27,58 +27,67 @@ When viewed from the front (tube connector face), the pump head appears nearly s
 - "Kamoer KPHM" branding label (black with yellow accent)
 - **Two tube connector exits** protrude from this face:
   - White plastic barbed connectors for BPT tubing (4.8mm ID / 8.0mm OD)
-  - Positioned offset from center — one above center, one below (or left/right — orientation depends on mounting)
+  - Positioned offset from center — one above center, one below (or left/right depending on orientation)
   - Tube stubs protrude ~30–50mm from the face (flexible BPT tubing attached)
 
 ### Section 2: Pump Head Body (Y = 0 to ~48mm)
 - Black plastic housing containing the peristaltic roller mechanism
 - Cross-section is roughly square with rounded corners, ~62.6mm x ~62.6mm
-- Depth of the pump head body: **~47.88–48.88mm** (caliper-verified from photos 05, 14)
-- The head body tapers slightly or has features that make different depth measurements possible depending on where exactly the caliper contacts
+- Depth of the pump head body: **~47.88–48.88mm** (caliper readings from photos 05/14 area, though see mounting hole notes below)
 
 ### Section 3: Mounting Bracket (Y ≈ 48mm)
-- Black stamped metal bracket plate
-- Sits at the junction between pump head and motor
-- **Extends beyond the pump head body on two sides** (the mounting ears)
-- Bracket width including ears: **~68.6mm** (matches datasheet — wider than the 62.6mm pump head body by ~3mm per side)
-- Mounting holes: **2x or 4x M3 through-holes** in the bracket ears (pattern TBD — not directly measured in these photos)
-- The bracket is the primary mechanical interface for mounting the pump
+- Black stamped metal bracket plate at the junction between pump head and motor
+- **Extends beyond the pump head body on two sides** (mounting ears)
+- Bracket width including ears: **~68.6mm** (matches datasheet — wider than 62.6mm pump head by ~3mm per side)
+- **Mounting holes:**
+  - **2x M3 through-holes** (hole diameter: **3.13mm**, caliper-verified from photo 06)
+  - **Center-to-center spacing: 49.45mm** (derived: 47.88mm edge-to-edge + 3.13mm/2 per user measurement)
+  - Measurement method: calipers squeezed into the sides of the holes measured 47.88mm edge-to-edge (photo 05), hole diameter measured directly at 3.13mm (photo 06)
+  - Holes are positioned on the mounting ears, symmetric about the pump center axis
+  - **Note:** This measures ONE axis of spacing. If the bracket has a 1x2 hole pattern (one hole per ear), this is the full pattern. If 2x2, the perpendicular spacing is TBD.
+- Bracket thickness: ~1.5–2mm (estimated from photos)
 
 ### Section 4: Motor Adapter Plate (Y ≈ 48–52mm)
 - White plastic disc/plate between bracket and motor
 - Transitions from the square pump head bolt pattern to the round motor housing
-- Visible in several side-view photos
 
-### Section 5: DC Motor Body (Y ≈ 52mm to ~115mm)
-- Silver cylindrical motor housing
-- **Motor diameter: ~35mm** (caliper readings from photos 15, 16 — display was upside down, reading uncertain, possibly 34.54 or 35.13mm)
-- Motor length (from adapter plate to terminals): **~63mm** (derived: total length ~115mm minus pump head ~48mm minus adapter ~4mm)
-- Motor has a flat on one side (standard 3xx-series DC motor flat for anti-rotation)
-- QR code and RoHS label visible on motor housing
-- Kamoer product label with model number on motor body
-- **Motor terminal end:** Two solder tabs at the very rear of the motor
+### Section 5: DC Motor Body (Y ≈ 52mm to end)
+- Silver cylindrical motor housing (standard 3xx-series DC motor form factor)
+- **Motor diameter: ~35mm** (photos 15, 16 — display sideways, readings uncertain at ~34.54 / ~35.13mm)
+- Motor has a flat on one side (standard anti-rotation feature)
+- QR code, RoHS label, and Kamoer product label on motor body
+- **Motor shaft nub:** A small protrusion from the center of the motor end cap (the non-drive end). This nub accounts for the 5mm difference between the two total-length measurements.
+- **Motor terminal end:** Two solder tabs at the very rear
 
-## Caliper Measurements Summary
+## Total Length Measurements
+
+| Measurement | Value | What It Includes |
+|-------------|-------|-----------------|
+| Total length (with motor nub) | **116.48mm** | Front face to end of motor shaft nub (photos 07, 08) |
+| Total length (without motor nub) | **111.43mm** | Front face to motor end cap, excluding nub (photo 09) |
+| Motor shaft nub protrusion | **~5.05mm** | Difference: 116.48 - 111.43 |
+
+## Additional Verified Dimensions
 
 | Photo | Reading | What's Being Measured | Confidence |
 |-------|---------|----------------------|------------|
-| 01 | 62.61mm | Pump head width, top-down view | HIGH |
+| 01 | 62.61mm | Pump head width, top-down | HIGH |
 | 02 | 62.51mm | Pump head width, side view | HIGH |
-| 03 | 62.61mm | Pump head width, front view with tube exits visible | HIGH |
-| 04 | 62.61mm | Pump head width, front face with Kamoer branding | HIGH |
-| 05 | 47.88mm | Pump head depth, measured from top-down | HIGH |
-| 06 | 37.13mm | Tube connector area width or inter-connector spacing | MEDIUM — display somewhat faint |
-| 07 | ??? | Total height, pump standing vertical, display upside-down | LOW — cannot read reliably |
-| 08 | 115.48mm | Total length, full side profile, pump + motor | MEDIUM — display upside-down but legible |
-| 09 | ??? | Total length from different angle, display upside-down | LOW — cannot read reliably |
-| 10 | ~68.74mm | Pump head depth including front cover, side view | MEDIUM — display sideways |
-| 11 | 65.15mm | Pump body height or depth measurement | HIGH |
-| 12 | ~61.19mm | Pump head height from different angle | MEDIUM |
-| 13 | ~51.68mm | Pump head dimension (possibly including part of bracket) | MEDIUM |
-| 14 | 48.88mm | Pump head depth, side view with motor visible | HIGH |
-| 15 | ~34.54mm | Motor body diameter, display upside-down | LOW — needs user verification |
-| 16 | ~35.13mm | Motor body diameter, display upside-down | LOW — needs user verification |
-| 17 | 82.82mm | Height with tube connectors or bracket-to-connector span | MEDIUM |
+| 03 | 62.61mm | Pump head width, front view | HIGH |
+| 04 | 62.61mm | Pump head width, front face with branding | HIGH |
+| 05 | 47.88mm | Mounting hole edge-to-edge spacing | HIGH |
+| 06 | 3.13mm | Mounting hole diameter | HIGH |
+| 07 | 116.48mm | Total length with motor nub (sideways display) | HIGH (user-verified) |
+| 08 | 115.48mm | Total length with motor nub, alt angle | MEDIUM (similar to 07) |
+| 09 | 111.43mm | Total length without motor nub (sideways display) | HIGH (user-verified) |
+| 10 | ~68.74mm | Pump head depth including front cover | MEDIUM |
+| 11 | 65.15mm | Pump body height or depth | HIGH |
+| 12 | ~61.19mm | Pump head height, alt angle | MEDIUM |
+| 13 | ~51.68mm | Pump head dimension (possibly including bracket) | MEDIUM |
+| 14 | 48.88mm | Pump head depth, side view | HIGH |
+| 15 | ~34.54mm | Motor body diameter (sideways display) | LOW — user verification needed |
+| 16 | ~35.13mm | Motor body diameter (sideways display) | LOW — user verification needed |
+| 17 | 82.82mm | Height with tube connectors or partial assembly span | MEDIUM |
 
 ## Cross-Referencing with Datasheet
 
@@ -86,45 +95,47 @@ The Kamoer datasheet lists: **68.6W x 115.6D x 62.7H mm**
 
 | Dimension | Datasheet | Caliper | Notes |
 |-----------|-----------|---------|-------|
-| Width | 68.6mm | 62.61mm (head), ~68.6 (with bracket ears) | 62.6mm is the pump head body; bracket ears add ~3mm per side to reach 68.6mm |
-| Depth | 115.6mm | ~115.48mm | Excellent agreement — total pump+motor length |
-| Height | 62.7mm | 62.51–62.61mm | Excellent agreement — pump head is nearly square |
+| Width (X) | 68.6mm | 62.61mm (head), ~68.6 (with bracket ears) | Pump head is 62.6mm; bracket ears add ~3mm per side |
+| Depth (Y) | 115.6mm | 116.48mm (with nub), 111.43mm (without) | Datasheet likely measures to motor end cap |
+| Height (Z) | 62.7mm | 62.51–62.61mm | Pump head is nearly square |
 
-## Tube Connector Geometry
+## Mounting Hole Pattern — Critical for Pump Tray Design
 
-- **Two tube exits** on the front face (inlet and outlet)
-- Connectors are white plastic barbed stubs
-- BPT pump tubing (4.8mm ID x 8.0mm OD) attaches to these stubs
-- **Tube exit positions relative to front face center:** Not precisely measured. Photo 06 suggests the overall connector zone width is ~37mm, but exact center-to-center spacing needs verification.
-- **Tube stub protrusion:** ~30–50mm from front face (estimated from photos, not directly measured with calipers)
-- Connectors appear to exit at approximately the same Y position (same face) but offset vertically (one inlet, one outlet)
+```
+          ◄── 49.45mm center-to-center ──►
 
-## Mounting Bracket Detail
+    ○─────────────────────────────────────○
+    │            mounting bracket          │
+    │     ┌────────────────────────┐      │
+    │     │      pump head         │      │
+    │     │      62.6 x 62.6      │      │
+    │     └────────────────────────┘      │
+    │                                      │
+    └──────────────────────────────────────┘
+    ◄────────── ~68.6mm total ────────────►
+```
 
-- Stamped metal (black-coated steel or aluminum)
-- The bracket is the **only mounting interface** — the pump head body itself has no mounting features
-- Bracket sits between pump head rear face and motor adapter plate
-- **Mounting hole pattern:** NOT directly measured in these photos. This remains the critical TBD.
-- Bracket ears extend ~3mm beyond pump head body on each side (total bracket width ~68.6mm)
-- Bracket thickness: ~1.5–2mm (estimated from photos, not directly measured)
-- The bracket has a rectangular profile with the pump head passing through a central opening
+- **Hole diameter:** 3.13mm (accepts M3 screws with ~0.13mm clearance)
+- **Center-to-center:** 49.45mm (one axis)
+- **Hole positions:** On the bracket ears, outside the 62.6mm pump head body, symmetric about center
+- **Ear overhang per side:** (68.6 - 62.6) / 2 ≈ 3mm — holes are roughly centered on each 3mm ear
+- **Second axis spacing:** TBD — not measured in these photos. The bracket may have only 2 holes total (1 per ear), or 4 holes in a 2x2 pattern.
 
 ## Clearance Zones for 3D Modeling
 
 When designing a pump tray or cartridge that holds this pump:
 
 1. **Pump head envelope:** 62.6mm x 62.6mm square (rounded corners), ~48mm deep
-2. **Bracket clearance:** Bracket ears extend to 68.6mm total width — the tray boss pattern must match these mounting holes
-3. **Motor protrusion behind bracket:** ~63mm cylindrical, ~35mm diameter. The tray/cartridge must have clearance behind the bracket for the motor body.
-4. **Tube exit clearance in front:** ~30–50mm of tube stubs protrude forward from the pump head face. The cartridge must have space for these and their routing to JG fittings.
-5. **Wiring clearance at rear:** Motor terminals at the very back need ~5mm clearance for solder connections and wire routing.
-6. **Total depth budget:** ~115mm from front face to motor terminals, plus ~30–50mm for tube stubs in front = **~145–165mm total depth footprint**.
+2. **Bracket clearance:** Bracket ears extend to 68.6mm total width. Mount with M3 screws at 49.45mm center-to-center.
+3. **Motor protrusion behind bracket:** ~63–68mm cylindrical body (~35mm diameter) with a 5mm nub at the very end. Total behind bracket: ~68mm.
+4. **Tube exit clearance in front:** ~30–50mm of BPT tube stubs protrude forward.
+5. **Wiring clearance at rear:** Motor terminals at the back need ~5mm for solder connections.
+6. **Total depth budget:** 116mm from front face to motor nub tip, plus tube stubs in front.
+7. **Motor nub:** 5mm protrusion at center of motor end — must not bottom out against any tray surface.
 
-## Questions for User Verification
+## Remaining Unknowns
 
-1. **Motor diameter:** Photos 15 and 16 had the display upside-down. Can you confirm the motor body diameter? It looks like ~35mm.
-2. **Photos 07, 09:** The caliper display was upside-down and I couldn't read these reliably. What dimensions were you measuring in these shots?
-3. **Photo 10 (~68.74mm):** Was this measuring the pump head depth including the front cover/face plate? Or the bracket width?
-4. **Photo 06 (37.13mm):** Was this the tube connector center-to-center spacing, or the width of the connector area?
-5. **Mounting hole pattern:** Were any photos intended to capture the bracket mounting holes? The hole center-to-center spacing is the single most critical missing measurement for the pump tray design.
-6. **Photo 17 (82.82mm):** What was this measuring? It's larger than the pump head but smaller than the total length.
+1. **Motor body diameter:** ~35mm but uncertain. Low-confidence readings from photos 15, 16.
+2. **Second axis mounting hole spacing:** If the bracket has a 2x2 pattern, the perpendicular spacing is not measured.
+3. **Tube connector exit positions:** Exact X/Z positions of the two tube stubs on the front face.
+4. **Bracket-to-pump-head attachment:** Whether the bracket can be separated from the pump head (for measurement) or is permanently fixed.

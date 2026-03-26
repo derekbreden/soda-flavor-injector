@@ -8,12 +8,10 @@ This document describes the physical geometry of the Beduan 12V DC normally-clos
 
 The valve is an **L-shaped assembly** composed of two distinct sub-bodies joined at a right angle:
 
-1. **Valve body (fluid section):** White plastic housing containing the diaphragm/poppet mechanism. Has two tube ports (inlet and outlet) with built-in push-to-connect (quick-connect) fittings for 1/4" OD tubing.
-2. **Solenoid coil (electrical section):** Metal-cased electromagnetic coil mounted perpendicular to the valve body. Has two blade-style electrical terminals protruding from the top.
+1. **Valve body (white plastic, fluid section):** Contains the diaphragm/poppet mechanism. Has two tube ports (inlet and outlet) with built-in push-to-connect (quick-connect) fittings for 1/4" OD tubing.
+2. **Solenoid coil (metal-cased, electrical section):** Electromagnetic coil mounted perpendicular to the valve body, rising vertically. Has two blade-style spade connector terminals protruding from the top.
 
-The L-shape means the valve has a **compact footprint when viewed from above** but extends in two perpendicular directions. The tube ports exit from the valve body (horizontal when mounted), while the solenoid coil rises vertically above.
-
-**Important:** This is NOT a cylindrical valve — the previous parts.md estimated it as a simple rectangular body. The actual form is more complex.
+The L-shape means the valve is **not a simple rectangular block**. The white valve body is horizontal (carrying the tube ports), and the metal solenoid coil housing rises vertically from one end of it. A Chinese product label on the valve body reads "DC12V 0.02-0.8MPa".
 
 ## Axis and Orientation Convention
 
@@ -21,82 +19,125 @@ Oriented for typical rack mounting (solenoid coil on top, tube ports horizontal)
 
 - **X (width):** Across the valve body, perpendicular to tube flow direction
 - **Y (depth):** Along the tube flow direction (port-to-port axis)
-- **Z (height):** Vertical — from bottom of valve body up through solenoid coil to electrical terminals
+- **Z (height):** Vertical — from bottom of valve body up through solenoid coil to spade connector tips
 
-## Physical Description by Region
+## Dimensional Profile
 
-### Region 1: Valve Body (White Plastic)
-- **Form:** Roughly rectangular block with two cylindrical port stubs
-- **Body width (X):** ~32–37mm (caliper readings vary: 32.14mm in photo 03, 37.11mm in photo 04 — likely measuring at different sections or including/excluding port stubs)
-- The valve body has a **circular diaphragm chamber** visible from the top (photo 04 shows this clearly — a raised circular boss on the top face of the white body where the diaphragm sits)
-- **Port stubs:** Two white cylindrical QC fittings, one on each end along the Y axis, accepting 1/4" OD (6.35mm) tubing
-- Chinese product label on one face: "DC12V 0.02-0.8MPa" and manufacturing info
+```
+        ┌─────────┐ ← spade connectors at top
+        │  metal  │
+        │  coil   │ 36.63mm from bottom of
+        │ housing │   metal body to connector tips
+        │         │
+   ┌────┴─────────┴────┐
+   │   white valve body │ ← 32.71mm wide (X)
+   │                    │
+   ○────────────────────○ ← tube ports (Y axis)
 
-### Region 2: Solenoid Coil (Metal Case)
-- **Form:** Small rectangular metal housing containing the electromagnetic coil
-- Mounted on top of the valve body, perpendicular to it (creating the L-shape)
-- **Coil housing length (along Y):** ~35.63mm (caliper-verified, photo 05)
-- The coil housing is smaller than the valve body — it doesn't extend the full width
-- **Two blade-type electrical terminals** protrude from the top of the coil housing
-- Terminal spacing and orientation: need to be measured for wiring harness design
+   ◄── 50.84mm depth (Y) ──►
 
-### Region 3: Overall Assembly Envelope
-- **Full height (Z):** ~56.00mm (caliper-verified, photo 01) — from bottom of valve body to top of solenoid coil/terminals
-- **Full depth (Y):** ~50.84mm (caliper-verified, photo 02) — from one port stub end to the other, or from port to rear of solenoid
-- The L-shape means the overall bounding box is NOT fully occupied — there's significant empty space in the "corner" of the L
+   ▲ 56.00mm total height (Z) from
+   │ bottom of white body to top of
+   ▼ spade connectors
+```
+
+### White Valve Body (Fluid Section)
+- **Maximum width (X): 32.71mm** (caliper-verified, photo 03)
+- **Depth (Y, port-to-port): ~50.84mm** (caliper-verified, photo 02)
+- The top face of the white body has a **raised circular diaphragm boss** visible from above (photo 04) — this is where the diaphragm chamber sits internally
+- Two cylindrical QC port stubs extend from opposite ends along the Y axis
+- **No built-in mounting features** — no tabs, flanges, ears, or screw holes on the white body
+
+### Metal Solenoid Coil Housing (Electrical Section)
+- Rectangular metal case containing the electromagnetic coil
+- Mounted on top of the valve body at one end (creating the L-shape)
+- **Width of metal body:** Narrower than the white body — the metal body has its own width of ~31.41mm (caliper-derived from the "mounting hole grid" measurement)
+- **Height span (metal body bottom to spade connector tips): 36.63mm** (caliper-verified, photos 04/05)
+- This 36.63mm is a **sub-section of the total 56.00mm height** — the remaining ~19.37mm is the white valve body below the metal housing
+- **Spade connector terminals:** Two blade-type electrical contacts protruding from the top of the metal housing. These are the highest point of the assembly.
+- The metal body is **slightly offset** from the white body — they don't share the same center axis in the X direction
+
+### Overall Assembly Envelope
+- **Total height (Z): 56.00mm** exactly (caliper-verified, photo 01) — from bottom of white valve body to tips of spade connectors
+- **Total depth (Y): ~50.84mm** (caliper-verified, photo 02) — port-to-port
+- **Maximum width (X): 36.63mm** — controlled by the metal body + spade connector extent, NOT the white body (32.71mm)
+- **However:** The 36.63mm is in the Z direction (height), not X. The metal body width is ~31.41mm. So the controlling X-axis width is the **white body at 32.71mm**.
+
+**Clarification on axis assignments:** The metal-body-to-spade-connector 36.63mm measurement is along the Z (height) axis. The maximum X (width) dimensions are 32.71mm (white body) and ~31.41mm (metal body). The white body is wider than the metal body in X, and the metal body is offset slightly.
 
 ## Caliper Measurements Summary
 
 | Photo | Reading | What's Being Measured | Confidence |
 |-------|---------|----------------------|------------|
-| 01 | 56.00mm | Full height (bottom of valve body to top of solenoid coil) | HIGH |
-| 02 | 50.84mm | Full depth (port-to-port or port-to-coil-rear) | MEDIUM — display slightly angled |
-| 03 | 32.14mm | Valve body width at narrowest section | MEDIUM — display upside-down |
-| 04 | 37.11mm | Valve body width at wider section (possibly including port stubs) | MEDIUM — display somewhat angled |
-| 05 | 35.63mm | Solenoid coil housing length | HIGH — display clear (upside-down but legible) |
+| 01 | 56.00mm | Total height (Z): bottom of white body to top of spade connectors | HIGH (exact) |
+| 02 | 50.84mm | Total depth (Y): port-to-port or port-to-coil-rear | MEDIUM |
+| 03 | 32.71mm | White valve body maximum width (X) | HIGH (user-verified) |
+| 04 | 36.63mm | Metal body bottom to spade connector tips (Z sub-span) | HIGH (user-verified) |
+| 05 | 36.63mm | Same measurement as 04, alternate camera angle | HIGH (user-verified) |
+
+## Additional User-Provided Dimensions
+
+These were provided by the user from direct caliper observation, not extracted from photos:
+
+| Dimension | Value | Description |
+|-----------|-------|-------------|
+| Metal body grid width | 31.41mm | Width of just the metal solenoid housing (narrower than white body) |
+| White body max width | 32.71mm | Maximum width of the white valve body |
+| Metal body + spade connectors | 36.63mm | From bottom of metal housing to top of spade connector terminals |
+| Offset between bodies | slight | Metal and white bodies are not perfectly centered on each other in X |
 
 ## Comparison with Previous Estimates
 
-The enclosure `parts.md` listed:
-- **34.0W x 63.5D (port-to-port) x 58.4H mm**
+| Dimension | Previous Estimate | Caliper-Verified | Notes |
+|-----------|-------------------|------------------|-------|
+| Width (X) | 34.0mm | **32.71mm** (white body) | Slightly narrower than estimated |
+| Depth (Y, port-to-port) | 63.5mm | **~50.84mm** | **Significantly shorter** — 12.7mm less than estimated |
+| Height (Z) | 58.4mm | **56.00mm** | Close to estimate, slightly shorter |
 
-| Dimension | Estimated | Caliper | Notes |
-|-----------|-----------|---------|-------|
-| Width (X) | 34.0mm | 32–37mm | Range depends on where measured; 32mm at body, 37mm at wider section |
-| Depth (Y, port-to-port) | 63.5mm | ~50.84mm | **Significantly shorter** — the 63.5mm estimate may have included QC fitting protrusion or was simply wrong |
-| Height (Z) | 58.4mm | 56.00mm | Close — slight overestimate in original |
-
-**Critical finding:** The depth (port-to-port) dimension is substantially smaller than estimated. If confirmed, this means:
-- The valve rack can be shallower (less Y-axis depth consumed)
-- Internal tube routing has more room behind the rack
-- The rack frame design in `parts.md` (spec'd at 64mm depth) can potentially shrink to ~52–55mm
+**Critical finding:** The depth (Y) is ~13mm shorter than estimated. This means:
+- The valve rack can be significantly shallower
+- Rack depth can shrink from 64mm to ~55mm
+- More room behind the rack for tube routing
 
 ## Mounting Considerations for Valve Rack Design
 
-The valve has **no built-in mounting features** — no tabs, flanges, ears, or screw holes. It must be held by a designed cradle/clamp in the valve rack.
+### No Built-In Mounting Features
+The valve must be held entirely by a designed cradle/clamp. There are no screw holes, tabs, or mounting ears.
 
-### Cradle Design Guidance
+### L-Shape Complicates Simple Saddles
+The valve body (horizontal) and solenoid coil (vertical) create an L-profile. A cradle must:
+1. Support the white valve body from below and on the sides
+2. Leave a gap/slot for the solenoid coil to rise vertically
+3. Allow snap-over retention clips on the valve body sides
+4. Not interfere with tube ports (Y axis access) or spade connectors (top access)
 
-1. **L-shape complicates simple saddles:** The valve isn't a simple rectangular block. The cradle must support the valve body (horizontal) while accommodating the solenoid coil (vertical protrusion).
-2. **Suggested approach:** A pocket/channel that the valve body drops into from above, with the solenoid coil sticking up through an opening or slot. Snap-over retention clips on the valve body sides.
-3. **Valve body is the primary mounting surface:** The flat faces of the white plastic body are the best surfaces for clamp contact. The solenoid coil should not bear mounting loads.
-4. **Port access:** Both tube ports must be accessible from the Y direction for push-to-connect tubing insertion/removal.
-5. **Electrical access:** The blade terminals on top of the solenoid must be accessible for spade connectors or wire soldering.
+### Controlling Dimensions for Rack Slot Sizing
+- **Slot width (X):** Must clear 32.71mm white body. Use ~34mm for light clearance.
+- **Slot depth (Y):** Must accommodate ~51mm port-to-port span.
+- **Slot height (Z):** The white body alone is ~19mm tall (56.00 - 36.63 ≈ 19.37mm). The solenoid coil adds 36.63mm above that.
+- **Total valve height for rack row pitch:** 56mm per valve. Two rows with 4mm gap = 116mm.
 
-### Rack Packing
+### Port and Electrical Access
+- **Tube ports:** Both ends of the Y axis must be accessible for push-to-connect tubing insertion/removal.
+- **Spade connectors:** Top of assembly, must be accessible for spade terminal crimps. Terminal spacing needs measurement for harness design.
 
-- **Width pitch:** With body width of ~32–37mm, a 38mm center-to-center pitch (current spec) may be tight if the 37mm dimension is the controlling width. Verify whether 37mm includes port stubs.
-- **Height pitch:** At 56mm per valve, two rows with a 4mm gap = 116mm total rack height (vs. the current 120mm spec — close agreement).
-- **Depth:** At ~51mm port-to-port, the rack depth can be ~55mm (with margin) instead of the currently spec'd 64mm.
+## Geometry for 3D Modeling Agents
 
-## Questions for User Verification
+When modeling a valve rack cradle:
 
-1. **Photo 03 vs 04 (32mm vs 37mm):** These measure the valve body width but at different sections. Can you confirm which is the maximum width (controlling dimension for rack slot width)?
-2. **Port-to-port depth:** Photo 02 shows ~50.84mm. Is this measuring from tube stub tip to tube stub tip? Or from the valve body face (excluding stub protrusion)? If stubs protrude beyond the body, the body-only depth is even smaller.
-3. **Are the tube ports coaxial (inline)?** Or are they offset — inlet on one face, outlet on an adjacent face? The L-shape and photo angles make this hard to determine.
-4. **Only 5 photos for this part** — would additional measurements be helpful? Specifically:
-   - Port stub OD and length
-   - Solenoid coil housing width and height
-   - Terminal spacing
-   - Exact diaphragm boss diameter on top face
-   - Distance from bottom of valve body to port center axis
+1. **The valve is L-shaped, not rectangular.** The bounding box is ~33mm x ~51mm x 56mm, but the actual solid only occupies an L-shaped portion of that volume.
+2. **White body is the primary clamping surface.** It's the wider, lower portion — design saddles and clips around its 32.71mm width and ~19mm height.
+3. **Solenoid coil protrudes upward** from one end. The rack must have a slot or opening for this protrusion.
+4. **Bodies are offset.** The metal coil housing (31.41mm wide) is slightly narrower than and offset from the white body (32.71mm wide). Don't assume they're centered.
+5. **Port stubs protrude along Y.** The QC fittings may add length beyond the 50.84mm measurement.
+6. **Spade connectors are the highest point** at 56mm. Wire routing must reach the top of the valve.
+
+## Remaining Unknowns
+
+1. **Tube port stub OD and protrusion length** — not measured. Needed for tube routing clearance.
+2. **Port center axis height** — distance from bottom of white body to the center of the tube ports. Needed for aligning tubes.
+3. **Solenoid coil housing exact width and depth** — only the combined "grid width" of 31.41mm is known.
+4. **Spade connector spacing** — needed for wiring harness design.
+5. **Whether the ports are truly inline (coaxial)** — or slightly offset from each other. The L-shape makes this ambiguous from photos alone.
+6. **White valve body height alone** — derived as ~19.4mm (56.00 - 36.63) but not directly measured.
+7. **Diaphragm boss diameter** — visible from top in photo 04 but not measured.
