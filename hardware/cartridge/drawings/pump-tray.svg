@@ -120,8 +120,8 @@
   <!-- Origin Sx=603, Sy=100. Size: 420 x 21 px. Z-aligned w/ Front -->
   <!-- ============================================================ -->
 
-  <text x="813" y="88" class="label">SIDE VIEW</text>
-  <text x="813" y="97" class="note" text-anchor="middle" style="font-size:7px">(looking along -X)</text>
+  <text x="813" y="75" class="label">SIDE VIEW</text>
+  <text x="813" y="83" class="note" text-anchor="middle" style="font-size:7px">(looking along -X)</text>
 
   <!-- Tray outline -->
   <rect x="603" y="100" width="420" height="21" class="outline"/>
@@ -332,8 +332,8 @@
   <text x="157" y="335" class="note" style="font-size:8px">M3 heat-set boss (4x)</text>
   <text x="157" y="344" class="note" style="font-size:8px">8mm OD, 4mm pilot</text>
 
-  <line x1="183" y1="220" x2="260" y2="240" class="dim"/>
-  <text x="262" y="240" class="note" style="font-size:8px">BPT C-clip 8.3mm ID (4x)</text>
+  <line x1="476" y1="206" x2="476" y2="173" class="dim"/>
+  <text x="478" y="175" class="note" style="font-size:8px">BPT C-clip 8.3mm ID (4x)</text>
 
   <line x1="253" y1="570" x2="278" y2="555" class="dim"/>
   <text x="280" y="552" class="note" style="font-size:8px">1/4" tube C-clip 6.65mm ID (4x)</text>
