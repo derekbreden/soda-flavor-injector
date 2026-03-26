@@ -257,20 +257,21 @@ The RO (reverse osmosis) water purification market produces exactly the type of 
 - Prime eligible: Yes
 - Notes: Similar spec to DIGITEN. Sold by SENSTREE, fulfilled by Amazon.
 
-**Candidate 4: Beduan 12V 1/4" Inlet Water Solenoid Valve**
+**Candidate 4: Beduan 12V 1/4" Inlet Water Solenoid Valve** ★ Selected, caliper-verified
 - ASIN: B07NWCQJK9
 - Type: 2-way NC, 12V DC
-- Fittings: 1/4" quick-connect
+- Fittings: 1/4" quick-connect (push-to-connect)
 - Power: 5.5W rated
 - Working pressure: 0.02-0.8 MPa
 - Working temperature: up to 60C (140F)
-- Package dimensions: ~215 x 60 x 34mm (valve itself smaller)
+- **Valve dimensions (caliper-verified):** L-shaped body, 32.71mm wide (X) x 50.84mm deep (Y, port-to-port) x 56.00mm tall (Z, bottom of white body to top of spade connectors)
+- Package dimensions: ~215 x 60 x 34mm (Amazon packaging, not the valve)
 - Weight: ~100g
-- Materials: Metal and plastic, designed for RO systems
+- Materials: White plastic valve body + metal solenoid coil housing, designed for RO systems
 - Rating: 4.2/5 stars (143 ratings)
 - Price: ~$8.99 (check current listing)
 - Prime eligible: Yes
-- Notes: Beduan is a well-known valve brand on Amazon with a wide product line.
+- Notes: Beduan is a well-known valve brand on Amazon with a wide product line. L-shaped profile: horizontal white valve body with vertical metal solenoid coil rising from one end. No built-in mounting features -- requires designed cradle/clamp.
 
 **Candidate 5: Akent 1/4" DC12V Inlet Feed Water Solenoid Valve**
 - ASIN: B071RYT994
@@ -345,16 +346,17 @@ $20-50 per valve. Zero holding power (permanent magnet holds position, brief pul
 
 At the 220mm width target, valves cannot be arranged in side banks flanking the cartridge -- there is not enough lateral space. Instead, the 10 valves are placed behind and/or above the cartridge dock area.
 
-Typical RO solenoid valve dimensions are approximately 50-55mm long x 30-35mm diameter (cylindrical body with quick-connect ports on each end).
+The Beduan solenoid valve (caliper-verified) is L-shaped, not cylindrical: 32.71mm wide x 50.84mm deep (port-to-port) x 56.00mm tall (white body base to spade connector tips). The white valve body is ~19.4mm tall; the metal solenoid coil housing rises ~36.6mm above that.
 
 ### 5b. Fitting 10 Two-Way Valves
 
 **Option A: Behind cartridge, two rows of 5**
 
 - Two rows of 5 valves along the dock back wall, spanning the full enclosure width.
-- 5 valves x ~35mm pitch = ~175mm per row, fits within the 220mm width.
-- Two rows at ~35mm depth = ~70mm total depth behind the cartridge.
+- 5 valves x ~35mm pitch (32.71mm body + ~2mm gap) = ~175mm per row, fits within the 220mm width.
+- Two rows at ~55mm depth (50.84mm port-to-port) = ~110mm total depth behind the cartridge.
 - All valves in one serviceable zone, accessible when cartridge is removed.
+- Height per row: 56mm (to spade connector tips). Two rows stacked would need ~116mm vertical.
 
 **Option B: Above cartridge, single layer**
 
@@ -371,7 +373,7 @@ Typical RO solenoid valve dimensions are approximately 50-55mm long x 30-35mm di
 
 ### 5c. Valve Mounting
 
-RO solenoid valves typically have bracket clips or can be zip-tied/cable-clamped to a mounting surface. For prototyping, use 3D-printed valve cradles screwed to the enclosure floor or back wall. Orient valves with quick-connect ports facing toward their respective tube connections (bags rearward, hopper upward, dispensing line forward).
+The Beduan valve has no built-in mounting features (no tabs, flanges, ears, or screw holes). It must be held entirely by a designed cradle/clamp. For prototyping, use 3D-printed valve cradles that grip the white valve body (32.71mm wide, ~19.4mm tall) with snap-over retention clips, and leave a slot for the vertical solenoid coil. Orient valves with quick-connect ports facing toward their respective tube connections (bags rearward, hopper upward, dispensing line forward).
 
 ---
 

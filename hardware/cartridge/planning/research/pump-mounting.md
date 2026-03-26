@@ -4,7 +4,7 @@ Research document for how two Kamoer KPHM400-SW3B25 peristaltic pumps physically
 
 ## Scope and Confidence
 
-This document synthesizes the Kamoer KK series product manual (KKDD/TS, version A/3), the KPHM400 product page specifications, Amazon listing data, and established 3D printing design guidelines. Where values come directly from Kamoer documentation, they are noted as **verified**. Where values are inferred from the KK series manual (which shares the same pump head family) or from general engineering practice, they are noted as **inferred**. The KPHM400 datasheet with full dimensional drawings was not available in text-extractable form -- the dimensional drawing exists in the Kamoer PDF on DirectIndustry but could not be fully parsed. Physical measurement of the pumps in hand should confirm all inferred dimensions before finalizing any CAD model.
+This document synthesizes the Kamoer KK series product manual (KKDD/TS, version A/3), the KPHM400 product page specifications, Amazon listing data, caliper measurements of the physical pumps, and established 3D printing design guidelines. Critical mounting dimensions (pump head size, mounting hole pattern, total length) are **caliper-verified** from the actual KPHM400-SW3B25 units in hand. Where values are inferred from the KK series manual or from general engineering practice, they are noted as **inferred**.
 
 ---
 
@@ -23,32 +23,21 @@ This document synthesizes the Kamoer KK series product manual (KKDD/TS, version 
 | Current draw (12V) | ~0.83A typical | Inferred -- 10W / 12V |
 | Noise | <=65 dB | Verified -- Kamoer specs |
 
-### Mounting Plate and Bracket Options
+### Mounting Bracket (Caliper-Verified)
 
-The KPHM400 uses the same mounting approach as the broader Kamoer KK/KPHM pump family. From the KK series product manual:
+The KPHM400-SW3B25 ships with a black stamped metal mounting bracket sandwiched between the pump head and motor. The bracket extends beyond the pump head body on two sides, providing mounting ears with screw holes.
 
-- **Straight plate**: A flat metal mounting plate attached to the rear of the pump body (behind the motor). The plate sits flush with the motor end and extends beyond the pump body footprint on both sides, providing screw-down mounting ears.
-- **L-type bracket**: A right-angle bracket variant that allows the pump to be mounted with the motor axis parallel to the mounting surface rather than perpendicular. Same screw holes but with a 90-degree bend.
-- **Blank (no bracket)**: Some KPHM400 variants ship without any bracket, leaving only the motor housing and pump body.
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| Bracket total width (including ears) | **68.6 mm** | Caliper-verified (matches datasheet) |
+| Pump head width (square cross-section) | **62.6 mm** | Caliper-verified (multiple readings: 62.51-62.61mm) |
+| Ear overhang per side | **~3 mm** | Derived: (68.6 - 62.6) / 2 |
+| Mounting holes | **2x M3 through-holes** (one per ear) | Caliper-verified |
+| Mounting hole diameter | **3.13 mm** | Caliper-verified |
+| Mounting hole center-to-center | **49.45 mm** | Caliper-verified (47.88mm edge-to-edge + 3.13mm) |
+| Bracket thickness | ~1.5-2 mm | Estimated from photos |
 
-The KK series manual shows **4x M3 screw holes** on the mounting plate (annotated "4-M3" in the dimensional drawing for the KKTS straight plate). The KPHM400, being a smaller single-head variant in the same family, likely uses **2x or 4x M3 mounting holes** on its bracket.
-
-**Critical note:** The exact mounting hole spacing for the KPHM400 must be measured from the physical pump. The KK series (dual-motor) mounting plate has holes at approximately 82 mm x 56 mm (straight plate), but the KPHM400 is significantly smaller and will have a different pattern.
-
-### Mounting Plate Dimensions (KK Series Reference, for Pattern Understanding)
-
-From the KK series KKDD straight plate dimensional drawing:
-
-| Parameter | Value | Notes |
-|-----------|-------|-------|
-| Plate width | 92.3 mm | Full width including ears |
-| Plate mounting hole span (width) | 82 mm | Center-to-center, horizontal |
-| Plate mounting hole span (height) | 56 mm | Center-to-center, vertical |
-| Total depth (pump head to motor end) | 160.9 mm | Including motor and plate |
-| Pump head diameter | 44.5 mm | Circular pump head |
-| Screw holes | 4x M3 | Through-holes in plate |
-
-The KPHM400 is roughly 70% the size of the KK assembly. Scaling proportionally, expect mounting hole span on the order of **55-65 mm x 40-50 mm** for the KPHM400 bracket. Measure the actual pump before designing.
+**Note:** The 49.45mm c-t-c measurement is along one axis only (the bracket ear axis). The bracket appears to have only 2 holes total (1 per ear), not a 2x2 pattern. If a second axis exists, that spacing is TBD.
 
 ### Tube Exit Points
 
@@ -185,9 +174,9 @@ If the cartridge geometry forces a vertical mounting plate (screws going horizon
 
 ### Surface Area for Stability
 
-Each KPHM400 weighs ~306g and has a footprint of roughly 116 x 69 mm. The mounting plate needs to support this weight plus dynamic loads from vibration (~2-3x static weight as a conservative estimate for impulse loads).
+Each KPHM400 weighs ~306g and has a footprint of roughly 116.5 x 68.6 mm (caliper-verified). The mounting plate needs to support this weight plus dynamic loads from vibration (~2-3x static weight as a conservative estimate for impulse loads).
 
-Minimum contact area per pump: the mounting bracket's full footprint (estimated ~90 x 50 mm based on the bracket extending slightly inside the pump envelope). The 3D printed receiving surface should match or exceed this area and be well-supported by the cartridge shell walls.
+Minimum contact area per pump: the mounting bracket's full footprint (~68.6 x bracket depth). The 3D printed receiving surface should match or exceed this area and be well-supported by the cartridge shell walls.
 
 ---
 
@@ -336,7 +325,7 @@ For ~1A at 12V over a short run (<200 mm inside the cartridge), 22 AWG stranded 
 
 ### Arrangement Options
 
-Two KPHM400 pumps (each 115.6 x 68.6 x 62.7 mm) must fit inside the cartridge body. Since peristaltic pumps work in any orientation (confirmed with parts in hand), the arrangement is driven by cartridge envelope constraints and tube routing simplicity.
+Two KPHM400 pumps (each 116.5 x 68.6 x 62.6 mm, caliper-verified: 116.48mm total length with motor nub, 68.6mm bracket width, 62.6mm square pump head) must fit inside the cartridge body. Since peristaltic pumps work in any orientation (confirmed with parts in hand), the arrangement is driven by cartridge envelope constraints and tube routing simplicity.
 
 **Option A: Side-by-side, motors facing same direction**
 
@@ -348,7 +337,7 @@ Top view:
   |  tubes <-  |  tubes <-               |
   +---------------------------------------+
   Width: ~137 mm (68.6 x 2)
-  Depth: ~116 mm
+  Depth: ~117 mm (116.48 with motor nub)
   Height: ~63 mm
 ```
 
@@ -367,7 +356,7 @@ Top view:
   |  tubes <-  |   -> tubes              |
   +---------------------------------------+
   Width: ~137 mm
-  Depth: ~116 mm
+  Depth: ~117 mm
 ```
 
 - Same footprint as Option A
@@ -386,8 +375,8 @@ Front view:
   |    motor->         |
   +--------------------+
   Width: ~69 mm
-  Depth: ~116 mm
-  Height: ~126 mm (62.7 x 2)
+  Depth: ~117 mm
+  Height: ~125 mm (62.6 x 2)
 ```
 
 - Narrowest cartridge (~69 mm width)
@@ -404,7 +393,7 @@ Top view:
   |  [PUMP 1] motor-> | [PUMP 2] motor->             |
   +--------------------------------------------------+
   Width: ~69 mm
-  Depth: ~231 mm (115.6 x 2)
+  Depth: ~233 mm (116.48 x 2)
   Height: ~63 mm
 ```
 
@@ -417,8 +406,8 @@ Top view:
 | Arrangement | Min Width | Min Depth | Min Height | Tube routing complexity |
 |-------------|-----------|-----------|------------|------------------------|
 | Side-by-side (same dir) | ~140 mm | ~120 mm | ~65 mm | Low |
-| Stacked | ~72 mm | ~120 mm | ~130 mm | Medium |
-| Inline | ~72 mm | ~235 mm | ~65 mm | Low |
+| Stacked | ~72 mm | ~120 mm | ~128 mm | Medium |
+| Inline | ~72 mm | ~236 mm | ~65 mm | Low |
 
 Add ~5-10 mm to each dimension for cartridge wall thickness, clearance, and mounting hardware.
 
@@ -561,14 +550,14 @@ The internal tube routing from the pump tray must reach the back side of each pu
 
 ## 9. Open Questions for Physical Verification
 
-Before finalizing the cartridge CAD model, these measurements must be taken from the actual KPHM400-SW3B25 pumps in hand:
+Caliper measurements have resolved the critical mounting dimensions. Remaining unknowns before finalizing the cartridge CAD model:
 
-1. **Exact mounting hole pattern**: Measure center-to-center distance of all M3 holes on the supplied bracket (straight plate). Record whether 2 or 4 holes.
-2. **Bracket dimensions**: Overall width, height, and thickness of the metal mounting bracket.
+1. ~~**Exact mounting hole pattern**~~ **RESOLVED:** 2x M3 holes, 3.13mm diameter, 49.45mm center-to-center (one axis). Second axis TBD if bracket has 2x2 pattern (appears to be 2 holes total).
+2. ~~**Bracket dimensions**~~ **RESOLVED:** 68.6mm total width, pump head 62.6mm square, ~1.5-2mm bracket thickness.
 3. **Tube exit positions**: Distance from pump mounting face to each tube exit center, and spacing between inlet and outlet tubes.
 4. **Motor lead exit point**: Where do the motor wires exit the motor housing? Length of factory leads.
 5. **Overall envelope with tubes**: Measure the full extent of the pump with tubes attached (tubes add to the pump head side).
-6. **Motor protrusion**: How far does the motor extend beyond the mounting bracket on the rear side? This determines the tray-to-lid clearance needed.
+6. ~~**Motor protrusion**~~ **PARTIALLY RESOLVED:** Total length 116.48mm (with 5.05mm motor nub) or 111.43mm (without nub). Motor protrusion behind the bracket is ~63-68mm.
 
 ---
 
