@@ -352,7 +352,7 @@
   <line x1="212" y1="410" x2="224" y2="410" class="ext"/>
   <line x1="212" y1="500" x2="224" y2="500" class="ext"/>
   <line x1="218" y1="410" x2="218" y2="500" class="dim"/>
-  <text x="203" y="459" class="label">30</text>
+  <text x="190" y="449" class="label">30</text>
 
   <!-- Rear protrusion 20mm -->
   <line x1="218" y1="530" x2="218" y2="590" class="ext"/>
@@ -362,7 +362,7 @@
   <text x="203" y="563" class="label">20</text>
 
   <!-- Direction labels -->
-  <text x="302" y="406" class="note" text-anchor="middle" font-size="8">FRONT (cartridge cavity)</text>
+  <text x="145" y="420" class="note" text-anchor="middle" font-size="8">FRONT (cartridge cavity)</text>
   <text x="302" y="604" class="note" text-anchor="middle" font-size="8">REAR (valve rack)</text>
   <text x="390" y="560" class="note" font-size="8">2 tubes per column</text>
   <text x="390" y="570" class="note" font-size="8">(upper + lower overlap in plan)</text>
