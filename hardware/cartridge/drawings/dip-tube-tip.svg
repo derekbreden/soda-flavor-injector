@@ -1,0 +1,503 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 850" width="1100" height="850" font-family="Arial, Helvetica, sans-serif">
+  <title>Dip Tube Tip Piece (Air Collection Bar) — Engineering Drawing</title>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 6" refX="10" refY="3"
+            markerWidth="10" markerHeight="6" orient="auto-start-reverse"
+            fill="none" stroke="#000" stroke-width="0.8">
+      <path d="M0,0 L10,3 L0,6"/>
+    </marker>
+    <style>
+      .outline { fill: none; stroke: #000; stroke-width: 1.2; }
+      .hidden  { fill: none; stroke: #000; stroke-width: 0.7; stroke-dasharray: 4,3; }
+      .center  { fill: none; stroke: #000; stroke-width: 0.4; stroke-dasharray: 12,3,2,3; }
+      .dim     { fill: none; stroke: #000; stroke-width: 0.5; }
+      .ext     { fill: none; stroke: #000; stroke-width: 0.4; }
+      .dimtxt  { font-size: 10px; text-anchor: middle; fill: #000; }
+      .label   { font-size: 12px; font-weight: bold; text-anchor: middle; fill: #000; }
+      .note    { font-size: 9px; fill: #000; }
+      .title   { font-size: 11px; font-weight: bold; fill: #000; }
+      .titledata { font-size: 10px; fill: #000; }
+      .frame   { fill: none; stroke: #000; stroke-width: 0.6; }
+      .section { fill: none; stroke: #000; stroke-width: 0.8; }
+      .hatch   { fill: none; stroke: #000; stroke-width: 0.3; }
+    </style>
+  </defs>
+
+  <!-- Drawing border -->
+  <rect x="5" y="5" width="1090" height="840" fill="none" stroke="#000" stroke-width="1"/>
+
+  <!-- ============================================================ -->
+  <!--  SCALE: 4 px/mm                                              -->
+  <!--  Part: 185L x 22W x 14H mm                                  -->
+  <!--  Bore axis: Z (vertical, through-hole at midpoint X=92.5)   -->
+  <!--  Ribs: along X on top and bottom faces                      -->
+  <!-- ============================================================ -->
+
+  <!-- ============================================================ -->
+  <!--  TOP VIEW  (looking along -Z)                                -->
+  <!--  Horizontal = X (length 185mm = 740px)                       -->
+  <!--  Vertical = Y (width 22mm = 88px)                            -->
+  <!--  Origin: top-left of bar at (60, 50)                         -->
+  <!-- ============================================================ -->
+  <text x="430" y="38" class="label">TOP VIEW</text>
+
+  <!-- Bar outline -->
+  <rect x="60" y="50" width="740" height="88" class="outline"/>
+
+  <!-- Bore circle (Z-axis, visible from top): 6.25mm dia = 25px dia, r=12.5 -->
+  <!-- Center at X=92.5mm = 370px from left = 60+370 = 430, Y=11mm = 44px = 50+44 = 94 -->
+  <circle cx="430" cy="94" r="12.5" class="outline"/>
+
+  <!-- Chamfer circle (1mm x 45deg = 1mm larger radius): 8.25mm dia = 33px dia, r=16.5 -->
+  <circle cx="430" cy="94" r="16.5" class="outline" stroke-dasharray="2,2" stroke-width="0.5"/>
+
+  <!-- Air channel rib lines on top face (along X, ~3mm pitch = 12px) -->
+  <!-- Ribs run full length. Show as parallel lines. Skip bore area. -->
+  <!-- Rib ridges at Y offsets from front face: 3,6,9,13,16,19 mm = 12,24,36,52,64,76 px -->
+  <line x1="60" y1="62" x2="417" y2="62" class="outline" stroke-width="0.3"/>
+  <line x1="443" y1="62" x2="800" y2="62" class="outline" stroke-width="0.3"/>
+  <line x1="60" y1="74" x2="417" y2="74" class="outline" stroke-width="0.3"/>
+  <line x1="443" y1="74" x2="800" y2="74" class="outline" stroke-width="0.3"/>
+  <line x1="60" y1="86" x2="417" y2="86" class="outline" stroke-width="0.3"/>
+  <line x1="443" y1="86" x2="800" y2="86" class="outline" stroke-width="0.3"/>
+  <line x1="60" y1="102" x2="417" y2="102" class="outline" stroke-width="0.3"/>
+  <line x1="443" y1="102" x2="800" y2="102" class="outline" stroke-width="0.3"/>
+  <line x1="60" y1="114" x2="417" y2="114" class="outline" stroke-width="0.3"/>
+  <line x1="443" y1="114" x2="800" y2="114" class="outline" stroke-width="0.3"/>
+  <line x1="60" y1="126" x2="417" y2="126" class="outline" stroke-width="0.3"/>
+  <line x1="443" y1="126" x2="800" y2="126" class="outline" stroke-width="0.3"/>
+
+  <!-- Longitudinal groove (along X to bore): hidden below surface -->
+  <!-- Groove at Y centerline (Y=94), ~2mm wide = 8px -->
+  <line x1="60" y1="90" x2="417" y2="90" class="hidden" stroke-width="0.4"/>
+  <line x1="60" y1="98" x2="417" y2="98" class="hidden" stroke-width="0.4"/>
+  <line x1="443" y1="90" x2="800" y2="90" class="hidden" stroke-width="0.4"/>
+  <line x1="443" y1="98" x2="800" y2="98" class="hidden" stroke-width="0.4"/>
+
+  <!-- Centerlines -->
+  <line x1="50" y1="94" x2="810" y2="94" class="center"/>
+  <line x1="430" y1="40" x2="430" y2="148" class="center"/>
+
+  <!-- Section cut line A-A through bore center (X=430) -->
+  <line x1="430" y1="42" x2="430" y2="48" stroke="#000" stroke-width="1.2"/>
+  <line x1="430" y1="140" x2="430" y2="146" stroke="#000" stroke-width="1.2"/>
+  <text x="420" y="47" class="note" style="font-weight:bold;font-size:10px" text-anchor="end">A</text>
+  <text x="420" y="145" class="note" style="font-weight:bold;font-size:10px" text-anchor="end">A</text>
+
+  <!-- TOP VIEW DIMENSIONS -->
+
+  <!-- Overall length 185mm: x=60 to x=800 = 740px; 740/4=185 -->
+  <line x1="60" y1="140" x2="60" y2="162" class="ext"/>
+  <line x1="800" y1="140" x2="800" y2="162" class="ext"/>
+  <line x1="60" y1="157" x2="800" y2="157" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="430" y="154" class="dimtxt">185</text>
+
+  <!-- Width 22mm: y=50 to y=138 = 88px; 88/4=22 -->
+  <line x1="802" y1="50" x2="822" y2="50" class="ext"/>
+  <line x1="802" y1="138" x2="822" y2="138" class="ext"/>
+  <line x1="817" y1="50" x2="817" y2="138" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="835" y="98" class="dimtxt">22</text>
+
+  <!-- Bore diameter leader -->
+  <line x1="440" y1="82" x2="470" y2="68" class="dim"/>
+  <text x="504" y="66" class="dimtxt" style="font-size:9px">&#x2300;6.25 BORE</text>
+
+  <!-- ============================================================ -->
+  <!--  FRONT VIEW  (looking along -Y)                              -->
+  <!--  Horizontal = X (length 185mm = 740px)                       -->
+  <!--  Vertical = Z (height 14mm = 56px)                           -->
+  <!--  Origin: front-bottom-left at (60, 256)  top at (60, 200)    -->
+  <!-- ============================================================ -->
+  <text x="430" y="190" class="label">FRONT VIEW</text>
+
+  <!-- Bar outline: 740 x 56 px -->
+  <rect x="60" y="200" width="740" height="56" class="outline"/>
+
+  <!-- Rib profiles on top edge (triangular, 2mm tall = 8px, 3mm pitch = 12px) -->
+  <!-- Show as zigzag on top and bottom edges -->
+  <!-- Top ribs: from Z=14mm (y=200) upward 2mm (y=192)... but ribs are ON the surface -->
+  <!-- Actually ribs protrude from the surface. Top face is at y=200 (Z=14), ribs go up to y=192 (Z=16) -->
+  <!-- But the envelope is 14H, so ribs are within the 14mm. Bar body is 10mm, ribs add 2mm top + 2mm bottom = 14mm total -->
+  <!-- So: bar body from Z=2 to Z=12 (y=248 to y=208), ribs Z=0-2 bottom and Z=12-14 top -->
+  <!-- Top rib profile: triangular peaks at y=200, valleys at y=208 -->
+  <!-- Bottom rib profile: triangular peaks at y=256, valleys at y=248 -->
+
+  <!-- Top rib profile (sawtooth along X) -->
+  <path class="outline" stroke-width="0.6" d="
+    M 60,208 L 66,200 L 72,208 L 78,200 L 84,208 L 90,200 L 96,208
+    L 102,200 L 108,208 L 114,200 L 120,208 L 126,200 L 132,208
+    L 138,200 L 144,208 L 150,200 L 156,208 L 162,200 L 168,208
+    L 174,200 L 180,208 L 186,200 L 192,208 L 198,200 L 204,208
+    L 210,200 L 216,208 L 222,200 L 228,208 L 234,200 L 240,208
+    L 246,200 L 252,208 L 258,200 L 264,208 L 270,200 L 276,208
+    L 282,200 L 288,208 L 294,200 L 300,208 L 306,200 L 312,208
+    L 318,200 L 324,208 L 330,200 L 336,208 L 342,200 L 348,208
+    L 354,200 L 360,208 L 366,200 L 372,208 L 378,200 L 384,208
+    L 390,200 L 396,208 L 402,200 L 408,208 L 414,200 L 418,204
+    M 442,204 L 446,200 L 452,208 L 458,200 L 464,208 L 470,200 L 476,208
+    L 482,200 L 488,208 L 494,200 L 500,208 L 506,200 L 512,208
+    L 518,200 L 524,208 L 530,200 L 536,208 L 542,200 L 548,208
+    L 554,200 L 560,208 L 566,200 L 572,208 L 578,200 L 584,208
+    L 590,200 L 596,208 L 602,200 L 608,208 L 614,200 L 620,208
+    L 626,200 L 632,208 L 638,200 L 644,208 L 650,200 L 656,208
+    L 662,200 L 668,208 L 674,200 L 680,208 L 686,200 L 692,208
+    L 698,200 L 704,208 L 710,200 L 716,208 L 722,200 L 728,208
+    L 734,200 L 740,208 L 746,200 L 752,208 L 758,200 L 764,208
+    L 770,200 L 776,208 L 782,200 L 788,208 L 794,200 L 800,208"/>
+
+  <!-- Bottom rib profile -->
+  <path class="outline" stroke-width="0.6" d="
+    M 60,248 L 66,256 L 72,248 L 78,256 L 84,248 L 90,256 L 96,248
+    L 102,256 L 108,248 L 114,256 L 120,248 L 126,256 L 132,248
+    L 138,256 L 144,248 L 150,256 L 156,248 L 162,256 L 168,248
+    L 174,256 L 180,248 L 186,256 L 192,248 L 198,256 L 204,248
+    L 210,256 L 216,248 L 222,256 L 228,248 L 234,256 L 240,248
+    L 246,256 L 252,248 L 258,256 L 264,248 L 270,256 L 276,248
+    L 282,256 L 288,248 L 294,256 L 300,248 L 306,256 L 312,248
+    L 318,256 L 324,248 L 330,256 L 336,248 L 342,256 L 348,248
+    L 354,256 L 360,248 L 366,256 L 372,248 L 378,256 L 384,248
+    L 390,256 L 396,248 L 402,256 L 408,248 L 414,256 L 418,252
+    M 442,252 L 446,256 L 452,248 L 458,256 L 464,248 L 470,256 L 476,248
+    L 482,256 L 488,248 L 494,256 L 500,248 L 506,256 L 512,248
+    L 518,256 L 524,248 L 530,256 L 536,248 L 542,256 L 548,248
+    L 554,256 L 560,248 L 566,256 L 572,248 L 578,256 L 584,248
+    L 590,256 L 596,248 L 602,256 L 608,248 L 614,256 L 620,248
+    L 626,256 L 632,248 L 638,256 L 644,248 L 650,256 L 656,248
+    L 662,256 L 668,248 L 670,256 L 676,248 L 682,256 L 688,248
+    L 694,256 L 700,248 L 706,256 L 712,248 L 718,256 L 724,248
+    L 730,256 L 736,248 L 742,256 L 748,248 L 754,256 L 760,248
+    L 766,256 L 772,248 L 778,256 L 784,248 L 790,256 L 796,248 L 800,248"/>
+
+  <!-- Bore as hidden lines (Z-axis bore, looking along -Y, appears as vertical dashed rect) -->
+  <!-- Bore 6.25mm dia = 25px, at X=430. Lines at x=417.5 and x=442.5 -->
+  <line x1="417.5" y1="200" x2="417.5" y2="256" class="hidden"/>
+  <line x1="442.5" y1="200" x2="442.5" y2="256" class="hidden"/>
+
+  <!-- Longitudinal groove hidden lines (X-axis groove, looking along -Y, appears as horizontal dashed lines) -->
+  <!-- Groove ~2mm tall centered on bore center. In front view: hidden at Z center = y=228 +/- 4px -->
+  <!-- Actually groove is on top and bottom surfaces connecting ribs to bore. Show as horizontal dashed at rib base level -->
+
+  <!-- Centerlines -->
+  <line x1="50" y1="228" x2="810" y2="228" class="center"/>
+  <line x1="430" y1="192" x2="430" y2="264" class="center"/>
+
+  <!-- FRONT VIEW DIMENSIONS -->
+
+  <!-- Height 14mm: y=200 to y=256 = 56px; 56/4=14 -->
+  <line x1="58" y1="200" x2="38" y2="200" class="ext"/>
+  <line x1="58" y1="256" x2="38" y2="256" class="ext"/>
+  <line x1="43" y1="200" x2="43" y2="256" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="30" y="232" class="dimtxt" transform="rotate(-90,30,232)">14</text>
+
+  <!-- Rib height 2mm callout -->
+  <line x1="808" y1="200" x2="828" y2="200" class="ext"/>
+  <line x1="808" y1="208" x2="828" y2="208" class="ext"/>
+  <line x1="823" y1="200" x2="823" y2="208" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="848" y="207" class="dimtxt" style="font-size:9px">2</text>
+
+  <!-- Bore location from left end: 92.5mm = 370px -->
+  <line x1="60" y1="258" x2="60" y2="278" class="ext"/>
+  <line x1="430" y1="258" x2="430" y2="278" class="ext"/>
+  <line x1="60" y1="273" x2="430" y2="273" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="245" y="270" class="dimtxt">92.5</text>
+
+  <!-- ============================================================ -->
+  <!--  SIDE VIEW  (looking along -X, from left end)                -->
+  <!--  Horizontal = Y (width 22mm = 88px)                          -->
+  <!--  Vertical = Z (height 14mm = 56px)                           -->
+  <!--  Aligned with front view Z. Top at y=200, bottom at y=256   -->
+  <!--  Left edge at x=860                                          -->
+  <!-- ============================================================ -->
+  <text x="904" y="190" class="label">SIDE VIEW</text>
+
+  <!-- Bar outline: 88 x 56 px -->
+  <rect x="860" y="200" width="88" height="56" class="outline"/>
+
+  <!-- Rib bumps on top and bottom (side view sees rib height as bumps) -->
+  <!-- Top ribs: triangular bumps. In side view ribs run into page (along X), -->
+  <!-- so we see the cross-section: rows of triangular bumps along Y -->
+  <!-- Rib pitch 3mm=12px in Y. Ribs at Y=3,6,9,13,16,19 => px from x=860: 12,24,36,52,64,76 -->
+  <path class="outline" stroke-width="0.6" d="
+    M 860,208 L 866,200 L 872,208 L 878,200 L 884,208 L 890,200 L 896,208
+    L 902,200 L 908,208 L 914,200 L 920,208 L 926,200 L 932,208
+    L 938,200 L 944,208 L 948,204"/>
+
+  <path class="outline" stroke-width="0.6" d="
+    M 860,248 L 866,256 L 872,248 L 878,256 L 884,248 L 890,256 L 896,248
+    L 902,256 L 908,248 L 914,256 L 920,248 L 926,256 L 932,248
+    L 938,256 L 944,248 L 948,252"/>
+
+  <!-- Bore hidden lines (Z-axis bore, looking along -X, appears as vertical dashed lines) -->
+  <!-- Bore 6.25mm = 25px centered at Y=11mm = 44px from front = 860+44=904 -->
+  <line x1="891.5" y1="200" x2="891.5" y2="256" class="hidden"/>
+  <line x1="916.5" y1="200" x2="916.5" y2="256" class="hidden"/>
+
+  <!-- Groove hidden lines (along X, so in side view they appear as a notch at center Y) -->
+  <!-- Groove 2mm wide at Y center: hidden horizontal lines at y center zone -->
+
+  <!-- Centerlines -->
+  <line x1="850" y1="228" x2="958" y2="228" class="center"/>
+  <line x1="904" y1="192" x2="904" y2="264" class="center"/>
+
+  <!-- Width 22mm dimension -->
+  <line x1="860" y1="258" x2="860" y2="278" class="ext"/>
+  <line x1="948" y1="258" x2="948" y2="278" class="ext"/>
+  <line x1="860" y1="273" x2="948" y2="273" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="904" y="270" class="dimtxt">22</text>
+
+  <!-- ============================================================ -->
+  <!--  SECTION A-A  (cutting through bore at X=92.5mm)             -->
+  <!--  Looking along +X (same orientation as side view)            -->
+  <!--  Scale: 8 px/mm (2x detail)                                 -->
+  <!--  Horizontal = Y (22mm = 176px), Vertical = Z (14mm = 112px) -->
+  <!--  Center at (200, 420)                                        -->
+  <!-- ============================================================ -->
+  <rect x="70" y="310" width="260" height="205" class="frame"/>
+  <text x="200" y="328" class="label">SECTION A-A (2:1)</text>
+
+  <!-- Bar cross-section outline at 8px/mm -->
+  <!-- 22mm = 176px wide, 14mm = 112px tall -->
+  <!-- Left edge: 200 - 88 = 112, top: 395 - 56 = 339 -->
+  <!-- Actually center at (200, 395): left=112, right=288, top=339, bottom=451 -->
+  <rect x="112" y="339" width="176" height="112" class="outline" stroke-width="1.5"/>
+
+  <!-- Bore circle (6.25mm dia at 8px/mm = 50px dia, r=25) centered in cross-section -->
+  <circle cx="200" cy="395" r="25" class="outline" stroke-width="1.5"/>
+
+  <!-- Chamfer: 1mm x 45deg at top entry. Show as angled lines at bore top -->
+  <!-- At 8px/mm, 1mm = 8px. Chamfer widens bore from r=25 to r=25+8=33 at top surface (y=339) -->
+  <!-- But chamfer is only 1mm deep, so from y=339 to y=347 -->
+  <line x1="175" y1="339" x2="175" y2="370" class="outline" stroke-width="0.8"/>
+  <line x1="225" y1="339" x2="225" y2="370" class="outline" stroke-width="0.8"/>
+  <!-- Chamfer lines -->
+  <line x1="167" y1="339" x2="175" y2="347" class="outline" stroke-width="0.8"/>
+  <line x1="233" y1="339" x2="225" y2="347" class="outline" stroke-width="0.8"/>
+
+  <!-- Rib cross-sections (triangular, 2mm tall = 16px at 8px/mm, 3mm pitch = 24px) -->
+  <!-- Top ribs (above bar body at y=339) -->
+  <!-- Bar body top at Z=12mm from bottom: top of ribs at y=339, valley at y=339+16=355 -->
+  <!-- Actually the ribs are part of the outer surface. In section view we cut through them. -->
+  <!-- Top face ribs: triangular teeth pointing up from the body -->
+  <path class="outline" stroke-width="0.8" d="
+    M 112,355 L 124,339 L 136,355 L 148,339 L 160,355 L 172,339 L 176,343"/>
+  <path class="outline" stroke-width="0.8" d="
+    M 224,343 L 228,339 L 240,355 L 252,339 L 264,355 L 276,339 L 288,355"/>
+
+  <!-- Bottom face ribs: triangular teeth pointing down -->
+  <path class="outline" stroke-width="0.8" d="
+    M 112,435 L 124,451 L 136,435 L 148,451 L 160,435 L 172,451 L 176,447"/>
+  <path class="outline" stroke-width="0.8" d="
+    M 224,447 L 228,451 L 240,435 L 252,451 L 264,435 L 276,451 L 288,435"/>
+
+  <!-- Longitudinal groove at center connecting to bore -->
+  <!-- Groove ~2mm wide = 16px, 2mm deep = 16px, on top and bottom faces centered on bore -->
+  <!-- Top groove: slot from y=339 down 16px at center -->
+  <line x1="192" y1="339" x2="192" y2="355" class="outline" stroke-width="0.8"/>
+  <line x1="208" y1="339" x2="208" y2="355" class="outline" stroke-width="0.8"/>
+  <!-- Bottom groove -->
+  <line x1="192" y1="451" x2="192" y2="435" class="outline" stroke-width="0.8"/>
+  <line x1="208" y1="451" x2="208" y2="435" class="outline" stroke-width="0.8"/>
+
+  <!-- Cross-hatching for cut material (45-degree lines in solid areas) -->
+  <!-- Left solid region: x=112 to x=175 (bore left wall), y=355 to y=435 (body) -->
+  <line x1="112" y1="365" x2="122" y2="355" class="hatch"/>
+  <line x1="112" y1="380" x2="137" y2="355" class="hatch"/>
+  <line x1="112" y1="395" x2="152" y2="355" class="hatch"/>
+  <line x1="112" y1="410" x2="167" y2="355" class="hatch"/>
+  <line x1="112" y1="425" x2="175" y2="362" class="hatch"/>
+  <line x1="112" y1="435" x2="175" y2="372" class="hatch"/>
+  <line x1="120" y1="435" x2="175" y2="380" class="hatch"/>
+  <line x1="135" y1="435" x2="175" y2="395" class="hatch"/>
+  <line x1="150" y1="435" x2="175" y2="410" class="hatch"/>
+  <line x1="165" y1="435" x2="175" y2="425" class="hatch"/>
+
+  <!-- Right solid region: x=225 to x=288, y=355 to y=435 -->
+  <line x1="225" y1="365" x2="235" y2="355" class="hatch"/>
+  <line x1="225" y1="380" x2="250" y2="355" class="hatch"/>
+  <line x1="225" y1="395" x2="265" y2="355" class="hatch"/>
+  <line x1="225" y1="410" x2="280" y2="355" class="hatch"/>
+  <line x1="225" y1="425" x2="288" y2="362" class="hatch"/>
+  <line x1="225" y1="435" x2="288" y2="372" class="hatch"/>
+  <line x1="235" y1="435" x2="288" y2="382" class="hatch"/>
+  <line x1="250" y1="435" x2="288" y2="397" class="hatch"/>
+  <line x1="265" y1="435" x2="288" y2="412" class="hatch"/>
+  <line x1="280" y1="435" x2="288" y2="427" class="hatch"/>
+
+  <!-- Top solid strips (between ribs and groove/bore) -->
+  <line x1="112" y1="349" x2="118" y2="343" class="hatch"/>
+  <line x1="160" y1="349" x2="166" y2="343" class="hatch"/>
+  <line x1="234" y1="349" x2="240" y2="343" class="hatch"/>
+  <line x1="276" y1="349" x2="282" y2="343" class="hatch"/>
+
+  <!-- Section A-A centerlines -->
+  <line x1="102" y1="395" x2="298" y2="395" class="center"/>
+  <line x1="200" y1="329" x2="200" y2="461" class="center"/>
+
+  <!-- SECTION A-A DIMENSIONS -->
+
+  <!-- Bore dia 6.25mm -->
+  <line x1="200" y1="395" x2="260" y2="350" class="dim"/>
+  <text x="278" y="348" class="dimtxt" style="font-size:9px">&#x2300;6.25</text>
+
+  <!-- Cross section 22 x 14 -->
+  <line x1="112" y1="453" x2="112" y2="473" class="ext"/>
+  <line x1="288" y1="453" x2="288" y2="473" class="ext"/>
+  <line x1="112" y1="468" x2="288" y2="468" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="200" y="465" class="dimtxt">22</text>
+
+  <line x1="110" y1="339" x2="85" y2="339" class="ext"/>
+  <line x1="110" y1="451" x2="85" y2="451" class="ext"/>
+  <line x1="90" y1="339" x2="90" y2="451" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="80" y="399" class="dimtxt" transform="rotate(-90,80,399)">14</text>
+
+  <!-- Rib height 2mm in section -->
+  <line x1="290" y1="339" x2="310" y2="339" class="ext"/>
+  <line x1="290" y1="355" x2="310" y2="355" class="ext"/>
+  <line x1="305" y1="339" x2="305" y2="355" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="322" y="350" class="dimtxt" style="font-size:9px">2</text>
+
+  <!-- Rib pitch 3mm -->
+  <line x1="252" y1="339" x2="252" y2="322" class="ext"/>
+  <line x1="276" y1="339" x2="276" y2="322" class="ext"/>
+  <line x1="252" y1="325" x2="276" y2="325" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="264" y="320" class="dimtxt" style="font-size:8px">3 PITCH</text>
+
+  <!-- Groove width callout -->
+  <line x1="192" y1="345" x2="152" y2="325" class="dim"/>
+  <text x="136" y="322" class="dimtxt" style="font-size:8px">2 GROOVE</text>
+
+  <!-- ============================================================ -->
+  <!--  DETAIL B: TUBE SOCKET BORE (FDM Variant)                   -->
+  <!--  Scale: 10 px/mm (2.5:1)                                    -->
+  <!--  Showing bore profile in longitudinal section (cut along     -->
+  <!--  Y-Z plane through bore center, looking along X)            -->
+  <!-- ============================================================ -->
+  <rect x="400" y="310" width="320" height="205" class="frame"/>
+  <text x="560" y="328" class="label">DETAIL B: BORE PROFILE (2.5:1)</text>
+
+  <!-- This is a sectional detail of the bore viewed along X -->
+  <!-- Shows: bar cross-section with bore, chamfer, and depth -->
+  <!-- Scale 10px/mm. Bar: 22mm=220px wide, 14mm=140px tall -->
+  <!-- But we only need to show the central bore region -->
+  <!-- Center at (560, 420). Show a partial section around the bore -->
+
+  <!-- Bar outline (partial, just around bore area) -->
+  <!-- Show 12mm wide section centered on bore: 120px at 10px/mm -->
+  <!-- Y range: 5mm to 17mm from front = 50px to 170px from left edge -->
+  <!-- Center Y at 560, so left=500, right=620 -->
+  <!-- Z range: 0 to 14mm. Center Z at 415, top=345, bottom=485 -->
+  <rect x="500" y="345" width="120" height="140" class="outline" stroke-width="1.0"/>
+
+  <!-- Bore walls -->
+  <!-- 6.25mm dia = 62.5px dia. At center x=560, walls at 560-31.25=528.75 and 560+31.25=591.25 -->
+  <line x1="528.75" y1="345" x2="528.75" y2="485" class="outline" stroke-width="1.0"/>
+  <line x1="591.25" y1="345" x2="591.25" y2="485" class="outline" stroke-width="1.0"/>
+
+  <!-- Entry chamfer at top (1mm x 45deg at 10px/mm = 10px) -->
+  <!-- Chamfer widens from 6.25mm to 8.25mm over 1mm depth -->
+  <!-- Left chamfer: from (518.75, 345) to (528.75, 355) -->
+  <!-- Right chamfer: from (601.25, 345) to (591.25, 355) -->
+  <line x1="518.75" y1="345" x2="528.75" y2="355" class="outline" stroke-width="1.0"/>
+  <line x1="601.25" y1="345" x2="591.25" y2="355" class="outline" stroke-width="1.0"/>
+
+  <!-- Open bottom (bore goes through) -->
+  <!-- Show the bore opening at the bottom with a small break -->
+
+  <!-- Cross-hatching for solid material (left wall and right wall) -->
+  <!-- Left wall: x=500 to x=528.75, y=345 to y=485 -->
+  <line x1="500" y1="360" x2="515" y2="345" class="hatch"/>
+  <line x1="500" y1="380" x2="528.75" y2="351" class="hatch"/>
+  <line x1="500" y1="400" x2="528.75" y2="371" class="hatch"/>
+  <line x1="500" y1="420" x2="528.75" y2="391" class="hatch"/>
+  <line x1="500" y1="440" x2="528.75" y2="411" class="hatch"/>
+  <line x1="500" y1="460" x2="528.75" y2="431" class="hatch"/>
+  <line x1="500" y1="480" x2="528.75" y2="451" class="hatch"/>
+  <line x1="510" y1="485" x2="528.75" y2="466" class="hatch"/>
+  <line x1="525" y1="485" x2="528.75" y2="481" class="hatch"/>
+
+  <!-- Right wall: x=591.25 to x=620, y=345 to y=485 -->
+  <line x1="591.25" y1="360" x2="606" y2="345" class="hatch"/>
+  <line x1="591.25" y1="380" x2="620" y2="351" class="hatch"/>
+  <line x1="591.25" y1="400" x2="620" y2="371" class="hatch"/>
+  <line x1="591.25" y1="420" x2="620" y2="391" class="hatch"/>
+  <line x1="591.25" y1="440" x2="620" y2="411" class="hatch"/>
+  <line x1="591.25" y1="460" x2="620" y2="431" class="hatch"/>
+  <line x1="591.25" y1="480" x2="620" y2="451" class="hatch"/>
+  <line x1="595" y1="485" x2="620" y2="460" class="hatch"/>
+  <line x1="610" y1="485" x2="620" y2="475" class="hatch"/>
+
+  <!-- Centerline through bore -->
+  <line x1="560" y1="335" x2="560" y2="495" class="center"/>
+
+  <!-- DETAIL B DIMENSIONS -->
+
+  <!-- Bore diameter 6.25mm: x=528.75 to x=591.25 = 62.5px; 62.5/10=6.25 -->
+  <line x1="528.75" y1="470" x2="528.75" y2="498" class="ext"/>
+  <line x1="591.25" y1="470" x2="591.25" y2="498" class="ext"/>
+  <line x1="528.75" y1="493" x2="591.25" y2="493" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="560" y="508" class="dimtxt">&#x2300;6.25</text>
+
+  <!-- Chamfer dimension: 1mm x 45deg -->
+  <line x1="518.75" y1="345" x2="505" y2="338" class="dim"/>
+  <text x="490" y="336" class="dimtxt" style="font-size:9px;text-anchor:end">1x45&#xB0;</text>
+
+  <!-- Bore depth callout (through, 14mm bar height) -->
+  <line x1="593" y1="345" x2="628" y2="345" class="ext"/>
+  <line x1="593" y1="485" x2="628" y2="485" class="ext"/>
+  <line x1="623" y1="345" x2="623" y2="485" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="640" y="419" class="dimtxt" transform="rotate(-90,640,419)">14 THRU</text>
+
+  <!-- Chamfer depth dimension -->
+  <line x1="505" y1="345" x2="505" y2="355" class="dim" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <text x="495" y="353" class="dimtxt" style="font-size:8px;text-anchor:end">1</text>
+
+  <!-- FDM variant label (below frame, avoiding hatch lines) -->
+  <text x="560" y="530" class="note" text-anchor="middle">FDM VARIANT (SEE NOTE 8)</text>
+
+  <!-- ============================================================ -->
+  <!--  NOTES                                                        -->
+  <!-- ============================================================ -->
+  <text x="25" y="545" class="title">NOTES:</text>
+  <text x="25" y="561" class="note">1. MATERIAL: PETG (FDM), NYLON (SLS), OR RESIN (SLA) - FOOD SAFE</text>
+  <text x="25" y="575" class="note">2. ALL DIMENSIONS IN MILLIMETERS</text>
+  <text x="25" y="589" class="note">3. ENVELOPE: 185L x 22W x 14H mm</text>
+  <text x="25" y="603" class="note">4. CROSS-SECTION DIAGONAL = 26.1 mm, FITS THROUGH 28 mm CAP OPENING (1.9 mm CLEARANCE)</text>
+  <text x="25" y="617" class="note">5. SHIP-IN-A-BOTTLE ASSEMBLY: INSERT LENGTHWISE THROUGH CAP, ROTATE 90 DEG INSIDE BAG</text>
+  <text x="25" y="631" class="note">6. AIR CHANNEL RIBS: TRIANGULAR, 2 mm TALL, 3 mm PITCH, TOP AND BOTTOM FACES</text>
+  <text x="25" y="645" class="note">7. LONGITUDINAL GROOVE CONNECTS RIBS TO CENTRAL BORE FOR AIR COLLECTION</text>
+  <text x="25" y="659" class="note">8. BORE: FDM VARIANT SHOWN (FRICTION FIT, 6.25 mm DIA, 1 mm x 45 DEG CHAMFER)</text>
+  <text x="25" y="673" class="note">9. SLS/SLA VARIANT: BARB-RIDGE BORE, 6.35 mm NOM W/ 6.15 mm RIDGE (0.20 mm INTERFERENCE)</text>
+  <text x="25" y="687" class="note">10. OPEN-ENDED SOCKET (TUBE DOES NOT BOTTOM OUT)</text>
+  <text x="25" y="701" class="note">11. BAR WEDGES BETWEEN BAG SIDE SEAMS (185 mm > 182-184 mm INTERNAL CLEAR WIDTH)</text>
+  <text x="25" y="715" class="note">12. QUANTITY: 2 PER SYSTEM (ONE PER BAG)</text>
+  <text x="25" y="729" class="note">13. INITIAL DESIGN VALUES - SUBJECT TO ITERATION AFTER PROTOTYPING</text>
+
+  <!-- ============================================================ -->
+  <!--  TITLE BLOCK                                                  -->
+  <!-- ============================================================ -->
+  <rect x="25" y="745" width="1050" height="90" fill="none" stroke="#000" stroke-width="1"/>
+  <line x1="25" y1="765" x2="1075" y2="765" stroke="#000" stroke-width="0.5"/>
+  <line x1="25" y1="785" x2="1075" y2="785" stroke="#000" stroke-width="0.5"/>
+  <line x1="25" y1="805" x2="1075" y2="805" stroke="#000" stroke-width="0.5"/>
+  <line x1="25" y1="820" x2="1075" y2="820" stroke="#000" stroke-width="0.5"/>
+  <line x1="150" y1="745" x2="150" y2="835" stroke="#000" stroke-width="0.5"/>
+
+  <text x="88" y="760" class="titledata" text-anchor="middle">TITLE:</text>
+  <text x="612" y="760" class="title" text-anchor="middle">DIP TUBE TIP PIECE (AIR COLLECTION BAR)</text>
+
+  <text x="88" y="780" class="titledata" text-anchor="middle">PROJECT:</text>
+  <text x="612" y="780" class="titledata" text-anchor="middle">SODA FLAVOR INJECTOR - HOPPER SYSTEM</text>
+
+  <text x="88" y="800" class="titledata" text-anchor="middle">MATERIAL:</text>
+  <text x="612" y="800" class="titledata" text-anchor="middle">PETG (FDM) / NYLON (SLS) / RESIN (SLA) - FOOD SAFE</text>
+
+  <text x="88" y="816" class="titledata" text-anchor="middle">SCALE:</text>
+  <text x="300" y="816" class="titledata" text-anchor="middle">4:1 (px : mm) MAIN VIEWS</text>
+  <text x="550" y="816" class="titledata" text-anchor="middle">THIRD ANGLE PROJECTION</text>
+
+  <text x="88" y="831" class="titledata" text-anchor="middle">DATE:</text>
+  <text x="300" y="831" class="titledata" text-anchor="middle">2026-03-26</text>
+  <text x="550" y="831" class="titledata" text-anchor="middle">SHEET 1 OF 1</text>
+
+</svg>
