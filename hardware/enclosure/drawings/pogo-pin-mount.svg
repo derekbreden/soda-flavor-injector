@@ -42,7 +42,7 @@
   <!-- Vertical = Y (depth 30mm = 180px)  Y=0 at top (front edge)   -->
   <!-- Origin: (100, 80)                                             -->
   <!-- ============================================================ -->
-  <text x="280" y="65" class="label">TOP VIEW</text>
+  <text x="280" y="55" class="label">TOP VIEW</text>
 
   <!-- Outer rectangle: 360 x 180 -->
   <rect x="100" y="80" width="360" height="180" class="outline"/>
@@ -312,7 +312,10 @@
   <line x1="625" y1="340" x2="625" y2="350" class="dim"/>
   <line x1="637" y1="340" x2="637" y2="350" class="dim"/>
   <line x1="625" y1="343" x2="637" y2="343" class="dim"/>
-  <text x="631" y="338" class="dim-text">2w x 1.5d</text>
+  <!-- Leader line from groove dimension to label -->
+  <line x1="631" y1="340" x2="590" y2="315" class="dim"/>
+  <line x1="590" y1="315" x2="570" y2="315" class="dim"/>
+  <text x="569" y="312" class="dim-text" text-anchor="end">2w x 1.5d</text>
 
   <!-- Wire channel in side view: 5w x 4d -->
   <line x1="735" y1="340" x2="760" y2="340" class="dim"/>
