@@ -29,9 +29,12 @@ A John Guest push-to-connect port contains these components in order from the ou
 | Tube OD | 0.250" (6.35 mm) | Verified -- spec |
 | Tube OD tolerance | +0.001" / -0.004" | Verified -- John Guest spec |
 | O-ring size | AS568-108 (7/16" OD x 1/4" ID x 3/32" CS) | Verified -- John Guest |
-| Fitting body OD | ~0.50" (12.7 mm) | Measured/inferred from PP0408W |
-| Insertion depth to tube stop | ~0.6" (15 mm) | Measured/inferred |
-| Collet ring OD | ~0.45" (11.4 mm) | Measured/inferred |
+| Fitting body OD | Barbell profile: 9.31mm center body, 15.10mm collet rings | Caliper-verified (see geometry-description.md) |
+| Center body length | 12.16mm | Caliper-verified |
+| Collet ring length | 12.08mm each | Caliper-verified |
+| Insertion depth to tube stop | ~16mm per side | Industry convention, unverified |
+| Collet ring OD | 15.10mm | Caliper-verified |
+| Tube port opening (collet bore) | 9.57mm | Caliper-verified |
 | Max working pressure | 150 PSI at 70F | Verified -- John Guest spec |
 
 ### Insertion Sequence
@@ -75,11 +78,11 @@ The teeth re-engage as soon as the collet ring is released. The release is not a
 
 | Parameter | Value | Confidence |
 |-----------|-------|------------|
-| Collet travel (axial, inward) | ~1.5-2.0 mm (~1/16") | Inferred from physical fittings and tool geometry |
+| Collet travel (axial, inward) | ~1.3mm per side (2.67mm total both ends) | Caliper-verified (41.80mm extended - 39.13mm compressed) |
 | Release force (finger pressure) | ~2-5 N (0.5-1 lbf) | Inferred -- designed for tool-free hand release |
-| Collet ring protrusion from body face | ~2-3 mm | Measured/inferred |
+| Collet ring protrusion from body face | ~1.4mm per side (2.81mm total both ends, compressed) | Caliper-verified (39.13mm compressed - 36.32mm body) |
 
-The travel is small -- only enough to change the tooth engagement angle. The force is intentionally low because John Guest fittings are designed for hand operation without tools. However, the low force also means the release is sensitive to the **direction and evenness** of the applied force.
+The travel is small (~1.3mm per side, caliper-verified) -- only enough to change the tooth engagement angle. The force is intentionally low because John Guest fittings are designed for hand operation without tools. However, the low force also means the release is sensitive to the **direction and evenness** of the applied force.
 
 ### Directionality
 
@@ -122,7 +125,7 @@ Key geometric features:
 
 3. **Inset inner lip**: Inside the U-shape, there is a recessed lip that is narrower than the collet ring but wider than the tube. This lip is the surface that actually pushes the collet inward. The lip engages the collet ring face **evenly around its full circumference** (minus the U-slot gap).
 
-4. **Depth/thickness**: The tool has enough axial depth to apply force over the full travel distance of the collet (~2 mm) without slipping off.
+4. **Depth/thickness**: The tool has enough axial depth to apply force over the full travel distance of the collet (~1.3mm per side, caliper-verified) without slipping off.
 
 ### Why This Geometry Exists
 
@@ -142,11 +145,11 @@ For a 1/4" OD tube fitting (all values measured/inferred):
 |-----------|-------|---------|
 | Slot width (U opening) | ~7.5-8.0 mm (~5/16") | Clears 1/4" tube with slight margin |
 | Inner lip ID | ~7.5-8.0 mm | Same as slot -- clears tube |
-| Inner lip OD | ~10-11 mm | Engages collet ring face |
-| Outer cradle ID | ~11.5-12 mm | Surrounds collet ring sides |
-| Tool thickness (axial) | ~3-4 mm | Enough depth to engage collet through full travel |
+| Inner lip OD | ~12-13 mm | Engages collet ring face (must be between 9.57mm port opening and 15.10mm collet ring OD) |
+| Outer cradle ID | ~15.5-16 mm | Surrounds collet ring sides (must clear 15.10mm collet ring OD) |
+| Tool thickness (axial) | ~3-4 mm | Enough depth to engage collet through full ~1.3mm travel |
 
-The key relationship: **inner lip OD < collet ring OD < outer cradle ID**. The lip pushes the face; the cradle holds the sides.
+The key relationship: **inner lip OD < collet ring OD (15.10mm, caliper-verified) < outer cradle ID**. The lip pushes the face; the cradle holds the sides. The inner lip OD must also be larger than the tube port opening (9.57mm, caliper-verified) to contact the collet ring face rather than falling into the port.
 
 ---
 
@@ -261,15 +264,16 @@ Three concentric diameters per hole:
 | Feature | Diameter | Depth (axial) | Purpose |
 |---------|----------|---------------|---------|
 | Tube clearance hole | ~8 mm (5/16") | Through | Tube passes through freely |
-| Inner lip (collet pusher) | ~10-11 mm | ~1.5-2 mm | Engages collet face, pushes it inward |
-| Outer bore (collet cradle) | ~12-13 mm | ~2-3 mm | Surrounds collet ring sides, prevents lateral movement |
+| Inner lip (collet pusher) | ~12-13 mm | ~1.5-2 mm | Engages collet ring face (15.10mm OD, caliper-verified), pushes it inward. Must clear 9.57mm port opening. |
+| Outer bore (collet cradle) | ~15.5-16 mm | ~2-3 mm | Surrounds collet ring sides (15.10mm OD, caliper-verified), prevents lateral movement |
 
 The inner lip is the critical feature. It must:
 
 - Clear the tube (ID > tube OD + clearance)
-- Contact the collet ring face (OD matches or slightly smaller than collet ring OD)
+- Be larger than the tube port opening (9.57mm, caliper-verified) so it contacts the collet ring face, not the port bore
+- Contact the collet ring face (OD smaller than 15.10mm collet ring OD, caliper-verified)
 - Be wide enough to distribute force evenly (annular contact area)
-- Be deep enough to maintain engagement through full collet travel
+- Be deep enough to maintain engagement through full collet travel (~1.3mm per side, caliper-verified)
 
 ### Tolerances
 
@@ -339,18 +343,19 @@ Before committing to a full 4-fitting release plate, validate with a single-fitt
 
 For a 1/4" OD John Guest push-to-connect release plate:
 
-| Parameter | Target Value | Tolerance |
-|-----------|-------------|-----------|
-| Tube clearance bore | 8.0 mm | +0.5 / -0 mm |
-| Inner lip bore (collet pusher) | 10.5 mm | +/- 0.25 mm |
-| Outer bore (collet cradle) | 12.5 mm | +/- 0.5 mm |
-| Inner lip depth | 2.0 mm | +/- 0.25 mm |
-| Plate travel (stroke) | 3.0 mm | Min 2.5 mm |
-| Plate parallelism during travel | < 0.3 mm deviation across plate | -- |
-| Actuation force per fitting | ~3-5 N | -- |
-| Total actuation force (4 fittings) | ~12-20 N (2.7-4.5 lbf) | -- |
+| Parameter | Target Value | Tolerance | Source |
+|-----------|-------------|-----------|--------|
+| Tube clearance bore | 8.0 mm | +0.5 / -0 mm | Design (clears 6.35mm tube) |
+| Inner lip bore (collet pusher) | 12.5 mm | +/- 0.25 mm | Design (caliper-verified: 9.57mm port opening, 15.10mm collet ring OD) |
+| Outer bore (collet cradle) | 15.6 mm | +/- 0.5 mm | Design (caliper-verified: clears 15.10mm collet ring OD with 0.25mm/side) |
+| Inner lip depth | 2.0 mm | +/- 0.25 mm | Design |
+| Collet travel (per side) | ~1.3 mm | -- | Caliper-verified |
+| Plate travel (stroke) | 3.0 mm | Min 2.5 mm | Design (~1.7mm margin over collet travel) |
+| Plate parallelism during travel | < 0.3 mm deviation across plate | -- | Design |
+| Actuation force per fitting | ~3-5 N | -- | Inferred |
+| Total actuation force (4 fittings) | ~12-20 N (2.7-4.5 lbf) | -- | Inferred |
 
-**These are starting values for prototyping.** The inner lip bore diameter is the most critical dimension and should be validated against actual fittings before printing.
+**These are starting values for prototyping.** The inner lip bore diameter (12.5mm) is the most critical dimension — it must be larger than the 9.57mm port opening (to contact the collet ring face, not fall into the port) and smaller than the 15.10mm collet ring OD (to push the ring rather than slip over it). Both reference dimensions are caliper-verified. The lip should still be validated against actual fittings with a single-bore test print.
 
 ---
 
