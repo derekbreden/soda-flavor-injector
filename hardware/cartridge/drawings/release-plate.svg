@@ -138,8 +138,8 @@
   <text x="78" y="130" class="dim-text">9.5</text>
 
   <!-- Guide slot label -->
-  <text x="56" y="284" class="note" text-anchor="middle">Guide slot</text>
-  <text x="56" y="294" class="note" text-anchor="middle">3.3 x 7.3</text>
+  <text x="70" y="274" class="note" text-anchor="middle">Guide slot</text>
+  <text x="70" y="284" class="note" text-anchor="middle">3.3 x 7.3</text>
 
   <!-- Push rod boss label -->
   <text x="276" y="348" class="note" text-anchor="middle">Push rod boss</text>
@@ -209,8 +209,8 @@
   <text x="650" y="524" class="dim-text">6.0</text>
 
   <!-- Push rod boss callout -->
-  <line x1="682" y1="271" x2="700" y2="258" class="dim"/>
-  <text x="702" y="256" class="dim-text-right" font-size="9">Boss &#x2300;8 x 1mm</text>
+  <line x1="682" y1="303" x2="682" y2="497" class="dim"/>
+  <text x="682" y="507" class="dim-text" font-size="9" text-anchor="middle">Boss &#x2300;8 x 1mm</text>
 
   <!-- Depth stack dimensions -->
   <line x1="626" y1="255" x2="626" y2="265" class="dim"/>
@@ -291,9 +291,9 @@
   <text x="544" y="603" class="dim-text-right" font-size="9">6.0</text>
 
   <!-- Front/back face labels -->
-  <text x="27" y="580" class="note">Front</text>
-  <text x="27" y="590" class="note">(fitting)</text>
-  <text x="27" y="624" class="note">Back</text>
+  <text x="36" y="572" class="note" text-anchor="end">Front</text>
+  <text x="36" y="582" class="note" text-anchor="end">(fitting)</text>
+  <text x="36" y="628" class="note" text-anchor="end">Back</text>
 
   <!-- ============================================================ -->
   <!-- SECTION VIEW A-A through bore 1                                -->
@@ -374,17 +374,18 @@
   <text x="834" y="587" class="dim-text" font-size="8">2.0</text>
   <text x="850" y="587" class="dim-text" font-size="8">2.0</text>
 
-  <!-- Zone labels below section -->
-  <text x="818" y="738" class="note" text-anchor="middle">Outer</text>
-  <text x="818" y="747" class="note" text-anchor="middle">bore</text>
-  <text x="834" y="738" class="note" text-anchor="middle">Inner</text>
-  <text x="834" y="747" class="note" text-anchor="middle">lip</text>
-  <text x="850" y="738" class="note" text-anchor="middle">Struct.</text>
-  <text x="850" y="747" class="note" text-anchor="middle">back</text>
+  <!-- Zone labels below section (spaced to avoid overlap) -->
+  <text x="802" y="754" class="note" text-anchor="middle">Outer</text>
+  <text x="802" y="763" class="note" text-anchor="middle">bore</text>
+  <text x="834" y="754" class="note" text-anchor="middle">Inner</text>
+  <text x="834" y="763" class="note" text-anchor="middle">lip</text>
+  <text x="870" y="754" class="note" text-anchor="middle">Struct.</text>
+  <text x="870" y="763" class="note" text-anchor="middle">back</text>
 
   <!-- Fitting side arrow -->
-  <text x="788" y="658" font-size="9" fill="#555" text-anchor="end">Fitting</text>
-  <text x="788" y="668" font-size="9" fill="#555" text-anchor="end">side</text>
+  <text x="740" y="648" font-size="9" fill="#555" text-anchor="end">Fitting</text>
+  <text x="740" y="658" font-size="9" fill="#555" text-anchor="end">side</text>
+  <line x1="741" y1="654" x2="808" y2="660" class="dim"/>
 
   <!-- Section cut line on front view (through bore 1, vertical) -->
   <line x1="116" y1="353" x2="116" y2="477" stroke="#000" stroke-width="0.8" stroke-dasharray="12,3,2,3"/>
