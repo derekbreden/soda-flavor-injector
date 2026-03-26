@@ -235,3 +235,12 @@ Depth stack at the floor (Z=4):
 | 134 - 169 | Dock back wall |
 | 169 - 233 | Valve rack |
 | 233 - 296 | Tube routing to bags / back panel |
+
+### Hard Tubing Routing Notes
+
+All internal plumbing uses 1/4" OD hard PE/PU tubing with John Guest push-to-connect fittings. Silicone tubing is used only for peristaltic pump heads, the external faucet cosmetic run, back panel cable gland pass-throughs, and short vibration-dampening segments near the pump dock.
+
+- **Z=84-125 (dock ceiling to bag cap end):** Vertical drops from dock outlets (Z~45) to the bag connection area (Z~125-130) pass through this zone. Each direction change requires a 90° JG elbow fitting (e.g., CI0908W), which adds ~20mm protrusion per perpendicular axis. Expect one or two elbows per run.
+- **Y=233-296 (behind valve rack):** Runs from valve rear ports to bags and back panel. Mostly straight lines; clips or saddle clamps hold tubing against the floor or walls.
+- **Bend radius:** Minimum cold-bend radius for 1/4" OD PE/PU is ~25mm (4x OD). JG elbow fittings are preferred over bends for reliability.
+- **Routing hardware:** Clips and saddle clamps, not U-channels — JG elbows protrude perpendicular to the tubing plane and won't fit in tight channels.

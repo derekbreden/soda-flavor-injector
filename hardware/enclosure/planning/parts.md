@@ -889,38 +889,37 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
 - **Quantity:** ~4m total (bulk roll)
 - **Open:** None
 
-### Part: 1/4" OD Silicone Tubing (Flavor Lines)
+### Part: 1/4" OD Silicone Tubing (External Flavor Lines)
 
 - **Type:** Purchased
 - **Material:** Platinum-cured food-grade silicone (FDA 21 CFR 177.2600)
 - **Envelope:** 6.35mm OD (1/4"), 3.18mm ID (1/8"), 1.59mm wall
 - **Features:**
-  - Continuous run from pump/valve area through back panel to faucet
+  - External cosmetic run only: back panel cable gland to faucet dispenser nozzle
   - External run: ~600-900mm per line (under-sink to countertop)
-  - Internal run: ~200mm per line (valve to back panel)
   - Dead volume: ~7ml per line (at 1/8" ID, 900mm external)
   - Flexible, transparent or translucent
+  - Not used for any internal connections — all internal plumbing uses hard 1/4" OD PE/nylon tubing with JG push-to-connect fittings
 - **Interfaces:**
-  - Internal end: push-fit or barb connection to dispense valve (v1/v2) outlet
-  - Back panel pass-through: PG7 cable gland compression seal
+  - Internal end: passes through PG7 cable gland in back panel; short silicone stub connects to hard tubing inside via barb or push-fit
   - External end: routes to faucet dispenser nozzle
-- **Quantity:** 2 lines, ~1.1m each (total ~2.2m)
+- **Quantity:** 2 lines, ~1.0m each (total ~2.0m)
 - **Open:** None
 
-### Part: Tube Routing Channels (Floor)
+### Part: Tube Routing Clips and Saddles
 
-- **Type:** 3D printed (integral to enclosure floor or snap-in)
-- **Material:** PETG or ABS
-- **Envelope:** Varies -- U-profile channels, 10mm wide x 8mm deep
+- **Type:** 3D printed (integral to enclosure floor/walls) or purchased snap-in clips
+- **Material:** PETG or ABS (printed); nylon (purchased)
+- **Envelope:** Varies -- individual clips/saddles, ~10mm wide each
 - **Features:**
-  - Printed U-channels on enclosure floor for organizing internal tube runs
-  - Prevent kinking and tangling
+  - Clips and saddle clamps secure hard 1/4" OD tubing against enclosure floor and walls
+  - U-channels are not used — JG elbow fittings protrude perpendicular and won't fit in tight channels
   - Route from valve rack forward to bag connector zone and rearward to back panel
   - Approximate coverage: Y=130-292 (behind cartridge to back panel), X=varies
 - **Interfaces:**
-  - 1/4" OD tubing sits in channels
-  - Clips or friction-fit hold tubes in place
-- **Quantity:** Multiple segments (estimated 4-8 channel runs)
+  - 1/4" OD hard tubing snaps into clips
+  - Screw-down or printed-integral mounting
+- **Quantity:** Estimated 15-25 clips across all tube runs
 - **Open:**
   - Exact routing paths depend on final valve and fitting positions
 

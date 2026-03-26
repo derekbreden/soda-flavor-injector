@@ -251,6 +251,7 @@ The BPT pump tube (4.8 mm ID x 8.0 mm OD) must connect to 1/4" OD (6.35 mm) hard
 
 The tube path from pump head to mating face should:
 - Avoid tight bends (minimum bend radius for BPT 25# tubing: ~20 mm, roughly 2.5x OD)
+- For 1/4" OD hard PE/PU tubing (post-barb transition): minimum cold-bend radius ~25 mm (4x OD). Inside the cartridge, the hard tubing runs are short (barb fitting to JG fitting on rear wall), so bends are typically avoidable with straight runs. If a direction change is needed, a single 90° JG elbow is preferred over a cold bend.
 - Keep tube runs as short as practical to minimize internal dead volume
 - Route tubes along cartridge walls where printed clips can anchor them
 - Avoid crossing tube paths between the two pumps (prevents tangling and simplifies the routing)
