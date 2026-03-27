@@ -224,33 +224,9 @@ The dock is the enclosure-side structure that receives the removable pump cartri
 
 ## 4. Valve Rack
 
-Ten solenoid valves mounted behind the cartridge dock, using the depth dimension. Two rows of 5 valves stacked vertically.
+**Moved to dedicated subfolder:** See `../valve-rack/planning/parts.md` for the full rack frame parts catalog and `../valve-rack/planning/architecture.md` for design rationale. Drawing at `../valve-rack/drawings/valve-rack.svg`.
 
-### Part: Valve Rack Frame
-
-- **Type:** 3D printed
-- **Material:** PETG or ABS
-- **Envelope:** ~181W x ~55D x ~116H mm
-- **Features:**
-  - Holds 10 solenoid valves in a 5-wide x 2-high grid
-  - Valve orientation: long axis (port-to-port, 50.84mm) along Y (depth), coil housing at top (caliper-verified)
-  - Valve is T-shaped: white body (32.71W x 50.84D x ~19.4H mm) with metal solenoid coil (31.41W mm) rising vertically from the center, total height 56.00mm (caliper-verified)
-  - Valve pitch (center-to-center in X): 37mm (32.71mm body + 4.29mm gap between bodies)
-  - 5 valves at 37mm pitch: span = 4 x 37 + 32.71 = 180.71mm ≈ 181mm, centered in 212mm interior (15.5mm margin per side)
-  - Row 1 (bottom): Z=0 to Z=56, 5 valves across width
-  - Row 2 (top): Z=60 to Z=116, 5 valves across width (4mm gap between rows)
-  - Note: rack height is 116mm, taller than cartridge slot (84mm) -- verify no interference with dock back wall / pogo mount
-  - Each valve cradle: T-shaped profile -- centered saddle supports the horizontal white valve body from below and on the sides, with clearance above for the centered vertical solenoid coil. Snap-over retention clips on white body (2 per valve, spaced ~30mm apart along valve length). Must not interfere with tube ports (Y axis) or spade connectors (top, extending parallel to Y). Initial design value, subject to iteration.
-  - Depth consumed: Y=140 to Y=195 (55mm, port-to-port valve length plus clearance) (caliper-verified)
-  - Cable routing channels for solenoid wires (12V + GND per valve, 20 wires total) along rack sides
-- **Interfaces:**
-  - Position: directly behind dock back wall (Y=140-195, X=16-197, Z=0-116)
-  - Valve QC fittings face forward (toward dock, short tube runs to dock back wall tube stubs) and rearward (toward bags/back panel)
-  - Mounts to enclosure floor and/or walls via M3 screws into heat-set inserts
-  - Clearance to bags above: generous (bag cradle underside at this Y is well above Z=116)
-- **Quantity:** 1
-- **Open:**
-  - Rack height (116mm) means valve rack extends above the cartridge slot (84mm) -- verify no interference with dock back wall / pogo mount
+Summary: 10 Beduan solenoid valves in a 5x2 grid, 181W x 55D x 116H mm, mounted behind dock back wall at Y=169-224. Valve geometry in `../../off-the-shelf-parts/beduan-solenoid/extracted-results/geometry-description.md`.
 
 ---
 
@@ -548,40 +524,9 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
 
 ### Part: Solenoid Valve (2-Way NC)
 
-- **Type:** Purchased
-- **Source:** Beduan B07NWCQJK9 (~$9 each, ~$90 for 10)
-- **Material:** Food-grade plastic and elastomer (RO-rated)
-- **Envelope:** T-shaped assembly, not a simple rectangular block (caliper-verified):
-  - White plastic valve body (fluid section): 32.71W x 50.84D (port-to-port) x ~19.4H mm (caliper-verified)
-  - Metal solenoid coil housing: 31.41W mm, centered on top of valve body (caliper-verified)
-  - Spade connectors protrude from top of metal housing parallel to tube flow axis (Y); metal body to spade tips: 36.63mm (caliper-verified)
-  - Total bounding box: 32.71W x 50.84D x 56.00H mm (caliper-verified)
-  - With 1/4" QC fittings on both ends: approximately 32.71W x 68D x 56.00H mm
-- **Weight:** 113g each
-- **Features:**
-  - 2-way normally-closed, 12V DC solenoid
-  - 1/4" quick-connect fittings (push-fit, standard RO tubing compatible)
-  - Power draw: 4.8-5.5W per valve (energized only during active modes)
-  - Working pressure: 0-0.8 MPa (label reads "DC12V 0.02-0.8MPa")
-  - Working temperature: 0-70C
-  - No built-in mounting features (no tabs, flanges, ears, or screw holes) -- needs designed cradle/clamp in valve rack
-  - Metal coil housing is slightly offset from white body in X (not perfectly centered)
-  - **Spade terminals (from product specs):** 2x standard 1/4" (6.35mm) male quick-disconnect blades protruding from black plastic insulator housing at top of coil. Flat faces of both blades are parallel to X-Z plane (blade width spans X direction). Female spade connectors slide on/off along Y axis (tube flow direction). Tab spacing ~8-10mm center-to-center in X (visual estimate, needs caliper verification).
-  - **Coil orientation (from product specs):** Coil long axis is vertical (Z), perpendicular to tube flow axis (Y). Black connector housing at top of coil with slight offset toward inlet side (blue collet ring end).
-  - **QC fitting direction (from product specs):** Both 1/4" quick-connect tube ports extend along Y axis (depth / front-back). Blue collet ring on inlet side, plain white on outlet side.
-- **Interfaces:**
-  - Mount in valve rack frame (contoured saddle supporting white body + slot for solenoid coil protrusion + snap-over retention clips)
-  - QC fittings accept 1/4" OD (6.35mm) PE or silicone tubing
-  - Solenoid wire leads (spade connectors at top) connect to MCP23017-gated MOSFET driver circuit
-  - **Wiring access:** Female spade connectors slide on/off along Y axis, so wiring access is from the front or rear of the valve rack (same direction as tubing), NOT from the sides. The ~32.71mm X-pitch between valves does not need extra clearance for spade connectors (tabs don't extend in X). The 37mm valve pitch (32.71mm body + 4.29mm gap) is adequate for spade terminal width.
-- **Quantity:** 10
-- **Open:**
-  - Zero-pressure variant (DIGITEN B076KFCPGM) may be needed for pump-inlet valves (suction side)
-  - Tube port stub OD and protrusion length not yet measured (needed for tube routing clearance)
-  - Spade connector center-to-center spacing in X not yet caliper-verified (~8-10mm visual estimate)
-  - Spade tab thickness not yet measured
-  - Black insulator housing dimensions (W x D x H) not yet measured
-  - Exact Y offset of coil/connector housing from body center not yet measured
+**Moved to valve rack subfolder:** See `../valve-rack/planning/parts.md` for rack-context dimensions and `../../off-the-shelf-parts/beduan-solenoid/extracted-results/geometry-description.md` for complete valve geometry.
+
+Summary: Beduan B07NWCQJK9, 10x, T-shaped 32.71W x 50.84D x 56.00H mm (caliper-verified), 12V DC NC, 1/4" QC fittings, 113g each.
 
 ### Part: John Guest PP1208W Bulkhead Union (1/4" Push-to-Connect)
 
