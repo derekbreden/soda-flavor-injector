@@ -68,6 +68,7 @@ All dimensions are initial design values, subject to iteration during prototypin
 - **Quantity:** 1
 - **Open:**
   - Whether front panel is integral to main body or separate/removable
+  - Display dock recess sizing: both recesses are currently spec'd at 50mm diameter, which fits the S3 (48mm module + 1mm wall) but is oversized for the RP2040 (33mm module). If puck shells are different diameters, the two recesses need different sizes. If the S3 sits directly in a square recess (48x48mm) without a puck shell, one recess would be circular and the other square. See Display Puck Shell section for design options.
 
 ---
 
@@ -397,34 +398,66 @@ Low priority -- may be scrapped if air management works adequately without it.
   - Reel depth: Y=0-22mm (behind front panel)
   - Approximate positions: reel 1 centered at X=71, reel 2 centered at X=141 (at 212mm interior)
   - Cable connects to RJ45 jack internally and to display module externally
+- **Connector variants by display:**
+  - **RP2040 variant:** USB-C on module side. Needs USB-C to cat6 adapter or direct wiring (USB-C breakout PCB in reel housing, mapped to cat6 pinout)
+  - **S3 variant:** 12-pin FPC 0.5mm pitch + MX1.25 4-pin connectors on module bottom (NOT USB-C). Needs FPC breakout PCB or direct soldering to cat6 conductors in reel housing
 - **Quantity:** 2
 - **Open:**
   - Spring type and specification (constant-force vs torsion)
   - Lock mechanism detailed design
+  - Connector breakout PCB design for each display variant (USB-C vs FPC/MX1.25)
 
 ### Part: Display Puck Shell
 
 - **Type:** 3D printed or injection molded
 - **Material:** ABS or polycarbonate
-- **Envelope:** 50mm diameter x 12-15mm thick
-- **Features:**
-  - Front: protective lens (polycarbonate or glass), 1.5mm thick, with silicone gasket seal
-  - Display cavity: 37mm diameter (for 1.28" GC9A01 round TFT module, 37mm PCB diameter x 4mm thick)
-  - Controller PCB cavity: behind display, ~3mm deep (RP2040 or ESP32-S3 + passives)
+- **Envelope:** 50mm diameter x 12-15mm thick (see variant notes below for fit analysis)
+- **Features (common):**
   - Base: flat with rubber grip ring, fold-out kickstand (30-45 degree tilt, adds ~2mm when folded)
   - 2-3 neodymium disc magnets: 6mm diameter x 2mm thick each, embedded in base (1-2 kg total pull force)
   - RJ45 jack recess: recessed or rear-facing, with rubber flap for splash protection
   - IPX2 (drip-proof) minimum rating
-  - Weight target: 25-40g
-- **Interfaces:**
+- **Interfaces (common):**
   - RJ45 jack connects to flat cat6 cable from reel
   - Magnets interface with steel disc or magnets in front panel dock recess
   - Kickstand deploys for countertop use
   - Magnets hold to fridge door or steel surfaces
 - **Quantity:** 2 (one config display S3, one flavor display RP2040)
-- **Open:**
-  - Display size: 1.28" (37mm PCB) vs 1.69" (43mm PCB) -- housing should accommodate either with different bezel insert
-  - Exact PCB stackup height (display + controller)
+
+#### RP2040 Variant (Waveshare RP2040-LCD-0.99-B)
+
+- **Module dimensions (from product specs):** 33mm diameter x 9.8mm thick (CNC aluminum case)
+- **Weight:** 17g (from product specs)
+- **Display:** 0.99" IPS (GC9107), 128x115 pixels, active area ~24.32 x 21.85mm (calculated from 0.19mm pixel pitch)
+- **Visible area:** ~25mm diameter circular within 33mm case bezel
+- **Connector:** USB-C on side of case (visible as notch in 8.0mm case body)
+- **GPIO:** SH1.0 6-pin connector (GP26-GP29, GND, 3V3)
+- **Mounting:** No external mounting holes or tabs. 4 rear screws hold acrylic back plate (could be replaced with longer standoffs). Needs cradle, clip, or friction-fit pocket in puck shell.
+- **Construction:** CNC machined aluminum top shell (black anodized), acrylic bottom plate, 1.75mm front bezel lip
+- **Fit in 50mm puck:** 33mm module in 50mm shell = 8.5mm wall thickness each side. This is oversized -- the puck wall would be unusually thick. Consider a smaller ~38-40mm diameter puck for the RP2040 variant (33mm + 2.5-3.5mm wall each side).
+- **Puck thickness:** 9.8mm module + 1.5mm lens + 2mm magnet recess = ~13.3mm minimum
+- **Weight budget:** 17g module + ~8-15g shell/magnets = 25-32g total (within 25-40g target)
+
+#### S3 Variant (Meshnology ESP32-S3 Rotary Display)
+
+- **Module dimensions (from product specs):** 48 x 48 x 33mm (square with rounded corners, aluminum alloy + plastic + acrylic)
+- **Weight:** 50g (from product specs)
+- **Display:** 1.28" IPS (GC9A01A), 240x240 pixels, 32.4mm active area diameter (from product specs)
+- **Touch:** CST816D capacitive touch (I2C, SDA=6, SCL=7)
+- **Rotary encoder:** Infinite rotation knob ring surrounding display, E5A5-23-12-8 (GPIO: A=45, B=42, Switch=41). Knob protrusion is the reason for 33mm total depth.
+- **RGB LEDs:** 5x WS2812 addressable LEDs around perimeter (GPIO 48, ~300mA max at full white)
+- **Connectors (bottom edge, NOT USB-C):** 1x 12-pin FPC 0.5mm pitch (power/program/USB data), 2x MX1.25 4-pin UART, 1x MX1.25 4-pin I2C
+- **Mounting:** M2.5 screw terminals mentioned; flat 48x48mm bottom is primary mount surface. STEP/Eagle files available for exact hole pattern.
+- **Fit in 50mm puck:** 48mm module in 50mm shell = 1mm wall each side. This is tight but workable -- the 50mm puck diameter is well-matched to the S3 module.
+- **Puck thickness:** 33mm module depth (includes knob). The puck shell would need to be ~35-37mm thick to enclose it, significantly thicker than the RP2040 variant (~13mm). The S3 may not suit a thin "puck" form factor -- it may be better used as-is in its own shell, seated directly into the dock recess.
+- **Weight budget:** 50g module alone exceeds the 25-40g puck target. Puck shell would add further weight. The S3 puck will be heavier (~55-65g); magnet pull force may need to increase (3-4 magnets instead of 2-3).
+
+#### Puck Diameter Design Decision (Open)
+
+The 50mm puck diameter works well for the S3 (48mm + 1mm wall each side) but is oversized for the RP2040 (33mm module in 50mm shell = 8.5mm wall each side). Options:
+1. **Uniform 50mm pucks** -- both dock recesses are identical (simpler enclosure), RP2040 puck has thick walls (wastes space but looks consistent)
+2. **Different diameters** -- RP2040 puck ~38-40mm, S3 puck ~50mm. Dock recesses in front panel are different sizes. More complex enclosure but better-fitting pucks.
+3. **S3 not in a puck** -- S3 module sits directly in a square recess (48x48mm) in the front panel, since its 33mm depth and 50g weight make it a poor fit for a thin magnetic puck. Only the RP2040 gets a puck shell.
 
 ---
 
@@ -533,15 +566,22 @@ All electronics mount in the top-rear corner, above and behind the diagonal bags
   - Working temperature: 0-70C
   - No built-in mounting features (no tabs, flanges, ears, or screw holes) -- needs designed cradle/clamp in valve rack
   - Metal coil housing is slightly offset from white body in X (not perfectly centered)
+  - **Spade terminals (from product specs):** 2x standard 1/4" (6.35mm) male quick-disconnect blades protruding from black plastic insulator housing at top of coil. Flat faces of both blades are parallel to X-Z plane (blade width spans X direction). Female spade connectors slide on/off along Y axis (tube flow direction). Tab spacing ~8-10mm center-to-center in X (visual estimate, needs caliper verification).
+  - **Coil orientation (from product specs):** Coil long axis is vertical (Z), perpendicular to tube flow axis (Y). Black connector housing at top of coil with slight offset toward inlet side (blue collet ring end).
+  - **QC fitting direction (from product specs):** Both 1/4" quick-connect tube ports extend along Y axis (depth / front-back). Blue collet ring on inlet side, plain white on outlet side.
 - **Interfaces:**
   - Mount in valve rack frame (contoured saddle supporting white body + slot for solenoid coil protrusion + snap-over retention clips)
   - QC fittings accept 1/4" OD (6.35mm) PE or silicone tubing
   - Solenoid wire leads (spade connectors at top) connect to MCP23017-gated MOSFET driver circuit
+  - **Wiring access:** Female spade connectors slide on/off along Y axis, so wiring access is from the front or rear of the valve rack (same direction as tubing), NOT from the sides. The ~32.71mm X-pitch between valves does not need extra clearance for spade connectors (tabs don't extend in X). The 37mm valve pitch (32.71mm body + 4.29mm gap) is adequate for spade terminal width.
 - **Quantity:** 10
 - **Open:**
   - Zero-pressure variant (DIGITEN B076KFCPGM) may be needed for pump-inlet valves (suction side)
   - Tube port stub OD and protrusion length not yet measured (needed for tube routing clearance)
-  - Spade connector spacing not yet measured (needed for wiring harness design)
+  - Spade connector center-to-center spacing in X not yet caliper-verified (~8-10mm visual estimate)
+  - Spade tab thickness not yet measured
+  - Black insulator housing dimensions (W x D x H) not yet measured
+  - Exact Y offset of coil/connector housing from body center not yet measured
 
 ### Part: John Guest PP1208W Bulkhead Union (1/4" Push-to-Connect)
 
