@@ -20,7 +20,7 @@ The 300mm depth is an intentional constraint. Under-sink cabinets offer 480-510m
 
 The 400mm height fits typical under-sink clearance (380-420mm below the sink bowl).
 
-See `research/archive/enclosure-width-reduction.md` for the original width feasibility study (280mm-era, archived).
+The original width feasibility study (280mm-era) was archived and removed during restructuring.
 
 ---
 
@@ -91,7 +91,7 @@ The cradle is profiled to match the lens-shaped cross-section of the stacked bag
 
 The bags are permanent -- installed once during manufacturing, refilled via the hopper, never touched by the user.
 
-See `research/2l-bags-at-300mm-depth.md` for the full depth analysis.
+See `../bag-cradle/planning/research/2l-bags-at-300mm-depth.md` for the full depth analysis.
 
 ---
 
@@ -194,15 +194,15 @@ All 2-way normally-closed solenoid, 12V DC.
 
 ### 3f. Valve Hardware
 
-Beduan 12V NC solenoid, 1/4" quick-connect (Amazon B07NWCQJK9), approximately $9 each, approximately $90 for 10. Body: 34.0W x 63.5D (port-to-port) x 58.4H mm, 113g each. No built-in mounting bracket. Designed for RO water systems -- food-grade, mass-produced, Amazon Prime eligible. Dimensions are best available, pending caliper verification.
+Beduan 12V NC solenoid, 1/4" quick-connect (Amazon B07NWCQJK9), approximately $9 each, approximately $90 for 10. Body: 32.71W x 50.84D (port-to-port) x 56.00H mm, 113g each. T-shaped profile: white valve body (32.71W x ~19.4H) with metal solenoid coil (31.41W) rising from center. No built-in mounting bracket. Designed for RO water systems -- food-grade, mass-produced, Amazon Prime eligible. Caliper-verified dimensions.
 
 GPIO via MCP23017 I2C expander. 10 valve outputs use GPB0-GPB7 (8 pins) plus GPA0-GPA1 (2 pins).
 
 ### 3g. Valve Physical Placement
 
-At 220mm width (212mm interior), side-bank valve placement beside the cartridge does not work -- only 31mm per side, too narrow for a 34mm-wide valve. The valves relocate to a rack behind the cartridge dock, using the depth dimension. Two rows of 5 valves stacked vertically at 38mm pitch (34mm body + 4mm gap). Row 1: Z=0-58, Row 2: Z=62-120. Rack width: 186mm (13mm margin per side in 212mm interior). Rack depth: Y=140-204 (64mm, port-to-port valve length). Total rack height: 120mm.
+At 220mm width (212mm interior), side-bank valve placement beside the cartridge does not work -- only 31mm per side, too narrow for a 32.71mm-wide valve. The valves relocate to a rack behind the cartridge dock, using the depth dimension. Two rows of 5 valves stacked vertically: 37mm X-pitch (32.71mm body + 4.29mm gap). Row 1: Z=0-56, Row 2: Z=60-116. Rack width: 181mm (15.6mm margin per side in 212mm interior). Rack depth: Y=169-224 (55mm). Total rack height: 116mm.
 
-See `research/archive/enclosure-width-reduction.md` for the original valve relocation analysis (280mm-era, archived).
+See `../valve-rack/planning/architecture.md` for the detailed valve rack design. The original valve relocation analysis (280mm-era) was archived and removed during restructuring.
 
 ---
 
@@ -219,18 +219,7 @@ Two full-size John Guest PP1208W bulkhead fittings (each requiring a 15.9mm moun
 
 A custom cap (3D-printed or machined, 28mm thread) accommodates both fittings.
 
-### 4b. Dip Tube Tip Piece
-
-At the top of the dip tube sits a 3D-printed air collection bar spanning the full bag width (~185mm):
-
-- **Ship-in-a-bottle assembly:** The bar feeds through the 28mm cap opening lengthwise (cross-section 22mm x 14mm, diagonal 26.1mm), then rotates 90 degrees inside the bag to span its width.
-- **Central socket** grips the 1/4" hard dip tube.
-- **Air channel ribs** on the top and bottom faces prevent the bag film from sealing flat against the bar, maintaining air pathways to the central bore.
-- **Only fluid-contact 3D-printed part** in the system. Material options: FDM PETG, SLS nylon, SLA resin -- food safety drives the choice.
-
-The tip piece wedges between the bag's heat-sealed side seams, preventing lateral movement.
-
-See `research/dip-tube-analysis.md` for the two-port architecture and `research/dip-tube-tip-design.md` for the tip piece design.
+See `../two-port-cap/planning/parts.md` for the cap and dip tube design, and `../two-port-cap/planning/research/dip-tube-analysis.md` for the two-port architecture analysis.
 
 ---
 
@@ -250,7 +239,7 @@ The cartridge contains **no valves, no drivers, no electronics** -- only passive
 
 Front-loading: user opens front panel, slides cartridge out along floor rails, slides new one in. Guide rails and chamfered slot entrance accept blind insertion in a dark cabinet.
 
-See `cartridge/planning/requirements.md` for the full cartridge spec.
+See `cartridge-architecture.md` for the full cartridge spec and `../cartridge-shell/planning/parts.md` for the shell design.
 
 ---
 
@@ -269,7 +258,7 @@ A single funnel sits at the top-front of the enclosure, in the ~125mm vertical z
 
 The hopper is the primary user interaction. The user pours concentrated flavor syrup into the funnel, selects the target bag via display or button, and the pump drains the hopper into the selected bag. A single hopper for both flavors eliminates redundant hardware; the user simply rinses between flavor changes if cross-contamination matters.
 
-See `research/hopper-integration.md` for the integration analysis.
+See `../hopper/planning/research/hopper-integration.md` for the integration analysis.
 
 ---
 
@@ -291,7 +280,7 @@ The retractable tether is a signature UX feature. Cat6 provides power + UART dat
 
 Two reels fit side-by-side (110mm) within the 212mm interior width, or stack vertically if width is tight.
 
-See `research/display-and-front-panel.md` for the full analysis.
+See `../front-panel/planning/research/display-and-front-panel.md` for the full analysis.
 
 ---
 
@@ -316,7 +305,7 @@ At 212mm interior width, the back panel uses a two-row fitting arrangement. Wate
 
 Soda water passes straight through the enclosure via a flow meter (DIGITEN, inline, pulse output). **No flavor mixing happens inside the enclosure on the soda water line.** The flow meter measures volume dispensed; firmware synchronizes flavor dosing on the separate dispense lines (d1, d2) to match soda flow.
 
-See `research/back-panel-layout.md` for the full layout.
+See `../back-panel/planning/research/back-panel-layout.md` for the full layout.
 
 ---
 
@@ -346,29 +335,34 @@ The PSU sits adjacent to the IEC C14 inlet on the back panel (shortest high-volt
 2. **Cam lever release plate design** for the John Guest fittings. The release plate stepped bore geometry and push rod routing need physical prototyping.
 3. **Custom cap design** for the two-port bag modification. One JG bulkhead + one barb fitting in a 28mm threaded cap. 3D-printed or machined.
 4. **Cradle profile** -- needs physical measurement of actual filled 2L bag cross-section to refine the channel shape.
-5. **Tip piece material** -- FDM PETG vs SLS nylon vs SLA resin for the one food-contact 3D-printed part. Low priority (tip piece may be scrapped).
-6. **Valve rack height:** at 120mm (due to actual 58.4mm valve height), the rack extends above the 84mm cartridge slot. Verify no interference with dock back wall and pogo pin mount.
+5. **Valve rack height:** at 116mm (caliper-verified 56.00mm valve height × 2 rows + 4mm gap), the rack extends above the 84mm cartridge slot. Verify no interference with dock back wall and pogo pin mount.
 
 ---
 
 ## Research Index
 
-Every file in `research/` with a summary of what it covers.
+Research files are distributed across per-part folders. System-level research lives in `research/`. Part-specific research lives in each part's `planning/research/` directory.
+
+### System-level research (`research/`)
 
 | File | Description |
 |------|-------------|
-| `2l-bags-at-300mm-depth.md` | Corrected lens-shaped bag geometry proving 2L bags fit at 35 degrees in 300mm depth |
-| `access-architecture.md` | Comparison of user access approaches (slide-out tray, hinged panel, removable top) |
-| `back-panel-layout.md` | External connection placement, fitting types, zone allocation on the rear panel |
-| `bag-dimensions-survey.md` | Manufacturer-stated Platypus bag dimensions across all sizes |
-| `diagonal-bag-placement.md` | Angle sweeps, enclosure fits, and mounting analysis for diagonal bag layout |
-| `diagonal-interleave.md` | The guiding spatial vision -- components share diagonal space instead of horizontal zones |
-| `diagonal-risks-and-failure-modes.md` | Adversarial analysis of the diagonal layout with mitigations |
-| `dip-tube-analysis.md` | Two-port cap architecture, fluid operations, air management, priming cycles, JG fitting analysis |
-| `dip-tube-tip-design.md` | 3D-printed air collection bar: ship-in-a-bottle assembly, cross-section, air channels, materials |
-| `display-and-front-panel.md` | Retractable cat6 spool geometry, spring mechanism, locking, cat6 pinout for power + UART |
-| `archive/enclosure-width-reduction.md` | **(Archived)** Feasibility study for shrinking from 280mm to 220mm width, valve relocation options |
-| `hopper-integration.md` | Hopper funnel integration with back-wall-mounted bags at 35 degrees |
-| `archive/master-spatial-layout.md` | **(Archived)** Synthesized component coordinates for 280mm/8-valve layout (superseded by `spatial-layout.md`) |
-| `under-sink-constraints.md` | Real cabinet dimensions across US and international markets |
-| `valve-architecture.md` | Flow routing topology, valve truth table, 2-way NC vs 3-way analysis, specific valve candidates |
+| `research/access-architecture.md` | Comparison of user access approaches (slide-out tray, hinged panel, removable top) |
+| `research/under-sink-constraints.md` | Real cabinet dimensions across US and international markets |
+| `research/valve-architecture.md` | Flow routing topology, valve truth table, 2-way NC vs 3-way analysis, specific valve candidates |
+
+### Per-part research (in each part's `planning/research/`)
+
+| Part folder | Research files |
+|-------------|---------------|
+| `../bag-cradle/planning/research/` | `2l-bags-at-300mm-depth.md`, `bag-dimensions-survey.md`, `diagonal-bag-placement.md`, `diagonal-interleave.md`, `diagonal-risks-and-failure-modes.md` |
+| `../back-panel/planning/research/` | `back-panel-layout.md` |
+| `../two-port-cap/planning/research/` | `dip-tube-analysis.md` |
+| `../front-panel/planning/research/` | `display-and-front-panel.md` |
+| `../hopper/planning/research/` | `hopper-integration.md` |
+| `../valve-rack/planning/research/` | `beduan-valve-geometry.md` |
+| `../cartridge-shell/planning/research/` | `fitting-alternatives.md` |
+| `../cartridge-release-plate/planning/research/` | `cam-lever-release.md`, `fitting-release-mechanism.md`, `release-plate-geometry.md` |
+| `../cartridge-pump-tray/planning/research/` | `pump-mounting.md` |
+| `../dock-back-wall/planning/research/` | `dock-placement.md`, `guide-alignment.md` |
+| `../pogo-pin-mount/planning/research/` | `electrical-mating.md` |
