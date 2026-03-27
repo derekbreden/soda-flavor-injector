@@ -1,649 +1,460 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Valve Rack Assembly — Engineering Drawing
-  Three-view orthographic (third-angle projection), Scale 2:1 (2px = 1mm)
+  Standard third-angle projection (FRONT / SIDE / TOP)
+  Scale: 3px = 1mm
+  Canvas: 1200 × 800 px
 
-  Axis lookup table:
+  AXIS LOOKUP TABLE:
     VIEW       | LOOKING ALONG | HORIZ AXIS | VERT AXIS
-    Front view | -Y            | X (width)  | Z (height)
-    Side view  | -X            | Y (depth)  | Z (height)
-    Top view   | -Z            | X (width)  | Y (depth)
+    Front      | -Y            | X (width)  | Z (height)
+    Side       | -X            | Y (depth)  | Z (height)
+    Top        | -Z            | X (width)  | Y (depth)
 
-  Rack envelope: 181W x 55D x 116H mm
-  Valve grid: 5 wide x 2 high, 37mm X-pitch, 56mm row height, 4mm gap
-  Valve T-profile: white body 32.71W x ~19.4H mm (horiz bar), coil 31.41W x 36.63H mm (vert stroke)
+  Rack dimensions (mm):
+    Frame envelope:  181W x 55D x 116H
+    Valve body:      32.71W(X) x 50.84D(Y) x ~19.4H(Z)
+    Coil housing:    31.41W(X), 36.63H(Z) above bottom of white body; total valve H=56mm
+    Valve pitch X:   37mm c-t-c (5 per row)
+    Valve centers X: 16.36, 53.36, 90.36, 127.36, 164.36 mm (rack-local)
+    Valve centers Z: 28mm (row 1), 88mm (row 2)
+    Row 1: Z=0 to 56mm;  Row 2: Z=60 to 116mm
 
-  Scale: 2px = 1mm
-  View origins (pixel coords of rack local origin x=0,y=0,z=0):
-    Front view:  px_origin=(50,332)  [bottom-left of rack, Z increases upward = py decreases]
-    Side view:   px_origin=(442,332) [bottom-left, Y increases rightward = px increases]
-    Top view:    px_origin=(50,362)  [top-left, Y increases downward = py increases]
+  PIXEL COORDINATE FORMULAS (at 3px/mm):
+    Front view origin top-left: (Fx=30, Fztop=80)
+      px_x = 30 + rack_x_mm * 3
+      px_z = 80 + (116 - rack_z_mm) * 3   [Z=116 maps to y=80, Z=0 maps to y=428]
+
+    Side view origin top-left: (Sx=633, Sztop=80)  [shares Z pixels with front]
+      px_y = 633 + rack_y_mm * 3
+      px_z = 80 + (116 - rack_z_mm) * 3
+
+    Top view origin top-left: (Tx=30, Tytop=490) [shares X pixels with front]
+      px_x = 30 + rack_x_mm * 3
+      px_y = 490 + rack_y_mm * 3
 -->
 <svg xmlns="http://www.w3.org/2000/svg"
      width="1200" height="800"
-     viewBox="0 0 1200 800">
-
-  <defs>
-    <marker id="arr" markerWidth="6" markerHeight="6"
-            refX="6" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#000"/>
-    </marker>
-    <marker id="arr-r" markerWidth="6" markerHeight="6"
-            refX="0" refY="3" orient="auto">
-      <path d="M6,0 L0,3 L6,6 Z" fill="#000"/>
-    </marker>
-  </defs>
-
-  <!-- Canvas background -->
-  <rect x="0" y="0" width="1200" height="800" fill="white"/>
-
-  <!-- Drawing border -->
-  <rect x="5" y="5" width="1190" height="790"
-        fill="none" stroke="#000" stroke-width="1.5"/>
-
-  <!-- Drawing title -->
-  <text x="600" y="25" font-size="13" font-family="sans-serif"
-        text-anchor="middle" font-weight="bold">SODA FLAVOR INJECTOR — VALVE RACK ASSEMBLY</text>
-  <text x="600" y="42" font-size="9" font-family="sans-serif"
-        text-anchor="middle">3-View Orthographic (Third-Angle Projection) — Scale 2:1</text>
-
-  <!-- ═══════════════════════════════════════════════
-       FRONT VIEW  (looking along -Y)
-       Horizontal = X (width), Vertical = Z (height)
-       Rack X: 0..181mm → px 50..412 (362px)
-       Rack Z: 0..116mm → py 332..100 (z=0 at py=332, z=116 at py=100)
-       ═══════════════════════════════════════════════ -->
-  <g id="front-view">
-
-    <text x="231" y="92" font-size="11" font-family="sans-serif"
-          text-anchor="middle" font-weight="bold">FRONT VIEW</text>
-
-    <!-- View boundary (light guide) -->
-    <rect x="50" y="100" width="362" height="232"
-          fill="none" stroke="#ddd" stroke-width="0.5"/>
-
-    <!-- Rack outer frame -->
-    <rect x="50" y="100" width="362" height="232"
-          fill="none" stroke="#000" stroke-width="1.5" class="body"/>
-
-    <!--
-      Valve pixel layout (front view):
-        X-centers (px): valve_cx = 50 + valve_x_mm*2
-          v1/v6: 50 + 16.36*2 = 50+32.72 = 82.72
-          v2/v7: 50 + 53.36*2 = 50+106.72 = 156.72
-          v3/v8: 50 + 90.36*2 = 50+180.72 = 230.72
-          v4/v9: 50 + 127.36*2 = 50+254.72 = 304.72
-          v5/v10: 50 + 164.36*2 = 50+328.72 = 378.72
-
-        Z positions:
-          Row1 bottom: z=0mm → py=332
-          Row1 top: z=56mm → py=332-112=220
-          Row2 bottom: z=60mm → py=332-120=212
-          Row2 top: z=116mm → py=332-232=100
-
-          White body (19.4mm tall → 38.8px):
-            Row1: z=0..19.4 → py=332..293 → rect y=293, h=39
-            Row2: z=60..79.4 → py=212..174 → rect y=174, h=38
-
-          Coil (36.63mm tall → 73.26px, above white body):
-            Row1: z=19.4..56 → py=293..220 → rect y=220, h=73
-            Row2: z=79.4..116 → py=174..100 → rect y=100, h=74
-
-          White body width: 32.71mm → 65.42px, half=32.71px
-          Coil width: 31.41mm → 62.82px, half=31.41px
-
-          Body left px: cx - 32.71
-          Coil left px: cx - 31.41
-    -->
-
-    <!-- Row gap dividers (dashed): z=56mm (py=220) and z=60mm (py=212) -->
-    <line x1="50" y1="220" x2="412" y2="220"
-          stroke="#000" stroke-width="0.7" stroke-dasharray="4,3" class="hidden"/>
-    <line x1="50" y1="212" x2="412" y2="212"
-          stroke="#000" stroke-width="0.7" stroke-dasharray="4,3" class="hidden"/>
-
-    <!-- ── ROW 1 VALVES (bottom, Z=0..56mm) ── -->
-
-    <!-- V1: cx=82.72, body left=50.01, coil left=51.31 -->
-    <rect x="50.01" y="293" width="65.42" height="39"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="51.31" y="220" width="62.82" height="73"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <!-- Spade connectors at top of coil: 2 small rects, each ~4mm wide at 2px/mm=8px -->
-    <rect x="64" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="76" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- V2: cx=156.72, body left=124.01, coil left=125.31 -->
-    <rect x="124.01" y="293" width="65.42" height="39"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="125.31" y="220" width="62.82" height="73"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="138" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="150" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- V3: cx=230.72, body left=198.01, coil left=199.31 -->
-    <rect x="198.01" y="293" width="65.42" height="39"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="199.31" y="220" width="62.82" height="73"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="212" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="224" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- V4: cx=304.72, body left=272.01, coil left=273.31 -->
-    <rect x="272.01" y="293" width="65.42" height="39"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="273.31" y="220" width="62.82" height="73"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="286" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="298" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- V5: cx=378.72, body left=346.01, coil left=347.31 -->
-    <rect x="346.01" y="293" width="65.42" height="39"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="347.31" y="220" width="62.82" height="73"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="360" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="372" y="215" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- ── ROW 2 VALVES (top, Z=60..116mm) ── -->
-
-    <!-- V6: cx=82.72 -->
-    <rect x="50.01" y="174" width="65.42" height="38"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="51.31" y="100" width="62.82" height="74"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="64" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="76" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- V7: cx=156.72 -->
-    <rect x="124.01" y="174" width="65.42" height="38"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="125.31" y="100" width="62.82" height="74"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="138" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="150" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- V8: cx=230.72 -->
-    <rect x="198.01" y="174" width="65.42" height="38"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="199.31" y="100" width="62.82" height="74"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="212" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="224" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- V9: cx=304.72 -->
-    <rect x="272.01" y="174" width="65.42" height="38"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="273.31" y="100" width="62.82" height="74"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="286" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="298" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- V10: cx=378.72 -->
-    <rect x="346.01" y="174" width="65.42" height="38"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="347.31" y="100" width="62.82" height="74"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="360" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <rect x="372" y="95" width="8" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-
-    <!-- Valve ID labels in white body area -->
-    <text x="83" y="317" font-size="7" font-family="sans-serif" text-anchor="middle">v1</text>
-    <text x="157" y="317" font-size="7" font-family="sans-serif" text-anchor="middle">v2</text>
-    <text x="231" y="317" font-size="7" font-family="sans-serif" text-anchor="middle">v3</text>
-    <text x="305" y="317" font-size="7" font-family="sans-serif" text-anchor="middle">v4</text>
-    <text x="379" y="317" font-size="7" font-family="sans-serif" text-anchor="middle">v5</text>
-    <text x="83" y="197" font-size="7" font-family="sans-serif" text-anchor="middle">v6</text>
-    <text x="157" y="197" font-size="7" font-family="sans-serif" text-anchor="middle">v7</text>
-    <text x="231" y="197" font-size="7" font-family="sans-serif" text-anchor="middle">v8</text>
-    <text x="305" y="197" font-size="7" font-family="sans-serif" text-anchor="middle">v9</text>
-    <text x="379" y="197" font-size="7" font-family="sans-serif" text-anchor="middle">v10</text>
-
-  </g>
-
-  <!-- ═══════════════════════════════════════════════
-       SIDE VIEW  (looking along -X)
-       Horizontal = Y (depth), Vertical = Z (height)
-       Rack Y: 0..55mm → px 442..552 (110px)
-       Rack Z: 0..116mm → py 332..100 (same Z range as front)
-       ═══════════════════════════════════════════════ -->
-  <g id="side-view">
-
-    <text x="497" y="92" font-size="11" font-family="sans-serif"
-          text-anchor="middle" font-weight="bold">SIDE VIEW</text>
-
-    <!-- View boundary -->
-    <rect x="442" y="100" width="110" height="232"
-          fill="none" stroke="#ddd" stroke-width="0.5"/>
-
-    <!-- Rack outer frame -->
-    <rect x="442" y="100" width="110" height="232"
-          fill="none" stroke="#000" stroke-width="1.5" class="body"/>
-
-    <!--
-      Side view: looking along -X → all 5 valves in a row project onto same Y-Z plane.
-      We see one valve silhouette per row (all 5 overlap in X projection).
-
-      Y-axis (horizontal in this view):
-        Valve body (50.84mm) centered in rack (55mm):
-          margin = (55-50.84)/2 = 2.08mm → 4.16px
-          body left px: 442 + 4.16 = 446.16 ≈ 446
-          body right px: 446 + 50.84*2 = 446 + 101.68 = 547.68 ≈ 548
-          (body width in px: 102)
-
-      Z-axis (vertical, same as front view):
-        Row1 white body: z=0..19.4mm → py=332..293 (h=39px)
-        Row1 coil: z=19.4..56mm → py=293..220 (h=73px)
-        Row2 white body: z=60..79.4mm → py=212..174 (h=38px)
-        Row2 coil: z=79.4..116mm → py=174..100 (h=74px)
-
-      Coil Y-footprint: ~31.41mm depth centered in body (50.84mm)
-        coil_y_margin = (50.84-31.41)/2 = 9.715mm → 19.43px
-        coil left px: 446 + 19.43 = 465.43 ≈ 465
-        coil right px: 465 + 31.41*2 = 465 + 62.82 = 527.82 ≈ 528
-        (coil width in px: 63)
-
-      QC port stubs: protrude beyond body along Y (hidden lines within rack boundary)
-        stub left: py=446, hidden from 442 to 446 (4px)
-        stub right: px=548, hidden from 548 to 552 (4px)
-        Port center Z ~ middle of white body = 9.7mm = 19.4px above base
-          Row1: py = 332 - 19.4 = 312.6 ≈ 313
-          Row2: py = 212 - 19.4 + something = 212-10 = 202... = 332-79.4*2+9.7*2=332-158.8+19.4=192.6≈193
-          Actually port is at Z=9.7mm in row1 local, z=9.7 → py=332-19.4=312.6
-          Row2: z=60+9.7=69.7mm → py=332-139.4=192.6
-
-      Spade connectors: at top of coil, small rect centered in Y
-        spade center Y = 25.42mm (halfway of 50.84mm body) → px = 442+50.84 = 492.84 ≈ 493 ... no
-        Actually spades centered at Y=25.42mm → px = 442 + 25.42*2 = 442+50.84 = 492.84 ≈ 493
-        But the spades extend along Y toward one face. Show as small rect at top of coil, one face side.
-        Just show as small rect near the front face of coil.
-    -->
-
-    <!-- Row gap dashed lines -->
-    <line x1="442" y1="220" x2="552" y2="220"
-          stroke="#000" stroke-width="0.7" stroke-dasharray="4,3" class="hidden"/>
-    <line x1="442" y1="212" x2="552" y2="212"
-          stroke="#000" stroke-width="0.7" stroke-dasharray="4,3" class="hidden"/>
-
-    <!-- ── ROW 1 SIDE PROFILE ── -->
-    <!-- White body -->
-    <rect x="446" y="293" width="102" height="39"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <!-- Coil (centered in Y) -->
-    <rect x="465" y="220" width="63" height="73"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <!-- Spade connectors: small rect at top of coil, centered -->
-    <rect x="472" y="215" width="20" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <!-- QC port stubs (hidden dashes — protrude at both Y faces within rack boundary)
-         Port center: z=9.7mm → py=332-19.4=312.6→313
-         Left stub (front face): from 442 to 446 at py=313 -->
-    <line x1="442" y1="313" x2="446" y2="313"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-    <!-- Right stub (rear face): from 548 to 552 at py=313 -->
-    <line x1="548" y1="313" x2="552" y2="313"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-
-    <!-- ── ROW 2 SIDE PROFILE ── -->
-    <!-- White body -->
-    <rect x="446" y="174" width="102" height="38"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <!-- Coil (centered in Y) -->
-    <rect x="465" y="100" width="63" height="74"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <!-- Spade connectors -->
-    <rect x="472" y="95" width="20" height="5"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <!-- QC port stubs row2: z=60+9.7=69.7mm → py=332-139.4=192.6→193 -->
-    <line x1="442" y1="193" x2="446" y2="193"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-    <line x1="548" y1="193" x2="552" y2="193"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-
-  </g>
-
-  <!-- ═══════════════════════════════════════════════
-       TOP VIEW  (looking along -Z, downward)
-       Horizontal = X (width), Vertical = Y (depth)
-       Rack X: 0..181mm → px 50..412 (362px)  [same as front view]
-       Rack Y: 0..55mm → py 362..472 (110px)
-       ═══════════════════════════════════════════════ -->
-  <g id="top-view">
-
-    <text x="231" y="346" font-size="11" font-family="sans-serif"
-          text-anchor="middle" font-weight="bold">TOP VIEW</text>
-
-    <!-- View boundary -->
-    <rect x="50" y="362" width="362" height="110"
-          fill="none" stroke="#ddd" stroke-width="0.5"/>
-
-    <!-- Rack outer frame -->
-    <rect x="50" y="362" width="362" height="110"
-          fill="none" stroke="#000" stroke-width="1.5" class="body"/>
-
-    <!--
-      Top view: looking down along -Z.
-      Horizontal = X (same px range as front view: 50..412)
-      Vertical = Y (depth): Y=0 (front face) at py=362; Y=55mm at py=362+110=472
-
-      Row 2 valves are on top (higher Z) → visible when looking down → solid outlines.
-      Row 1 valves are below Row 2 but offset in Z only; in the top view they are
-      directly below and would be visible too (rack is open top). Show Row 1 as
-      dashed since they are behind the row 2 valves in the depth direction if rows overlap,
-      but actually row 1 and row 2 are at same X,Y positions — they differ only in Z.
-      From above, both rows are visible. Draw both; row 2 solid (higher Z, on top visually),
-      row 1 with dashed (hidden below row 2 from this view angle — actually visible but
-      drawing convention: show the topmost features solid).
-
-      Valve body in top view:
-        X: same cx as front view
-        Y: body 50.84mm centered in 55mm → margin=2.08mm → 4.16px
-          body top: py=362+4.16=366.16→366
-          body bottom: 366+101.68=467.68→468
-          (body height in py: 102px)
-
-      Coil in top view (looking down onto coil top):
-        X: 31.41mm wide, centered → coil left = cx-31.41, coil right = cx+31.41
-        Y: coil Y-depth ~31.41mm centered in body (50.84mm)
-          coil top py: 366 + (50.84-31.41)/2*2 = 366+19.43=385.43→385
-          coil bottom py: 385+62.82=447.82→448
-
-      Spade connectors in top view: extend along Y, at top (front) or rear of coil.
-        Not visible from above looking down (hidden behind coil top surface).
-        Skip or show as dashed.
-
-      QC port stubs: extend along Y (front and rear), visible from above → solid short stubs
-        at body Y faces (clipped to rack boundary at py=362 and py=472)
-    -->
-
-    <!-- ROW 2 valves (solid — top row is visible from above) -->
-
-    <!-- V6: cx=82.72 -->
-    <rect x="50.01" y="366" width="65.42" height="102"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="51.31" y="385" width="62.82" height="63"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <!-- QC stubs (front and rear, clipped to rack boundary — actually stubs are hidden within boundary) -->
-    <!-- stub at y=362 to 366 (front margin) and 468 to 472 (rear margin) -->
-    <line x1="83" y1="362" x2="83" y2="366"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-    <line x1="83" y1="468" x2="83" y2="472"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-
-    <!-- V7: cx=156.72 -->
-    <rect x="124.01" y="366" width="65.42" height="102"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="125.31" y="385" width="62.82" height="63"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <line x1="157" y1="362" x2="157" y2="366"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-    <line x1="157" y1="468" x2="157" y2="472"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-
-    <!-- V8: cx=230.72 -->
-    <rect x="198.01" y="366" width="65.42" height="102"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="199.31" y="385" width="62.82" height="63"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <line x1="231" y1="362" x2="231" y2="366"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-    <line x1="231" y1="468" x2="231" y2="472"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-
-    <!-- V9: cx=304.72 -->
-    <rect x="272.01" y="366" width="65.42" height="102"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="273.31" y="385" width="62.82" height="63"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <line x1="305" y1="362" x2="305" y2="366"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-    <line x1="305" y1="468" x2="305" y2="472"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-
-    <!-- V10: cx=378.72 -->
-    <rect x="346.01" y="366" width="65.42" height="102"
-          fill="none" stroke="#000" stroke-width="1" class="body"/>
-    <rect x="347.31" y="385" width="62.82" height="63"
-          fill="none" stroke="#000" stroke-width="0.8" class="body"/>
-    <line x1="379" y1="362" x2="379" y2="366"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-    <line x1="379" y1="468" x2="379" y2="472"
-          stroke="#000" stroke-width="1" stroke-dasharray="2,2" class="hidden"/>
-
-    <!-- ROW 1 valves (dashed — lower Z row, same X/Y footprint as row 2)
-         Same positions, drawn dashed since row 2 is on top visually. -->
-    <!-- They are at exact same x,y position as row 2 in top view, so omitted to avoid cluttering.
-         The row gap is visible in front and side views. -->
-
-  </g>
-
-  <!-- ═══════════════════════════════════════════════
-       DIMENSION CALLOUTS
-       ═══════════════════════════════════════════════ -->
-
-  <!-- FRONT VIEW dimensions -->
-
-  <!-- Overall width: 181mm — above the front view -->
-  <line x1="50" y1="78" x2="412" y2="78"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="50" y1="78" x2="50" y2="100" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="412" y1="78" x2="412" y2="100" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="231" y="75" font-size="9" font-family="sans-serif"
-        text-anchor="middle" class="dim-text">181</text>
-
-  <!-- Overall height: 116mm — left of front view -->
-  <line x1="28" y1="100" x2="28" y2="332"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="28" y1="100" x2="50" y2="100" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="28" y1="332" x2="50" y2="332" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="20" y="216" font-size="9" font-family="sans-serif"
-        text-anchor="middle" transform="rotate(-90,20,216)" class="dim-text">116</text>
-
-  <!-- Row 1 height: 56mm — right of front view -->
-  <line x1="422" y1="220" x2="422" y2="332"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="412" y1="220" x2="432" y2="220" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="412" y1="332" x2="432" y2="332" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="434" y="277" font-size="9" font-family="sans-serif"
-        text-anchor="start" class="dim-text">56</text>
-
-  <!-- Row gap: 4mm — right of front view -->
-  <line x1="422" y1="212" x2="422" y2="220"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="412" y1="212" x2="432" y2="212" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="434" y="218" font-size="9" font-family="sans-serif"
-        text-anchor="start" class="dim-text">4</text>
-
-  <!-- X-pitch 37mm: between v1 and v2 centers, below front view -->
-  <line x1="83" y1="344" x2="157" y2="344"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="83" y1="332" x2="83" y2="350" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="157" y1="332" x2="157" y2="350" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="120" y="355" font-size="9" font-family="sans-serif"
-        text-anchor="middle" class="dim-text">37</text>
-
-  <!-- Valve body width: 32.71mm — below v3, below front view -->
-  <line x1="198" y1="344" x2="263" y2="344"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="198" y1="332" x2="198" y2="350" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="263" y1="332" x2="263" y2="350" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="230" y="360" font-size="9" font-family="sans-serif"
-        text-anchor="middle" class="dim-text">32.71</text>
-
-  <!-- SIDE VIEW dimensions -->
-
-  <!-- Overall depth: 55mm — below side view -->
-  <line x1="442" y1="344" x2="552" y2="344"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="442" y1="332" x2="442" y2="350" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="552" y1="332" x2="552" y2="350" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="497" y="355" font-size="9" font-family="sans-serif"
-        text-anchor="middle" class="dim-text">55</text>
-
-  <!-- Valve body depth: 50.84mm — below side view (second tier) -->
-  <line x1="446" y1="357" x2="548" y2="357"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="446" y1="332" x2="446" y2="363" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="548" y1="332" x2="548" y2="363" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="497" y="369" font-size="9" font-family="sans-serif"
-        text-anchor="middle" class="dim-text">50.84</text>
-
-  <!-- Coil height: 36.63mm — right of side view (row 1 coil) -->
-  <line x1="562" y1="220" x2="562" y2="293"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="552" y1="220" x2="568" y2="220" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="552" y1="293" x2="568" y2="293" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="572" y="259" font-size="9" font-family="sans-serif"
-        text-anchor="start" class="dim-text">36.63</text>
-
-  <!-- White body height: 19.4mm — right of side view (row 1 body) -->
-  <line x1="562" y1="293" x2="562" y2="332"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="552" y1="332" x2="568" y2="332" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="572" y="315" font-size="9" font-family="sans-serif"
-        text-anchor="start" class="dim-text">19.4</text>
-
-  <!-- TOP VIEW dimensions -->
-
-  <!-- Valve body depth (Y): 50.84mm — right of top view -->
-  <line x1="420" y1="366" x2="420" y2="468"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="412" y1="366" x2="426" y2="366" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="412" y1="468" x2="426" y2="468" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="430" y="417" font-size="9" font-family="sans-serif"
-        text-anchor="start" class="dim-text">50.84</text>
-
-  <!-- Rack depth (Y): 55mm — right of top view (second tier) -->
-  <line x1="430" y1="362" x2="430" y2="472"
-        stroke="#000" stroke-width="0.8" class="dim"
-        marker-start="url(#arr-r)" marker-end="url(#arr)"/>
-  <line x1="412" y1="362" x2="436" y2="362" stroke="#000" stroke-width="0.5" class="ext"/>
-  <line x1="412" y1="472" x2="436" y2="472" stroke="#000" stroke-width="0.5" class="ext"/>
-  <text x="440" y="430" font-size="9" font-family="sans-serif"
-        text-anchor="start" class="dim-text">55</text>
-
-  <!-- ═══════════════════════════════════════════════
-       NOTES / LEGEND PANEL (right side, above title block)
-       ═══════════════════════════════════════════════ -->
-
-  <!-- Valve grid assignment table -->
-  <g id="valve-table">
-    <rect x="620" y="100" width="290" height="115"
-          fill="none" stroke="#000" stroke-width="0.8"/>
-    <text x="765" y="116" font-size="10" font-family="sans-serif"
-          text-anchor="middle" font-weight="bold">VALVE GRID (FRONT VIEW)</text>
-    <text x="630" y="133" font-size="8" font-family="sans-serif" class="note">Row 2 (top):    v6   v7   v8   v9   v10</text>
-    <text x="630" y="148" font-size="8" font-family="sans-serif" class="note">Row 1 (bottom): v1   v2   v3   v4   v5</text>
-    <text x="630" y="163" font-size="8" font-family="sans-serif" class="note">X-pitch: 37mm c-t-c (5 wide)</text>
-    <text x="630" y="178" font-size="8" font-family="sans-serif" class="note">X centers: 16.4, 53.4, 90.4, 127.4, 164.4 mm</text>
-    <text x="630" y="193" font-size="8" font-family="sans-serif" class="note">Z centers: Row1=28mm, Row2=88mm</text>
-    <text x="630" y="208" font-size="8" font-family="sans-serif" class="note">Rack envelope: 181W x 55D x 116H mm</text>
-  </g>
-
-  <!-- T-profile legend -->
-  <g id="t-profile-legend">
-    <rect x="620" y="230" width="290" height="155"
-          fill="none" stroke="#000" stroke-width="0.8"/>
-    <text x="765" y="246" font-size="10" font-family="sans-serif"
-          text-anchor="middle" font-weight="bold">VALVE T-PROFILE (FRONT VIEW)</text>
-
-    <text x="630" y="264" font-size="7.5" font-family="sans-serif" class="note">  spade connectors (parallel to Y)</text>
-    <text x="630" y="277" font-size="7.5" font-family="sans-serif" class="note">  ╥ ╥</text>
-    <text x="630" y="290" font-size="7.5" font-family="sans-serif" class="note">┌─╨─╨─┐  metal coil: 31.41mm W</text>
-    <text x="630" y="303" font-size="7.5" font-family="sans-serif" class="note">│      │  36.63mm tall above body</text>
-    <text x="630" y="316" font-size="7.5" font-family="sans-serif" class="note">└──┬───┘</text>
-    <text x="630" y="329" font-size="7.5" font-family="sans-serif" class="note">┌──┴───┐  white body: 32.71mm W</text>
-    <text x="630" y="342" font-size="7.5" font-family="sans-serif" class="note">│      │  ~19.4mm tall</text>
-    <text x="630" y="355" font-size="7.5" font-family="sans-serif" class="note">○──────○  QC ports on both Y faces</text>
-    <text x="630" y="370" font-size="7.5" font-family="sans-serif" class="note">Total: 56mm high. Body: 50.84mm deep (Y).</text>
-    <text x="630" y="380" font-size="7.5" font-family="sans-serif" class="note">Cradle: T-slot, snap-over retention clips.</text>
-  </g>
-
-  <!-- ═══════════════════════════════════════════════
+     viewBox="0 0 1200 800"
+     style="background:#fff">
+
+  <style>
+    .outline  { fill:none; stroke:#000; stroke-width:1.5; }
+    .thin     { fill:none; stroke:#000; stroke-width:0.9; }
+    .hidden   { fill:none; stroke:#000; stroke-width:0.7; stroke-dasharray:4,3; }
+    .dim-line { fill:none; stroke:#444; stroke-width:0.6; }
+    .ctrline  { fill:none; stroke:#000; stroke-width:0.5; stroke-dasharray:8,3,2,3; }
+    .dim-text { font-family:Arial,Helvetica,sans-serif; font-size:9px; fill:#000; }
+    .label    { font-family:Arial,Helvetica,sans-serif; font-size:11px; font-weight:bold; fill:#000; }
+    .title    { font-family:Arial,Helvetica,sans-serif; font-size:13px; font-weight:bold; fill:#000; }
+    .subtitle { font-family:Arial,Helvetica,sans-serif; font-size:9.5px; fill:#000; }
+    .annot    { font-family:Arial,Helvetica,sans-serif; font-size:8px; fill:#333; }
+  </style>
+
+  <!-- ════════════════════════════════════════════════════════
+       FRONT VIEW  (looking along -Y, shows X-Z plane)
+       Box: x=30..573  y=80..428   (181mm x 116mm at 3px/mm)
+       Z=116 at pixel y=80, Z=0 at pixel y=428
+  ════════════════════════════════════════════════════════ -->
+  <text x="301.5" y="72" class="label" text-anchor="middle">FRONT VIEW</text>
+
+  <!-- Rack outer frame -->
+  <rect x="30" y="80" width="543" height="348" class="outline"/>
+
+  <!-- Row-gap horizontal lines (Z=56 → y=428-56*3=260; Z=60 → y=428-60*3=248) -->
+  <line x1="30"  y1="260" x2="573" y2="260" class="thin"/>
+  <line x1="30"  y1="248" x2="573" y2="248" class="thin"/>
+
+  <!--
+    FRONT VIEW VALVE GEOMETRY (T-profile in X-Z):
+      White body: width=32.71mm=98.1px, height=19.4mm=58.2px
+        Row 1: bottom at Z=0 (y=428), top at Z=19.4 (y=428-58.2=369.8 -> 370)
+        Row 2: bottom at Z=60 (y=248), top at Z=79.4 (y=248-58.2=189.8 -> 190)
+      Coil housing: width=31.41mm=94.2px, from Z=19.4 to Z=56 (height=36.6mm=109.8px -> 110px)
+        Row 1: y=260 to y=370
+        Row 2: y=80 to y=190
+      Spade stubs: shown as 2 small rects at top of coil (symbolic 5px wide, 6px tall)
+        cx_mm values: 16.36, 53.36, 90.36, 127.36, 164.36
+        body_left = 30 + (cx - 16.355)*3
+        coil_left = 30 + (cx - 15.705)*3
+        spade_L_cx = cx_px - 6, spade_R_cx = cx_px + 6  (approx 4mm apart each side)
+      cx pixel values:
+        cx1=30+16.36*3=79.1  cx2=30+53.36*3=190.1  cx3=30+90.36*3=301.1
+        cx4=30+127.36*3=412.1  cx5=30+164.36*3=523.1
+      body_left pixel:
+        bl1=30+(16.36-16.355)*3=30.0  bl2=30+(53.36-16.355)*3=141.0
+        bl3=30+(90.36-16.355)*3=252.0  bl4=30+(127.36-16.355)*3=363.0
+        bl5=30+(164.36-16.355)*3=474.0
+      coil_left pixel:
+        cl1=30+(16.36-15.705)*3=32.0  cl2=30+(53.36-15.705)*3=143.0
+        cl3=30+(90.36-15.705)*3=254.0  cl4=30+(127.36-15.705)*3=365.0
+        cl5=30+(164.36-15.705)*3=476.0
+  -->
+
+  <!-- ROW 1 (bottom, Z=0–56, y=428 to y=260) -->
+  <!-- V1 body -->
+  <rect x="30.0"  y="370" width="98.1" height="58" class="thin"/>
+  <rect x="32.0"  y="260" width="94.2" height="110" class="thin"/>
+  <rect x="71.1"  y="254" width="5"    height="6"  class="thin"/>
+  <rect x="83.1"  y="254" width="5"    height="6"  class="thin"/>
+  <!-- V2 -->
+  <rect x="141.0" y="370" width="98.1" height="58" class="thin"/>
+  <rect x="143.0" y="260" width="94.2" height="110" class="thin"/>
+  <rect x="182.1" y="254" width="5"    height="6"  class="thin"/>
+  <rect x="194.1" y="254" width="5"    height="6"  class="thin"/>
+  <!-- V3 -->
+  <rect x="252.0" y="370" width="98.1" height="58" class="thin"/>
+  <rect x="254.0" y="260" width="94.2" height="110" class="thin"/>
+  <rect x="293.1" y="254" width="5"    height="6"  class="thin"/>
+  <rect x="305.1" y="254" width="5"    height="6"  class="thin"/>
+  <!-- V4 -->
+  <rect x="363.0" y="370" width="98.1" height="58" class="thin"/>
+  <rect x="365.0" y="260" width="94.2" height="110" class="thin"/>
+  <rect x="404.1" y="254" width="5"    height="6"  class="thin"/>
+  <rect x="416.1" y="254" width="5"    height="6"  class="thin"/>
+  <!-- V5 -->
+  <rect x="474.0" y="370" width="98.1" height="58" class="thin"/>
+  <rect x="476.0" y="260" width="94.2" height="110" class="thin"/>
+  <rect x="515.1" y="254" width="5"    height="6"  class="thin"/>
+  <rect x="527.1" y="254" width="5"    height="6"  class="thin"/>
+
+  <!-- ROW 2 (top, Z=60–116, y=248 to y=80) -->
+  <!-- V6 body: row2 bottom at y=248, row2_body_top at y=190 -->
+  <rect x="30.0"  y="190" width="98.1" height="58" class="thin"/>
+  <rect x="32.0"  y="80"  width="94.2" height="110" class="thin"/>
+  <rect x="71.1"  y="74"  width="5"    height="6"  class="thin"/>
+  <rect x="83.1"  y="74"  width="5"    height="6"  class="thin"/>
+  <!-- V7 -->
+  <rect x="141.0" y="190" width="98.1" height="58" class="thin"/>
+  <rect x="143.0" y="80"  width="94.2" height="110" class="thin"/>
+  <rect x="182.1" y="74"  width="5"    height="6"  class="thin"/>
+  <rect x="194.1" y="74"  width="5"    height="6"  class="thin"/>
+  <!-- V8 -->
+  <rect x="252.0" y="190" width="98.1" height="58" class="thin"/>
+  <rect x="254.0" y="80"  width="94.2" height="110" class="thin"/>
+  <rect x="293.1" y="74"  width="5"    height="6"  class="thin"/>
+  <rect x="305.1" y="74"  width="5"    height="6"  class="thin"/>
+  <!-- V9 -->
+  <rect x="363.0" y="190" width="98.1" height="58" class="thin"/>
+  <rect x="365.0" y="80"  width="94.2" height="110" class="thin"/>
+  <rect x="404.1" y="74"  width="5"    height="6"  class="thin"/>
+  <rect x="416.1" y="74"  width="5"    height="6"  class="thin"/>
+  <!-- V10 -->
+  <rect x="474.0" y="190" width="98.1" height="58" class="thin"/>
+  <rect x="476.0" y="80"  width="94.2" height="110" class="thin"/>
+  <rect x="515.1" y="74"  width="5"    height="6"  class="thin"/>
+  <rect x="527.1" y="74"  width="5"    height="6"  class="thin"/>
+
+  <!-- Valve labels -->
+  <text x="79.1"  y="406" class="annot" text-anchor="middle">v1</text>
+  <text x="190.1" y="406" class="annot" text-anchor="middle">v2</text>
+  <text x="301.1" y="406" class="annot" text-anchor="middle">v3</text>
+  <text x="412.1" y="406" class="annot" text-anchor="middle">v4</text>
+  <text x="523.1" y="406" class="annot" text-anchor="middle">v5</text>
+  <text x="79.1"  y="226" class="annot" text-anchor="middle">v6</text>
+  <text x="190.1" y="226" class="annot" text-anchor="middle">v7</text>
+  <text x="301.1" y="226" class="annot" text-anchor="middle">v8</text>
+  <text x="412.1" y="226" class="annot" text-anchor="middle">v9</text>
+  <text x="523.1" y="226" class="annot" text-anchor="middle">v10</text>
+
+  <!-- Row labels -->
+  <text x="15"  y="350" class="annot" text-anchor="middle" transform="rotate(-90,15,350)">ROW 1</text>
+  <text x="15"  y="170" class="annot" text-anchor="middle" transform="rotate(-90,15,170)">ROW 2</text>
+
+  <!-- ════════════════════════════════════════════════════════
+       FRONT VIEW DIMENSIONS
+  ════════════════════════════════════════════════════════ -->
+
+  <!-- Overall width 181mm — below front view -->
+  <line x1="30"   y1="440" x2="573"  y2="440" class="dim-line"/>
+  <line x1="30"   y1="434" x2="30"   y2="446" class="dim-line"/>
+  <line x1="573"  y1="434" x2="573"  y2="446" class="dim-line"/>
+  <text x="301.5" y="452"  class="dim-text" text-anchor="middle">181</text>
+
+  <!-- Overall height 116mm — left of front view -->
+  <line x1="20"  y1="80"  x2="20"  y2="428" class="dim-line"/>
+  <line x1="14"  y1="80"  x2="26"  y2="80"  class="dim-line"/>
+  <line x1="14"  y1="428" x2="26"  y2="428" class="dim-line"/>
+  <text x="9"    y="258"  class="dim-text" text-anchor="middle"
+        transform="rotate(-90,9,258)">116</text>
+
+  <!-- Valve pitch 37mm — above row 2, between V6 and V7 centers (cx1=79.1, cx2=190.1) -->
+  <line x1="79.1"  y1="65" x2="190.1" y2="65" class="dim-line"/>
+  <line x1="79.1"  y1="59" x2="79.1"  y2="71" class="dim-line"/>
+  <line x1="190.1" y1="59" x2="190.1" y2="71" class="dim-line"/>
+  <text x="134.6"  y="62"  class="dim-text" text-anchor="middle">37 PITCH</text>
+
+  <!-- Body width 32.71mm — first valve body bottom (V1: x=30..128.1) -->
+  <line x1="30"   y1="460" x2="128.1" y2="460" class="dim-line"/>
+  <line x1="30"   y1="454" x2="30"    y2="466" class="dim-line"/>
+  <line x1="128.1" y1="454" x2="128.1" y2="466" class="dim-line"/>
+  <text x="79.1"  y="472"  class="dim-text" text-anchor="middle">32.71</text>
+
+  <!-- Coil width 31.41mm — V1 coil (x=32..126.2 = 94.2px) -->
+  <line x1="32.0"  y1="244" x2="126.2" y2="244" class="dim-line"/>
+  <line x1="32.0"  y1="238" x2="32.0"  y2="250" class="dim-line"/>
+  <line x1="126.2" y1="238" x2="126.2" y2="250" class="dim-line"/>
+  <text x="79.1"   y="241"  class="dim-text" text-anchor="middle">31.41</text>
+
+  <!-- Body height 19.4mm — V1 right side (y=370..428 = 58px) -->
+  <line x1="580" y1="370" x2="580" y2="428" class="dim-line"/>
+  <line x1="574" y1="370" x2="586" y2="370" class="dim-line"/>
+  <line x1="574" y1="428" x2="586" y2="428" class="dim-line"/>
+  <text x="591"  y="403"  class="dim-text" text-anchor="start">19.4</text>
+
+  <!-- Coil height 36.63mm — V1 right side (y=260..370 = 110px) -->
+  <line x1="592" y1="260" x2="592" y2="370" class="dim-line"/>
+  <line x1="586" y1="260" x2="598" y2="260" class="dim-line"/>
+  <line x1="586" y1="370" x2="598" y2="370" class="dim-line"/>
+  <text x="602"  y="319"  class="dim-text" text-anchor="start">36.63</text>
+
+  <!-- Total valve height 56mm — V1 far right (y=260..428 = 168px) -->
+  <line x1="606" y1="260" x2="606" y2="428" class="dim-line"/>
+  <line x1="600" y1="260" x2="612" y2="260" class="dim-line"/>
+  <line x1="600" y1="428" x2="612" y2="428" class="dim-line"/>
+  <text x="616"  y="348"  class="dim-text" text-anchor="start">56 TOT</text>
+
+  <!-- Row gap 4mm — right side (y=248..260 = 12px) -->
+  <line x1="578" y1="248" x2="578" y2="260" class="dim-line"/>
+  <line x1="573" y1="248" x2="583" y2="248" class="dim-line"/>
+  <line x1="573" y1="260" x2="583" y2="260" class="dim-line"/>
+  <text x="586"  y="257"  class="dim-text" text-anchor="start">4</text>
+
+  <!-- ════════════════════════════════════════════════════════
+       SIDE VIEW  (looking along -X, shows Y-Z plane)
+       Box: x=633..798  y=80..428   (55mm x 116mm at 3px/mm)
+       Y axis: left=Y=0 (front face), right=Y=55mm
+       Z axis: same pixels as front view
+  ════════════════════════════════════════════════════════ -->
+  <text x="715.5" y="72" class="label" text-anchor="middle">SIDE VIEW</text>
+
+  <!-- Rack outer frame -->
+  <rect x="633" y="80" width="165" height="348" class="outline"/>
+
+  <!-- Row-gap lines (same Z pixels as front) -->
+  <line x1="633" y1="260" x2="798" y2="260" class="thin"/>
+  <line x1="633" y1="248" x2="798" y2="248" class="thin"/>
+
+  <!--
+    SIDE VIEW VALVE GEOMETRY (looking along -X, sees Y-Z):
+      All 5 columns project onto the same Y-Z silhouette (identical geometry).
+      Show the composite valve profile:
+        White body: Y=0..50.84mm = x=633..785.5 (152.5px), Z same as front
+        Coil housing: same Y extent as body (coil Y-depth unknown; use body depth conservatively)
+          Coil: x=633..785.5, same Z as coil in front view
+        QC port stubs: shown as small circles at Y=0 and Y=50.84, at body mid-height
+          Z_port_center = 9.7mm (half of 19.4) → y = 428-9.7*3=398.9 ≈ 399 (row1)
+          Z_port_center_row2 = 60+9.7=69.7 → y=428-69.7*3=218.9 ≈ 219 (row2)
+        Spade stubs (side view): spades extend along Y (horizontal in this view)
+          They protrude from top of coil along Y.
+          Spade body width in Y: ~8-10mm (approx)
+          Shown as short horizontal rectangles at top of coil at Z=56/116
+          Two spades at ~Y=20..28mm and Y=26..34mm (symbolic, centered)
+          px_y1=633+20*3=693, px_y2=633+28*3=717  (spade L)
+          px_y3=633+26*3=711, px_y4=633+34*3=735  (spade R)
+          px_z_row1_top = 428-56*3 = 260; spade above: y=254..260
+          px_z_row2_top = 428-116*3 = 80;  spade above: y=74..80
+  -->
+
+  <!-- SIDE VIEW — ROW 1 (Z=0..56, y=428..260) -->
+  <rect x="633"   y="370" width="152.5" height="58"  class="thin"/>  <!-- white body -->
+  <rect x="633"   y="260" width="152.5" height="110" class="thin"/>  <!-- coil housing -->
+  <!-- Spade stubs (horizontal rects in side view, at top of coil) -->
+  <rect x="693"   y="254" width="20"    height="6"   class="thin"/>  <!-- spade L -->
+  <rect x="722"   y="254" width="20"    height="6"   class="thin"/>  <!-- spade R -->
+  <!-- QC port circles at Y=0 (x=633) and Y=50.84 (x=785.5), Z=9.7mm (y=399) -->
+  <circle cx="633"   cy="399" r="5" class="thin"/>
+  <circle cx="785.5" cy="399" r="5" class="thin"/>
+
+  <!-- SIDE VIEW — ROW 2 (Z=60..116, y=248..80) -->
+  <rect x="633"   y="190" width="152.5" height="58"  class="thin"/>  <!-- white body -->
+  <rect x="633"   y="80"  width="152.5" height="110" class="thin"/>  <!-- coil housing -->
+  <!-- Spade stubs row 2 -->
+  <rect x="693"   y="74"  width="20"    height="6"   class="thin"/>
+  <rect x="722"   y="74"  width="20"    height="6"   class="thin"/>
+  <!-- QC port circles row 2: Z=69.7mm → y=219 -->
+  <circle cx="633"   cy="219" r="5" class="thin"/>
+  <circle cx="785.5" cy="219" r="5" class="thin"/>
+
+  <!-- SIDE VIEW DIMENSIONS -->
+  <!-- Rack depth 55mm — below side view -->
+  <line x1="633" y1="440" x2="798" y2="440" class="dim-line"/>
+  <line x1="633" y1="434" x2="633" y2="446" class="dim-line"/>
+  <line x1="798" y1="434" x2="798" y2="446" class="dim-line"/>
+  <text x="715.5" y="452" class="dim-text" text-anchor="middle">55</text>
+
+  <!-- Valve depth Y=50.84mm — slightly further below -->
+  <line x1="633"   y1="456" x2="785.5" y2="456" class="dim-line"/>
+  <line x1="633"   y1="450" x2="633"   y2="462" class="dim-line"/>
+  <line x1="785.5" y1="450" x2="785.5" y2="462" class="dim-line"/>
+  <text x="709.3"  y="469"  class="dim-text" text-anchor="middle">50.84</text>
+
+  <!-- QC port annotation (moved below the 19.4 dim text at y=403) -->
+  <text x="640"  y="420" class="annot" text-anchor="start">QC PORTS</text>
+
+  <!-- Spade connector annotation (side view, moved below row gap at y=265) -->
+  <text x="725"  y="272" class="annot" text-anchor="start">SPADES (Y)</text>
+
+  <!-- ════════════════════════════════════════════════════════
+       TOP VIEW  (looking along -Z, shows X-Y plane)
+       Box: x=30..573 (same X as front), y=490..655  (55mm*3=165px)
+       X axis: same as front view
+       Y axis: top=Y=0 (front face), bottom=Y=55mm (rear face)
+  ════════════════════════════════════════════════════════ -->
+  <text x="301.5" y="482" class="label" text-anchor="middle">TOP VIEW</text>
+
+  <!-- Rack outer frame -->
+  <rect x="30" y="490" width="543" height="165" class="outline"/>
+
+  <!--
+    TOP VIEW VALVE GEOMETRY (looking along -Z, sees X-Y):
+      Both rows project to the same X-Y footprint (different Z, both visible from above).
+      Per column, show one footprint (row 1 solid, row 2 dashed — they overlap perfectly).
+      Actually from above both rows are visible; show solid lines since no occlusion in Z.
+      White body footprint: width=98.1px (X), depth=152.5px (Y=50.84mm)
+        body_front = 490 + 0*3 = 490  (Y=0)
+        body_rear  = 490 + 50.84*3 = 642.5  (Y=50.84mm)
+      Coil footprint: coil_left=cl, width=94.2px, same Y depth
+      QC port stubs: circles at Y=0 (y=490) and Y=50.84 (y=642.5), centered in X on body
+      Spade stubs (top view): spades extend along Y within coil footprint
+        Show as small rects inside coil, at body Y-center area
+        Spade pairs centered ~Y=25mm: y=490+25*3=565 ... y=490+27*3=571
+  -->
+
+  <!-- COLUMN 1: cx_mm=16.36, body_left=30.0, coil_left=32.0 -->
+  <rect x="30.0"  y="490" width="98.1" height="152.5" class="thin"/>
+  <rect x="32.0"  y="490" width="94.2" height="152.5" class="thin"/>
+  <circle cx="79.1" cy="490"   r="4" class="thin"/>
+  <circle cx="79.1" cy="642.5" r="4" class="thin"/>
+  <!-- spade stubs in top view (small rects at Y~25mm = y=565) -->
+  <rect x="71.1"  y="563" width="5" height="10" class="thin"/>
+  <rect x="83.1"  y="563" width="5" height="10" class="thin"/>
+
+  <!-- COLUMN 2: cx_mm=53.36, body_left=141.0, coil_left=143.0 -->
+  <rect x="141.0" y="490" width="98.1" height="152.5" class="thin"/>
+  <rect x="143.0" y="490" width="94.2" height="152.5" class="thin"/>
+  <circle cx="190.1" cy="490"   r="4" class="thin"/>
+  <circle cx="190.1" cy="642.5" r="4" class="thin"/>
+  <rect x="182.1" y="563" width="5" height="10" class="thin"/>
+  <rect x="194.1" y="563" width="5" height="10" class="thin"/>
+
+  <!-- COLUMN 3: cx_mm=90.36, body_left=252.0, coil_left=254.0 -->
+  <rect x="252.0" y="490" width="98.1" height="152.5" class="thin"/>
+  <rect x="254.0" y="490" width="94.2" height="152.5" class="thin"/>
+  <circle cx="301.1" cy="490"   r="4" class="thin"/>
+  <circle cx="301.1" cy="642.5" r="4" class="thin"/>
+  <rect x="293.1" y="563" width="5" height="10" class="thin"/>
+  <rect x="305.1" y="563" width="5" height="10" class="thin"/>
+
+  <!-- COLUMN 4: cx_mm=127.36, body_left=363.0, coil_left=365.0 -->
+  <rect x="363.0" y="490" width="98.1" height="152.5" class="thin"/>
+  <rect x="365.0" y="490" width="94.2" height="152.5" class="thin"/>
+  <circle cx="412.1" cy="490"   r="4" class="thin"/>
+  <circle cx="412.1" cy="642.5" r="4" class="thin"/>
+  <rect x="404.1" y="563" width="5" height="10" class="thin"/>
+  <rect x="416.1" y="563" width="5" height="10" class="thin"/>
+
+  <!-- COLUMN 5: cx_mm=164.36, body_left=474.0, coil_left=476.0 -->
+  <rect x="474.0" y="490" width="98.1" height="152.5" class="thin"/>
+  <rect x="476.0" y="490" width="94.2" height="152.5" class="thin"/>
+  <circle cx="523.1" cy="490"   r="4" class="thin"/>
+  <circle cx="523.1" cy="642.5" r="4" class="thin"/>
+  <rect x="515.1" y="563" width="5" height="10" class="thin"/>
+  <rect x="527.1" y="563" width="5" height="10" class="thin"/>
+
+  <!-- TOP VIEW DIMENSIONS -->
+  <!-- Width 181mm — below top view -->
+  <line x1="30"   y1="668" x2="573"  y2="668" class="dim-line"/>
+  <line x1="30"   y1="662" x2="30"   y2="674" class="dim-line"/>
+  <line x1="573"  y1="662" x2="573"  y2="674" class="dim-line"/>
+  <text x="301.5" y="680"  class="dim-text" text-anchor="middle">181</text>
+
+  <!-- Depth 55mm — right of top view -->
+  <line x1="582" y1="490" x2="582" y2="655" class="dim-line"/>
+  <line x1="576" y1="490" x2="588" y2="490" class="dim-line"/>
+  <line x1="576" y1="655" x2="588" y2="655" class="dim-line"/>
+  <text x="591"  y="576"  class="dim-text" text-anchor="start">55</text>
+
+  <!-- Valve depth 50.84mm — right of top view, further out -->
+  <line x1="598" y1="490"   x2="598" y2="642.5" class="dim-line"/>
+  <line x1="592" y1="490"   x2="604" y2="490"   class="dim-line"/>
+  <line x1="592" y1="642.5" x2="604" y2="642.5" class="dim-line"/>
+  <text x="607"  y="570"    class="dim-text" text-anchor="start">50.84</text>
+
+  <!-- Y-axis label for top view -->
+  <text x="618" y="490" class="annot">FRONT</text>
+  <text x="618" y="655" class="annot">REAR</text>
+
+  <!-- ════════════════════════════════════════════════════════
+       PROJECTION ALIGNMENT GUIDELINES (center-line style)
+       Front-to-Top: share X (vertical lines connecting views)
+       Front-to-Side: share Z (horizontal lines connecting views)
+  ════════════════════════════════════════════════════════ -->
+  <line x1="30"  y1="428" x2="30"  y2="490" class="ctrline"/>
+  <line x1="573" y1="428" x2="573" y2="490" class="ctrline"/>
+  <line x1="573" y1="80"  x2="633" y2="80"  class="ctrline"/>
+  <line x1="573" y1="428" x2="633" y2="428" class="ctrline"/>
+  <line x1="573" y1="248" x2="633" y2="248" class="ctrline"/>
+  <line x1="573" y1="260" x2="633" y2="260" class="ctrline"/>
+
+  <!-- ════════════════════════════════════════════════════════
+       SPADE CONNECTOR ANNOTATION (front view callout)
+  ════════════════════════════════════════════════════════ -->
+  <text x="301.1" y="50"  class="annot" text-anchor="middle">SPADE CONNECTORS EXTEND ALONG Y (INTO PAGE)</text>
+  <line x1="193.6" y1="52" x2="182.1" y2="70" class="dim-line"/>
+
+  <!-- ════════════════════════════════════════════════════════
        TITLE BLOCK
-       ═══════════════════════════════════════════════ -->
-  <g id="title-block">
-    <rect x="620" y="500" width="565" height="285"
-          fill="none" stroke="#000" stroke-width="1"/>
+  ════════════════════════════════════════════════════════ -->
+  <rect x="820" y="490" width="360" height="290" class="outline"/>
+  <line x1="820" y1="530" x2="1180" y2="530" class="thin"/>
+  <line x1="820" y1="560" x2="1180" y2="560" class="thin"/>
+  <line x1="820" y1="610" x2="1180" y2="610" class="thin"/>
+  <line x1="820" y1="650" x2="1180" y2="650" class="thin"/>
+  <line x1="820" y1="690" x2="1180" y2="690" class="thin"/>
+  <line x1="820" y1="730" x2="1180" y2="730" class="thin"/>
+  <line x1="1000" y1="560" x2="1000" y2="780" class="thin"/>
 
-    <!-- Internal dividers -->
-    <line x1="620" y1="535" x2="1185" y2="535" stroke="#000" stroke-width="0.7"/>
-    <line x1="620" y1="580" x2="1185" y2="580" stroke="#000" stroke-width="0.7"/>
-    <line x1="620" y1="620" x2="1185" y2="620" stroke="#000" stroke-width="0.7"/>
-    <line x1="620" y1="660" x2="1185" y2="660" stroke="#000" stroke-width="0.7"/>
-    <line x1="620" y1="700" x2="1185" y2="700" stroke="#000" stroke-width="0.7"/>
-    <line x1="620" y1="740" x2="1185" y2="740" stroke="#000" stroke-width="0.7"/>
-    <line x1="905" y1="580" x2="905" y2="785" stroke="#000" stroke-width="0.7"/>
+  <!-- Title -->
+  <text x="1000" y="514" class="title"    text-anchor="middle">VALVE RACK ASSEMBLY</text>
+  <text x="1000" y="527" class="subtitle" text-anchor="middle">3-VIEW ORTHOGRAPHIC — THIRD ANGLE PROJECTION</text>
 
-    <!-- Notes section (above first divider) -->
-    <text x="628" y="516" font-size="8.5" font-family="sans-serif"
-          font-weight="bold" class="title-text">NOTES:</text>
-    <text x="628" y="528" font-size="7.5" font-family="sans-serif" class="note">1. Frame 3D printed (PETG or ABS). Valves: Beduan B07NWCQJK9 (10x).</text>
+  <!-- Row 1: Drawn By / Part No -->
+  <text x="828" y="548" class="subtitle" font-weight="bold">DRAWN BY</text>
+  <text x="1008" y="548" class="subtitle" font-weight="bold">PART NO.</text>
+  <text x="828" y="558" class="subtitle">Claude Code</text>
+  <text x="1008" y="558" class="subtitle">VR-001</text>
 
-    <!-- Title area -->
-    <text x="902" y="560" font-size="14" font-family="sans-serif"
-          text-anchor="middle" font-weight="bold" class="title">VALVE RACK ASSEMBLY</text>
+  <!-- Row 2: Material / Qty -->
+  <text x="828" y="578" class="subtitle" font-weight="bold">MATERIAL</text>
+  <text x="1008" y="578" class="subtitle" font-weight="bold">QTY</text>
+  <text x="828" y="588" class="subtitle">Frame: PETG/ABS (3D printed)</text>
+  <text x="1008" y="588" class="subtitle">1 frame + 10 valves</text>
+  <text x="828" y="600" class="subtitle">Valves: Beduan B07NWCQJK9</text>
 
-    <!-- Field labels (left column) -->
-    <text x="628" y="601" font-size="8" font-family="sans-serif" class="title-text">DRAWN BY</text>
-    <text x="628" y="641" font-size="8" font-family="sans-serif" class="title-text">DATE</text>
-    <text x="628" y="681" font-size="8" font-family="sans-serif" class="title-text">SCALE</text>
-    <text x="628" y="721" font-size="8" font-family="sans-serif" class="title-text">UNITS</text>
+  <!-- Row 3: Scale / Date -->
+  <text x="828" y="628" class="subtitle" font-weight="bold">SCALE</text>
+  <text x="1008" y="628" class="subtitle" font-weight="bold">DATE</text>
+  <text x="828" y="642" class="subtitle">3 px = 1 mm</text>
+  <text x="1008" y="642" class="subtitle">2026-03-26</text>
 
-    <!-- Field values (left column) -->
-    <text x="760" y="601" font-size="9" font-family="sans-serif" class="title-text">Engineering Agent</text>
-    <text x="760" y="641" font-size="9" font-family="sans-serif" class="title-text">2026-03-26</text>
-    <text x="760" y="681" font-size="9" font-family="sans-serif" class="title-text">2:1</text>
-    <text x="760" y="721" font-size="9" font-family="sans-serif" class="title-text">mm</text>
+  <!-- Row 4: Dimensions notes -->
+  <text x="828" y="668" class="subtitle" font-weight="bold">KEY DIMENSIONS</text>
+  <text x="828" y="682" class="subtitle">Frame: 181 x 55 x 116 mm</text>
+  <text x="828" y="694" class="subtitle">5x2 grid, 37 mm X-pitch</text>
+  <text x="1008" y="668" class="subtitle" font-weight="bold">UNITS</text>
+  <text x="1008" y="682" class="subtitle">mm</text>
 
-    <!-- Field labels (right column) -->
-    <text x="913" y="601" font-size="8" font-family="sans-serif" class="title-text">MATERIAL</text>
-    <text x="913" y="641" font-size="8" font-family="sans-serif" class="title-text">QTY</text>
-    <text x="913" y="681" font-size="8" font-family="sans-serif" class="title-text">PROJECTION</text>
-    <text x="913" y="721" font-size="8" font-family="sans-serif" class="title-text">REVISION</text>
+  <!-- Row 5: Valve dims -->
+  <text x="828" y="710" class="subtitle" font-weight="bold">VALVE (per slot)</text>
+  <text x="828" y="724" class="subtitle">Body: 32.71W x 50.84D x 19.4H</text>
+  <text x="828" y="736" class="subtitle">Coil: 31.41W, 36.63H above body</text>
+  <text x="1008" y="710" class="subtitle" font-weight="bold">PROJECTION</text>
+  <text x="1008" y="724" class="subtitle">Third-angle</text>
 
-    <!-- Field values (right column) -->
-    <text x="1060" y="601" font-size="9" font-family="sans-serif" class="title-text">PETG or ABS (frame)</text>
-    <text x="1060" y="641" font-size="9" font-family="sans-serif" class="title-text">1 frame + 10 valves</text>
-    <text x="1060" y="681" font-size="9" font-family="sans-serif" class="title-text">THIRD ANGLE</text>
-    <text x="1060" y="721" font-size="9" font-family="sans-serif" class="title-text">A</text>
-
-    <!-- Description block (in the lowest row below the y=740 divider) -->
-    <text x="628" y="758" font-size="8" font-family="sans-serif" class="note">10-valve solenoid array, 5x2 grid. Beduan B07NWCQJK9.</text>
-    <text x="628" y="771" font-size="8" font-family="sans-serif" class="note">Frame 3D printed. Mounts to enclosure floor via M3 screws.</text>
-    <text x="628" y="782" font-size="8" font-family="sans-serif" class="note">T-cradle cradles + snap-over retention clips. No tools needed.</text>
-
-  </g>
+  <!-- Row 6: Notes -->
+  <text x="828" y="754" class="subtitle">Spade connectors extend along Y (parallel to tubes).</text>
+  <text x="828" y="766" class="subtitle">QC tube ports on both Y faces. No built-in mtg features.</text>
+  <text x="828" y="778" class="subtitle">Cradle: T-profile saddle + 2 snap clips per valve.</text>
 
 </svg>
