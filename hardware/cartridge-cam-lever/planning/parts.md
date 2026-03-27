@@ -49,6 +49,7 @@ See `../../planning/cartridge-architecture.md` for cartridge system design ratio
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Cam lever research:** `research/cam-lever.md`
 - **Release plate (receives force):** `../../cartridge-release-plate/planning/parts.md`
 - **Shell (pivot mount):** `../../cartridge-shell/planning/parts.md`

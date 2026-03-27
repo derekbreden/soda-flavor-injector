@@ -45,6 +45,7 @@ See `../../planning/architecture.md` for system architecture and `../../planning
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Display system (pucks, reels):** `../../display-system/planning/parts.md`
 - **Display research:** `research/display-and-front-panel.md`
 - **RP2040 dimensions:** `../../display-system/planning/research/waveshare-rp2040-lcd-dimensions.md`

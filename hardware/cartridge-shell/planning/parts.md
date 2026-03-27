@@ -76,6 +76,7 @@ Full geometry: `../../off-the-shelf-parts/john-guest-union/extracted-results/geo
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Cartridge system architecture:** `../../planning/cartridge-architecture.md`
 - **JG fitting geometry:** `../../off-the-shelf-parts/john-guest-union/extracted-results/geometry-description.md`
 - **Fitting alternatives research:** `research/fitting-alternatives.md`

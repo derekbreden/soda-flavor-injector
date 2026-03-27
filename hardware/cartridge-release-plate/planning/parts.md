@@ -63,6 +63,7 @@ Composed of: cam lever + pivot pin + E-clip + push rod + release plate + 2x dowe
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **JG fitting geometry:** `../../off-the-shelf-parts/john-guest-union/extracted-results/geometry-description.md`
 - **Release plate detailed analysis:** `research/release-plate.md`
 - **Collet release research:** `research/collet-release.md`

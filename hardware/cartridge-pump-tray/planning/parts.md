@@ -59,6 +59,7 @@ Full geometry: `../../off-the-shelf-parts/kamoer-kphm400/extracted-results/geome
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Pump geometry:** `../../off-the-shelf-parts/kamoer-kphm400/extracted-results/geometry-description.md`
 - **Pump mounting research:** `research/pump-mounting.md`
 - **Shell interface:** `../../cartridge-shell/planning/parts.md`

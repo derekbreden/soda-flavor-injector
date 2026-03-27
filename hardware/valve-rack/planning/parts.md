@@ -8,6 +8,8 @@ See `architecture.md` for design rationale and layout decisions.
 
 For detailed geometry of the Beduan solenoid valve (the component held by this rack), see `../../off-the-shelf-parts/beduan-solenoid/extracted-results/geometry-description.md`.
 
+For engineering drawing standards, see `../../planning/drawing-standards.md`.
+
 ---
 
 ## 3D Printed Parts

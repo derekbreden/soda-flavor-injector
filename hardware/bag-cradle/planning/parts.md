@@ -43,6 +43,7 @@ See `../../planning/architecture.md` for system architecture and `../../planning
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Bag research:** `research/diagonal-bag-placement.md`, `research/bag-dimensions-survey.md`, `research/2l-bags-at-300mm-depth.md`
 - **Bag geometry:** `research/2l-rigid-body-geometry.svg`
 - **Diagonal risks:** `research/diagonal-risks-and-failure-modes.md`

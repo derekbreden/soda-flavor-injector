@@ -4,6 +4,8 @@
 
 This document describes the physical geometry of the John Guest PP0408W push-to-connect union fitting in enough detail that an agent generating engineering drawings or 3D-printable mounts can precisely model every surface, shoulder, and interface zone — without holding the part.
 
+**Reference photographs:** Caliper photos of the physical fitting are in `../raw-images/`. Photo numbers referenced throughout this document (e.g., "photo 01") correspond to numbered files in that directory.
+
 ## Overall Form
 
 The fitting is a **symmetric inline union**: a single white acetal copolymer body with identical tube-accepting ports on each end. It connects two pieces of 1/4" OD (6.35mm) tubing end-to-end through a straight-through internal passage. The fitting is rotationally symmetric about its long axis (axis of tube flow).

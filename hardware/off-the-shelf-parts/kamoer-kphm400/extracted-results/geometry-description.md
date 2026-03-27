@@ -4,6 +4,8 @@
 
 This document describes the physical geometry of the Kamoer KPHM400-SW3B25 peristaltic pump in enough detail that an agent generating engineering drawings or designing a 3D-printed pump tray/cartridge can model every mounting surface, clearance zone, and interface — without holding the part.
 
+**Reference photographs:** Caliper photos of the physical pump are in `../raw-images/`. Photo numbers referenced throughout this document (e.g., "photo 01") correspond to numbered files in that directory.
+
 ## Overall Form
 
 The pump is a **two-body assembly**: a black plastic **pump head** housing (roughly square cross-section when viewed from front) permanently attached to a silver cylindrical **DC motor** via a white plastic **adapter plate**. The motor shaft enters the pump head from the rear, driving an internal 3-roller peristaltic mechanism.

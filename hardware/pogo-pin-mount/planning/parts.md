@@ -44,6 +44,7 @@ See `../../planning/spatial-layout.md` for enclosure coordinates.
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Electrical mating research:** `research/electrical-mating.md`
 - **Dock back wall (mounting surface):** `../../dock-back-wall/planning/parts.md`
 - **Cartridge shell (target pads):** `../../cartridge-shell/planning/parts.md`

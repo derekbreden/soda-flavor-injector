@@ -41,5 +41,6 @@ See `../../planning/spatial-layout.md` for enclosure coordinates.
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Back panel (bulkhead fittings):** `../../back-panel/planning/parts.md`
 - **Spatial layout:** `../../planning/spatial-layout.md`

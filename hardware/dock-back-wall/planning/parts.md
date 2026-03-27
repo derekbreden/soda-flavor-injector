@@ -75,6 +75,7 @@ See `../../planning/architecture.md` for system architecture and `../../planning
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Dock placement research:** `research/dock-placement.md`
 - **Guide alignment research:** `research/guide-alignment.md`
 - **Cartridge shell (mating part):** `../../cartridge-shell/planning/parts.md`

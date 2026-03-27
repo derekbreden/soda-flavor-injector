@@ -23,4 +23,5 @@ See `../../planning/cartridge-architecture.md` for cartridge system design ratio
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Shell interface:** `../../cartridge-shell/planning/parts.md`

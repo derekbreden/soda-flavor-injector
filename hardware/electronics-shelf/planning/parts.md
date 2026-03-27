@@ -51,5 +51,6 @@ See `../../planning/architecture.md` for system architecture and `../../planning
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Spatial layout:** `../../planning/spatial-layout.md`
 - **System architecture:** `../../planning/architecture.md`

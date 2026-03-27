@@ -51,6 +51,7 @@ Full geometry: `../../off-the-shelf-parts/john-guest-union/extracted-results/geo
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Dip tube analysis:** `research/dip-tube-analysis.md`
 - **Valve routing (v9/v10 dip tube evacuation):** `../../planning/research/valve-architecture.md`
 - **Bag cradle:** `../../bag-cradle/planning/parts.md`

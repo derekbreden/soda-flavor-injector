@@ -44,6 +44,7 @@ See `../../planning/architecture.md` for system architecture and `../../planning
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Hopper integration research:** `research/hopper-integration.md`
 - **Top panel:** `../../enclosure-shell/planning/parts.md`
 - **Valve routing (v5/v7):** `../../planning/research/valve-architecture.md`

@@ -65,6 +65,7 @@ Full geometry: `../../off-the-shelf-parts/john-guest-union/extracted-results/geo
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **Back panel layout research:** `research/back-panel-layout.md`
 - **Flow meter mount:** `../../flow-meter-mount/planning/parts.md`
 - **Spatial layout:** `../../planning/spatial-layout.md`

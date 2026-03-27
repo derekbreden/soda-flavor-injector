@@ -4,6 +4,8 @@
 
 This document describes the physical geometry of the Beduan 12V DC normally-closed solenoid valve (Amazon B07NWCQJK9) in enough detail that an agent generating engineering drawings or designing a valve rack can model every surface, mounting zone, and interface — without holding the part.
 
+**Reference photographs:** Caliper photos of the physical valve are in `../raw-images/`. Photo numbers referenced throughout this document (e.g., "photo 03") correspond to numbered files in that directory.
+
 ## Overall Form
 
 The valve is a **T-shaped assembly** composed of two distinct sub-bodies:

@@ -87,6 +87,7 @@ See `../../planning/architecture.md` for system architecture.
 
 ## Related Documents
 
+- **Drawing standards:** `../../planning/drawing-standards.md`
 - **RP2040 dimensions:** `research/waveshare-rp2040-lcd-dimensions.md`
 - **S3 dimensions:** `research/meshnology-s3-display-dimensions.md`
 - **Display and front panel research:** `../../front-panel/planning/research/display-and-front-panel.md`
